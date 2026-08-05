@@ -19,7 +19,7 @@ function figmaAssetResolver() {
 export default defineConfig(({ command }) => ({
   // On GitHub Pages the site is served from /<repo-name>/, so the production
   // build needs that base path. Local dev (`vite`) keeps the root base.
-  base: command === 'build' ? '/serviceops-bom/' : '/',
+  base: command === 'build' ? '/serviceops-ticket-detail/' : '/',
   plugins: [
     figmaAssetResolver(),
     // The React and Tailwind plugins are both required for Make, even if
