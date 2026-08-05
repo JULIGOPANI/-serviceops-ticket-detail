@@ -34,6 +34,9 @@ export interface Patch {
   /** Present ONLY when the record is a DETECTED CVE opened via cveToPatchShape —
    *  carries the CVE facts so the CVE drawer's Overview (metrics/references) stays data-driven. */
   cve?: { severity: string; cweId: string; cvssScore: number; exploitStatus: string; patchAvailability: string; nvdStatus: string };
+  /** Set ONLY when the endpoint was opened from the BOM module — makes the endpoint drawer land
+   *  on its BOM tab. The same endpoint opened from Patch/Vulnerability lands on Overview. */
+  bomMode?: boolean;
 }
 
 // Realistic Windows / third-party patch catalog (mock).

@@ -57,6 +57,7 @@ import { RelationsTabContent } from './RelationsTabContent';
 import { INITIAL_COMPUTERS, INITIAL_INSTALLATIONS, type PatchComputer, type PatchInstallation } from './PatchComputersTab';
 import { EndpointPatchesTab, INITIAL_ENDPOINT_PATCHES, type EndpointPatch } from './EndpointPatchesTab';
 import { EndpointDeploymentTab } from './EndpointDeploymentTab';
+import { EndpointBomTab } from './EndpointBomTab';
 import { PatchInstallationTab } from './PatchInstallationTab';
 import { PatchVulnerabilitiesTab, VULNERABILITIES } from './PatchVulnerabilitiesTab';
 import { PatchSupersededTab } from './PatchSupersededTab';
@@ -286,7 +287,7 @@ onStackMinimizedChange,
   const [showForwardedMessage, setShowForwardedMessage] = useState(false);
   const [editingNote, setEditingNote] = useState<string | null>(null);
   const [activeConversationTab, setActiveConversationTab] = useState<'all' | 'technician'>('all');
-  const [activeMainTab, setActiveMainTab] = useState<'overview' | 'properties' | 'hardware' | 'software' | 'consolidated' | 'installation' | 'meter' | 'baseline' | 'relationship' | 'conversation' | 'tasks' | 'approvals' | 'relations' | 'audit' | 'resolution' | 'service-request'>('properties');
+  const [activeMainTab, setActiveMainTab] = useState<'overview' | 'properties' | 'hardware' | 'software' | 'consolidated' | 'installation' | 'meter' | 'baseline' | 'relationship' | 'conversation' | 'tasks' | 'approvals' | 'relations' | 'audit' | 'resolution' | 'service-request' | 'vulnerabilities' | 'bom' | 'computers'>('properties');
   const [installationSearch, setInstallationSearch] = useState('');
   const [removedConsolidated, setRemovedConsolidated] = useState<Set<number>>(new Set());
   // Baseline attached to this asset (max one); Variance rows are empty by default.
@@ -1090,7 +1091,8 @@ onStackMinimizedChange,
       // Installation · Superseded · Audit Trail.
       // Approvals, Relationship, Relations and Financials were removed for the Patch page.
       // Endpoint page: no Superseded tab (supersedence is a patch concept, not an endpoint's).
-      let allTabs: string[] = ['properties', 'vulnerabilities', 'computers', 'installation', 'audit'];
+      // BOM sits after Vulnerabilities — both answer "what is on this host and is it a risk".
+      let allTabs: string[] = ['properties', 'vulnerabilities', 'bom', 'computers', 'installation', 'audit'];
 
       const containerWidth = tabContainerRef.current.offsetWidth;
       const paddingLeft = 24; // 6 * 4 = 24px
@@ -1117,6 +1119,7 @@ onStackMinimizedChange,
         'relations': 80,
         'computers': 100,
         'vulnerabilities': 120,
+        'bom': 60,
         'superseded': 110,
         'audit': 100,
         'resolution': 90
@@ -1320,9 +1323,11 @@ onStackMinimizedChange,
     }
   }, [showBadgeAssigneeDropdown]);
 
-  // Asset detail page opens on the Overview tab by default.
+  // Opens on Overview by default — except when the endpoint was opened from the BOM module,
+  // which lands straight on the BOM tab (that is the record the user asked for).
   useEffect(() => {
-    if (activeAsset) setActiveMainTab('properties');
+    // Read the RAW patch record — patchToAssetShape() does not carry bomMode through.
+    if (activeAsset) setActiveMainTab(activePatchRecord?.bomMode ? 'bom' : 'properties');
   }, [activeAssetId]);
 
   // Update ticket fields when active ticket changes
@@ -2468,6 +2473,7 @@ onStackMinimizedChange,
                   const tabConfig = [
                     { id: 'properties', label: 'Properties' },
                     { id: 'vulnerabilities', label: 'Vulnerabilities' },
+                    { id: 'bom', label: 'BOM' },
                     { id: 'computers', label: 'Endpoint' },
                     { id: 'installation', label: 'Deployment' },
                     { id: 'audit', label: 'Audit Trail' },
@@ -2493,6 +2499,7 @@ onStackMinimizedChange,
                     'relations': 'Relations',
                     'computers': 'Patches',
                     'vulnerabilities': 'Vulnerabilities',
+                    'bom': 'BOM',
                     'superseded': 'Superseded',
                     'audit': 'Audit Trail'
                   };
@@ -6523,6 +6530,11 @@ onStackMinimizedChange,
 
             {/* Vulnerabilities Tab Content — Approved / Declined CVE buckets */}
             {activeMainTab === 'vulnerabilities' && <PatchVulnerabilitiesTab endpoints={patchComputers} />}
+
+            {/* BOM Tab Content — this endpoint's SBOM / CBOM / AI BOM per product scope */}
+            {activeMainTab === 'bom' && (
+              <EndpointBomTab endpointId={activeAsset?.id ?? ''} hostName={activeAsset?.name ?? ''} />
+            )}
 
             {/* Patches Tab Content — this endpoint's Missing / Installed / Ignored patches */}
             {activeMainTab === 'computers' && (

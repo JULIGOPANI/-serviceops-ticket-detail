@@ -1,4 +1,4 @@
-import { Lightbulb } from 'lucide-react';
+import { Lightbulb, Layers } from 'lucide-react';
 
 export function IconDashboard({ size = 20 }: { size?: number }) {
   return (
@@ -84,6 +84,11 @@ export function IconProject({ size = 20 }: { size?: number }) {
 // "Insert Knowledge" bulb in the editor toolbar (one bulb across the product).
 export function IconKnowledge({ size = 20 }: { size?: number }) {
   return <Lightbulb size={size} aria-hidden="true" />;
+}
+
+/** BOM (Bill of Materials) — the stacked-layers glyph, one layer per BOM type. */
+export function IconBom({ size = 20 }: { size?: number }) {
+  return <Layers size={size} aria-hidden="true" />;
 }
 
 export function IconReport({ size = 20 }: { size?: number }) {

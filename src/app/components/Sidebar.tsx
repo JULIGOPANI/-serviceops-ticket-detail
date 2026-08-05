@@ -15,6 +15,7 @@ import {
   IconMyApproval,
   IconTask,
   IconMyTeam,
+  IconBom,
 } from './SidebarIcons';
 import { Cpu, AppWindow, Boxes, Recycle, KeyRound, Gauge, FileText, ShoppingCart, Rocket, Monitor, ClipboardCheck, Settings } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
@@ -239,6 +240,13 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
           onClick={() => onNavigate?.('cmdb')}
         />
         <VulnerabilityNavItem activePage={activePage} onNavigate={onNavigate} />
+        {/* BOM — sits directly under Vulnerability; opens the BOM Inventory listing of the fleet. */}
+        <NavItem
+          icon={<IconBom size={20} />}
+          active={activePage === 'bom'}
+          title="BOM"
+          onClick={() => onNavigate?.('bom')}
+        />
         <PatchNavItem activePage={activePage} onNavigate={onNavigate} />
         <NavItem icon={<IconPackage size={20} />} title="Package" />
         <NavItem icon={<IconProject size={20} />} title="Project" />
