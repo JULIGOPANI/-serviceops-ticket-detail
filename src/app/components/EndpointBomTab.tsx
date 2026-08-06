@@ -368,11 +368,13 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
     <div className="px-6 py-4">
       {/* Control bar — BOM type and scope are both selects now, with the scan config and the
           scan action bracketing them. One row, so the versions start higher up the page. */}
-      <div className="mb-6 flex items-center gap-2">
-        <div className="relative flex-shrink-0">
+      <div className="mb-6 flex items-end gap-2">
+        <div className="flex-shrink-0">
+          <label className="mb-1.5 block text-[12px] font-medium text-[#7B8FA5]">BOM type</label>
+          <div className="relative">
           <button
             onClick={() => setShowTypes((v) => !v)}
-            className="inline-flex h-9 w-[150px] items-center justify-between gap-2 rounded border border-[#DFE5ED] bg-white px-3 text-[13px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0]"
+            className="inline-flex h-9 w-[260px] items-center justify-between gap-2 rounded border border-[#DFE5ED] bg-white px-3 text-[13px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0]"
           >
             {type}
             <ChevronDown size={15} className={`flex-shrink-0 text-[#7B8FA5] transition-transform ${showTypes ? 'rotate-180' : ''}`} />
@@ -380,7 +382,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
           {showTypes && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowTypes(false)} />
-              <div className="absolute left-0 top-full z-50 mt-1 w-[150px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
+              <div className="absolute left-0 top-full z-50 mt-1 w-[260px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
                 {BOM_TYPES.map((t) => (
                   <button
                     key={t}
@@ -396,13 +398,23 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
               </div>
             </>
           )}
+          </div>
         </div>
 
-        <div className="min-w-0">
+        <div className="flex-shrink-0">
+          {/* The scope hint belongs to this field, so it sits on its label */}
+          <label className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-[#7B8FA5]">
+            Scanned paths
+            <InfoHint
+              text={product?.key === OS_PRODUCT_KEY
+                ? 'Everything not claimed by another product on this host rolls up here.'
+                : `Scanned at ${product?.path} on this host · ${count} component${count === 1 ? '' : 's'}.`}
+            />
+          </label>
           <div className="relative">
             <button
               onClick={() => setShowProducts((v) => !v)}
-              className="inline-flex h-9 w-[300px] items-center justify-between gap-2 rounded border border-[#DFE5ED] bg-white px-3 text-[13px] text-[#364658] transition-colors hover:border-[#3D8BD0]"
+              className="inline-flex h-9 w-[260px] items-center justify-between gap-2 rounded border border-[#DFE5ED] bg-white px-3 text-[13px] text-[#364658] transition-colors hover:border-[#3D8BD0]"
             >
               <span className="truncate">
                 {product?.name}
@@ -440,12 +452,6 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
             )}
           </div>
         </div>
-
-        <InfoHint
-          text={product?.key === OS_PRODUCT_KEY
-            ? 'Everything not claimed by another product on this host rolls up here.'
-            : `Scanned at ${product?.path} on this host · ${count} component${count === 1 ? '' : 's'}.`}
-        />
 
         <button
           onClick={() => setShowPaths(true)}
@@ -512,12 +518,11 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                   <span className="text-[15px] font-semibold text-[#364658]">v{v.v}</span>
                   <span className="text-[14px] text-[#364658]">{v.generatedAt}</span>
-                  <span
-                    className="rounded-sm px-2 py-0.5 text-[12px] font-medium"
-                    style={v.state === 'Current'
-                      ? { backgroundColor: '#E8F4FD', color: '#3D8BD0' }
-                      : { backgroundColor: '#F1F5F9', color: '#64748B' }}
-                  >{v.state}</span>
+                  {/* Only the head of the chain is called out — "Superseded" on every older card
+                      is noise, since being older already says it. */}
+                  {v.state === 'Current' && (
+                    <span className="rounded-sm bg-[#E8F4FD] px-2 py-0.5 text-[12px] font-medium text-[#3D8BD0]">{v.state}</span>
+                  )}
                   {/* Format sits with the state tag — both describe what this version IS. */}
                   <span className="rounded-sm bg-[#F1F5F9] px-2 py-0.5 text-[12px] text-[#64748B]">{v.format}</span>
                 </div>

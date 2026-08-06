@@ -112,7 +112,7 @@ function DetectedCvesToolbar({ searchQuery, setSearchQuery }: { searchQuery: str
 }
 
 /** Maps a DetectedCve onto the Patch shape so the cloned DetectedCveDrawer body compiles. */
-const cveToPatchShape = (c: DetectedCve): Patch => ({
+export const cveToPatchShape = (c: DetectedCve): Patch => ({
   id: c.id,
   name: c.description,
   severity: c.severity === 'High' ? 'Important' : c.severity === 'Medium' ? 'Moderate' : c.severity,
