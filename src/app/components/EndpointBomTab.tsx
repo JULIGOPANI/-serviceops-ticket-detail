@@ -78,11 +78,17 @@ function DownloadPopover({ version, type, productLabel, count, onClose }: Downlo
 }
 
 /* Version search — the only thing worth searching a short version rail by is WHEN it was
- * generated, so clicking the box opens the date filter rather than a text field. */
+ * generated, so the box builds a date condition: field → operator → value, the same three-step
+ * shape the components drawer uses. */
 export type DateFilter =
   | { kind: 'all' }
-  | { kind: 'preset'; label: string; days: number }
-  | { kind: 'range'; from: string; to: string };
+  | { kind: 'within'; label: string; days: number }
+  | { kind: 'before'; date: string }
+  | { kind: 'after'; date: string }
+  | { kind: 'between'; from: string; to: string };
+
+type DateOperator = 'is within' | 'is before' | 'is after' | 'is between';
+const DATE_OPERATORS: DateOperator[] = ['is within', 'is before', 'is after', 'is between'];
 
 const DATE_PRESETS: { label: string; days: number }[] = [
   { label: 'Last 7 days', days: 7 },
@@ -92,84 +98,166 @@ const DATE_PRESETS: { label: string; days: number }[] = [
   { label: 'This year', days: 365 },
 ];
 
-const dateFilterLabel = (f: DateFilter) =>
-  f.kind === 'all' ? '' : f.kind === 'preset' ? f.label : `${f.from || '…'} → ${f.to || '…'}`;
+const dateFilterOp = (f: DateFilter): string =>
+  f.kind === 'all' ? '' : f.kind === 'within' ? 'is within' : f.kind === 'between' ? 'is between' : `is ${f.kind}`;
 
-/** Parse the module's "Jun 16, 2026 08:33 AM" stamps. */
+const dateFilterValue = (f: DateFilter): string => {
+  switch (f.kind) {
+    case 'all': return '';
+    case 'within': return f.label;
+    case 'before': case 'after': return f.date;
+    case 'between': return `${f.from || '…'} → ${f.to || '…'}`;
+  }
+};
+
+/** Parse the module's "Jun 16, 2026 08:33 AM" stamps — resolves to LOCAL midnight of that day. */
 const parseStamp = (s: string) => new Date(s.split(' ').slice(0, 3).join(' ').replace(',', ''));
 
+/** A yyyy-mm-dd picker value as LOCAL midnight. `new Date('2026-06-12')` would parse as UTC,
+ *  which lands mid-morning in +05:30 and lets same-day versions slip past "is before". */
+const localDay = (d: string) => {
+  const [y, m, day] = d.split('-').map(Number);
+  return new Date(y, (m ?? 1) - 1, day ?? 1).getTime();
+};
+
 function VersionDateSearch({ value, onChange }: { value: DateFilter; onChange: (f: DateFilter) => void }) {
-  const [open, setOpen] = useState(false);
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  // null = closed. {} = picking the field. {field} = picking the operator. {field, op} = value.
+  const [step, setStep] = useState<{ field?: 'Date'; op?: DateOperator } | null>(null);
+  const [d1, setD1] = useState('');
+  const [d2, setD2] = useState('');
   const active = value.kind !== 'all';
+
+  const close = () => { setStep(null); setD1(''); setD2(''); };
+  const apply = (f: DateFilter) => { onChange(f); close(); };
+
+  const dateInput = 'h-8 w-full rounded border border-[#d1d5db] bg-white px-2 text-[12px] text-[#364658] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]';
 
   return (
     <div className="relative min-w-0 flex-1">
       <div
-        onClick={() => setOpen((v) => !v)}
-        className={`flex h-8 w-full max-w-[420px] cursor-pointer items-center gap-2 rounded border bg-white px-2.5 transition-colors ${
-          open || active ? 'border-[#3D8BD0]' : 'border-[#d1d5db] hover:border-[#3D8BD0]'
+        onClick={() => setStep((s) => (s ? null : {}))}
+        className={`flex min-h-8 w-full max-w-[460px] cursor-pointer flex-wrap items-center gap-1.5 rounded border bg-white px-2.5 py-1 transition-colors ${
+          step || active ? 'border-[#3D8BD0]' : 'border-[#d1d5db] hover:border-[#3D8BD0]'
         }`}
       >
-        {active ? (
+        {active && !step && (
           <span className="inline-flex items-center gap-1 rounded-sm bg-[#EBF5FF] px-1.5 py-0.5 text-[12px] text-[#3D8BD0]">
             <CalendarDays size={12} />
-            {dateFilterLabel(value)}
+            <span className="font-medium">Date</span>
+            <span className="text-[#7B8FA5]">{dateFilterOp(value)}</span>
+            <span className="font-medium">{dateFilterValue(value)}</span>
             <button
               onClick={(e) => { e.stopPropagation(); onChange({ kind: 'all' }); }}
               className="text-[#3D8BD0]/70 hover:text-[#DC2626]"
             ><X size={12} /></button>
           </span>
-        ) : (
-          <span className="text-[13px] text-[#9ca3af]">Search versions by date...</span>
         )}
+        {/* Breadcrumb of what has been chosen so far */}
+        {step && (
+          <span className="inline-flex items-center gap-1 text-[13px] text-[#364658]">
+            {step.field && <span className="font-medium">{step.field}</span>}
+            {step.field && <ChevronRight size={13} className="text-[#9CA3AF]" />}
+            {step.op && <span className="text-[#7B8FA5]">{step.op}</span>}
+            {step.op && <ChevronRight size={13} className="text-[#9CA3AF]" />}
+          </span>
+        )}
+        {!active && !step && <span className="text-[13px] text-[#9ca3af]">Search versions by date...</span>}
         <Search className="ml-auto flex-shrink-0 text-[#9ca3af]" size={16} />
       </div>
 
-      {open && (
+      {step && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-50 mt-1 w-[300px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
-            <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Generated within</div>
-            {DATE_PRESETS.map((p) => (
-              <button
-                key={p.label}
-                onClick={() => { onChange({ kind: 'preset', label: p.label, days: p.days }); setOpen(false); }}
-                className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] transition-colors ${
-                  value.kind === 'preset' && value.label === p.label ? 'bg-[#F5FAFF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F9FAFB]'
-                }`}
-              >
-                {p.label}
-                {value.kind === 'preset' && value.label === p.label && <Check size={15} className="text-[#3D8BD0]" />}
-              </button>
-            ))}
-            <div className="my-1 border-t border-[#F0F2F5]" />
-            <div className="px-3 pb-2 pt-1">
-              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Custom range</div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-                  className="app-select h-8 w-full rounded border border-[#d1d5db] bg-white px-2 text-[12px] text-[#364658] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]"
-                />
-                <span className="text-[12px] text-[#9CA3AF]">to</span>
-                <input
-                  type="date" value={to} onChange={(e) => setTo(e.target.value)}
-                  className="app-select h-8 w-full rounded border border-[#d1d5db] bg-white px-2 text-[12px] text-[#364658] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]"
-                />
-              </div>
-              <div className="mt-2 flex items-center justify-end gap-2">
+          <div className="fixed inset-0 z-40" onClick={close} />
+          <div className="absolute left-0 top-full z-50 mt-1 w-[320px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
+            {/* Step 1 — field */}
+            {!step.field && (
+              <>
+                <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Filter by field</div>
                 <button
-                  onClick={() => { onChange({ kind: 'all' }); setFrom(''); setTo(''); setOpen(false); }}
-                  className="inline-flex h-7 items-center rounded border border-[#DFE5ED] bg-white px-2.5 text-[12px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
-                >Clear</button>
+                  onClick={() => setStep({ field: 'Date' })}
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] text-[#364658] transition-colors hover:bg-[#F9FAFB]"
+                >
+                  <span className="inline-flex items-center gap-2"><CalendarDays size={14} className="text-[#7B8FA5]" />Date</span>
+                  <ChevronRight size={14} className="text-[#9CA3AF]" />
+                </button>
+              </>
+            )}
+
+            {/* Step 2 — operator */}
+            {step.field && !step.op && (
+              <>
+                <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Operator</div>
+                {DATE_OPERATORS.map((op) => (
+                  <button
+                    key={op}
+                    onClick={() => { setStep({ ...step, op }); setD1(''); setD2(''); }}
+                    className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] text-[#364658] transition-colors hover:bg-[#F9FAFB]"
+                  >
+                    {op}<ChevronRight size={14} className="text-[#9CA3AF]" />
+                  </button>
+                ))}
+              </>
+            )}
+
+            {/* Step 3 — value; quick presets for "is within", a date picker otherwise */}
+            {step.field && step.op === 'is within' && (
+              <>
+                <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Quick ranges</div>
+                {DATE_PRESETS.map((p) => (
+                  <button
+                    key={p.label}
+                    onClick={() => apply({ kind: 'within', label: p.label, days: p.days })}
+                    className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] transition-colors ${
+                      value.kind === 'within' && value.label === p.label ? 'bg-[#F5FAFF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F9FAFB]'
+                    }`}
+                  >
+                    {p.label}
+                    {value.kind === 'within' && value.label === p.label && <Check size={15} className="text-[#3D8BD0]" />}
+                  </button>
+                ))}
+                <div className="my-1 border-t border-[#F0F2F5]" />
                 <button
-                  onClick={() => { if (from || to) { onChange({ kind: 'range', from, to }); setOpen(false); } }}
-                  disabled={!from && !to}
-                  className="inline-flex h-7 items-center rounded bg-[#3D8BD0] px-2.5 text-[12px] font-medium text-white transition-colors hover:bg-[#3479b5] disabled:cursor-not-allowed disabled:bg-[#CBD5E1]"
-                >Apply</button>
+                  onClick={() => setStep({ ...step, op: 'is between' })}
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] text-[#364658] transition-colors hover:bg-[#F9FAFB]"
+                >
+                  Custom range…<ChevronRight size={14} className="text-[#9CA3AF]" />
+                </button>
+              </>
+            )}
+
+            {step.field && (step.op === 'is before' || step.op === 'is after') && (
+              <div className="px-3 pb-2 pt-2">
+                <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Date</div>
+                <input type="date" value={d1} onChange={(e) => setD1(e.target.value)} className={dateInput} />
+                <div className="mt-2 flex items-center justify-end gap-2">
+                  <button onClick={close} className="inline-flex h-7 items-center rounded border border-[#DFE5ED] bg-white px-2.5 text-[12px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]">Cancel</button>
+                  <button
+                    onClick={() => d1 && apply(step.op === 'is before' ? { kind: 'before', date: d1 } : { kind: 'after', date: d1 })}
+                    disabled={!d1}
+                    className="inline-flex h-7 items-center rounded bg-[#3D8BD0] px-2.5 text-[12px] font-medium text-white transition-colors hover:bg-[#3479b5] disabled:cursor-not-allowed disabled:bg-[#CBD5E1]"
+                  >Apply</button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {step.field && step.op === 'is between' && (
+              <div className="px-3 pb-2 pt-2">
+                <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Custom range</div>
+                <div className="flex items-center gap-2">
+                  <input type="date" value={d1} onChange={(e) => setD1(e.target.value)} className={dateInput} />
+                  <span className="text-[12px] text-[#9CA3AF]">to</span>
+                  <input type="date" value={d2} onChange={(e) => setD2(e.target.value)} className={dateInput} />
+                </div>
+                <div className="mt-2 flex items-center justify-end gap-2">
+                  <button onClick={close} className="inline-flex h-7 items-center rounded border border-[#DFE5ED] bg-white px-2.5 text-[12px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]">Cancel</button>
+                  <button
+                    onClick={() => (d1 || d2) && apply({ kind: 'between', from: d1, to: d2 })}
+                    disabled={!d1 && !d2}
+                    className="inline-flex h-7 items-center rounded bg-[#3D8BD0] px-2.5 text-[12px] font-medium text-white transition-colors hover:bg-[#3479b5] disabled:cursor-not-allowed disabled:bg-[#CBD5E1]"
+                  >Apply</button>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -216,14 +304,24 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
   // stays inside the window instead of ageing out of it.
   const shownVersions = (() => {
     if (dateFilter.kind === 'all' || versions.length === 0) return versions;
-    if (dateFilter.kind === 'preset') {
-      const newest = parseStamp(versions[0].generatedAt).getTime();
-      const cutoff = newest - dateFilter.days * 86400000;
-      return versions.filter((v) => parseStamp(v.generatedAt).getTime() >= cutoff);
+    const at = (v: BomVersion) => parseStamp(v.generatedAt).getTime();
+    const dayEnd = (d: string) => localDay(d) + 86399999;
+    switch (dateFilter.kind) {
+      case 'within': {
+        // Relative to the NEWEST version, so demo data never ages out of its own filter.
+        const cutoff = at(versions[0]) - dateFilter.days * 86400000;
+        return versions.filter((v) => at(v) >= cutoff);
+      }
+      // "before"/"after" exclude the named day itself — a version dated Jun 12 is neither
+      // before nor after Jun 12.
+      case 'before': return versions.filter((v) => at(v) < localDay(dateFilter.date));
+      case 'after': return versions.filter((v) => at(v) > dayEnd(dateFilter.date));
+      case 'between': {
+        const from = dateFilter.from ? localDay(dateFilter.from) : -Infinity;
+        const to = dateFilter.to ? dayEnd(dateFilter.to) : Infinity;
+        return versions.filter((v) => at(v) >= from && at(v) <= to);
+      }
     }
-    const from = dateFilter.from ? new Date(dateFilter.from).getTime() : -Infinity;
-    const to = dateFilter.to ? new Date(dateFilter.to).getTime() + 86399999 : Infinity;
-    return versions.filter((v) => { const t = parseStamp(v.generatedAt).getTime(); return t >= from && t <= to; });
   })();
 
   // No BOM at all on this host — nothing below the header applies.
@@ -276,9 +374,10 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
         A version appears only when a scan finds a change — the line between two versions shows how many scans ran in that gap.
       </p>
 
-      {/* Scope control */}
-      <div className="mt-3 flex items-center gap-3">
+      {/* Scope control — items-end so the CTA sits on the select's baseline, not the label's */}
+      <div className="mt-6 flex items-end gap-3">
         <div className="min-w-0">
+          <label className="mb-1.5 block text-[12px] font-medium text-[#7B8FA5]">Scanned Paths</label>
           <div className="relative">
             <button
               onClick={() => setShowProducts((v) => !v)}
@@ -434,7 +533,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                   subtitle: `${v.runs.length} run${v.runs.length === 1 ? '' : 's'} · the last one produced v${v.v}`,
                   runs: v.runs,
                 })}
-                className="group flex w-full items-center gap-2 py-2.5 pl-5 text-left"
+                className="group flex w-full items-center gap-2 py-4 pl-5 text-left"
               >
                 <span className="size-1.5 flex-shrink-0 rounded-full border border-[#CBD5E1] bg-white" />
                 <span className="text-[13px] text-[#7B8FA5]">
