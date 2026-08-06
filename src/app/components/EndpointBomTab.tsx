@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Settings, Columns3, Download, Layers, Check, Search, X, CalendarDays } from 'lucide-react';
+import { ChevronDown, ChevronRight, Settings, Columns3, Download, Layers, Check, Search, X, CalendarDays, Info, ShieldAlert, CirclePlus, CircleMinus, RefreshCw } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 import { toast } from 'sonner';
 import { BomComponentsPanel } from './BomComponentsPanel';
 import { BomCompareVersionsModal } from './BomCompareVersionsModal';
@@ -133,42 +134,43 @@ function VersionDateSearch({ value, onChange }: { value: DateFilter; onChange: (
   const dateInput = 'h-8 w-full rounded border border-[#d1d5db] bg-white px-2 text-[12px] text-[#364658] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]';
 
   return (
-    <div className="relative min-w-0 flex-1">
-      <div
-        onClick={() => setStep((s) => (s ? null : {}))}
-        className={`flex min-h-8 w-full max-w-[460px] cursor-pointer flex-wrap items-center gap-1.5 rounded border bg-white px-2.5 py-1 transition-colors ${
-          step || active ? 'border-[#3D8BD0]' : 'border-[#d1d5db] hover:border-[#3D8BD0]'
-        }`}
-      >
-        {active && !step && (
-          <span className="inline-flex items-center gap-1 rounded-sm bg-[#EBF5FF] px-1.5 py-0.5 text-[12px] text-[#3D8BD0]">
-            <CalendarDays size={12} />
-            <span className="font-medium">Date</span>
-            <span className="text-[#7B8FA5]">{dateFilterOp(value)}</span>
-            <span className="font-medium">{dateFilterValue(value)}</span>
-            <button
-              onClick={(e) => { e.stopPropagation(); onChange({ kind: 'all' }); }}
-              className="text-[#3D8BD0]/70 hover:text-[#DC2626]"
-            ><X size={12} /></button>
-          </span>
-        )}
-        {/* Breadcrumb of what has been chosen so far */}
-        {step && (
-          <span className="inline-flex items-center gap-1 text-[13px] text-[#364658]">
-            {step.field && <span className="font-medium">{step.field}</span>}
-            {step.field && <ChevronRight size={13} className="text-[#9CA3AF]" />}
-            {step.op && <span className="text-[#7B8FA5]">{step.op}</span>}
-            {step.op && <ChevronRight size={13} className="text-[#9CA3AF]" />}
-          </span>
-        )}
-        {!active && !step && <span className="text-[13px] text-[#9ca3af]">Search versions by date...</span>}
-        <Search className="ml-auto flex-shrink-0 text-[#9ca3af]" size={16} />
-      </div>
+    <div className="flex items-center gap-2">
+      {/* Applied condition stays visible next to the trigger, so the icon is never a mystery */}
+      {active && !step && (
+        <span className="inline-flex items-center gap-1 rounded-sm bg-[#EBF5FF] px-1.5 py-0.5 text-[12px] text-[#3D8BD0]">
+          <CalendarDays size={12} />
+          <span className="font-medium">Date</span>
+          <span className="text-[#7B8FA5]">{dateFilterOp(value)}</span>
+          <span className="font-medium">{dateFilterValue(value)}</span>
+          <button onClick={() => onChange({ kind: 'all' })} className="text-[#3D8BD0]/70 hover:text-[#DC2626]"><X size={12} /></button>
+        </span>
+      )}
+      {step && (
+        <span className="inline-flex items-center gap-1 text-[13px] text-[#364658]">
+          {step.field && <span className="font-medium">{step.field}</span>}
+          {step.field && <ChevronRight size={13} className="text-[#9CA3AF]" />}
+          {step.op && <span className="text-[#7B8FA5]">{step.op}</span>}
+          {step.op && <ChevronRight size={13} className="text-[#9CA3AF]" />}
+        </span>
+      )}
+
+      <div className="relative">
+        <button
+          onClick={() => setStep((s) => (s ? null : {}))}
+          title="Search versions by date"
+          className={`flex size-8 items-center justify-center rounded border transition-colors ${
+            step || active
+              ? 'border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]'
+              : 'border-[#DFE5ED] bg-white text-[#7B8FA5] hover:bg-[#F5F7FA] hover:text-[#364658]'
+          }`}
+        >
+          <Search size={16} />
+        </button>
 
       {step && (
         <>
           <div className="fixed inset-0 z-40" onClick={close} />
-          <div className="absolute left-0 top-full z-50 mt-1 w-[320px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
+          <div className="absolute right-0 top-full z-50 mt-1 w-[320px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
             {/* Step 1 — field */}
             {!step.field && (
               <>
@@ -261,7 +263,23 @@ function VersionDateSearch({ value, onChange }: { value: DateFilter; onChange: (
           </div>
         </>
       )}
+      </div>
     </div>
+  );
+}
+
+/** Reference text that belongs on the screen but not in the reading path — an info icon whose
+ *  hover carries the explanation, so the layout stays clean. */
+function InfoHint({ text }: { text: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-flex cursor-help items-center text-[#9CA3AF] transition-colors hover:text-[#3D8BD0]">
+          <Info size={14} />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="max-w-[320px] text-wrap">{text}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -343,10 +361,9 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
 
   return (
     <div className="px-6 py-4">
-      {/* BOM type sub-tabs — the counts are the reason to switch */}
+      {/* BOM type sub-tabs — names only; the per-version counts live on the cards below */}
       <div className="mb-5 inline-flex items-center gap-1 rounded border border-[#DFE5ED] p-1">
         {BOM_TYPES.map((t) => {
-          const n = product ? componentCount(endpointId, product.key, t) : 0;
           return (
             <button
               key={t}
@@ -356,7 +373,6 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
               }`}
             >
               {t}
-              <span className={type === t ? 'text-white/80' : 'text-[#7B8FA5]'}>· {n}</span>
             </button>
           );
         })}
@@ -369,15 +385,22 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
         <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#EEF2F6] px-1.5 text-[12px] font-semibold text-[#64748B]">
           {versions.length}
         </span>
+        {/* The "why versions look like this" explainer is reference material, not something to
+            re-read every visit — so it lives behind an info icon. */}
+        <InfoHint text="A version appears only when a scan finds a change — the line between two versions shows how many scans ran in that gap." />
       </div>
-      <p className="mt-1 text-[13px] text-[#7B8FA5]">
-        A version appears only when a scan finds a change — the line between two versions shows how many scans ran in that gap.
-      </p>
 
       {/* Scope control — items-end so the CTA sits on the select's baseline, not the label's */}
-      <div className="mt-6 flex items-end gap-3">
+      <div className="mt-5 flex items-end gap-3">
         <div className="min-w-0">
-          <label className="mb-1.5 block text-[12px] font-medium text-[#7B8FA5]">Scanned Paths</label>
+          <label className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-[#7B8FA5]">
+            Scanned Paths
+            <InfoHint
+              text={product?.key === OS_PRODUCT_KEY
+                ? 'Everything not claimed by another product on this host rolls up here.'
+                : `Scanned at ${product?.path} on this host · ${count} component${count === 1 ? '' : 's'}.`}
+            />
+          </label>
           <div className="relative">
             <button
               onClick={() => setShowProducts((v) => !v)}
@@ -426,12 +449,6 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
           <Settings size={15} /> Manage scan paths
         </button>
       </div>
-      <p className="mt-2 text-[13px] text-[#7B8FA5]">
-        {product?.key === OS_PRODUCT_KEY
-          ? 'Everything not claimed by another product on this host rolls up here.'
-          : <>Scanned at <span className="font-mono text-[#364658]">{product?.path}</span> on this host · {count} component{count === 1 ? '' : 's'}.</>}
-      </p>
-
       {/* Version timeline */}
       {versions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -444,8 +461,8 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
         </div>
       ) : (
         <>
-          {/* Version-rail toolbar: date search + compare */}
-          <div className="mb-3 mt-5 flex items-center justify-between gap-3">
+          {/* Version-rail toolbar: applied filter on the left, controls on the right */}
+          <div className="mb-3 mt-5 flex items-center justify-end gap-2">
             <VersionDateSearch value={dateFilter} onChange={setDateFilter} />
             <button
               onClick={() => setShowCompare(true)}
@@ -482,20 +499,37 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                   {/* Format sits with the state tag — both describe what this version IS. */}
                   <span className="rounded-sm bg-[#F1F5F9] px-2 py-0.5 text-[12px] text-[#64748B]">{v.format}</span>
                 </div>
-                  {/* What this version changed — green added · red removed · amber updated. */}
-                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+                  {/* What this version changed. CVEs lead (they are the reason to care), then
+                      added / updated / removed as icon + count — the labels are carried by the
+                      icons and the tooltips, so the row stays scannable. */}
+                  <div className="mt-2.5 flex flex-wrap items-center gap-x-6 gap-y-1.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className={`inline-flex cursor-help items-center gap-1.5 ${v.cves > 0 ? 'text-[#DC2626]' : 'text-[#9CA3AF]'}`}>
+                          <ShieldAlert size={15} />
+                          <span className="text-[13px] font-semibold">{v.cves}</span>
+                          <span className="text-[13px]">CVE</span>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Known CVEs in what this version added or updated</TooltipContent>
+                    </Tooltip>
+
                     {([
-                      ['#22C55E', v.added, 'added'],
-                      ['#EF4444', v.removed, 'removed'],
-                      ['#F59E0B', v.updated, 'updated'],
-                    ] as const).map(([color, n, label]) => (
-                      <span key={label} className="inline-flex items-center gap-1.5">
-                        <span className="size-2 flex-shrink-0 rounded-full" style={{ backgroundColor: n > 0 ? color : '#CBD5E1' }} />
-                        <span className={`text-[13px] font-semibold ${n > 0 ? 'text-[#364658]' : 'text-[#9CA3AF]'}`}>{n}</span>
-                        <span className="text-[13px] text-[#7B8FA5]">{label}</span>
-                      </span>
+                      [CirclePlus, '#22C55E', v.added, 'added'],
+                      [RefreshCw, '#F59E0B', v.updated, 'updated'],
+                      [CircleMinus, '#EF4444', v.removed, 'removed'],
+                    ] as const).map(([Icon, color, n, label]) => (
+                      <Tooltip key={label}>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex cursor-help items-center gap-1.5" style={{ color: n > 0 ? color : '#9CA3AF' }}>
+                            <Icon size={15} />
+                            <span className="text-[13px] font-semibold">{n}</span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">{n} component{n === 1 ? '' : 's'} {label}</TooltipContent>
+                      </Tooltip>
                     ))}
-                    {v.v === 1 && <span className="text-[13px] text-[#9CA3AF]">· initial agent scan</span>}
+                    {v.v === 1 && <span className="text-[13px] text-[#9CA3AF]">initial agent scan</span>}
                   </div>
                 </div>
 

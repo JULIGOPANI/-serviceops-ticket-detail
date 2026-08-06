@@ -3,7 +3,7 @@ import { X, Search, Download, Columns3, ChevronRight, Check, Filter } from 'luci
 import { toast } from 'sonner';
 import { Pagination } from './Pagination';
 import { BomExcludedPaths } from './BomExcludedPaths';
-import { bomComponents, bomCryptoAssets, bomAiModels, excludedPathsFor } from './bomData';
+import { bomComponents, bomCryptoAssets, bomAiModels, excludedPathsFor, bomDiff } from './bomData';
 import type { BomType } from './bomData';
 
 /* Side drawer listing every record in ONE BOM scope — opened from "View components / crypto
@@ -21,6 +21,14 @@ const COMPLIANCE_STYLE: Record<string, { bg: string; text: string }> = {
   Deprecated: { bg: '#FEF7E6', text: '#D97706' },
   'Quantum-vulnerable': { bg: '#FEF3F2', text: '#DC2626' },
 };
+/** What this version did to a component — the listing leads with these before the unchanged bulk. */
+const CHANGE_STYLE: Record<string, { bg: string; text: string }> = {
+  Added: { bg: '#ECFDF3', text: '#22A06B' },
+  Updated: { bg: '#FEF7E6', text: '#D97706' },
+  Removed: { bg: '#FEF3F2', text: '#DC2626' },
+  Unchanged: { bg: '#F1F5F9', text: '#64748B' },
+};
+const CHANGE_ORDER: Record<string, number> = { Added: 0, Updated: 1, Removed: 2, Unchanged: 3 };
 
 function TintPill({ value, map }: { value: string; map: Record<string, { bg: string; text: string }> }) {
   const s = map[value] ?? { bg: '#F1F5F9', text: '#64748B' };
@@ -94,6 +102,13 @@ export function BomComponentsPanel({
   let rows: Row[] = [];
   const excl = (name: string) => ({ excluded: excludedPathsFor(endpointId, productKey, name) });
 
+  // What this version changed, keyed by component name, so the grid can lead with it.
+  const diff = version > 1 ? bomDiff(endpointId, productKey, type, version - 1, version) : null;
+  const changeOf = new Map<string, string>();
+  diff?.added.forEach((e) => changeOf.set(e.name, 'Added'));
+  diff?.updated.forEach((e) => changeOf.set(e.name, 'Updated'));
+  const change = (name: string) => (version === 1 ? 'Added' : changeOf.get(name) ?? 'Unchanged');
+
   if (type === 'SBOM') {
     headers = ['Component', 'Version', 'Type', 'Ecosystem', 'PURL', 'License', 'Origin', 'Excluded Paths'];
     rows = bomComponents(endpointId, productKey).map((c, i) => ({
@@ -122,6 +137,41 @@ export function BomComponentsPanel({
       mono: [0, 2],
     }));
   }
+
+  // Removed components are no longer in the BOM, but they are part of what this version did —
+  // append them so the listing tells the whole change story, then sort changes to the top.
+  const nameKey = headers[0];
+  if (diff) {
+    const present = new Set(rows.map((r) => String(r.fields[nameKey] ?? '')));
+    diff.removed.forEach((e, i) => {
+      changeOf.set(e.name, 'Removed');
+      // Only synthesise a row when the component is genuinely gone from the current list —
+      // otherwise the existing row just gets tagged Removed and we'd render it twice.
+      if (present.has(e.name)) return;
+      const blank = headers.slice(1, -1).map(() => '—');
+      rows.push({
+        id: `removed:${e.name}#${i}`,
+        fields: { ...Object.fromEntries(headers.slice(0, -1).map((h) => [h, '—'])), [nameKey]: e.name },
+        cells: [e.name, ...blank, { excluded: [] }],
+        mono: [0],
+      });
+    });
+  }
+
+  // Prepend the Change column to every row and sort Added → Updated → Removed → Unchanged.
+  headers = ['Change', ...headers];
+  rows = rows
+    .map((r) => {
+      const c = change(String(r.fields[nameKey] ?? ''));
+      return {
+        ...r,
+        fields: { ...r.fields, Change: c },
+        cells: [{ pill: c, map: CHANGE_STYLE }, ...r.cells],
+        mono: r.mono.map((i) => i + 1),
+        link: r.link === undefined ? undefined : r.link + 1,
+      };
+    })
+    .sort((a, b) => CHANGE_ORDER[a.fields.Change] - CHANGE_ORDER[b.fields.Change]);
 
   const fieldNames = rows.length ? Object.keys(rows[0].fields) : headers.filter((h) => h !== 'Excluded Paths');
   const valuesFor = (field: string) => Array.from(new Set(rows.map((r) => r.fields[field]).filter(Boolean))).sort();

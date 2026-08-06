@@ -290,6 +290,8 @@ export interface BomVersion {
   added: number;
   removed: number;
   updated: number;
+  /** Known CVEs carried by what this version added or updated — the reason to read the change. */
+  cves: number;
   format: string;
   /** Scan runs between this version and the previous one (newest first). */
   runs: BomScanRun[];
@@ -317,6 +319,11 @@ export const bomVersions = (endpointId: string, productKey: string, type: BomTyp
     const added = d ? d.added.length : total;
     const removed = d ? d.removed.length : 0;
     const updatedN = d ? d.updated.length : 0;
+    // CVEs ride in on what a version added or updated. The first scan discovers the whole
+    // inventory, so it carries every CVE already present on the host.
+    const cves = d
+      ? [...d.added, ...d.updated].reduce((n, e) => n + (e.cves?.length ?? 0), 0)
+      : (type === 'SBOM' ? bomComponents(endpointId, productKey).reduce((n, c) => n + (c.cves?.length ?? 0), 0) : 0);
     const gapScans = isFirst ? 1 : 1 + (vh % 3);
     const noChange = Math.max(0, gapScans - 1);
     // SCAN_DATES runs newest → oldest, so a HIGHER version number must take a LOWER index.
@@ -342,6 +349,7 @@ export const bomVersions = (endpointId: string, productKey: string, type: BomTyp
       added,
       removed,
       updated: updatedN,
+      cves,
       change: isFirst
         ? 'initial agent scan'
         : [
