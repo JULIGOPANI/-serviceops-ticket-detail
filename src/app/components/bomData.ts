@@ -257,6 +257,11 @@ export interface BomVersion {
   state: 'Current' | 'Superseded';
   /** Human summary of what this version changed. */
   change: string;
+  /** What this version changed vs the previous one — rendered as the card's finding dots.
+   *  On v1 everything is "added", since the first scan discovers the whole inventory. */
+  added: number;
+  removed: number;
+  updated: number;
   format: string;
   /** Scan runs between this version and the previous one (newest first). */
   runs: BomScanRun[];
@@ -271,15 +276,17 @@ export const bomVersions = (endpointId: string, productKey: string, type: BomTyp
   const total = componentCount(endpointId, productKey, type);
   if (total === 0) return [];
   const h = hash(`${endpointId}:${productKey}:${type}:versions`);
-  const count = 2 + (h % 2); // 2 or 3 versions
+  // Every scope carries three versions, with v3 as the current one.
+  const count = 3;
   const out: BomVersion[] = [];
   for (let i = count; i >= 1; i--) {
     const vh = hash(`${endpointId}:${productKey}:${type}:v${i}`);
     const isFirst = i === 1;
     // Take the counts from the SAME diff the Compare screen renders, so the card summary, the
-    // scan outcome and the diff can never contradict each other.
+    // scan outcome and the diff can never contradict each other. The first scan discovers the
+    // whole inventory, so everything in it counts as added.
     const d = isFirst ? null : bomDiff(endpointId, productKey, type, i - 1, i);
-    const added = d ? d.added.length : 0;
+    const added = d ? d.added.length : total;
     const removed = d ? d.removed.length : 0;
     const updatedN = d ? d.updated.length : 0;
     const gapScans = isFirst ? 1 : 1 + (vh % 3);
@@ -304,6 +311,9 @@ export const bomVersions = (endpointId: string, productKey: string, type: BomTyp
       // A version IS the output of its newest run, so it carries that run's timestamp.
       generatedAt: runs[0].timestamp,
       state: i === count ? 'Current' : 'Superseded',
+      added,
+      removed,
+      updated: updatedN,
       change: isFirst
         ? 'initial agent scan'
         : [
@@ -426,9 +436,12 @@ export const bomDiff = (endpointId: string, productKey: string, type: BomType, f
   if (!pool.length) return { added: [], updated: [], removed: [], unchanged: 0 };
 
   const h = hash(`${endpointId}:${productKey}:${type}:${from}-${to}`);
+  // Shifts MUST be unsigned (>>>): `hash` returns a full uint32, and the signed `>>` turns any
+  // value above 2^31 negative, which made nUpdated 0 and nRemoved -1 — and Array.from({length:-1})
+  // is silently empty, so updated/removed rows disappeared everywhere.
   const nAdded = 1 + (h % 3);
-  const nUpdated = 1 + ((h >> 3) % 2);
-  const nRemoved = (h >> 6) % 2;
+  const nUpdated = 1 + ((h >>> 3) % 2);
+  const nRemoved = (h >>> 6) % 2;
 
   const pick = (offset: number, n: number) =>
     Array.from({ length: n }, (_, i) => pool[(h + offset + i * 5) % pool.length]);
@@ -459,6 +472,19 @@ export const DEFAULT_EXCLUDE_PATHS = [
   '**/logs', '**/temp', '**/cache', '**/node_modules', '**/*.log', '**/*.tmp',
   'C:\\Windows\\Temp', 'C:\\pagefile.sys',
 ];
+
+/** The exclude patterns that actually bit while scanning ONE component — i.e. paths under that
+ *  component's own root that the scanner skipped. Deterministic, so the grid is stable. */
+export const excludedPathsFor = (endpointId: string, productKey: string, componentName: string): string[] => {
+  const h = hash(`${endpointId}:${productKey}:${componentName}:excl`);
+  const n = 1 + (h % 4); // 1-4 patterns hit per component
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const p = DEFAULT_EXCLUDE_PATHS[(h + i * 3) % DEFAULT_EXCLUDE_PATHS.length];
+    if (!out.includes(p)) out.push(p);
+  }
+  return out;
+};
 
 /** Products that can still be added to a host's scan config (not already scanned). */
 export const availableProducts = (taken: string[]) => APP_PRODUCTS.filter((p) => !taken.includes(p.key));

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Settings, Columns3, Download, RefreshCw, Layers, Check } from 'lucide-react';
 import { toast } from 'sonner';
-import { BomComponentsPage } from './BomComponentsPage';
+import { BomComponentsPanel } from './BomComponentsPanel';
 import { BomCompareVersionsModal } from './BomCompareVersionsModal';
 import { BomScanPathsPanel } from './BomScanPathsPanel';
 import { BomScanRunsPanel } from './BomScanRunsPanel';
@@ -94,7 +94,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
   const [showCompare, setShowCompare] = useState(false);
   const [downloadFor, setDownloadFor] = useState<number | null>(null);
   const [runsPanel, setRunsPanel] = useState<{ title: string; subtitle: string; runs: BomScanRun[] } | null>(null);
-  // When set, the tab is showing the full component listing instead of the version timeline.
+  // Version whose component listing is open in the side drawer (null = drawer closed).
   const [componentsFor, setComponentsFor] = useState<number | null>(null);
 
   // A different endpoint means a different set of products — reset the whole tab.
@@ -123,22 +123,6 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
           to generate the first SBOM.
         </p>
       </div>
-    );
-  }
-
-  // Full component listing takes over the tab (breadcrumb back returns here).
-  if (componentsFor !== null && product) {
-    return (
-      <BomComponentsPage
-        endpointId={endpointId}
-        hostName={hostName}
-        productKey={product.key}
-        productLabel={productLabel}
-        type={type}
-        version={componentsFor}
-        format="CycloneDX 1.6"
-        onBack={() => setComponentsFor(null)}
-      />
     );
   }
 
@@ -267,9 +251,10 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                       ? { backgroundColor: '#E8F4FD', color: '#3D8BD0' }
                       : { backgroundColor: '#F1F5F9', color: '#64748B' }}
                   >{v.state}</span>
+                  {/* Format sits with the state tag — both describe what this version IS. */}
+                  <span className="rounded-sm bg-[#F1F5F9] px-2 py-0.5 text-[12px] text-[#64748B]">{v.format}</span>
 
                   <div className="ml-auto flex flex-shrink-0 items-center gap-2">
-                    <span className="rounded-sm bg-[#F1F5F9] px-2 py-0.5 text-[12px] text-[#64748B]">{v.format}</span>
                     <div className="relative">
                       <button
                         onClick={() => setDownloadFor(downloadFor === v.v ? null : v.v)}
@@ -302,7 +287,21 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                     </button>
                   </div>
                 </div>
-                <p className="mt-1 text-[13px] text-[#7B8FA5]">{v.change}</p>
+                {/* What this version changed — green added · red removed · amber updated. */}
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+                  {([
+                    ['#22C55E', v.added, 'added'],
+                    ['#EF4444', v.removed, 'removed'],
+                    ['#F59E0B', v.updated, 'updated'],
+                  ] as const).map(([color, n, label]) => (
+                    <span key={label} className="inline-flex items-center gap-1.5">
+                      <span className="size-2 flex-shrink-0 rounded-full" style={{ backgroundColor: n > 0 ? color : '#CBD5E1' }} />
+                      <span className={`text-[13px] font-semibold ${n > 0 ? 'text-[#364658]' : 'text-[#9CA3AF]'}`}>{n}</span>
+                      <span className="text-[13px] text-[#7B8FA5]">{label}</span>
+                    </span>
+                  ))}
+                  {v.v === 1 && <span className="text-[13px] text-[#9CA3AF]">· initial agent scan</span>}
+                </div>
               </div>
 
               {/* Connector — the scans that ran in this gap (including the ones that changed nothing) */}
@@ -328,6 +327,17 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
       )}
 
       {/* Sub-screens */}
+      <BomComponentsPanel
+        isOpen={componentsFor !== null}
+        onClose={() => setComponentsFor(null)}
+        endpointId={endpointId}
+        hostName={hostName}
+        productKey={product?.key ?? OS_PRODUCT_KEY}
+        productLabel={productLabel}
+        type={type}
+        version={componentsFor ?? 0}
+        format="CycloneDX 1.6"
+      />
       <BomScanPathsPanel
         isOpen={showPaths}
         onClose={() => setShowPaths(false)}
