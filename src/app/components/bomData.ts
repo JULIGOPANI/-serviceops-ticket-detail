@@ -145,6 +145,10 @@ export interface BomProduct {
   status: 'Scanned' | 'Pending' | 'Failed';
   lastScan: string;
   findings: number;
+  /** Paths skipped under THIS product's root — exclusions are per-product, not host-wide. */
+  excludePaths: string[];
+  /** The scope whose versions the BOM tab lands on. Exactly one product per host. */
+  isDefault?: boolean;
 }
 
 export const OS_PRODUCT_KEY = 'os-base';
@@ -159,6 +163,24 @@ const APP_PRODUCTS: { key: string; name: string; version: string; path: string }
 
 // Dates used across the module — kept as a fixed spread so the demo never drifts.
 const SCAN_DATES = ['Jun 16, 2026', 'Jun 15, 2026', 'Jun 14, 2026', 'Jun 12, 2026', 'Jun 09, 2026', 'Jun 04, 2026'];
+
+/** Glob patterns a scan skips. Exclusions are configured per product, under its own root. */
+const EXCLUDE_POOL = [
+  '**/logs', '**/temp', '**/cache', '**/node_modules', '**/*.log', '**/*.tmp',
+  'C:\\Windows\\Temp', 'C:\\pagefile.sys', '**/.git', '**/dist', '**/coverage', '**/vendor',
+];
+
+/** The exclude patterns configured on ONE product scope — deterministic per host + product. */
+const productExcludePaths = (endpointId: string, productKey: string): string[] => {
+  const h = hash(`${endpointId}:${productKey}:exclude`);
+  const n = 2 + (h % 4); // 2-5 patterns per product
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const p = EXCLUDE_POOL[(h + i * 5) % EXCLUDE_POOL.length];
+    if (!out.includes(p)) out.push(p);
+  }
+  return out;
+};
 
 // ---------------------------------------------------------------------------
 // Per-endpoint BOM record — what the BOM Inventory listing shows.
@@ -203,6 +225,7 @@ export const bomForEndpoint = (endpointId: string): BomRecord => {
       status: status === 'Partial' && i === appCount - 1 ? 'Pending' : 'Scanned',
       lastScan: SCAN_DATES[(h + i) % SCAN_DATES.length],
       findings: (hash(`${endpointId}:${p.key}:find`) % 5),
+      excludePaths: productExcludePaths(endpointId, p.key),
     });
   }
   if (status !== 'Not Generated') {
@@ -215,8 +238,13 @@ export const bomForEndpoint = (endpointId: string): BomRecord => {
       status: 'Scanned',
       lastScan: SCAN_DATES[h % SCAN_DATES.length],
       findings: hash(`${endpointId}:${OS_PRODUCT_KEY}:find`) % 4,
+      excludePaths: productExcludePaths(endpointId, OS_PRODUCT_KEY),
     });
   }
+  // Exactly one scope is the default — the one the BOM tab lands on. The OS scope is the
+  // sensible default since every host has it and it rolls up everything unclaimed.
+  const def = products.find((p) => p.key === OS_PRODUCT_KEY) ?? products[0];
+  if (def) def.isDefault = true;
 
   const components = products.reduce((n, p) => n + componentCount(endpointId, p.key, 'SBOM'), 0);
   const cryptoAssets = products.reduce((n, p) => n + componentCount(endpointId, p.key, 'CBOM'), 0);
@@ -468,11 +496,6 @@ export const bomDiff = (endpointId: string, productKey: string, type: BomType, f
 // Host-wide exclude paths — shared by every product scan on the host.
 // ---------------------------------------------------------------------------
 
-export const DEFAULT_EXCLUDE_PATHS = [
-  '**/logs', '**/temp', '**/cache', '**/node_modules', '**/*.log', '**/*.tmp',
-  'C:\\Windows\\Temp', 'C:\\pagefile.sys',
-];
-
 /** The exclude patterns that actually bit while scanning ONE component — i.e. paths under that
  *  component's own root that the scanner skipped. Deterministic, so the grid is stable. */
 export const excludedPathsFor = (endpointId: string, productKey: string, componentName: string): string[] => {
@@ -480,7 +503,7 @@ export const excludedPathsFor = (endpointId: string, productKey: string, compone
   const n = 1 + (h % 4); // 1-4 patterns hit per component
   const out: string[] = [];
   for (let i = 0; i < n; i++) {
-    const p = DEFAULT_EXCLUDE_PATHS[(h + i * 3) % DEFAULT_EXCLUDE_PATHS.length];
+    const p = EXCLUDE_POOL[(h + i * 3) % EXCLUDE_POOL.length];
     if (!out.includes(p)) out.push(p);
   }
   return out;

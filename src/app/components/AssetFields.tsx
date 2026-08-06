@@ -575,7 +575,8 @@ export function AssetFields({ state, pinnedFields, togglePinField, propertiesSea
     // link · 'user' = blue name text · 'link' = blue record ref. `dot` = explicit dot color
     // (deployment statuses / system health). `pill` = right-aligned scan-status pill.
     // `section` = subsection header rendered ABOVE the row (Scan Info).
-    type PatchField = { label: string; value: string; kind?: 'severity' | 'approval' | 'url' | 'user' | 'link'; sub?: string; dot?: string; pill?: 'progress' | 'done'; section?: string };
+    // 'links' renders a dot-separated list of clickable ids (e.g. the CMDB link's asset + CI).
+    type PatchField = { label: string; value: string; kind?: 'severity' | 'approval' | 'url' | 'user' | 'link' | 'links'; sub?: string; dot?: string; pill?: 'progress' | 'done'; section?: string };
     const PATCH_FIELDS: PatchField[] = [
       { label: 'Patch Category', value: 'Updates' },
       { label: 'Severity', value: 'Low', kind: 'severity' },
@@ -622,6 +623,8 @@ export function AssetFields({ state, pinnedFields, togglePinField, propertiesSea
     // ENDPOINT page variant — the computer's inventory, not a patch's catalog entry.
     // Order: summary fields → Tags (inserted after OS Version) → agent/identity fields → Scan Info.
     const ENDPOINT_FIELDS: PatchField[] = [
+      // CMDB linkage leads — it is the first thing asked of an endpoint record.
+      { label: 'CMDB link', value: 'AST-4 · CI-2', kind: 'links' },
       { label: 'System Health', value: 'Healthy', dot: '#22C55E' },
       { label: 'Used By', value: '---' },
       { label: 'Service Pack', value: 'None' },
@@ -685,6 +688,18 @@ export function AssetFields({ state, pinnedFields, togglePinField, propertiesSea
           : <a href={f.value} target="_blank" rel="noopener noreferrer" className="text-[13px] text-[#3D8BD0] hover:underline break-words">{f.value}</a>;
       } else if (f.kind === 'link') {
         valueNode = <span className="text-[13px] text-[#3D8BD0] cursor-pointer hover:underline break-words">{f.value}</span>;
+      } else if (f.kind === 'links') {
+        // Several ids in one row — each is separately clickable, joined by a middot.
+        valueNode = (
+          <span className="text-[13px] break-words">
+            {f.value.split('·').map((part, i, arr) => (
+              <span key={part}>
+                <span className="cursor-pointer text-[#3D8BD0] hover:underline">{part.trim()}</span>
+                {i < arr.length - 1 && <span className="text-[#9CA3AF]"> · </span>}
+              </span>
+            ))}
+          </span>
+        );
       } else {
         valueNode = <span className={`text-[13px] break-words ${f.kind === 'user' ? 'text-[#3D8BD0]' : empty ? 'text-[#9CA3AF]' : 'text-[#364658]'}`}>{f.value}</span>;
       }

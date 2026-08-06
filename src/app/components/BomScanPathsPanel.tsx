@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
-import { X, Search, Plus, SquarePen, Trash2, ShieldCheck, Clock, TriangleAlert, Check } from 'lucide-react';
+import { X, Search, Plus, SquarePen, Trash2, ShieldCheck, Clock, TriangleAlert, Check, Star } from 'lucide-react';
 import { toast } from 'sonner';
-import { DEFAULT_EXCLUDE_PATHS, availableProducts, componentCount, OS_PRODUCT_KEY } from './bomData';
+import { BomExcludedPaths } from './BomExcludedPaths';
+import { BomProductFormPanel } from './BomProductFormPanel';
+import type { ProductFormValue } from './BomProductFormPanel';
+import { componentCount, OS_PRODUCT_KEY } from './bomData';
 import type { BomProduct } from './bomData';
 
 /* Manage scan paths — the host's BOM scan configuration. Which product owns which directory
- * decides which BOM a component lands in, so this is the panel that shapes every other screen. */
+ * decides which BOM a component lands in, so this is the panel that shapes every other screen.
+ * Exclusions are per product (shown in their own column), not host-wide. */
 
 const STATUS_STYLE: Record<BomProduct['status'], { bg: string; text: string; icon: typeof ShieldCheck }> = {
   Scanned: { bg: '#ECFDF3', text: '#22A06B', icon: ShieldCheck },
@@ -19,50 +23,75 @@ interface BomScanPathsPanelProps {
   endpointId: string;
   hostName: string;
   products: BomProduct[];
+  /** Lets the BOM tab follow along when the default scope changes. */
+  onProductsChange?: (products: BomProduct[]) => void;
 }
 
-export function BomScanPathsPanel({ isOpen, onClose, endpointId, hostName, products }: BomScanPathsPanelProps) {
+export function BomScanPathsPanel({ isOpen, onClose, endpointId, hostName, products, onProductsChange }: BomScanPathsPanelProps) {
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<BomProduct[]>(products);
-  const [excludes, setExcludes] = useState<string[]>(DEFAULT_EXCLUDE_PATHS);
-  const [pattern, setPattern] = useState('');
-  const [showAdd, setShowAdd] = useState(false);
+  const [formFor, setFormFor] = useState<{ open: boolean; editing: BomProduct | null }>({ open: false, editing: null });
 
   // Re-seed from the host each time the panel opens (edits are local to the session).
   useEffect(() => {
     if (!isOpen) return;
-    setRows(products); setExcludes(DEFAULT_EXCLUDE_PATHS); setSearch(''); setPattern(''); setShowAdd(false);
+    setRows(products); setSearch(''); setFormFor({ open: false, editing: null });
   }, [isOpen, endpointId]);
 
   if (!isOpen) return null;
 
-  const addPattern = () => {
-    const p = pattern.trim();
-    if (!p) return;
-    if (excludes.includes(p)) { setPattern(''); return; } // duplicates ignored
-    setExcludes((prev) => [...prev, p]);
-    setPattern('');
+  const saveProduct = (v: ProductFormValue) => {
+    setRows((prev) => {
+      const existing = prev.some((r) => r.key === v.key);
+      let next: BomProduct[];
+      if (existing) {
+        next = prev.map((r) => (r.key === v.key
+          ? { ...r, name: v.name, version: v.version || null, path: v.path, excludePaths: v.excludePaths }
+          : r));
+      } else {
+        next = [
+          {
+            key: v.key, name: v.name, version: v.version || null, path: v.path,
+            source: 'agent · directory scan', status: 'Pending', lastScan: '—', findings: 0,
+            excludePaths: v.excludePaths,
+          },
+          ...prev,
+        ];
+      }
+      // Only one product can be the default — setting one clears the rest.
+      if (v.isDefault) next = next.map((r) => ({ ...r, isDefault: r.key === v.key }));
+      else next = next.map((r) => (r.key === v.key ? { ...r, isDefault: false } : r));
+      // If nothing is default any more, fall back to the OS scope.
+      if (!next.some((r) => r.isDefault)) {
+        const fb = next.find((r) => r.key === OS_PRODUCT_KEY) ?? next[0];
+        if (fb) fb.isDefault = true;
+      }
+      return next;
+    });
+    setFormFor({ open: false, editing: null });
+    toast.success(`${v.name} ${formFor.editing ? 'updated' : 'added — it will be scanned on the next agent check-in'}`);
   };
-  const addProduct = (key: string, name: string, version: string, path: string) => {
-    setRows((prev) => [
-      { key, name, version, path, source: 'agent · directory scan', status: 'Pending', lastScan: '—', findings: 0 },
-      ...prev,
-    ]);
-    setShowAdd(false);
-    toast.success(`${name} added — it will be scanned on the next agent check-in`);
-  };
+
   const removeProduct = (key: string, name: string) => {
-    setRows((prev) => prev.filter((r) => r.key !== key));
+    setRows((prev) => {
+      const next = prev.filter((r) => r.key !== key);
+      if (!next.some((r) => r.isDefault) && next.length) {
+        const fb = next.find((r) => r.key === OS_PRODUCT_KEY) ?? next[0];
+        fb.isDefault = true;
+      }
+      return next;
+    });
     toast.error(`${name} removed from this host's scan configuration`);
   };
 
   const q = search.trim().toLowerCase();
-  const visible = rows.filter((r) => !q || r.name.toLowerCase().includes(q) || r.path.toLowerCase().includes(q));
-  const addable = availableProducts(rows.map((r) => r.key));
+  const visible = rows.filter((r) =>
+    !q || r.name.toLowerCase().includes(q) || r.path.toLowerCase().includes(q) ||
+    r.excludePaths.some((p) => p.toLowerCase().includes(q)));
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-end bg-black/50">
-      <div className="flex h-full w-[900px] max-w-[95vw] flex-col bg-white shadow-xl">
+      <div className="flex h-full w-[1080px] max-w-[96vw] flex-col bg-white shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-[#DFE5ED] px-5 py-3">
           <div className="min-w-0">
@@ -91,50 +120,26 @@ export function BomScanPathsPanel({ isOpen, onClose, endpointId, hostName, produ
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" size={16} />
               )}
             </div>
-            <div className="relative flex-shrink-0">
-              <button
-                onClick={() => setShowAdd((v) => !v)}
-                disabled={addable.length === 0}
-                className="inline-flex h-8 items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5] disabled:cursor-not-allowed disabled:bg-[#CBD5E1]"
-              >
-                <Plus size={15} /> Add product
-              </button>
-              {showAdd && addable.length > 0 && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowAdd(false)} />
-                  <div className="absolute right-0 top-full z-50 mt-1 w-[280px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
-                    <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Products not yet scanned</div>
-                    {addable.map((p) => (
-                      <button
-                        key={p.key}
-                        onClick={() => addProduct(p.key, p.name, p.version, p.path)}
-                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors hover:bg-[#F9FAFB]"
-                      >
-                        <span className="min-w-0">
-                          <span className="block truncate text-[13px] text-[#364658]">{p.name} <span className="text-[#7B8FA5]">{p.version}</span></span>
-                          <span className="block truncate font-mono text-[12px] text-[#9CA3AF]">{p.path}</span>
-                        </span>
-                        <Plus size={14} className="flex-shrink-0 text-[#3D8BD0]" />
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+            <button
+              onClick={() => setFormFor({ open: true, editing: null })}
+              className="inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
+            >
+              <Plus size={15} /> Add product
+            </button>
           </div>
 
           {/* Product path table */}
-          <table className="w-full">
+          <table className="w-full min-w-[900px]">
             <thead className="border-b border-[#e5e7eb]">
               <tr>
-                {['Product', 'Ver.', 'Path', 'Source', 'Status', 'Last Scan', 'Actions'].map((h) => (
+                {['Product', 'Ver.', 'Path', 'Excluded Path', 'Source', 'Status', 'Last Scan', 'Actions'].map((h) => (
                   <th key={h} className="whitespace-nowrap px-3 py-2.5 text-left text-[12px] font-semibold uppercase tracking-wider text-[#7B8FA5]">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e5e7eb]">
               {visible.length === 0 ? (
-                <tr><td colSpan={7} className="px-3 py-10 text-center text-[13px] text-[#9CA3AF]">No products match your search.</td></tr>
+                <tr><td colSpan={8} className="px-3 py-10 text-center text-[13px] text-[#9CA3AF]">No products match your search.</td></tr>
               ) : visible.map((r) => {
                 const s = STATUS_STYLE[r.status];
                 const Icon = s.icon;
@@ -142,12 +147,21 @@ export function BomScanPathsPanel({ isOpen, onClose, endpointId, hostName, produ
                 return (
                   <tr key={r.key} className="transition-colors hover:bg-[#f9fafb]">
                     <td className="px-3 py-3 text-[13px] font-medium text-[#364658]">
-                      <span className="block max-w-[150px] truncate" title={r.name}>{r.name}</span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="block max-w-[140px] truncate" title={r.name}>{r.name}</span>
+                        {r.isDefault && (
+                          <span
+                            className="inline-flex flex-shrink-0 items-center gap-1 rounded-sm bg-[#E8F4FD] px-1.5 py-0.5 text-[11px] font-medium text-[#3D8BD0]"
+                            title="Its versions are shown when the BOM tab opens"
+                          ><Star size={10} className="fill-current" />Default</span>
+                        )}
+                      </span>
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 text-[13px] text-[#364658]">{r.version ?? '—'}</td>
                     <td className="px-3 py-3 font-mono text-[13px] text-[#364658]">
                       <span className="block max-w-[150px] truncate" title={r.path}>{r.path}</span>
                     </td>
+                    <td className="px-3 py-3"><BomExcludedPaths paths={r.excludePaths} /></td>
                     <td className="px-3 py-3 text-[13px] text-[#7B8FA5]">
                       <span className="block max-w-[110px] truncate" title={r.source}>{r.source}</span>
                     </td>
@@ -163,7 +177,7 @@ export function BomScanPathsPanel({ isOpen, onClose, endpointId, hostName, produ
                     <td className="whitespace-nowrap px-3 py-3">
                       <span className="flex items-center gap-1">
                         <button
-                          onClick={() => toast.success(`Editing the scan path for ${r.name}`)}
+                          onClick={() => setFormFor({ open: true, editing: r })}
                           className="flex size-7 items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]"
                           title="Edit"
                         ><SquarePen size={14} /></button>
@@ -180,53 +194,6 @@ export function BomScanPathsPanel({ isOpen, onClose, endpointId, hostName, produ
               })}
             </tbody>
           </table>
-
-          {/* Host-wide exclusions */}
-          <div className="mt-5 rounded-lg border border-[#E5E7EB] bg-[#FAFBFC] p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-[12px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Exclude paths — host-wide</div>
-                <p className="mt-1 max-w-[620px] text-[13px] text-[#64748B]">
-                  Skipped everywhere on this host (glob patterns); applies to every product
-                  <span className="font-semibold text-[#364658]"> and </span>
-                  the OS-base scan. Keeps runtime data/logs out and stops scans stalling.
-                </p>
-              </div>
-              <span className="inline-flex h-[22px] min-w-[22px] flex-shrink-0 items-center justify-center rounded-full bg-white px-1.5 text-[12px] font-semibold text-[#64748B] ring-1 ring-[#E5E7EB]">
-                {excludes.length}
-              </span>
-            </div>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              {excludes.map((p) => (
-                <span key={p} className="inline-flex items-center gap-1.5 rounded border border-[#E5E7EB] bg-white px-2 py-1 font-mono text-[12px] text-[#364658]">
-                  {p}
-                  <button
-                    onClick={() => setExcludes((prev) => prev.filter((x) => x !== p))}
-                    className="text-[#9CA3AF] transition-colors hover:text-[#DC2626]"
-                  ><X size={12} /></button>
-                </span>
-              ))}
-            </div>
-
-            <div className="mt-3 flex items-center gap-2">
-              <input
-                type="text"
-                value={pattern}
-                onChange={(e) => setPattern(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addPattern(); } }}
-                placeholder="Add pattern — e.g. **/logs, /data, C:\..."
-                className="h-8 flex-1 rounded border border-[#d1d5db] bg-white px-3 font-mono text-[13px] text-[#364658] placeholder:font-mono placeholder:text-[#9ca3af] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]"
-              />
-              <button
-                onClick={addPattern}
-                className="inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded border border-[#DFE5ED] bg-white px-3 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
-              >
-                <Plus size={15} /> Add
-              </button>
-            </div>
-            <p className="mt-2 text-[12px] text-[#9CA3AF]">Press Enter to add. Duplicates are ignored.</p>
-          </div>
         </div>
 
         {/* Footer */}
@@ -235,13 +202,21 @@ export function BomScanPathsPanel({ isOpen, onClose, endpointId, hostName, produ
             Cancel
           </button>
           <button
-            onClick={() => { toast.success('Scan configuration saved'); onClose(); }}
+            onClick={() => { onProductsChange?.(rows); toast.success('Scan configuration saved'); onClose(); }}
             className="inline-flex h-8 items-center gap-1.5 rounded bg-[#3D8BD0] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
           >
             <Check size={15} /> Save changes
           </button>
         </div>
       </div>
+
+      {/* Add / edit form, stacked above this drawer */}
+      <BomProductFormPanel
+        isOpen={formFor.open}
+        onClose={() => setFormFor({ open: false, editing: null })}
+        editing={formFor.editing}
+        onSave={saveProduct}
+      />
     </div>
   );
 }
