@@ -463,7 +463,9 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
 
         <button
           onClick={() => toast.success(`BOM scan queued for ${hostName}`)}
-          className="ml-auto inline-flex h-9 flex-shrink-0 items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
+          /* self-start: the row is bottom-aligned for the labelled selects, but the CTA has no
+             label above it, so it sits at the top of the row instead of floating down. */
+          className="ml-auto inline-flex h-9 flex-shrink-0 self-start items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
         >
           <ScanLine size={15} /> Scan BOM
         </button>
@@ -587,22 +589,30 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                 </div>
               </div>
 
-              {/* Connector — the scans that ran in this gap (including the ones that changed nothing) */}
-              <button
-                onClick={() => setRunsPanel({
-                  title: v.v === 1 ? 'Scans before v1' : `Scans between v${v.v - 1} and v${v.v}`,
-                  subtitle: `${v.runs.length} run${v.runs.length === 1 ? '' : 's'} · the last one produced v${v.v}`,
-                  runs: v.runs,
-                })}
-                className="group flex w-full items-center gap-2 py-4 pl-5 text-left"
-              >
-                <span className="size-1.5 flex-shrink-0 rounded-full border border-[#CBD5E1] bg-white" />
-                <span className="text-[13px] text-[#7B8FA5]">
-                  <span className="font-medium text-[#364658]">{v.gapLabel.split(' ').slice(0, 2).join(' ')}</span>
-                  {' '}{v.gapLabel.split(' ').slice(2).join(' ')}
-                </span>
-                <span className="text-[13px] font-medium text-[#3D8BD0] opacity-0 transition-opacity group-hover:opacity-100">View</span>
-              </button>
+              {/* Connector — the scans that ran in this gap (including the ones that changed
+                  nothing). The dotted rule carries the eye from one card to the next. */}
+              <div className="relative">
+                <span
+                  aria-hidden
+                  className="absolute bottom-0 left-[7px] top-0 border-l border-dashed border-[#CBD5E1]"
+                />
+                <button
+                  onClick={() => setRunsPanel({
+                    title: v.v === 1 ? 'Scans before v1' : `Scans between v${v.v - 1} and v${v.v}`,
+                    subtitle: `${v.runs.length} run${v.runs.length === 1 ? '' : 's'} · the last one produced v${v.v}`,
+                    runs: v.runs,
+                  })}
+                  className="group relative flex w-full items-center gap-2 py-6 pl-6 text-left"
+                >
+                  {/* White fill breaks the dotted rule so the dot reads as a node on it */}
+                  <span className="absolute left-[3px] size-2 flex-shrink-0 rounded-full border border-[#CBD5E1] bg-white" />
+                  <span className="text-[13px] text-[#7B8FA5]">
+                    <span className="font-medium text-[#364658]">{v.gapLabel.split(' ').slice(0, 2).join(' ')}</span>
+                    {' '}{v.gapLabel.split(' ').slice(2).join(' ')}
+                  </span>
+                  <span className="text-[13px] font-medium text-[#3D8BD0] opacity-0 transition-opacity group-hover:opacity-100">View</span>
+                </button>
+              </div>
               {i === shownVersions.length - 1 && <div className="h-2" />}
             </div>
           ))}

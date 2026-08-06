@@ -442,6 +442,11 @@ export interface BomDiffEntry {
   /** patch / minor / major — only on Updated rows. */
   bump?: 'patch' | 'minor' | 'major';
   cves?: string[];
+  /** Carried through from the component so a diff row can show its full identity. */
+  purl?: string;
+  license?: string;
+  origin?: string;
+  componentType?: string;
 }
 
 export interface BomDiff {
@@ -469,8 +474,8 @@ export const bomDiff = (endpointId: string, productKey: string, type: BomType, f
     type === 'SBOM'
       ? bomComponents(endpointId, productKey)
       : type === 'CBOM'
-        ? bomCryptoAssets(endpointId, productKey).map((c) => ({ name: c.name, version: c.keyLength, ecosystem: c.algorithm, cves: undefined }))
-        : bomAiModels(endpointId, productKey).map((m) => ({ name: m.name, version: m.version, ecosystem: m.provider, cves: undefined }));
+        ? bomCryptoAssets(endpointId, productKey).map((c) => ({ name: c.name, version: c.keyLength, ecosystem: c.algorithm, cves: undefined, purl: c.location, license: c.protocol, origin: c.compliance, type: c.primitive }))
+        : bomAiModels(endpointId, productKey).map((m) => ({ name: m.name, version: m.version, ecosystem: m.provider, cves: undefined, purl: m.usage, license: m.license, origin: m.source, type: m.task }));
   if (!pool.length) return { added: [], updated: [], removed: [], unchangedEntries: [], unchanged: 0 };
 
   const h = hash(`${endpointId}:${productKey}:${type}:${from}-${to}`);
@@ -484,18 +489,25 @@ export const bomDiff = (endpointId: string, productKey: string, type: BomType, f
   const pick = (offset: number, n: number) =>
     Array.from({ length: n }, (_, i) => pool[(h + offset + i * 5) % pool.length]);
 
+  // Every entry carries the component's full identity, so a diff row can be expanded without
+  // going back to the component list.
+  const identity = (c: any) => ({
+    name: c.name, ecosystem: c.ecosystem, cves: c.cves,
+    purl: c.purl, license: c.license, origin: c.origin, componentType: c.type,
+  });
+
   const added: BomDiffEntry[] = pick(11, nAdded).map((c) => ({
-    kind: 'Added', name: c.name, ecosystem: (c as any).ecosystem, version: c.version, cves: (c as any).cves,
+    kind: 'Added', ...identity(c), version: c.version,
   }));
   const updated: BomDiffEntry[] = pick(41, nUpdated).map((c, i) => {
     const bump: 'patch' | 'minor' | 'major' = (h + i) % 5 === 0 ? 'major' : (h + i) % 3 === 0 ? 'minor' : 'patch';
     return {
-      kind: 'Updated', name: c.name, ecosystem: (c as any).ecosystem,
-      fromVersion: c.version, version: bumpVersion(c.version, bump), bump, cves: (c as any).cves,
+      kind: 'Updated', ...identity(c),
+      fromVersion: c.version, version: bumpVersion(c.version, bump), bump,
     };
   });
   const removed: BomDiffEntry[] = pick(83, nRemoved).map((c) => ({
-    kind: 'Removed', name: c.name, ecosystem: (c as any).ecosystem, version: c.version, cves: (c as any).cves,
+    kind: 'Removed', ...identity(c), version: c.version,
   }));
 
   // Whatever the diff did not touch is unchanged — derived from the same pool so the five
@@ -503,7 +515,7 @@ export const bomDiff = (endpointId: string, productKey: string, type: BomType, f
   const touched = new Set([...added, ...updated, ...removed].map((e) => e.name));
   const unchangedEntries: BomDiffEntry[] = pool
     .filter((c) => !touched.has(c.name))
-    .map((c) => ({ kind: 'Unchanged', name: c.name, ecosystem: (c as any).ecosystem, version: c.version, cves: (c as any).cves }));
+    .map((c) => ({ kind: 'Unchanged' as const, ...identity(c), version: c.version }));
 
   return { added, updated, removed, unchangedEntries, unchanged: unchangedEntries.length };
 };

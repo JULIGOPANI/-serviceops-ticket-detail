@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Search, ChevronDown, ChevronRight, Check, ShieldAlert, SlidersHorizontal, CirclePlus, CircleMinus, RefreshCw, Equal, ExternalLink } from 'lucide-react';
+import { X, Search, ChevronDown, ChevronRight, Check, ShieldAlert, SlidersHorizontal, CirclePlus, CircleMinus, RefreshCw, CircleDashed, ExternalLink } from 'lucide-react';
 import { bomDiff, bomVersions, componentCount } from './bomData';
 import type { BomType, BomProduct, BomDiffEntry } from './bomData';
 import { useDrawerStack } from './DrawerStack';
@@ -14,7 +14,7 @@ const KIND_META: Record<BomDiffEntry['kind'], { color: string; bg: string; text:
   Added: { color: '#22C55E', bg: '#ECFDF3', text: '#22A06B', Icon: CirclePlus },
   Updated: { color: '#F59E0B', bg: '#FEF7E6', text: '#D97706', Icon: RefreshCw },
   Removed: { color: '#EF4444', bg: '#FEF3F2', text: '#DC2626', Icon: CircleMinus },
-  Unchanged: { color: '#94A3B8', bg: '#F1F5F9', text: '#64748B', Icon: Equal },
+  Unchanged: { color: '#94A3B8', bg: '#F1F5F9', text: '#64748B', Icon: CircleDashed },
 };
 
 type TabKey = 'All' | 'Added' | 'Updated' | 'Removed' | 'Unchanged';
@@ -103,11 +103,12 @@ function DiffRow({ e, showKindPill, onOpenCve }: RowProps) {
   const cves = e.cves ?? [];
 
   return (
-    <div className="rounded border border-[#E5E7EB] bg-white">
+    // Colour-coded left edge — the fastest way to scan a long mixed list.
+    <div className="overflow-hidden rounded border border-[#E5E7EB] border-l-[3px] bg-white" style={{ borderLeftColor: meta.color }}>
       <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-[#F9FAFB]">
-        {/* Colour indicator only — the section header already names the category */}
+        {/* Icon repeats the colour for anyone who cannot rely on the edge alone */}
         {!showKindPill && <meta.Icon size={15} className="flex-shrink-0" style={{ color: meta.color }} />}
-        <span className="truncate font-mono text-[13px] text-[#364658]">{e.name}</span>
+        <span className="truncate font-mono text-[13px] font-semibold text-[#364658]">{e.name}</span>
         {showKindPill && (
           <span
             className="flex-shrink-0 rounded-sm px-2 py-0.5 text-[11px] font-medium"
@@ -129,21 +130,41 @@ function DiffRow({ e, showKindPill, onOpenCve }: RowProps) {
 
       {/* Expanded detail stays on the same white surface — a hairline, not a second panel */}
       {open && (
-        <div className="border-t border-[#F0F2F5] px-3 pb-3 pt-2.5">
-          <div className="grid grid-cols-3 gap-x-6 gap-y-3">
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-[#7B8FA5]">Ecosystem</div>
-              <div className="mt-0.5 text-[13px] text-[#364658]">{e.ecosystem}</div>
-            </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-[#7B8FA5]">Version</div>
-              <div className="mt-0.5 font-mono text-[13px] text-[#364658]">
-                {e.fromVersion ? `${e.fromVersion} → ${e.version}` : e.version}
+        <div className="border-t border-[#F0F2F5] px-3 pb-3 pt-3">
+          {/* Component identity — label over value, five to a row, nothing else competing */}
+          <div className="grid grid-cols-5 gap-x-5 gap-y-3">
+            {([
+              ['PURL', e.purl, true],
+              ['Ecosystem', e.ecosystem, false],
+              ['License', e.license, false],
+              ['Origin', e.origin, false],
+              ['Component Type', e.componentType, false],
+            ] as const).map(([label, value, mono]) => (
+              <div key={label} className="min-w-0">
+                <div className="text-[11px] uppercase tracking-wide text-[#7B8FA5]">{label}</div>
+                <div className={`mt-0.5 break-words text-[13px] text-[#364658] ${mono ? 'font-mono' : ''}`}>
+                  {value || '—'}
+                </div>
               </div>
-            </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-[#7B8FA5]">Change</div>
-              <div className="mt-0.5 text-[13px] font-medium" style={{ color: meta.text }}>{e.kind}</div>
+            ))}
+          </div>
+
+          <div className="mt-3">
+            <div className="text-[11px] uppercase tracking-wide text-[#7B8FA5]">Version change</div>
+            <div className="mt-0.5 font-mono text-[13px] text-[#364658]">
+              {e.fromVersion ? (
+                <>
+                  <span className="text-[#9CA3AF]">{e.fromVersion}</span>
+                  <span className="mx-1.5 text-[#9CA3AF]">→</span>
+                  <span className="font-semibold">{e.version}</span>
+                  {e.bump && <span className="ml-1.5 text-[#7B8FA5]">· {e.bump}</span>}
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold">{e.version}</span>
+                  <span className="ml-1.5 font-sans text-[13px]" style={{ color: meta.text }}>· {e.kind}</span>
+                </>
+              )}
             </div>
           </div>
 
@@ -252,18 +273,16 @@ export function BomCompareVersionsPanel({
     (ecoFilter.length === 0 || ecoFilter.includes(e.ecosystem)) &&
     (!cveOnly || (e.cves?.length ?? 0) > 0);
 
-  // All tab: the CVE carriers lead, then each category as its own section (minus those already
-  // shown above, so nothing is listed twice).
+  // All tab: the CVE carriers lead as a highlight, then EVERY category lists its full set —
+  // excluding the critical ones made Added vanish whenever all its components carried CVEs.
   const critical = everything.filter((e) => (e.cves?.length ?? 0) > 0).filter(passes);
-  const criticalNames = new Set(critical.map((e) => `${e.kind}:${e.name}`));
-  const sectionRows = (k: BomDiffEntry['kind']) =>
-    byKind[k].filter(passes).filter((e) => !criticalNames.has(`${e.kind}:${e.name}`));
+  const sectionRows = (k: BomDiffEntry['kind']) => byKind[k].filter(passes);
 
   const toggle = (list: string[], set: (v: string[]) => void, v: string) =>
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
   const visibleCount = tab === 'All'
-    ? critical.length + KINDS.reduce((n, k) => n + sectionRows(k).length, 0)
+    ? KINDS.reduce((n, k) => n + sectionRows(k).length, 0)
     : byKind[tab as BomDiffEntry['kind']].filter(passes).length;
 
   const SectionHeader = ({ k, n }: { k: BomDiffEntry['kind']; n: number }) => {
@@ -452,7 +471,7 @@ export function BomCompareVersionsPanel({
           ) : tab === 'All' ? (
             <>
               {critical.length > 0 && (
-                <div className="mb-6">
+                <div className="mb-10">
                   <div className="mb-2 flex items-center gap-2">
                     <ShieldAlert size={15} className="text-[#DC2626]" />
                     <span className="text-[12px] font-semibold uppercase tracking-wide text-[#DC2626]">Critical vulnerability</span>
@@ -470,7 +489,7 @@ export function BomCompareVersionsPanel({
                 const rows = sectionRows(k);
                 if (!rows.length) return null;
                 return (
-                  <div key={k} className="mb-6">
+                  <div key={k} className="mb-10">
                     <SectionHeader k={k} n={rows.length} />
                     <div className="space-y-2">
                       {rows.map((e, i) => (
