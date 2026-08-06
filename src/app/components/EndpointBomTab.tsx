@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Settings, Columns3, Download, Layers, Check, Search, X, CalendarDays, Info, ShieldAlert, CirclePlus, CircleMinus, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronRight, Settings, Columns3, Download, Layers, Check, Search, X, CalendarDays, Info, ShieldAlert, CirclePlus, CircleMinus, RefreshCw, ScanLine } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 import { toast } from 'sonner';
 import { BomComponentsPanel } from './BomComponentsPanel';
-import { BomCompareVersionsModal } from './BomCompareVersionsModal';
+import { BomCompareVersionsPanel } from './BomCompareVersionsPanel';
 import { BomScanPathsPanel } from './BomScanPathsPanel';
 import { BomScanRunsPanel } from './BomScanRunsPanel';
 import { bomForEndpoint, bomVersions, componentCount, OS_PRODUCT_KEY } from './bomData';
@@ -155,16 +155,20 @@ function VersionDateSearch({ value, onChange }: { value: DateFilter; onChange: (
       )}
 
       <div className="relative">
+        {/* Collapsed it is just an icon; clicking expands it into a field and opens the builder. */}
         <button
           onClick={() => setStep((s) => (s ? null : {}))}
           title="Search versions by date"
-          className={`flex size-8 items-center justify-center rounded border transition-colors ${
-            step || active
-              ? 'border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]'
-              : 'border-[#DFE5ED] bg-white text-[#7B8FA5] hover:bg-[#F5F7FA] hover:text-[#364658]'
+          className={`flex h-8 items-center gap-2 rounded border transition-all ${
+            step
+              ? 'w-[220px] justify-between border-[#3D8BD0] bg-white px-2.5 text-[#7B8FA5]'
+              : active
+                ? 'size-8 justify-center border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]'
+                : 'size-8 justify-center border-[#DFE5ED] bg-white text-[#7B8FA5] hover:bg-[#F5F7FA] hover:text-[#364658]'
           }`}
         >
-          <Search size={16} />
+          {step && <span className="truncate text-[13px] text-[#9ca3af]">Search versions by date...</span>}
+          <Search size={16} className="flex-shrink-0" />
         </button>
 
       {step && (
@@ -297,6 +301,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
   const [type, setType] = useState<BomType>('SBOM');
   const [productKey, setProductKey] = useState<string>(() => defaultKey(record.products));
   const [showProducts, setShowProducts] = useState(false);
+  const [showTypes, setShowTypes] = useState(false);
   const [showPaths, setShowPaths] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [downloadFor, setDownloadFor] = useState<number | null>(null);
@@ -361,46 +366,39 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
 
   return (
     <div className="px-6 py-4">
-      {/* BOM type sub-tabs — names only; the per-version counts live on the cards below */}
-      <div className="mb-5 inline-flex items-center gap-1 rounded border border-[#DFE5ED] p-1">
-        {BOM_TYPES.map((t) => {
-          return (
-            <button
-              key={t}
-              onClick={() => setType(t)}
-              className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-[13px] font-medium transition-colors ${
-                type === t ? 'bg-[#3D8BD0] text-white' : 'text-[#364658] hover:bg-[#F5F7FA]'
-              }`}
-            >
-              {t}
-            </button>
-          );
-        })}
-      </div>
+      {/* Control bar — BOM type and scope are both selects now, with the scan config and the
+          scan action bracketing them. One row, so the versions start higher up the page. */}
+      <div className="mb-6 flex items-center gap-2">
+        <div className="relative flex-shrink-0">
+          <button
+            onClick={() => setShowTypes((v) => !v)}
+            className="inline-flex h-9 w-[150px] items-center justify-between gap-2 rounded border border-[#DFE5ED] bg-white px-3 text-[13px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0]"
+          >
+            {type}
+            <ChevronDown size={15} className={`flex-shrink-0 text-[#7B8FA5] transition-transform ${showTypes ? 'rotate-180' : ''}`} />
+          </button>
+          {showTypes && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowTypes(false)} />
+              <div className="absolute left-0 top-full z-50 mt-1 w-[150px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
+                {BOM_TYPES.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => { setType(t); setShowTypes(false); setComponentsFor(null); }}
+                    className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] transition-colors ${
+                      t === type ? 'bg-[#F5FAFF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F9FAFB]'
+                    }`}
+                  >
+                    {t}
+                    {t === type && <Check size={15} className="text-[#3D8BD0]" />}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
 
-      {/* Section title first — the versions are what this tab is about; the product select below
-          is the scope control for them, not a separate section. */}
-      <div className="flex items-center gap-2">
-        <h3 className="text-[15px] font-semibold text-[#364658]">{type} versions</h3>
-        <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#EEF2F6] px-1.5 text-[12px] font-semibold text-[#64748B]">
-          {versions.length}
-        </span>
-        {/* The "why versions look like this" explainer is reference material, not something to
-            re-read every visit — so it lives behind an info icon. */}
-        <InfoHint text="A version appears only when a scan finds a change — the line between two versions shows how many scans ran in that gap." />
-      </div>
-
-      {/* Scope control — items-end so the CTA sits on the select's baseline, not the label's */}
-      <div className="mt-5 flex items-end gap-3">
         <div className="min-w-0">
-          <label className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-[#7B8FA5]">
-            Scanned Paths
-            <InfoHint
-              text={product?.key === OS_PRODUCT_KEY
-                ? 'Everything not claimed by another product on this host rolls up here.'
-                : `Scanned at ${product?.path} on this host · ${count} component${count === 1 ? '' : 's'}.`}
-            />
-          </label>
           <div className="relative">
             <button
               onClick={() => setShowProducts((v) => !v)}
@@ -442,13 +440,50 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
             )}
           </div>
         </div>
+
+        <InfoHint
+          text={product?.key === OS_PRODUCT_KEY
+            ? 'Everything not claimed by another product on this host rolls up here.'
+            : `Scanned at ${product?.path} on this host · ${count} component${count === 1 ? '' : 's'}.`}
+        />
+
         <button
           onClick={() => setShowPaths(true)}
-          className="inline-flex h-9 items-center gap-1.5 rounded border border-[#3D8BD0] bg-[#F5FAFF] px-3 text-[13px] font-medium text-[#3D8BD0] transition-colors hover:bg-[#EBF5FF]"
+          title="Manage scan paths"
+          className="flex size-9 flex-shrink-0 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#7B8FA5] transition-colors hover:border-[#3D8BD0] hover:bg-[#F5F7FA] hover:text-[#3D8BD0]"
         >
-          <Settings size={15} /> Manage scan paths
+          <Settings size={16} />
+        </button>
+
+        <button
+          onClick={() => toast.success(`BOM scan queued for ${hostName}`)}
+          className="ml-auto inline-flex h-9 flex-shrink-0 items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
+        >
+          <ScanLine size={15} /> Scan BOM
         </button>
       </div>
+
+      {/* Versions heading + rail controls */}
+      <div className="mb-3 flex items-center gap-2">
+        <h3 className="text-[15px] font-semibold text-[#364658]">Versions</h3>
+        <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#EEF2F6] px-1.5 text-[12px] font-semibold text-[#64748B]">
+          {versions.length}
+        </span>
+        <InfoHint text="A version appears only when a scan finds a change — the line between two versions shows how many scans ran in that gap." />
+
+        <div className="ml-auto flex items-center gap-2">
+          <VersionDateSearch value={dateFilter} onChange={setDateFilter} />
+          <button
+            onClick={() => setShowCompare(true)}
+            disabled={versions.length < 2}
+            className="inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded border border-[#3D8BD0] bg-white px-3 text-[13px] font-medium text-[#3D8BD0] transition-colors hover:bg-[#F5FAFF] disabled:cursor-not-allowed disabled:border-[#DFE5ED] disabled:text-[#9CA3AF] disabled:hover:bg-white"
+            title={versions.length < 2 ? 'Needs at least two versions to compare' : undefined}
+          >
+            <Columns3 size={15} /> Compare versions
+          </button>
+        </div>
+      </div>
+
       {/* Version timeline */}
       {versions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -461,19 +496,6 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
         </div>
       ) : (
         <>
-          {/* Version-rail toolbar: applied filter on the left, controls on the right */}
-          <div className="mb-3 mt-5 flex items-center justify-end gap-2">
-            <VersionDateSearch value={dateFilter} onChange={setDateFilter} />
-            <button
-              onClick={() => setShowCompare(true)}
-              disabled={versions.length < 2}
-              className="inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded border border-[#3D8BD0] bg-white px-3 text-[13px] font-medium text-[#3D8BD0] transition-colors hover:bg-[#F5FAFF] disabled:cursor-not-allowed disabled:border-[#DFE5ED] disabled:text-[#9CA3AF] disabled:hover:bg-white"
-              title={versions.length < 2 ? 'Needs at least two versions to compare' : undefined}
-            >
-              <Columns3 size={15} /> Compare versions
-            </button>
-          </div>
-
           {shownVersions.length === 0 && (
             <div className="rounded-lg border border-dashed border-[#E5E7EB] py-10 text-center text-[13px] text-[#9CA3AF]">
               No versions generated in this period.
@@ -610,15 +632,14 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
           }
         }}
       />
-      <BomCompareVersionsModal
+      <BomCompareVersionsPanel
         isOpen={showCompare}
         onClose={() => setShowCompare(false)}
         endpointId={endpointId}
         hostName={hostName}
+        products={products}
         productKey={product?.key ?? OS_PRODUCT_KEY}
-        productLabel={productLabel}
         type={type}
-        versions={versions}
       />
       <BomScanRunsPanel
         isOpen={!!runsPanel}

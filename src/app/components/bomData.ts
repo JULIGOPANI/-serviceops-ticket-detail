@@ -433,7 +433,7 @@ export const bomAiModels = (endpointId: string, productKey: string): AiModel[] =
 // ---------------------------------------------------------------------------
 
 export interface BomDiffEntry {
-  kind: 'Added' | 'Updated' | 'Removed';
+  kind: 'Added' | 'Updated' | 'Removed' | 'Unchanged';
   name: string;
   ecosystem: string;
   version: string;
@@ -448,6 +448,8 @@ export interface BomDiff {
   added: BomDiffEntry[];
   updated: BomDiffEntry[];
   removed: BomDiffEntry[];
+  /** Everything the two versions have in common, so a comparison can list it, not just count it. */
+  unchangedEntries: BomDiffEntry[];
   unchanged: number;
 }
 
@@ -469,7 +471,7 @@ export const bomDiff = (endpointId: string, productKey: string, type: BomType, f
       : type === 'CBOM'
         ? bomCryptoAssets(endpointId, productKey).map((c) => ({ name: c.name, version: c.keyLength, ecosystem: c.algorithm, cves: undefined }))
         : bomAiModels(endpointId, productKey).map((m) => ({ name: m.name, version: m.version, ecosystem: m.provider, cves: undefined }));
-  if (!pool.length) return { added: [], updated: [], removed: [], unchanged: 0 };
+  if (!pool.length) return { added: [], updated: [], removed: [], unchangedEntries: [], unchanged: 0 };
 
   const h = hash(`${endpointId}:${productKey}:${type}:${from}-${to}`);
   // Shifts MUST be unsigned (>>>): `hash` returns a full uint32, and the signed `>>` turns any
@@ -496,8 +498,14 @@ export const bomDiff = (endpointId: string, productKey: string, type: BomType, f
     kind: 'Removed', name: c.name, ecosystem: (c as any).ecosystem, version: c.version, cves: (c as any).cves,
   }));
 
-  const unchanged = Math.max(0, pool.length - added.length - updated.length - removed.length);
-  return { added, updated, removed, unchanged };
+  // Whatever the diff did not touch is unchanged — derived from the same pool so the five
+  // comparison tabs always sum to the pool size.
+  const touched = new Set([...added, ...updated, ...removed].map((e) => e.name));
+  const unchangedEntries: BomDiffEntry[] = pool
+    .filter((c) => !touched.has(c.name))
+    .map((c) => ({ kind: 'Unchanged', name: c.name, ecosystem: (c as any).ecosystem, version: c.version, cves: (c as any).cves }));
+
+  return { added, updated, removed, unchangedEntries, unchanged: unchangedEntries.length };
 };
 
 // ---------------------------------------------------------------------------
