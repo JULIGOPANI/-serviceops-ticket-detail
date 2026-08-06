@@ -367,7 +367,10 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
           {shownVersions.map((v, i) => (
             <div key={v.v}>
               {/* Version card — the current one is tinted so the head of the chain is obvious */}
-              <div className={`rounded-lg border px-4 py-2.5 ${v.state === 'Current' ? 'border-[#3D8BD0] bg-[#F8FBFF]' : 'border-[#E5E7EB] bg-white'}`}>
+              {/* Left block (identity + change dots) and right block (actions) are siblings on one
+                  centred row, so the actions sit against the middle of both lines, not the first. */}
+              <div className={`flex items-center gap-3 rounded-lg border px-4 py-2.5 ${v.state === 'Current' ? 'border-[#3D8BD0] bg-[#F8FBFF]' : 'border-[#E5E7EB] bg-white'}`}>
+                <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                   <span className="text-[15px] font-semibold text-[#364658]">v{v.v}</span>
                   <span className="text-[14px] text-[#364658]">{v.generatedAt}</span>
@@ -379,47 +382,48 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                   >{v.state}</span>
                   {/* Format sits with the state tag — both describe what this version IS. */}
                   <span className="rounded-sm bg-[#F1F5F9] px-2 py-0.5 text-[12px] text-[#64748B]">{v.format}</span>
-
-                  <div className="ml-auto flex flex-shrink-0 items-center gap-2">
-                    <div className="relative">
-                      <button
-                        onClick={() => setDownloadFor(downloadFor === v.v ? null : v.v)}
-                        className="flex size-8 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#7B8FA5] transition-colors hover:bg-[#F5F7FA] hover:text-[#364658]"
-                        title={`Download v${v.v}`}
-                      ><Download size={15} /></button>
-                      {downloadFor === v.v && (
-                        <DownloadPopover
-                          version={v}
-                          type={type}
-                          productLabel={productLabel}
-                          count={count}
-                          onClose={() => setDownloadFor(null)}
-                        />
-                      )}
-                    </div>
-                    <button
-                      onClick={() => setComponentsFor(v.v)}
-                      className="inline-flex h-8 items-center gap-1 rounded px-2 text-[13px] font-medium text-[#3D8BD0] transition-colors hover:bg-[#F5FAFF]"
-                    >
-                      {viewLabel(type)} · {count}
-                      <ChevronRight size={14} />
-                    </button>
+                </div>
+                  {/* What this version changed — green added · red removed · amber updated. */}
+                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+                    {([
+                      ['#22C55E', v.added, 'added'],
+                      ['#EF4444', v.removed, 'removed'],
+                      ['#F59E0B', v.updated, 'updated'],
+                    ] as const).map(([color, n, label]) => (
+                      <span key={label} className="inline-flex items-center gap-1.5">
+                        <span className="size-2 flex-shrink-0 rounded-full" style={{ backgroundColor: n > 0 ? color : '#CBD5E1' }} />
+                        <span className={`text-[13px] font-semibold ${n > 0 ? 'text-[#364658]' : 'text-[#9CA3AF]'}`}>{n}</span>
+                        <span className="text-[13px] text-[#7B8FA5]">{label}</span>
+                      </span>
+                    ))}
+                    {v.v === 1 && <span className="text-[13px] text-[#9CA3AF]">· initial agent scan</span>}
                   </div>
                 </div>
-                {/* What this version changed — green added · red removed · amber updated. */}
-                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
-                  {([
-                    ['#22C55E', v.added, 'added'],
-                    ['#EF4444', v.removed, 'removed'],
-                    ['#F59E0B', v.updated, 'updated'],
-                  ] as const).map(([color, n, label]) => (
-                    <span key={label} className="inline-flex items-center gap-1.5">
-                      <span className="size-2 flex-shrink-0 rounded-full" style={{ backgroundColor: n > 0 ? color : '#CBD5E1' }} />
-                      <span className={`text-[13px] font-semibold ${n > 0 ? 'text-[#364658]' : 'text-[#9CA3AF]'}`}>{n}</span>
-                      <span className="text-[13px] text-[#7B8FA5]">{label}</span>
-                    </span>
-                  ))}
-                  {v.v === 1 && <span className="text-[13px] text-[#9CA3AF]">· initial agent scan</span>}
+
+                <div className="flex flex-shrink-0 items-center gap-2">
+                  <div className="relative">
+                    <button
+                      onClick={() => setDownloadFor(downloadFor === v.v ? null : v.v)}
+                      className="flex size-8 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#7B8FA5] transition-colors hover:bg-[#F5F7FA] hover:text-[#364658]"
+                      title={`Download v${v.v}`}
+                    ><Download size={15} /></button>
+                    {downloadFor === v.v && (
+                      <DownloadPopover
+                        version={v}
+                        type={type}
+                        productLabel={productLabel}
+                        count={count}
+                        onClose={() => setDownloadFor(null)}
+                      />
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setComponentsFor(v.v)}
+                    className="inline-flex h-8 items-center gap-1 rounded px-2 text-[13px] font-medium text-[#3D8BD0] transition-colors hover:bg-[#F5FAFF]"
+                  >
+                    {viewLabel(type)} · {count}
+                    <ChevronRight size={14} />
+                  </button>
                 </div>
               </div>
 
