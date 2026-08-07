@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Search, Download, Columns3, ChevronRight, Check, Filter, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Pagination } from './Pagination';
-import { BomExcludedPaths } from './BomExcludedPaths';
-import { bomComponents, bomCryptoAssets, bomAiModels, excludedPathsFor, bomDiff } from './bomData';
+import { bomComponents, bomCryptoAssets, bomAiModels, bomDiff } from './bomData';
 import type { BomType } from './bomData';
 
 /* Side drawer listing every record in ONE BOM scope — opened from "View components / crypto
@@ -97,12 +96,11 @@ export function BomComponentsPanel({
   const noun = type === 'SBOM' ? 'components' : type === 'CBOM' ? 'crypto assets' : 'models';
 
   // Every row is a field map (drives filtering) plus the cells to render.
-  type Cell = string | { pill: string; map: Record<string, { bg: string; text: string }> } | { excluded: string[] } | { cves: string[] };
+  type Cell = string | { pill: string; map: Record<string, { bg: string; text: string }> } | { cves: string[] };
   interface Row { id: string; fields: Record<string, string>; cells: Cell[]; mono: number[]; link?: number; cveCount?: number }
 
   let headers: string[] = [];
   let rows: Row[] = [];
-  const excl = (name: string) => ({ excluded: excludedPathsFor(endpointId, productKey, name) });
 
   // What this version changed, keyed by component name, so the grid can lead with it.
   const diff = version > 1 ? bomDiff(endpointId, productKey, type, version - 1, version) : null;
@@ -112,11 +110,11 @@ export function BomComponentsPanel({
   const change = (name: string) => (version === 1 ? 'Added' : changeOf.get(name) ?? 'Unchanged');
 
   if (type === 'SBOM') {
-    headers = ['Component', 'Version', 'Vulnerabilities', 'Type', 'Ecosystem', 'PURL', 'License', 'Origin', 'Excluded Paths'];
+    headers = ['Component', 'Version', 'Vulnerabilities', 'Type', 'Ecosystem', 'PURL', 'License', 'Origin'];
     rows = bomComponents(endpointId, productKey).map((c, i) => ({
       id: `${c.name}@${c.version}#${i}`,
       fields: { Component: c.name, Version: c.version, Vulnerabilities: c.cves?.length ? 'Yes' : 'No', Type: c.type, Ecosystem: c.ecosystem, PURL: c.purl, License: c.license, Origin: c.origin },
-      cells: [c.name, c.version, { cves: c.cves ?? [] }, c.type, c.ecosystem, c.purl, c.license, { pill: c.origin, map: ORIGIN_STYLE }, excl(c.name)],
+      cells: [c.name, c.version, { cves: c.cves ?? [] }, c.type, c.ecosystem, c.purl, c.license, { pill: c.origin, map: ORIGIN_STYLE }],
       mono: [0, 1, 5],
       link: 5,
       cveCount: c.cves?.length ?? 0,
@@ -124,19 +122,19 @@ export function BomComponentsPanel({
   } else if (type === 'CBOM') {
     // CBOM columns are genuinely different from SBOM: an algorithm has no ecosystem or PURL,
     // it has a primitive, a key length, where it is used and whether it survives PQC migration.
-    headers = ['Asset', 'Primitive', 'Algorithm', 'Key Length', 'Protocol', 'Location', 'Expiry', 'Compliance', 'Excluded Paths'];
+    headers = ['Asset', 'Primitive', 'Algorithm', 'Key Length', 'Protocol', 'Location', 'Expiry', 'Compliance'];
     rows = bomCryptoAssets(endpointId, productKey).map((c, i) => ({
       id: `${c.name}#${i}`,
       fields: { Asset: c.name, Primitive: c.primitive, Algorithm: c.algorithm, 'Key Length': c.keyLength, Protocol: c.protocol, Location: c.location, Expiry: c.expiry ?? '—', Compliance: c.compliance },
-      cells: [c.name, c.primitive, c.algorithm, c.keyLength, c.protocol, c.location, c.expiry ?? '—', { pill: c.compliance, map: COMPLIANCE_STYLE }, excl(c.name)],
+      cells: [c.name, c.primitive, c.algorithm, c.keyLength, c.protocol, c.location, c.expiry ?? '—', { pill: c.compliance, map: COMPLIANCE_STYLE }],
       mono: [2, 3, 5],
     }));
   } else {
-    headers = ['Model', 'Provider', 'Version', 'Task', 'Parameters', 'Source', 'License', 'Used For', 'Excluded Paths'];
+    headers = ['Model', 'Provider', 'Version', 'Task', 'Parameters', 'Source', 'License', 'Used For'];
     rows = bomAiModels(endpointId, productKey).map((m, i) => ({
       id: `${m.name}#${i}`,
       fields: { Model: m.name, Provider: m.provider, Version: m.version, Task: m.task, Parameters: m.parameters, Source: m.source, License: m.license, 'Used For': m.usage },
-      cells: [m.name, m.provider, m.version, m.task, m.parameters, m.source, m.license, m.usage, excl(m.name)],
+      cells: [m.name, m.provider, m.version, m.task, m.parameters, m.source, m.license, m.usage],
       mono: [0, 2],
     }));
   }
@@ -151,11 +149,11 @@ export function BomComponentsPanel({
       // Only synthesise a row when the component is genuinely gone from the current list —
       // otherwise the existing row just gets tagged Removed and we'd render it twice.
       if (present.has(e.name)) return;
-      const blank = headers.slice(1, -1).map(() => '—');
+      const blank = headers.slice(1).map(() => '—');
       rows.push({
         id: `removed:${e.name}#${i}`,
-        fields: { ...Object.fromEntries(headers.slice(0, -1).map((h) => [h, '—'])), [nameKey]: e.name },
-        cells: [e.name, ...blank, { excluded: [] }],
+        fields: { ...Object.fromEntries(headers.map((h) => [h, '—'])), [nameKey]: e.name },
+        cells: [e.name, ...blank],
         mono: [0],
       });
     });
@@ -409,8 +407,6 @@ export function BomComponentsPanel({
                           className={`block max-w-[300px] truncate ${r.mono.includes(ci) ? 'font-mono' : ''} ${r.link === ci ? 'text-[#3D8BD0]' : ''}`}
                           title={c}
                         >{c}</span>
-                      ) : 'excluded' in c ? (
-                        <BomExcludedPaths paths={c.excluded} />
                       ) : 'cves' in c ? (
                         c.cves.length ? (
                           <span

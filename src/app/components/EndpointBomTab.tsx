@@ -626,15 +626,15 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                     subtitle: `${v.runs.length} run${v.runs.length === 1 ? '' : 's'} · the last one produced v${v.v}`,
                     runs: v.runs,
                   })}
-                  className="group relative flex w-full items-center gap-2 py-6 pl-6 text-left"
+                  className="group relative flex w-full items-center gap-2 py-5 pl-6 text-left"
                 >
                   {/* White fill breaks the dotted rule so the dot reads as a node on it */}
                   <span className="absolute left-[3px] size-2 flex-shrink-0 rounded-full border border-[#CBD5E1] bg-white" />
-                  <span className="text-[13px] text-[#7B8FA5]">
+                  <span className="text-[12px] text-[#7B8FA5]">
                     <span className="font-medium text-[#364658]">{v.gapLabel.split(' ').slice(0, 2).join(' ')}</span>
                     {' '}{v.gapLabel.split(' ').slice(2).join(' ')}
                   </span>
-                  <span className="text-[13px] font-medium text-[#3D8BD0] opacity-0 transition-opacity group-hover:opacity-100">View</span>
+                  <span className="text-[12px] font-medium text-[#3D8BD0] opacity-0 transition-opacity group-hover:opacity-100">View</span>
                 </button>
               </div>
               {i === shownVersions.length - 1 && <div className="h-2" />}
