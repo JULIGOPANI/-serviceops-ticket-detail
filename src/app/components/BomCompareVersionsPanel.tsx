@@ -131,8 +131,12 @@ function DiffRow({ e, showKindPill, onOpenCve }: RowProps) {
       {/* Expanded detail stays on the same white surface — a hairline, not a second panel */}
       {open && (
         <div className="border-t border-[#F0F2F5] px-3 pb-3 pt-3">
-          {/* Component identity — label over value, five to a row, nothing else competing */}
-          <div className="grid grid-cols-5 gap-x-5 gap-y-3">
+          {/* Component identity on ONE row — PURL and the version change get the wider tracks,
+              since they carry the longest values. Everything truncates rather than wrapping. */}
+          <div
+            className="grid gap-x-5"
+            style={{ gridTemplateColumns: '2.4fr 1fr 1.1fr 1.1fr 1.2fr 1.6fr' }}
+          >
             {([
               ['PURL', e.purl, true],
               ['Ecosystem', e.ecosystem, false],
@@ -142,29 +146,30 @@ function DiffRow({ e, showKindPill, onOpenCve }: RowProps) {
             ] as const).map(([label, value, mono]) => (
               <div key={label} className="min-w-0">
                 <div className="text-[11px] uppercase tracking-wide text-[#7B8FA5]">{label}</div>
-                <div className={`mt-0.5 break-words text-[13px] text-[#364658] ${mono ? 'font-mono' : ''}`}>
-                  {value || '—'}
-                </div>
+                <div
+                  className={`mt-0.5 truncate text-[13px] text-[#364658] ${mono ? 'font-mono' : ''}`}
+                  title={value || undefined}
+                >{value || '—'}</div>
               </div>
             ))}
-          </div>
 
-          <div className="mt-3">
-            <div className="text-[11px] uppercase tracking-wide text-[#7B8FA5]">Version change</div>
-            <div className="mt-0.5 font-mono text-[13px] text-[#364658]">
-              {e.fromVersion ? (
-                <>
-                  <span className="text-[#9CA3AF]">{e.fromVersion}</span>
-                  <span className="mx-1.5 text-[#9CA3AF]">→</span>
-                  <span className="font-semibold">{e.version}</span>
-                  {e.bump && <span className="ml-1.5 text-[#7B8FA5]">· {e.bump}</span>}
-                </>
-              ) : (
-                <>
-                  <span className="font-semibold">{e.version}</span>
-                  <span className="ml-1.5 font-sans text-[13px]" style={{ color: meta.text }}>· {e.kind}</span>
-                </>
-              )}
+            <div className="min-w-0">
+              <div className="text-[11px] uppercase tracking-wide text-[#7B8FA5]">Version change</div>
+              <div className="mt-0.5 truncate font-mono text-[13px] text-[#364658]">
+                {e.fromVersion ? (
+                  <>
+                    <span className="text-[#9CA3AF]">{e.fromVersion}</span>
+                    <span className="mx-1.5 text-[#9CA3AF]">→</span>
+                    <span className="font-semibold">{e.version}</span>
+                    {e.bump && <span className="ml-1.5 text-[#7B8FA5]">· {e.bump}</span>}
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold">{e.version}</span>
+                    <span className="ml-1.5 font-sans text-[13px]" style={{ color: meta.text }}>· {e.kind}</span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -298,7 +303,8 @@ export function BomCompareVersionsPanel({
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-end bg-black/50">
-      <div className="flex h-full w-[880px] max-w-[96vw] flex-col bg-white shadow-xl">
+      {/* Wide enough that an expanded component's six identity fields sit on one line */}
+      <div className="flex h-full w-[1240px] max-w-[96vw] flex-col bg-white shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-[#DFE5ED] px-5 py-3">
           <div className="min-w-0">
