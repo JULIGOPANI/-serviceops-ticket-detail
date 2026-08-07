@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Search, ChevronDown, ChevronRight, Check, ShieldAlert, SlidersHorizontal, CirclePlus, CircleMinus, RefreshCw, CircleDashed, ExternalLink } from 'lucide-react';
+import { X, Search, ChevronDown, ChevronRight, Check, ShieldAlert, SlidersHorizontal, CirclePlus, CircleMinus, RefreshCw, CircleDashed, ExternalLink, Replace } from 'lucide-react';
 import { bomDiff, bomVersions, componentCount } from './bomData';
 import type { BomType, BomProduct, BomDiffEntry } from './bomData';
 import { useDrawerStack } from './DrawerStack';
@@ -320,50 +320,50 @@ export function BomCompareVersionsPanel({
           </button>
         </div>
 
-        {/* Scope + version pickers */}
-        {/* Scope and the two version ends share one row — every control is a single line, so
-            their heights line up and the tabs sit straight underneath. */}
-        <div className="flex flex-wrap items-end gap-x-6 gap-y-3 border-b border-[#F0F2F5] px-5 py-4">
-          <div>
-          <div className="mb-1.5 text-[12px] font-medium text-[#7B8FA5]">Scanned paths</div>
-          <div className="relative">
-            <button
-              onClick={() => setShowScopes((v) => !v)}
-              className="inline-flex h-9 w-[300px] max-w-full items-center justify-between gap-2 rounded border border-[#DFE5ED] bg-white px-3 text-[13px] text-[#364658] transition-colors hover:border-[#3D8BD0]"
-            >
-              <span className="truncate">
-                {scope.name}{scope.version && <span className="ml-1.5 text-[#7B8FA5]">{scope.version}</span>}
-              </span>
-              <ChevronDown size={15} className={`flex-shrink-0 text-[#7B8FA5] transition-transform ${showScopes ? 'rotate-180' : ''}`} />
-            </button>
-            {showScopes && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowScopes(false)} />
-                <div className="absolute left-0 top-full z-50 mt-1 w-[340px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
-                  {products.map((p) => (
-                    <button
-                      key={p.key}
-                      onClick={() => { setScopeKey(p.key); setShowScopes(false); }}
-                      className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] transition-colors ${
-                        p.key === scopeKey ? 'bg-[#F5FAFF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F9FAFB]'
-                      }`}
-                    >
-                      <span className="truncate">{p.name}{p.version && <span className="ml-1.5 text-[#7B8FA5]">{p.version}</span>}</span>
-                      {p.key === scopeKey && <Check size={15} className="text-[#3D8BD0]" />}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-          </div>
-
+        {/* Versions lead — they are what is being compared. The scope is settled context, so it
+            reads as a value with a way to change it rather than a second picker. */}
+        <div className="flex flex-wrap items-end gap-x-8 gap-y-3 border-b border-[#F0F2F5] px-5 py-4">
           <div>
             <div className="mb-1.5 text-[12px] font-medium text-[#7B8FA5]">Compare versions</div>
             <div className="flex items-center gap-2">
               <VersionBox value={newer} options={nums} onChange={setNewer} dateOf={dateOf} countOf={countOf} />
               <span className="flex-shrink-0 text-[13px] text-[#7B8FA5]">with</span>
               <VersionBox value={older} options={nums} onChange={setOlder} dateOf={dateOf} countOf={countOf} />
+            </div>
+          </div>
+
+          <div className="flex h-9 items-center gap-2">
+            <span className="text-[13px] text-[#7B8FA5]">Scanned path :</span>
+            <span className="text-[13px] font-medium text-[#364658]">
+              {scope.name}{scope.version && <span className="ml-1.5 font-normal text-[#7B8FA5]">{scope.version}</span>}
+            </span>
+            <div className="relative">
+              <button
+                onClick={() => setShowScopes((v) => !v)}
+                className={`inline-flex items-center gap-1.5 rounded px-1.5 py-1 text-[13px] font-medium text-[#3D8BD0] transition-colors hover:bg-[#F5FAFF] ${showScopes ? 'bg-[#F5FAFF]' : ''}`}
+              >
+                <Replace size={14} /> Change path
+              </button>
+              {showScopes && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowScopes(false)} />
+                  <div className="absolute left-0 top-full z-50 mt-1 w-[320px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
+                    <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Scanned paths on this host</div>
+                    {products.map((p) => (
+                      <button
+                        key={p.key}
+                        onClick={() => { setScopeKey(p.key); setShowScopes(false); }}
+                        className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] transition-colors ${
+                          p.key === scopeKey ? 'bg-[#F5FAFF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F9FAFB]'
+                        }`}
+                      >
+                        <span className="truncate">{p.name}{p.version && <span className="ml-1.5 text-[#7B8FA5]">{p.version}</span>}</span>
+                        {p.key === scopeKey && <Check size={15} className="flex-shrink-0 text-[#3D8BD0]" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
