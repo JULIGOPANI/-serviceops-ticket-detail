@@ -547,14 +547,14 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                           >
                             <ShieldAlert size={15} className="group-hover/card:hidden" />
                             <ArrowRight size={15} className="hidden group-hover/card:block" />
-                            <span className="text-[13px] font-semibold">{v.cves}</span>
-                            <span className="text-[13px]">CVE</span>
+                            <span className="text-[12px] font-semibold">{v.cves}</span>
+                            <span className="text-[12px]">CVE</span>
                           </button>
                         ) : (
                           <span className="inline-flex cursor-help items-center gap-1.5 text-[#9CA3AF]">
                             <ShieldAlert size={15} />
-                            <span className="text-[13px] font-semibold">{v.cves}</span>
-                            <span className="text-[13px]">CVE</span>
+                            <span className="text-[12px] font-semibold">{v.cves}</span>
+                            <span className="text-[12px]">CVE</span>
                           </span>
                         )}
                       </TooltipTrigger>
@@ -574,7 +574,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                         <TooltipTrigger asChild>
                           <span className="inline-flex cursor-help items-center gap-1.5" style={{ color: n > 0 ? color : '#9CA3AF' }}>
                             <Icon size={15} />
-                            <span className="text-[13px] font-semibold">{n}</span>
+                            <span className="text-[12px] font-semibold">{n}</span>
                           </span>
                         </TooltipTrigger>
                         <TooltipContent side="top">{n} component{n === 1 ? '' : 's'} {label}</TooltipContent>
@@ -631,7 +631,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                   {/* White fill breaks the dotted rule so the dot reads as a node on it */}
                   <span className="absolute left-[3px] size-2 flex-shrink-0 rounded-full border border-[#CBD5E1] bg-white" />
                   <span className="text-[12px] text-[#7B8FA5]">
-                    <span className="font-medium text-[#364658]">{v.gapLabel.split(' ').slice(0, 2).join(' ')}</span>
+                    <span className="text-[#364658]">{v.gapLabel.split(' ').slice(0, 2).join(' ')}</span>
                     {' '}{v.gapLabel.split(' ').slice(2).join(' ')}
                   </span>
                   <span className="text-[12px] font-medium text-[#3D8BD0] opacity-0 transition-opacity group-hover:opacity-100">View</span>
