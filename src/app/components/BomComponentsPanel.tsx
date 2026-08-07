@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Search, Download, Columns3, ChevronRight, Check, Filter } from 'lucide-react';
+import { X, Search, Download, Columns3, ChevronRight, Check, Filter, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Pagination } from './Pagination';
 import { BomExcludedPaths } from './BomExcludedPaths';
@@ -67,10 +67,12 @@ interface BomComponentsPanelProps {
   type: BomType;
   version: number;
   format: string;
+  /** Opened from a version's CVE metric — lead with the vulnerable components. */
+  cveFirst?: boolean;
 }
 
 export function BomComponentsPanel({
-  isOpen, onClose, endpointId, hostName, productKey, productLabel, type, version, format,
+  isOpen, onClose, endpointId, hostName, productKey, productLabel, type, version, format, cveFirst = false,
 }: BomComponentsPanelProps) {
   const [conditions, setConditions] = useState<Condition[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -95,8 +97,8 @@ export function BomComponentsPanel({
   const noun = type === 'SBOM' ? 'components' : type === 'CBOM' ? 'crypto assets' : 'models';
 
   // Every row is a field map (drives filtering) plus the cells to render.
-  type Cell = string | { pill: string; map: Record<string, { bg: string; text: string }> } | { excluded: string[] };
-  interface Row { id: string; fields: Record<string, string>; cells: Cell[]; mono: number[]; link?: number }
+  type Cell = string | { pill: string; map: Record<string, { bg: string; text: string }> } | { excluded: string[] } | { cves: string[] };
+  interface Row { id: string; fields: Record<string, string>; cells: Cell[]; mono: number[]; link?: number; cveCount?: number }
 
   let headers: string[] = [];
   let rows: Row[] = [];
@@ -110,13 +112,14 @@ export function BomComponentsPanel({
   const change = (name: string) => (version === 1 ? 'Added' : changeOf.get(name) ?? 'Unchanged');
 
   if (type === 'SBOM') {
-    headers = ['Component', 'Version', 'Type', 'Ecosystem', 'PURL', 'License', 'Origin', 'Excluded Paths'];
+    headers = ['Component', 'Version', 'Vulnerabilities', 'Type', 'Ecosystem', 'PURL', 'License', 'Origin', 'Excluded Paths'];
     rows = bomComponents(endpointId, productKey).map((c, i) => ({
       id: `${c.name}@${c.version}#${i}`,
-      fields: { Component: c.name, Version: c.version, Type: c.type, Ecosystem: c.ecosystem, PURL: c.purl, License: c.license, Origin: c.origin },
-      cells: [c.name, c.version, c.type, c.ecosystem, c.purl, c.license, { pill: c.origin, map: ORIGIN_STYLE }, excl(c.name)],
-      mono: [0, 1, 4],
-      link: 4,
+      fields: { Component: c.name, Version: c.version, Vulnerabilities: c.cves?.length ? 'Yes' : 'No', Type: c.type, Ecosystem: c.ecosystem, PURL: c.purl, License: c.license, Origin: c.origin },
+      cells: [c.name, c.version, { cves: c.cves ?? [] }, c.type, c.ecosystem, c.purl, c.license, { pill: c.origin, map: ORIGIN_STYLE }, excl(c.name)],
+      mono: [0, 1, 5],
+      link: 5,
+      cveCount: c.cves?.length ?? 0,
     }));
   } else if (type === 'CBOM') {
     // CBOM columns are genuinely different from SBOM: an algorithm has no ecosystem or PURL,
@@ -171,7 +174,15 @@ export function BomComponentsPanel({
         link: r.link === undefined ? undefined : r.link + 1,
       };
     })
-    .sort((a, b) => CHANGE_ORDER[a.fields.Change] - CHANGE_ORDER[b.fields.Change]);
+    // Arriving from a version's CVE metric, the vulnerable components are the whole point, so
+    // they lead — most CVEs first. Otherwise the change order stands.
+    .sort((a, b) => {
+      if (cveFirst) {
+        const d = (b.cveCount ?? 0) - (a.cveCount ?? 0);
+        if (d !== 0) return d;
+      }
+      return CHANGE_ORDER[a.fields.Change] - CHANGE_ORDER[b.fields.Change];
+    });
 
   const fieldNames = rows.length ? Object.keys(rows[0].fields) : headers.filter((h) => h !== 'Excluded Paths');
   const valuesFor = (field: string) => Array.from(new Set(rows.map((r) => r.fields[field]).filter(Boolean))).sort();
@@ -400,6 +411,15 @@ export function BomComponentsPanel({
                         >{c}</span>
                       ) : 'excluded' in c ? (
                         <BomExcludedPaths paths={c.excluded} />
+                      ) : 'cves' in c ? (
+                        c.cves.length ? (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-sm bg-[#FEF3F2] px-1.5 py-0.5 text-[11px] font-semibold text-[#DC2626]"
+                            title={c.cves.join(', ')}
+                          >
+                            <ShieldAlert size={11} />{c.cves.length} CVE
+                          </span>
+                        ) : <span className="text-[12px] text-[#9ca3af]">—</span>
                       ) : (
                         <TintPill value={c.pill} map={c.map} />
                       )}

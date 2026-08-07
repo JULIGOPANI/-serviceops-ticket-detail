@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Settings, Columns3, Download, Layers, Check, Search, X, CalendarDays, Info, ShieldAlert, CirclePlus, CircleMinus, RefreshCw, ScanLine } from 'lucide-react';
+import { ChevronDown, ChevronRight, Settings, Columns3, Download, Layers, Check, Search, X, CalendarDays, Info, ShieldAlert, CirclePlus, CircleMinus, RefreshCw, ScanLine, ArrowRight } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 import { toast } from 'sonner';
 import { BomComponentsPanel } from './BomComponentsPanel';
@@ -308,6 +308,9 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
   const [runsPanel, setRunsPanel] = useState<{ title: string; subtitle: string; runs: BomScanRun[] } | null>(null);
   // Version whose component listing is open in the side drawer (null = drawer closed).
   const [componentsFor, setComponentsFor] = useState<number | null>(null);
+  // Set when the listing was opened from the CVE metric — that entry point leads with the
+  // vulnerable components rather than the changed ones.
+  const [componentsCveFirst, setComponentsCveFirst] = useState(false);
   const [dateFilter, setDateFilter] = useState<DateFilter>({ kind: 'all' });
 
   // A different endpoint means a different set of products — reset the whole tab.
@@ -515,7 +518,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
               {/* Version card — the current one is tinted so the head of the chain is obvious */}
               {/* Left block (identity + change dots) and right block (actions) are siblings on one
                   centred row, so the actions sit against the middle of both lines, not the first. */}
-              <div className={`flex items-center gap-3 rounded-lg border px-4 py-2.5 ${v.state === 'Current' ? 'border-[#3D8BD0] bg-[#F8FBFF]' : 'border-[#E5E7EB] bg-white'}`}>
+              <div className={`group/card flex items-center gap-3 rounded-lg border px-4 py-2.5 ${v.state === 'Current' ? 'border-[#3D8BD0] bg-[#F8FBFF]' : 'border-[#E5E7EB] bg-white'}`}>
                 <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                   <span className="text-[15px] font-semibold text-[#364658]">v{v.v}</span>
@@ -532,15 +535,34 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                       added / updated / removed as icon + count — the labels are carried by the
                       icons and the tooltips, so the row stays scannable. */}
                   <div className="mt-2.5 flex flex-wrap items-center gap-x-6 gap-y-1.5">
+                    {/* With CVEs present the metric is a way in: hovering the card turns the
+                        shield into an arrow, and clicking opens this version's components with
+                        the vulnerable ones first. With none, it stays a plain read-out. */}
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className={`inline-flex cursor-help items-center gap-1.5 ${v.cves > 0 ? 'text-[#DC2626]' : 'text-[#9CA3AF]'}`}>
-                          <ShieldAlert size={15} />
-                          <span className="text-[13px] font-semibold">{v.cves}</span>
-                          <span className="text-[13px]">CVE</span>
-                        </span>
+                        {v.cves > 0 ? (
+                          <button
+                            onClick={() => { setComponentsCveFirst(true); setComponentsFor(v.v); }}
+                            className="inline-flex items-center gap-1.5 rounded text-[#DC2626] transition-colors hover:underline"
+                          >
+                            <ShieldAlert size={15} className="group-hover/card:hidden" />
+                            <ArrowRight size={15} className="hidden group-hover/card:block" />
+                            <span className="text-[13px] font-semibold">{v.cves}</span>
+                            <span className="text-[13px]">CVE</span>
+                          </button>
+                        ) : (
+                          <span className="inline-flex cursor-help items-center gap-1.5 text-[#9CA3AF]">
+                            <ShieldAlert size={15} />
+                            <span className="text-[13px] font-semibold">{v.cves}</span>
+                            <span className="text-[13px]">CVE</span>
+                          </span>
+                        )}
                       </TooltipTrigger>
-                      <TooltipContent side="top">Known CVEs in what this version added or updated</TooltipContent>
+                      <TooltipContent side="top">
+                        {v.cves > 0
+                          ? `View the components carrying these ${v.cves} CVE${v.cves === 1 ? '' : 's'}`
+                          : 'Known CVEs in what this version added or updated'}
+                      </TooltipContent>
                     </Tooltip>
 
                     {([
@@ -579,7 +601,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                     )}
                   </div>
                   <button
-                    onClick={() => setComponentsFor(v.v)}
+                    onClick={() => { setComponentsCveFirst(false); setComponentsFor(v.v); }}
                     className="inline-flex h-8 items-center gap-1 rounded px-2 text-[13px] font-medium text-[#3D8BD0] transition-colors hover:bg-[#F5FAFF]"
                   >
                     {viewLabel(type)} · {count}
@@ -632,6 +654,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
         type={type}
         version={componentsFor ?? 0}
         format="CycloneDX 1.6"
+        cveFirst={componentsCveFirst}
       />
       <BomScanPathsPanel
         isOpen={showPaths}
