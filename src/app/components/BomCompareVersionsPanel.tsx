@@ -41,7 +41,8 @@ const cveRecord = (id: string): DetectedCve => {
   };
 };
 
-/** One version end of the comparison: number, changeable via dropdown, with date + size below. */
+/** One version end of the comparison — a single line, so it sits level with the scope select:
+ *  "v3, Jun 14, 2026 (99)". The same shape repeats in the dropdown. */
 function VersionBox({
   value, options, onChange, dateOf, countOf,
 }: {
@@ -52,43 +53,41 @@ function VersionBox({
   countOf: () => number;
 }) {
   const [open, setOpen] = useState(false);
+  const label = (v: number) => (
+    <>
+      <span className="font-semibold text-[#364658]">v{v}</span>
+      <span className="text-[#364658]">, {dateOf(v)} </span>
+      <span className="text-[#7B8FA5]">({countOf()})</span>
+    </>
+  );
   return (
-    // Sized to its content rather than stretching — two short lines is all this needs.
-    <div className="relative w-[240px] flex-shrink-0">
-      <div className="relative">
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="w-full rounded border border-[#DFE5ED] bg-white px-3 py-2 text-left transition-colors hover:border-[#3D8BD0]"
-        >
-          <span className="flex items-center justify-between gap-2">
-            <span className="flex items-baseline gap-2 truncate">
-              <span className="text-[15px] font-semibold text-[#364658]">v{value}</span>
-              <span className="truncate text-[13px] text-[#7B8FA5]">{dateOf(value)}</span>
-            </span>
-            <ChevronDown size={15} className={`flex-shrink-0 text-[#7B8FA5] transition-transform ${open ? 'rotate-180' : ''}`} />
-          </span>
-          <span className="mt-0.5 block text-[12px] font-medium text-[#364658]">{countOf()} components</span>
-        </button>
-        {open && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-            <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
-              {options.map((o) => (
-                <button
-                  key={o}
-                  onClick={() => { onChange(o); setOpen(false); }}
-                  className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] transition-colors ${
-                    o === value ? 'bg-[#F5FAFF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F9FAFB]'
-                  }`}
-                >
-                  <span>v{o} <span className="text-[#7B8FA5]">· {dateOf(o)}</span></span>
-                  {o === value && <Check size={15} className="text-[#3D8BD0]" />}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
+    <div className="relative w-[220px] flex-shrink-0">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex h-9 w-full items-center justify-between gap-2 rounded border border-[#DFE5ED] bg-white px-3 text-left text-[13px] transition-colors hover:border-[#3D8BD0]"
+      >
+        <span className="truncate">{label(value)}</span>
+        <ChevronDown size={15} className={`flex-shrink-0 text-[#7B8FA5] transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
+            {options.map((o) => (
+              <button
+                key={o}
+                onClick={() => { onChange(o); setOpen(false); }}
+                className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] transition-colors ${
+                  o === value ? 'bg-[#F5FAFF]' : 'hover:bg-[#F9FAFB]'
+                }`}
+              >
+                <span className="truncate">{label(o)}</span>
+                {o === value && <Check size={15} className="flex-shrink-0 text-[#3D8BD0]" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -320,12 +319,15 @@ export function BomCompareVersionsPanel({
         </div>
 
         {/* Scope + version pickers */}
-        <div className="border-b border-[#F0F2F5] px-5 py-4">
+        {/* Scope and the two version ends share one row — every control is a single line, so
+            their heights line up and the tabs sit straight underneath. */}
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-3 border-b border-[#F0F2F5] px-5 py-4">
+          <div>
           <div className="mb-1.5 text-[12px] font-medium text-[#7B8FA5]">Scanned paths</div>
           <div className="relative">
             <button
               onClick={() => setShowScopes((v) => !v)}
-              className="inline-flex h-9 w-[340px] max-w-full items-center justify-between gap-2 rounded border border-[#DFE5ED] bg-white px-3 text-[13px] text-[#364658] transition-colors hover:border-[#3D8BD0]"
+              className="inline-flex h-9 w-[300px] max-w-full items-center justify-between gap-2 rounded border border-[#DFE5ED] bg-white px-3 text-[13px] text-[#364658] transition-colors hover:border-[#3D8BD0]"
             >
               <span className="truncate">
                 {scope.name}{scope.version && <span className="ml-1.5 text-[#7B8FA5]">{scope.version}</span>}
@@ -352,12 +354,15 @@ export function BomCompareVersionsPanel({
               </>
             )}
           </div>
+          </div>
 
-          <div className="mt-4 text-[13px] font-medium text-[#364658]">Compare versions</div>
-          <div className="mt-2 flex items-center gap-3">
-            <VersionBox value={newer} options={nums} onChange={setNewer} dateOf={dateOf} countOf={countOf} />
-            <span className="flex-shrink-0 text-[13px] text-[#7B8FA5]">with</span>
-            <VersionBox value={older} options={nums} onChange={setOlder} dateOf={dateOf} countOf={countOf} />
+          <div>
+            <div className="mb-1.5 text-[12px] font-medium text-[#7B8FA5]">Compare versions</div>
+            <div className="flex items-center gap-2">
+              <VersionBox value={newer} options={nums} onChange={setNewer} dateOf={dateOf} countOf={countOf} />
+              <span className="flex-shrink-0 text-[13px] text-[#7B8FA5]">with</span>
+              <VersionBox value={older} options={nums} onChange={setOlder} dateOf={dateOf} countOf={countOf} />
+            </div>
           </div>
         </div>
 
