@@ -53,17 +53,20 @@ function VersionBox({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="min-w-0 flex-1">
+    // Sized to its content rather than stretching — two short lines is all this needs.
+    <div className="relative w-[240px] flex-shrink-0">
       <div className="relative">
         <button
           onClick={() => setOpen((v) => !v)}
           className="w-full rounded border border-[#DFE5ED] bg-white px-3 py-2 text-left transition-colors hover:border-[#3D8BD0]"
         >
           <span className="flex items-center justify-between gap-2">
-            <span className="text-[15px] font-semibold text-[#364658]">v{value}</span>
+            <span className="flex items-baseline gap-2 truncate">
+              <span className="text-[15px] font-semibold text-[#364658]">v{value}</span>
+              <span className="truncate text-[13px] text-[#7B8FA5]">{dateOf(value)}</span>
+            </span>
             <ChevronDown size={15} className={`flex-shrink-0 text-[#7B8FA5] transition-transform ${open ? 'rotate-180' : ''}`} />
           </span>
-          <span className="mt-0.5 block text-[12px] text-[#7B8FA5]">{dateOf(value)}</span>
           <span className="mt-0.5 block text-[12px] font-medium text-[#364658]">{countOf()} components</span>
         </button>
         {open && (
