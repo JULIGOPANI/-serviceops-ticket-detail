@@ -558,7 +558,6 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                         <TooltipContent side="top">{n} component{n === 1 ? '' : 's'} {label}</TooltipContent>
                       </Tooltip>
                     ))}
-                    {v.v === 1 && <span className="text-[13px] text-[#9CA3AF]">initial agent scan</span>}
                   </div>
                 </div>
 
@@ -592,10 +591,13 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
               {/* Connector — the scans that ran in this gap (including the ones that changed
                   nothing). The dotted rule carries the eye from one card to the next. */}
               <div className="relative">
-                <span
-                  aria-hidden
-                  className="absolute bottom-0 left-[7px] top-0 border-l border-dashed border-[#CBD5E1]"
-                />
+                {/* The rule joins one card to the next, so the last connector has none to draw. */}
+                {i < shownVersions.length - 1 && (
+                  <span
+                    aria-hidden
+                    className="absolute bottom-0 left-[7px] top-0 border-l border-dashed border-[#CBD5E1]"
+                  />
+                )}
                 <button
                   onClick={() => setRunsPanel({
                     title: v.v === 1 ? 'Scans before v1' : `Scans between v${v.v - 1} and v${v.v}`,
