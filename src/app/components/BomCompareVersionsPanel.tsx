@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Search, ChevronDown, ChevronRight, Check, ShieldAlert, SlidersHorizontal, CirclePlus, CircleMinus, RefreshCw, CircleDashed, ExternalLink, Replace } from 'lucide-react';
+import { X, Search, ChevronDown, ChevronRight, Check, ShieldAlert, SlidersHorizontal, CirclePlus, CircleMinus, RefreshCw, CircleDashed, ExternalLink, Repeat } from 'lucide-react';
 import { bomDiff, bomVersions, componentCount } from './bomData';
 import type { BomType, BomProduct, BomDiffEntry } from './bomData';
 import { useDrawerStack } from './DrawerStack';
@@ -332,17 +332,17 @@ export function BomCompareVersionsPanel({
             </div>
           </div>
 
+          {/* Settled context, so the whole read-out stays grey — only the action carries colour */}
           <div className="flex h-9 items-center gap-2">
-            <span className="text-[13px] text-[#7B8FA5]">Scanned path :</span>
-            <span className="text-[13px] font-medium text-[#364658]">
-              {scope.name}{scope.version && <span className="ml-1.5 font-normal text-[#7B8FA5]">{scope.version}</span>}
+            <span className="text-[13px] text-[#7B8FA5]">
+              Scanned path : {scope.name}{scope.version && ` ${scope.version}`}
             </span>
             <div className="relative">
               <button
                 onClick={() => setShowScopes((v) => !v)}
                 className={`inline-flex items-center gap-1.5 rounded px-1.5 py-1 text-[13px] font-medium text-[#3D8BD0] transition-colors hover:bg-[#F5FAFF] ${showScopes ? 'bg-[#F5FAFF]' : ''}`}
               >
-                <Replace size={14} /> Change path
+                <Repeat size={14} /> Change path
               </button>
               {showScopes && (
                 <>
