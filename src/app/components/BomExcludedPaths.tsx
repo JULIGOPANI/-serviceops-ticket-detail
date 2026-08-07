@@ -19,7 +19,7 @@ export function BomExcludedPaths({ paths }: { paths: string[] }) {
               +{rest.length}
             </span>
           </TooltipTrigger>
-          <TooltipContent side="left" className="text-wrap">
+          <TooltipContent side="bottom" className="text-wrap">
             <span className="flex flex-col gap-0.5 font-mono text-[12px]">
               {rest.map((p) => <span key={p}>{p}</span>)}
             </span>

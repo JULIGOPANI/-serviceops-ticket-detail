@@ -117,7 +117,9 @@ function DiffRow({ e, showKindPill, onOpenCve }: RowProps) {
             style={{ backgroundColor: meta.bg, color: meta.text }}
           >{e.kind}</span>
         )}
-        {showKindPill && cves.length > 0 && (
+        {/* The CVE pill is NOT tied to showKindPill — inside a single category tab it is the
+            only thing separating a vulnerable component from a clean one. */}
+        {cves.length > 0 && (
           <span className="inline-flex flex-shrink-0 items-center gap-1 rounded-sm bg-[#FEF3F2] px-1.5 py-0.5 text-[11px] font-semibold text-[#DC2626]">
             <ShieldAlert size={11} />{cves.length} CVE
           </span>

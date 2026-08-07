@@ -31,11 +31,13 @@ export function BomScanPathsPanel({ isOpen, onClose, endpointId, hostName, produ
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<BomProduct[]>(products);
   const [formFor, setFormFor] = useState<{ open: boolean; editing: BomProduct | null }>({ open: false, editing: null });
+  // Product key whose delete confirmation is open (null = none).
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // Re-seed from the host each time the panel opens (edits are local to the session).
   useEffect(() => {
     if (!isOpen) return;
-    setRows(products); setSearch(''); setFormFor({ open: false, editing: null });
+    setRows(products); setSearch(''); setFormFor({ open: false, editing: null }); setConfirmDelete(null);
   }, [isOpen, endpointId]);
 
   if (!isOpen) return null;
@@ -181,12 +183,43 @@ export function BomScanPathsPanel({ isOpen, onClose, endpointId, hostName, produ
                           className="flex size-7 items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]"
                           title="Edit"
                         ><SquarePen size={14} /></button>
-                        <button
-                          onClick={() => removeProduct(r.key, r.name)}
-                          disabled={r.key === OS_PRODUCT_KEY}
-                          className="flex size-7 items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#FEF3F2] hover:text-[#DC2626] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#7B8FA5]"
-                          title={r.key === OS_PRODUCT_KEY ? 'The OS scope cannot be removed' : 'Delete'}
-                        ><Trash2 size={14} /></button>
+                        {/* Deleting a scope drops its whole BOM history, so it confirms in place
+                            rather than firing on the first click. */}
+                        <span className="relative">
+                          <button
+                            onClick={() => setConfirmDelete(confirmDelete === r.key ? null : r.key)}
+                            disabled={r.key === OS_PRODUCT_KEY}
+                            className={`flex size-7 items-center justify-center rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#7B8FA5] ${
+                              confirmDelete === r.key ? 'bg-[#FEF3F2] text-[#DC2626]' : 'text-[#7B8FA5] hover:bg-[#FEF3F2] hover:text-[#DC2626]'
+                            }`}
+                            title={r.key === OS_PRODUCT_KEY ? 'The OS scope cannot be removed' : 'Delete'}
+                          ><Trash2 size={14} /></button>
+
+                          {confirmDelete === r.key && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setConfirmDelete(null)} />
+                              {/* whitespace-normal: the cell is nowrap, which would otherwise
+                                  force this onto one line and blow past the drawer edge. */}
+                              <div className="absolute right-0 top-full z-50 mt-1 w-[280px] whitespace-normal rounded-lg border border-[#DFE5ED] bg-white p-3 text-left shadow-lg">
+                                <p className="text-[13px] font-medium text-[#364658]">Delete {r.name}?</p>
+                                <p className="mt-1 text-[12px] text-[#7B8FA5]">
+                                  Its scan path and BOM history are removed from this host. Components it
+                                  owned roll up to the OS scope on the next scan.
+                                </p>
+                                <div className="mt-3 flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => setConfirmDelete(null)}
+                                    className="inline-flex h-7 items-center rounded border border-[#DFE5ED] bg-white px-2.5 text-[12px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
+                                  >Cancel</button>
+                                  <button
+                                    onClick={() => { removeProduct(r.key, r.name); setConfirmDelete(null); }}
+                                    className="inline-flex h-7 items-center gap-1.5 rounded bg-[#DC2626] px-2.5 text-[12px] font-medium text-white transition-colors hover:bg-[#B91C1C]"
+                                  ><Trash2 size={12} /> Delete</button>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </span>
                       </span>
                     </td>
                   </tr>

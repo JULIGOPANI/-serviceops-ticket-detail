@@ -276,7 +276,7 @@ function VersionDateSearch({ value, onChange }: { value: DateFilter; onChange: (
  *  hover carries the explanation, so the layout stays clean. */
 function InfoHint({ text }: { text: string }) {
   return (
-    <Tooltip>
+    <Tooltip delayDuration={0}>
       <TooltipTrigger asChild>
         <span className="inline-flex cursor-help items-center text-[#9CA3AF] transition-colors hover:text-[#3D8BD0]">
           <Info size={14} />
@@ -538,7 +538,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                     {/* With CVEs present the metric is a way in: hovering the card turns the
                         shield into an arrow, and clicking opens this version's components with
                         the vulnerable ones first. With none, it stays a plain read-out. */}
-                    <Tooltip>
+                    <Tooltip delayDuration={0}>
                       <TooltipTrigger asChild>
                         {v.cves > 0 ? (
                           <button
@@ -570,7 +570,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                       [RefreshCw, '#F59E0B', v.updated, 'updated'],
                       [CircleMinus, '#EF4444', v.removed, 'removed'],
                     ] as const).map(([Icon, color, n, label]) => (
-                      <Tooltip key={label}>
+                      <Tooltip key={label} delayDuration={0}>
                         <TooltipTrigger asChild>
                           <span className="inline-flex cursor-help items-center gap-1.5" style={{ color: n > 0 ? color : '#9CA3AF' }}>
                             <Icon size={15} />
