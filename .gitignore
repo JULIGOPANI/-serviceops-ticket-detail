@@ -35,3 +35,7 @@ Thumbs.db
 
 # Archives / backups (the original export zip)
 *.zip
+
+# Local credentials — never commit
+credentials.txt
+*.credentials
