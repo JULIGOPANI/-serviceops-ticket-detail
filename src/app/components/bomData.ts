@@ -164,6 +164,12 @@ const APP_PRODUCTS: { key: string; name: string; version: string; path: string }
 // Dates used across the module — kept as a fixed spread so the demo never drifts.
 const SCAN_DATES = ['Jun 16, 2026', 'Jun 15, 2026', 'Jun 14, 2026', 'Jun 12, 2026', 'Jun 09, 2026', 'Jun 04, 2026'];
 
+/** The exclusions a new product starts with when the admin opts into the defaults — runtime
+ *  noise that is never part of a Bill of Materials. */
+export const DEFAULT_EXCLUDE_PATHS = [
+  '**/logs', '**/temp', '**/cache', '**/node_modules', '**/*.log', '**/*.tmp', '**/.git',
+];
+
 /** Glob patterns a scan skips. Exclusions are configured per product, under its own root. */
 const EXCLUDE_POOL = [
   '**/logs', '**/temp', '**/cache', '**/node_modules', '**/*.log', '**/*.tmp',

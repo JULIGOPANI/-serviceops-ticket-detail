@@ -528,8 +528,6 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                   {v.state === 'Current' && (
                     <span className="rounded-sm bg-[#E8F4FD] px-2 py-0.5 text-[12px] font-medium text-[#3D8BD0]">{v.state}</span>
                   )}
-                  {/* Format sits with the state tag — both describe what this version IS. */}
-                  <span className="rounded-sm bg-[#F1F5F9] px-2 py-0.5 text-[12px] text-[#64748B]">{v.format}</span>
                 </div>
                   {/* What this version changed. CVEs lead (they are the reason to care), then
                       added / updated / removed as icon + count — the labels are carried by the

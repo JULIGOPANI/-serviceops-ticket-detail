@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { X, Check } from 'lucide-react';
+import { DEFAULT_EXCLUDE_PATHS } from './bomData';
 import type { BomProduct } from './bomData';
 
 /* Add / edit one scan scope on a host. Opened from the Manage scan paths drawer, and stacked on
@@ -27,8 +28,20 @@ export function BomProductFormPanel({ isOpen, onClose, editing, onSave }: BomPro
   const [version, setVersion] = useState('');
   const [path, setPath] = useState('');
   const [excludes, setExcludes] = useState('');
+  // The standard exclusions live as removable chips, separate from what the admin types.
+  const [defaultPaths, setDefaultPaths] = useState<string[]>([]);
   const [isDefault, setIsDefault] = useState(false);
   const [touched, setTouched] = useState(false);
+  const excludeRef = useRef<HTMLTextAreaElement>(null);
+  const useDefaults = defaultPaths.length > 0;
+
+  // Grow the textarea to its content — measured before paint so it never flashes at one row.
+  useLayoutEffect(() => {
+    const el = excludeRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.max(el.scrollHeight, 56)}px`;
+  }, [excludes, isOpen]);
 
   // Seed from the product being edited each time the form opens.
   useEffect(() => {
@@ -36,7 +49,11 @@ export function BomProductFormPanel({ isOpen, onClose, editing, onSave }: BomPro
     setName(editing?.name ?? '');
     setVersion(editing?.version ?? '');
     setPath(editing?.path ?? '');
-    setExcludes((editing?.excludePaths ?? []).join(', '));
+    // Split what is already saved: anything matching the standard set comes back as chips, the
+    // rest as typed text — so re-opening a product looks the way it was left.
+    const saved = editing?.excludePaths ?? [];
+    setDefaultPaths(DEFAULT_EXCLUDE_PATHS.filter((p) => saved.includes(p)));
+    setExcludes(saved.filter((p) => !DEFAULT_EXCLUDE_PATHS.includes(p)).join(', '));
     setIsDefault(!!editing?.isDefault);
     setTouched(false);
   }, [isOpen, editing]);
@@ -55,7 +72,12 @@ export function BomProductFormPanel({ isOpen, onClose, editing, onSave }: BomPro
       name: name.trim(),
       version: version.trim(),
       path: path.trim(),
-      excludePaths: excludes.split(',').map((s) => s.trim()).filter(Boolean),
+      // Typed globs and the default chips are one list once saved; dedupe so a path the admin
+      // also typed by hand does not appear twice.
+      excludePaths: Array.from(new Set([
+        ...excludes.split(',').map((s) => s.trim()).filter(Boolean),
+        ...defaultPaths,
+      ])),
       isDefault,
     });
   };
@@ -121,16 +143,53 @@ export function BomProductFormPanel({ isOpen, onClose, editing, onSave }: BomPro
 
           <div className="mb-5">
             <Label>Exclude paths — this product only</Label>
-            <input
-              type="text"
+            {/* Auto-growing: a scan config can accumulate a lot of globs, and a one-line input
+                hides everything but the last few. */}
+            <textarea
+              ref={excludeRef}
               value={excludes}
               onChange={(e) => setExcludes(e.target.value)}
+              rows={2}
               placeholder="Exclude here (optional, comma-sep)"
-              className={`${field(false)} font-mono placeholder:font-mono`}
+              className="w-full resize-none overflow-hidden rounded border border-[#d1d5db] bg-white px-3 py-2 font-mono text-[13px] leading-[1.6] text-[#364658] placeholder:font-mono placeholder:text-[#9ca3af] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]"
             />
             <p className="mt-1.5 text-[12px] text-[#7B8FA5]">
               Scoped to this product — these globs are skipped only under the path above.
             </p>
+
+            {/* Opt into the standard exclusions rather than retyping them every time */}
+            <label className="mt-3 flex cursor-pointer items-start gap-2.5">
+              <input
+                type="checkbox"
+                checked={useDefaults}
+                onChange={(e) => setDefaultPaths(e.target.checked ? DEFAULT_EXCLUDE_PATHS : [])}
+                className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 cursor-pointer rounded border-[#d1d5db] text-[#3D8BD0] focus:ring-[#3D8BD0] focus:ring-offset-0"
+              />
+              <span className="min-w-0">
+                <span className="block text-[13px] text-[#364658]">Add the default exclude paths</span>
+                <span className="mt-0.5 block text-[12px] text-[#7B8FA5]">
+                  Logs, caches, temp files and other runtime noise that never belongs in a BOM.
+                </span>
+              </span>
+            </label>
+
+            {defaultPaths.length > 0 && (
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {defaultPaths.map((p) => (
+                  <span
+                    key={p}
+                    className="group inline-flex items-center gap-1 rounded-sm border border-[#E5E7EB] bg-[#F1F5F9] py-0.5 pl-1.5 pr-1 font-mono text-[11px] text-[#475467]"
+                  >
+                    {p}
+                    <button
+                      onClick={() => setDefaultPaths((prev) => prev.filter((x) => x !== p))}
+                      title={`Remove ${p}`}
+                      className="text-[#9CA3AF] opacity-0 transition-opacity hover:text-[#DC2626] group-hover:opacity-100"
+                    ><X size={11} /></button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Default scope — the one the BOM tab lands on */}
