@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, Search, ChevronDown, ChevronRight, Check, ShieldAlert, SlidersHorizontal, CirclePlus, CircleMinus, RefreshCw, CircleDashed, ExternalLink, Repeat } from 'lucide-react';
+import { X, Search, ChevronDown, ChevronRight, Check, ShieldAlert, SlidersHorizontal, CirclePlus, CircleMinus, RefreshCw, CircleDashed, ExternalLink, Repeat, List as ListIcon, Columns2 } from 'lucide-react';
+import { BomDiffView } from './BomDiffView';
+import type { DiffKind } from './BomDiffView';
 import { bomDiff, bomVersions, componentCount } from './bomData';
 import type { BomType, BomProduct, BomDiffEntry } from './bomData';
 import { useDrawerStack } from './DrawerStack';
@@ -17,8 +19,14 @@ const KIND_META: Record<BomDiffEntry['kind'], { color: string; bg: string; text:
   Unchanged: { color: '#94A3B8', bg: '#F1F5F9', text: '#64748B', Icon: CircleDashed },
 };
 
-type TabKey = 'All' | 'Added' | 'Updated' | 'Removed' | 'Unchanged';
+type TabKey = 'CVEs' | 'Added' | 'Updated' | 'Removed' | 'Unchanged';
 const KINDS: BomDiffEntry['kind'][] = ['Added', 'Updated', 'Removed', 'Unchanged'];
+
+/** How a comparison tab maps onto the document diff. CVEs has no line-level equivalent — a
+ *  vulnerability is a property of a package, not of a line — so it spotlights nothing. */
+const TAB_TO_DIFF_KIND: Record<TabKey, DiffKind | null> = {
+  CVEs: null, Added: 'inserted', Updated: 'modified', Removed: 'deleted', Unchanged: 'same',
+};
 
 /** A BOM CVE id may not be in the detected-CVE catalog — synthesise a consistent record so the
  *  link always lands on a real detail page. */
@@ -97,10 +105,12 @@ interface RowProps {
   /** Critical rows lead with a category pill + CVE count; section rows carry only the colour. */
   showKindPill: boolean;
   onOpenCve: (id: string) => void;
+  /** CVE rows open on arrival — the metadata and the CVE links are the reason to be there. */
+  defaultOpen?: boolean;
 }
 
-function DiffRow({ e, showKindPill, onOpenCve }: RowProps) {
-  const [open, setOpen] = useState(false);
+function DiffRow({ e, showKindPill, onOpenCve, defaultOpen = false }: RowProps) {
+  const [open, setOpen] = useState(defaultOpen);
   const meta = KIND_META[e.kind];
   const cves = e.cves ?? [];
 
@@ -219,7 +229,8 @@ export function BomCompareVersionsPanel({
   const [showScopes, setShowScopes] = useState(false);
   const [newer, setNewer] = useState(0);
   const [older, setOlder] = useState(0);
-  const [tab, setTab] = useState<TabKey>('All');
+  const [tab, setTab] = useState<TabKey>('CVEs');
+  const [view, setView] = useState<'list' | 'diff'>('list');
   const [search, setSearch] = useState('');
   // One filter popup holds every dimension, so the toolbar stays a search box and an icon.
   const [showFilter, setShowFilter] = useState(false);
@@ -239,7 +250,7 @@ export function BomCompareVersionsPanel({
 
   useEffect(() => {
     if (!isOpen) return;
-    setScopeKey(productKey); setTab('All'); setSearch('');
+    setScopeKey(productKey); setTab('CVEs'); setSearch('');
     setKindFilter([]); setEcoFilter([]); setCveOnly(false); setShowFilter(false);
   }, [isOpen, productKey, type]);
 
@@ -267,8 +278,11 @@ export function BomCompareVersionsPanel({
   };
   const everything = [...diff.added, ...diff.updated, ...diff.removed, ...diff.unchangedEntries];
 
+  // CVEs leads — the vulnerable packages are why anyone opens a diff. "All" is gone: it
+  // duplicated the four category tabs underneath it.
+  const cveCarriers = everything.filter((e) => (e.cves?.length ?? 0) > 0);
   const TABS: { key: TabKey; n: number }[] = [
-    { key: 'All', n: everything.length },
+    { key: 'CVEs', n: cveCarriers.reduce((n, e) => n + (e.cves?.length ?? 0), 0) },
     ...KINDS.map((k) => ({ key: k as TabKey, n: byKind[k].length })),
   ];
 
@@ -282,16 +296,15 @@ export function BomCompareVersionsPanel({
     (ecoFilter.length === 0 || ecoFilter.includes(e.ecosystem)) &&
     (!cveOnly || (e.cves?.length ?? 0) > 0);
 
-  // All tab: the CVE carriers lead as a highlight, then EVERY category lists its full set —
-  // excluding the critical ones made Added vanish whenever all its components carried CVEs.
-  const critical = everything.filter((e) => (e.cves?.length ?? 0) > 0).filter(passes);
+  // CVEs tab keeps the same four-way split, but only the packages that carry vulnerabilities.
+  const cveRows = (k: BomDiffEntry['kind']) => byKind[k].filter((e) => (e.cves?.length ?? 0) > 0).filter(passes);
   const sectionRows = (k: BomDiffEntry['kind']) => byKind[k].filter(passes);
 
   const toggle = (list: string[], set: (v: string[]) => void, v: string) =>
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
-  const visibleCount = tab === 'All'
-    ? KINDS.reduce((n, k) => n + sectionRows(k).length, 0)
+  const visibleCount = tab === 'CVEs'
+    ? KINDS.reduce((n, k) => n + cveRows(k).length, 0)
     : byKind[tab as BomDiffEntry['kind']].filter(passes).length;
 
   const SectionHeader = ({ k, n }: { k: BomDiffEntry['kind']; n: number }) => {
@@ -366,6 +379,23 @@ export function BomCompareVersionsPanel({
               )}
             </div>
           </div>
+
+          {/* View toggle — belongs to the comparison as a whole, so it sits on this row and the
+              version pickers above stay put when the view changes. */}
+          <div className="ml-auto inline-flex items-center gap-1 rounded border border-[#DFE5ED] p-0.5">
+            {(['list', 'diff'] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-[13px] font-medium transition-colors ${
+                  view === v ? 'bg-[#3D8BD0] text-white' : 'text-[#364658] hover:bg-[#F5F7FA]'
+                }`}
+              >
+                {v === 'list' ? <ListIcon size={14} /> : <Columns2 size={14} />}
+                {v === 'list' ? 'List' : 'Diff'}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Tabs */}
@@ -384,8 +414,8 @@ export function BomCompareVersionsPanel({
           ))}
         </div>
 
-        {/* Search + one filter icon */}
-        <div className="flex items-center gap-2 px-5 pt-3">
+        {/* Search + one filter icon — list view only; the diff has its own per-pane search */}
+        <div className={`flex items-center gap-2 px-5 pt-3 ${view === 'diff' ? 'hidden' : ''}`}>
           <div className="relative flex-1">
             <input
               type="text"
@@ -478,38 +508,43 @@ export function BomCompareVersionsPanel({
           </div>
         </div>
 
+        {/* Diff view — the two CycloneDX documents, line by line. The active tab spotlights its
+            change kind inside the diff, so the tab strip means the same thing in both views. */}
+        {view === 'diff' && (
+          lo === hi ? (
+            <div className="py-14 text-center text-[13px] text-[#9CA3AF]">Pick two different versions to compare.</div>
+          ) : (
+            <BomDiffView
+              endpointId={endpointId}
+              productKey={scope.key}
+              type={type}
+              older={lo}
+              newer={hi}
+              spotlight={TAB_TO_DIFF_KIND[tab]}
+            />
+          )
+        )}
+
         {/* Body */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        <div className={`min-h-0 flex-1 overflow-y-auto px-5 py-4 ${view === 'diff' ? 'hidden' : ''}`}>
           {lo === hi ? (
             <div className="py-14 text-center text-[13px] text-[#9CA3AF]">Pick two different versions to compare.</div>
           ) : visibleCount === 0 ? (
             <div className="py-14 text-center text-[13px] text-[#9CA3AF]">No components match your search and filters.</div>
-          ) : tab === 'All' ? (
+          ) : tab === 'CVEs' ? (
+            /* Vulnerable packages only, still split by what the version did to them — a CVE that
+               arrived with an added package is a different problem from one that was already
+               there and stayed. */
             <>
-              {critical.length > 0 && (
-                <div className="mb-10">
-                  <div className="mb-2 flex items-center gap-2">
-                    <ShieldAlert size={15} className="text-[#DC2626]" />
-                    <span className="text-[12px] font-semibold uppercase tracking-wide text-[#DC2626]">Critical vulnerability</span>
-                    <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#FEF3F2] px-1 text-[11px] font-semibold text-[#DC2626]">{critical.length}</span>
-                  </div>
-                  <div className="space-y-2">
-                    {critical.map((e, i) => (
-                      <DiffRow key={`crit-${e.kind}-${e.name}-${i}`} e={e} showKindPill onOpenCve={openCve} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {KINDS.map((k) => {
-                const rows = sectionRows(k);
+                const rows = cveRows(k);
                 if (!rows.length) return null;
                 return (
                   <div key={k} className="mb-10">
                     <SectionHeader k={k} n={rows.length} />
                     <div className="space-y-2">
                       {rows.map((e, i) => (
-                        <DiffRow key={`${k}-${e.name}-${i}`} e={e} showKindPill={false} onOpenCve={openCve} />
+                        <DiffRow key={`cve-${k}-${e.name}-${i}`} e={e} showKindPill onOpenCve={openCve} defaultOpen />
                       ))}
                     </div>
                   </div>

@@ -521,6 +521,104 @@ export const bomDiff = (endpointId: string, productKey: string, type: BomType, f
 };
 
 // ---------------------------------------------------------------------------
+// Point-in-time inventory + the CycloneDX document, for the side-by-side diff.
+// ---------------------------------------------------------------------------
+
+/** A component as it stood at one version, flattened across the three BOM types. */
+export interface DocComponent {
+  name: string;
+  version: string;
+  type: string;
+  purl?: string;
+  license?: string;
+}
+
+const asDocComponents = (endpointId: string, productKey: string, type: BomType): DocComponent[] => {
+  if (type === 'SBOM') {
+    return bomComponents(endpointId, productKey).map((c) => ({
+      name: c.name, version: c.version, type: c.type.toLowerCase(), purl: c.purl, license: c.license,
+    }));
+  }
+  if (type === 'CBOM') {
+    return bomCryptoAssets(endpointId, productKey).map((c) => ({
+      name: c.name, version: c.keyLength, type: c.primitive.toLowerCase(), purl: c.location, license: c.protocol,
+    }));
+  }
+  return bomAiModels(endpointId, productKey).map((m) => ({
+    name: m.name, version: m.version, type: m.task.toLowerCase(), purl: m.usage, license: m.license,
+  }));
+};
+
+/** The inventory as it stood at `version`. The catalog represents the newest version, so older
+ *  ones are reconstructed by walking the diffs backwards — remove what that version added,
+ *  restore what it updated, put back what it removed. */
+export const componentsAtVersion = (
+  endpointId: string, productKey: string, type: BomType, version: number,
+): DocComponent[] => {
+  const versions = bomVersions(endpointId, productKey, type);
+  const newest = versions.length ? Math.max(...versions.map((v) => v.v)) : 1;
+  let list = asDocComponents(endpointId, productKey, type);
+
+  for (let v = newest; v > version; v--) {
+    const d = bomDiff(endpointId, productKey, type, v - 1, v);
+    const addedNames = new Set(d.added.map((e) => e.name));
+    list = list.filter((c) => !addedNames.has(c.name));
+    const revert = new Map(d.updated.map((e) => [e.name, e.fromVersion ?? e.version]));
+    list = list.map((c) => (revert.has(c.name) ? { ...c, version: revert.get(c.name)! } : c));
+    d.removed.forEach((e) => {
+      if (!list.some((c) => c.name === e.name)) {
+        list.push({ name: e.name, version: e.version, type: 'library', purl: e.purl, license: e.license });
+      }
+    });
+  }
+  return list;
+};
+
+/** The CycloneDX 1.6 document for one version — what a download would actually produce, and
+ *  what the diff view compares line by line. */
+export const bomDocument = (
+  endpointId: string, productKey: string, type: BomType, version: number,
+): string => {
+  const comps = componentsAtVersion(endpointId, productKey, type, version);
+  const v = bomVersions(endpointId, productKey, type).find((x) => x.v === version);
+  const ep = mockEndpoints.find((e) => e.id === endpointId);
+  const h = hash(`${endpointId}:${productKey}:${type}`);
+  const uuid = `urn:uuid:${h.toString(16).padStart(8, '0')}-4b2a-4f6c-9d31-${(h >>> 3).toString(16).padStart(8, '0')}`;
+
+  const lines: string[] = [];
+  lines.push('{');
+  lines.push('  "bomFormat": "CycloneDX",');
+  lines.push('  "specVersion": "1.6",');
+  lines.push(`  "serialNumber": "${uuid}",`);
+  lines.push(`  "version": ${version},`);
+  lines.push('  "metadata": {');
+  lines.push(`    "timestamp": "${v?.generatedAt ?? '—'}",`);
+  lines.push('    "tools": [');
+  lines.push('      { "vendor": "Motadata", "name": "ServiceOps Agent", "version": "8.7.408" }');
+  lines.push('    ],');
+  lines.push('    "component": {');
+  lines.push('      "type": "operating-system",');
+  lines.push(`      "name": "${ep?.osName ?? 'Unknown'}",`);
+  lines.push(`      "version": "${ep?.version ?? '—'}"`);
+  lines.push('    }');
+  lines.push('  },');
+  lines.push('  "components": [');
+  comps.forEach((c, i) => {
+    const last = i === comps.length - 1;
+    lines.push('    {');
+    lines.push(`      "type": "${c.type}",`);
+    lines.push(`      "name": "${c.name}",`);
+    lines.push(`      "version": "${c.version}",`);
+    if (c.license) lines.push(`      "licenses": [{ "license": { "id": "${c.license}" } }],`);
+    lines.push(`      "purl": "${c.purl ?? ''}"`);
+    lines.push(last ? '    }' : '    },');
+  });
+  lines.push('  ]');
+  lines.push('}');
+  return lines.join('\n');
+};
+
+// ---------------------------------------------------------------------------
 // Host-wide exclude paths — shared by every product scan on the host.
 // ---------------------------------------------------------------------------
 
