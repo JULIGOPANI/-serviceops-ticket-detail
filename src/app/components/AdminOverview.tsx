@@ -15,9 +15,12 @@ interface AdminOverviewProps {
   onQuery: (q: string) => void;
   /** Registers each section's node so the sidebar can scroll to it. */
   registerSection: (key: string, el: HTMLDivElement | null) => void;
+  /** Opens a card's real module. Returns false when there isn't one, so the card falls back to
+   *  the href toast. */
+  onOpenCard?: (sectionTitle: string, cardTitle: string) => boolean;
 }
 
-export function AdminOverview({ openKeys, onToggle, query, onQuery, registerSection }: AdminOverviewProps) {
+export function AdminOverview({ openKeys, onToggle, query, onQuery, registerSection, onOpenCard }: AdminOverviewProps) {
   const q = query.trim().toLowerCase();
 
   // A section survives search if its own name matches or any card does; when it survives on a
@@ -118,8 +121,13 @@ export function AdminOverview({ openKeys, onToggle, query, onQuery, registerSect
                         return (
                           <button
                             key={c.title}
-                            onClick={() => toast.success(`${c.title} — ${c.href}`)}
-                            className="group rounded-lg border border-[#E5E7EB] bg-white p-3.5 text-left transition-all hover:border-[#3D8BD0] hover:shadow-[0_1px_2px_rgba(16,24,40,0.04),0_2px_8px_rgba(16,24,40,0.06)]"
+                            onClick={() => {
+                              if (onOpenCard?.(s.title, c.title)) return;
+                              toast.success(`${c.title} — ${c.href}`);
+                            }}
+                            /* flex-col so a one-line description doesn't get centred against a
+                               taller neighbour — Chrome centres button content vertically. */
+                            className="group flex flex-col items-start rounded-lg border border-[#E5E7EB] bg-white p-3.5 text-left transition-all hover:border-[#3D8BD0] hover:shadow-[0_1px_2px_rgba(16,24,40,0.04),0_2px_8px_rgba(16,24,40,0.06)]"
                           >
                             <span className="flex items-center gap-2.5">
                               <span className="flex size-8 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#7B8FA5] transition-colors group-hover:bg-[#EBF5FF] group-hover:text-[#3D8BD0]">
