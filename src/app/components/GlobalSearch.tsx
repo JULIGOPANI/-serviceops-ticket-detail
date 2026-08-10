@@ -3,6 +3,7 @@ import {
   Search, X, CornerDownLeft, ArrowUp, ArrowDown, Sparkles, Clock, Compass,
   AlertTriangle, RotateCw, WifiOff, ChevronRight, Trash2, Info, Plus, BookOpen, FlaskConical,
   AppWindow, Boxes, Recycle, KeyRound, FileText, ShoppingCart, Monitor, Settings2, User,
+  SlidersHorizontal, BarChart3,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDrawerStack } from './DrawerStack';
@@ -17,6 +18,12 @@ import {
   OPERATOR_HELP, EXAMPLE_QUERIES,
 } from './globalSearchData';
 import type { SearchHit, SearchResult, SearchRole, IconKey, SearchGroup } from './globalSearchData';
+import { GroupFilterBar } from './GlobalSearchFilterUI';
+import {
+  applyFilters, filterSetFor, activeCount, anyActive, handoffSummary, trackFilter,
+  filterAnalytics, chipLabel,
+} from './globalSearchFilters';
+import type { ActiveFilter, GroupFilters } from './globalSearchFilters';
 
 /* Global Search — "One input. Find anything. Go anywhere."
  *
@@ -265,6 +272,8 @@ interface GlobalSearchProps {
 
 const THRESHOLD = 3;
 const DEBOUNCE = 200;
+/** Rows shown per group before "See all N" — Miller's Law, and it keeps every group reachable. */
+const PER_GROUP_ROWS = 4;
 
 export function GlobalSearch({ activePage, onNavigate }: GlobalSearchProps) {
   const { open: openInStack } = useDrawerStack();
@@ -282,6 +291,13 @@ export function GlobalSearch({ activePage, onNavigate }: GlobalSearchProps) {
   const [failedGroups, setFailedGroups] = useState<SearchGroup[]>([]);
   const [scopeLocked, setScopeLocked] = useState(false);
   const [restored, setRestored] = useState(false);
+  /** Per-group filters. Group-scoped by design — same-label fields mean different things across
+   *  modules, so there is deliberately no global filter row. */
+  const [groupFilters, setGroupFilters] = useState<GroupFilters>({});
+  /** Which group's Tier 1 row is expanded. Click-to-expand rather than hover, so revealing a row
+   *  never shifts the results sitting under the cursor. */
+  const [openFilterGroup, setOpenFilterGroup] = useState<SearchGroup | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -289,8 +305,11 @@ export function GlobalSearch({ activePage, onNavigate }: GlobalSearchProps) {
   const invokerRef = useRef<HTMLElement | null>(null);
   /** Guards against a slow response for an old query overwriting a newer one. */
   const requestRef = useRef(0);
-  /** The last query + results, so returning to search doesn't mean starting again. */
-  const lastSessionRef = useRef<{ query: string; result: SearchResult | null } | null>(null);
+  /** The last query, results AND filters, so returning to search doesn't mean starting again. */
+  const lastSessionRef = useRef<{ query: string; result: SearchResult | null; filters: GroupFilters } | null>(null);
+  /** Set while restoring a session, so the reset-filters-on-new-query effect skips that one run
+   *  — the query "changing" from empty to the restored value is not the user typing. */
+  const restoredFiltersRef = useRef<GroupFilters | null>(null);
 
   // ── Open / close ─────────────────────────────────────────────────────────
 
@@ -303,6 +322,10 @@ export function GlobalSearch({ activePage, onNavigate }: GlobalSearchProps) {
     if (last?.query) {
       setQuery(last.query);
       setResult(last.result);
+      // Filters are part of "where I was" — restoring the query without them would silently
+      // widen the results the user was looking at.
+      restoredFiltersRef.current = last.filters;
+      setGroupFilters(last.filters);
       setRestored(true);
     }
   }, []);
@@ -411,6 +434,62 @@ export function GlobalSearch({ activePage, onNavigate }: GlobalSearchProps) {
     return () => clearTimeout(t);
   }, [query, open, role, scenario, belowThreshold, trimmed, scopeLocked, activePage]);
 
+  // ── Filtering ────────────────────────────────────────────────────────────
+  // Applied over each group's full match set and then re-truncated, so a filter can surface a
+  // record that was previously below the 4-row fold. A group that had results before filtering
+  // and none after is kept, flagged, so the empty state can say which filters emptied it.
+
+  const filtered = useMemo(() => {
+    if (!result) return null;
+    if (!anyActive(groupFilters)) return { ...result, emptiedGroups: [] as SearchGroup[] };
+    const emptiedGroups: SearchGroup[] = [];
+    const groups = result.groups.map((g) => {
+      const fs = groupFilters[g.group] ?? [];
+      if (!activeCount(fs)) return g;
+      const kept = applyFilters(g.all, g.group, fs);
+      // An emptied group is KEPT, not dropped: dropping it would take the chips that emptied it
+      // off screen too, leaving the user with no way to see or undo what they did.
+      if (!kept.length) emptiedGroups.push(g.group);
+      return { ...g, all: kept, hits: kept.slice(0, PER_GROUP_ROWS), total: kept.length };
+    });
+    // A promoted result must obey its own group's filters too, or Enter would open a record the
+    // user has just filtered away.
+    const dom = result.dominant;
+    const domFilters = dom ? groupFilters[dom.group] ?? [] : [];
+    const dominant = dom && activeCount(domFilters) && !applyFilters([dom], dom.group, domFilters).length ? null : dom;
+    return {
+      ...result,
+      groups,
+      dominant,
+      dominantReason: dominant ? result.dominantReason : null,
+      total: groups.reduce((n, g) => n + g.total, 0) + (dominant ? 1 : 0),
+      emptiedGroups,
+    };
+  }, [result, groupFilters]);
+
+  // Instrumented so Product can check the Tier 1 assumptions against real behaviour rather than
+  // against the default-column guess they were derived from.
+  useEffect(() => {
+    if (!filtered) return;
+    if (anyActive(groupFilters)) trackFilter({ name: 'search_with_filters', count: Object.values(groupFilters).reduce((n, f) => n + activeCount(f), 0) });
+    if (filtered.total === 0 && filtered.emptiedGroups.length) trackFilter({ name: 'empty_after_filter', count: filtered.emptiedGroups.length });
+  }, [filtered, groupFilters]);
+
+  const setGroupFilter = useCallback((group: SearchGroup, next: ActiveFilter[], meta?: { fieldId?: string; tier?: 1 | 2; removed?: boolean; cleared?: boolean }) => {
+    setGroupFilters((prev) => ({ ...prev, [group]: next }));
+    if (meta?.cleared) trackFilter({ name: 'filters_cleared', group });
+    else if (meta?.removed) trackFilter({ name: 'filter_removed', group, fieldId: meta.fieldId });
+    else if (meta?.fieldId) trackFilter({ name: meta.tier === 2 ? 'tier2_applied' : 'tier1_applied', group, fieldId: meta.fieldId, count: activeCount(next) });
+  }, []);
+
+  // A new query starts from a clean slate — carrying filters into an unrelated search is the
+  // "accidental scope locking" the brief warns about. A restored session is exempt.
+  useEffect(() => {
+    if (restoredFiltersRef.current) { restoredFiltersRef.current = null; return; }
+    setGroupFilters({});
+    setOpenFilterGroup(null);
+  }, [trimmed]);
+
   // ── Flat navigable list ──────────────────────────────────────────────────
   // One array of everything Up/Down can land on, so keyboard order always matches visual order.
 
@@ -433,15 +512,15 @@ export function GlobalSearch({ activePage, onNavigate }: GlobalSearchProps) {
       localHits.forEach((h) => items.push({ kind: 'hit', hit: h }));
       return items;
     }
-    if (!result) return items;
-    if (result.dominant) items.push({ kind: 'hit', hit: result.dominant });
-    const shown = arrived ? result.groups.filter((g) => arrived.includes(g.group)) : result.groups;
+    if (!filtered) return items;
+    if (filtered.dominant) items.push({ kind: 'hit', hit: filtered.dominant });
+    const shown = arrived ? filtered.groups.filter((g) => arrived.includes(g.group)) : filtered.groups;
     shown.forEach((g) => {
       g.hits.forEach((h) => items.push({ kind: 'hit', hit: h }));
       if (g.total > g.hits.length) items.push({ kind: 'seeAll', group: g.group, total: g.total });
     });
     return items;
-  }, [trimmed, belowThreshold, localHits, result, recents, frequents, destinations, arrived, scenario]);
+  }, [trimmed, belowThreshold, localHits, filtered, recents, frequents, destinations, arrived, scenario]);
 
   useEffect(() => { setActiveIdx((i) => Math.min(i, Math.max(0, navItems.length - 1))); }, [navItems.length]);
 
@@ -457,7 +536,7 @@ export function GlobalSearch({ activePage, onNavigate }: GlobalSearchProps) {
   const openHit = useCallback((hit: SearchHit, newTab = false) => {
     pushRecentRecord(hit.key);
     if (trimmed) pushRecentQuery(query);
-    lastSessionRef.current = { query, result };
+    lastSessionRef.current = { query, result, filters: groupFilters };
 
     if (newTab) {
       // Ctrl/Cmd+Enter keeps search open so several results can be opened in a row.
@@ -472,15 +551,22 @@ export function GlobalSearch({ activePage, onNavigate }: GlobalSearchProps) {
     toast.success(`${hit.title}${hit.href ? ` — ${hit.href}` : ''}`);
   }, [openInStack, onNavigate, closeSearch, query, result, trimmed]);
 
-  /** "See all 47 in Requests" — the module list refines what search found, so carry the query. */
+  /** "See all 47 in Requests" — the module list refines what search found, so the query AND that
+   *  group's filters travel with it. Making the user rebuild them is the failure this prevents. */
   const seeAll = useCallback((group: SearchGroup) => {
     const page = GROUP_PAGE[group];
+    const carried = handoffSummary(group, groupFilters[group]);
     pushRecentQuery(query);
-    lastSessionRef.current = { query, result };
+    lastSessionRef.current = { query, result, filters: groupFilters };
+    if (carried.length) trackFilter({ name: 'see_all_with_filters', group, count: carried.length });
     closeSearch();
-    if (page) { onNavigate(page); toast.success(`${group} filtered by “${trimmed}”`); }
-    else toast.success(`${group} — “${trimmed}”`);
-  }, [onNavigate, closeSearch, query, result, trimmed]);
+    if (page) onNavigate(page);
+    toast.success(
+      carried.length
+        ? `${group}: “${trimmed}” · ${carried.join(' · ')}`
+        : `${group} filtered by “${trimmed}”`,
+    );
+  }, [onNavigate, closeSearch, query, result, trimmed, groupFilters]);
 
   const askAi = useCallback(() => {
     closeSearch();
@@ -748,15 +834,62 @@ export function GlobalSearch({ activePage, onNavigate }: GlobalSearchProps) {
       );
     }
 
-    if (!result) return null;
+    if (!result || !filtered) return null;
 
-    const shownGroups = arrived ? result.groups.filter((g) => arrived.includes(g.group)) : result.groups;
-    const pendingGroups = arrived ? result.groups.filter((g) => !arrived.includes(g.group)) : [];
+    // §"Empty Results After Filtering" — a query that HAD results before filters is a different
+    // situation from a query that never matched, and gets a different, actionable message.
+    if (filtered.total === 0 && filtered.emptiedGroups.length) {
+      return (
+        <div className="px-3 py-8">
+          <div className="flex flex-col items-center text-center">
+            <div className="mb-3 flex size-11 items-center justify-center rounded-full bg-[#F5F7FA]">
+              <SlidersHorizontal size={19} className="text-[#9CA3AF]" />
+            </div>
+            <div className="text-[14px] font-medium text-[#364658]">No results match these filters</div>
+            <div className="mt-1 max-w-[440px] text-[13px] leading-[1.6] text-[#7B8FA5]">
+              “{trimmed}” matched {result.total} record{result.total === 1 ? '' : 's'}, but nothing in{' '}
+              {filtered.emptiedGroups.join(', ')} passes the filters you set.
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
+            {filtered.emptiedGroups.flatMap((g) =>
+              (groupFilters[g] ?? []).filter((f) => f.values.length).map((f) => {
+                const field = filterSetFor(g)?.fields.find((x) => x.id === f.fieldId);
+                if (!field) return null;
+                return (
+                  <button
+                    key={`${g}:${f.fieldId}`}
+                    onClick={() => setGroupFilter(g, (groupFilters[g] ?? []).filter((x) => x.fieldId !== f.fieldId), { fieldId: f.fieldId, removed: true })}
+                    className="flex items-center gap-1 rounded border border-[#3D8BD0] bg-[#EBF5FF] px-2 py-0.5 text-[12px] font-medium text-[#3D8BD0] transition-colors hover:bg-[#DBEAFE]"
+                  >
+                    {g} · {chipLabel(field, f.values)} <X size={11} />
+                  </button>
+                );
+              }),
+            )}
+          </div>
+          <div className="mt-4 flex justify-center gap-2">
+            <button
+              onClick={() => { setGroupFilters({}); trackFilter({ name: 'filters_cleared' }); }}
+              className="rounded bg-[#3D8BD0] px-3 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
+            >
+              Clear all filters
+            </button>
+            <button onClick={askAi} className="inline-flex items-center gap-1.5 rounded border border-[#DFE5ED] bg-white px-3 py-1.5 text-[13px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0]">
+              <Sparkles size={13} className="text-[#8B5CF6]" /> Ask AI about this
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    const shownGroups = arrived ? filtered.groups.filter((g) => arrived.includes(g.group)) : filtered.groups;
+    const pendingGroups = arrived ? filtered.groups.filter((g) => !arrived.includes(g.group)) : [];
 
     return (
       <>
         {/* §15 — a very broad query says so out loud rather than truncating in silence. */}
-        {result.capped && (
+        {result.capped && !anyActive(groupFilters) && (
           <div className="mx-3 mt-3 flex flex-wrap items-center gap-2 rounded border border-[#DFE5ED] bg-[#F8FAFC] px-3 py-2 text-[12px] text-[#64748B]">
             <Info size={13} className="flex-shrink-0 text-[#9CA3AF]" />
             <span>Showing the top {totalShown} of <span className="font-semibold text-[#364658]">{result.total}</span> results — add a filter to narrow it down.</span>
@@ -767,39 +900,103 @@ export function GlobalSearch({ activePage, onNavigate }: GlobalSearchProps) {
           </div>
         )}
 
-        {/* §26 — one group failing degrades that group only. */}
+        {/* §26 — one group failing degrades that group only. The wording follows whether the
+            group was being filtered, since "couldn't be filtered" is the more useful fact. */}
         {failedGroups.map((g) => (
           <div key={g} className="mx-3 mt-3 flex items-center gap-2.5 rounded border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2 text-[12px]">
             <AlertTriangle size={14} className="flex-shrink-0 text-[#EA580C]" />
-            <span className="text-[#9A3412]"><span className="font-medium">{g}</span> couldn’t be searched.</span>
+            <span className="text-[#9A3412]">
+              <span className="font-medium">{g}</span> couldn’t be {activeCount(groupFilters[g]) ? 'filtered' : 'searched'}.
+            </span>
             <button onClick={() => { setFailedGroups([]); setScenario('normal'); }} className="ml-auto flex items-center gap-1 rounded border border-[#FED7AA] bg-white px-2 py-0.5 font-medium text-[#9A3412] transition-colors hover:bg-[#FFF7ED]">
               <RotateCw size={11} /> Retry
             </button>
           </div>
         ))}
 
-        {result.dominant && (() => {
+        {filtered.dominant && (() => {
           const i = nextIdx();
+          const dom = filtered.dominant;
           return (
             <div key="dominant" className="px-3 pt-3" data-nav-active={i === activeIdx}>
               <DominantRow
-                hit={result.dominant}
-                reason={result.dominantReason ?? 'relevance'}
+                hit={dom}
+                reason={filtered.dominantReason ?? 'relevance'}
                 active={i === activeIdx}
                 onHover={() => setActiveIdx(i)}
-                onOpen={(newTab) => openHit(result.dominant!, newTab)}
+                onOpen={(newTab) => openHit(dom, newTab)}
               />
             </div>
           );
         })()}
 
-        {shownGroups.map((g) => (
-          <div key={g.group}>
-            <GroupHeader label={g.group} right={<span className="text-[11px] text-[#9CA3AF]">{g.total}</span>} />
-            {g.hits.map(row)}
-            {g.total > g.hits.length && seeAllRow(g.group, g.total)}
-          </div>
-        ))}
+        {shownGroups.map((g) => {
+          const fs = groupFilters[g.group] ?? [];
+          const n = activeCount(fs);
+          const filterable = !!filterSetFor(g.group);
+          const raw = result.groups.find((x) => x.group === g.group);
+          return (
+            <div key={g.group}>
+              <GroupHeader
+                label={g.group}
+                right={
+                  <span className="flex items-center gap-2">
+                    {/* Admin Settings and Destinations are name-matched navigation — filters
+                        there would be noise, so they get no control at all. */}
+                    {filterable && (
+                      <button
+                        onClick={() => {
+                          const next = openFilterGroup === g.group ? null : g.group;
+                          setOpenFilterGroup(next);
+                          if (next) trackFilter({ name: 'picker_opened', group: g.group });
+                        }}
+                        aria-expanded={openFilterGroup === g.group}
+                        className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium transition-colors ${
+                          n ? 'bg-[#EBF5FF] text-[#3D8BD0]' : 'text-[#7B8FA5] hover:bg-[#F3F4F6]'
+                        }`}
+                      >
+                        <SlidersHorizontal size={11} />
+                        {n ? `${n} filter${n === 1 ? '' : 's'}` : 'Filter'}
+                      </button>
+                    )}
+                    <span className="text-[11px] text-[#9CA3AF]">
+                      {n && raw ? `${g.total} of ${raw.total}` : g.total}
+                    </span>
+                  </span>
+                }
+              />
+              {filterable && (openFilterGroup === g.group || n > 0) && (
+                <GroupFilterBar
+                  group={g.group}
+                  filters={fs}
+                  hits={raw?.all ?? g.all}
+                  expanded={openFilterGroup === g.group}
+                  onToggleExpanded={() => setOpenFilterGroup(openFilterGroup === g.group ? null : g.group)}
+                  onChange={(next, meta) => setGroupFilter(g.group, next, meta)}
+                />
+              )}
+              {g.total === 0 ? (
+                <div className="mx-3 mb-1 flex flex-wrap items-center gap-2 rounded bg-[#F8FAFC] px-3 py-2 text-[12px] text-[#64748B]">
+                  <SlidersHorizontal size={12} className="flex-shrink-0 text-[#9CA3AF]" />
+                  <span>
+                    None of the {raw?.total ?? 0} {g.group} match{(raw?.total ?? 0) === 1 ? 'es' : ''} these filters.
+                  </span>
+                  <button
+                    onClick={() => setGroupFilter(g.group, [], { cleared: true })}
+                    className="ml-auto font-medium text-[#3D8BD0] hover:underline"
+                  >
+                    Clear {g.group} filters
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {g.hits.map(row)}
+                  {g.total > g.hits.length && seeAllRow(g.group, g.total)}
+                </>
+              )}
+            </div>
+          );
+        })}
 
         {/* §28 — groups render as they arrive; the slowest module never holds up the rest. */}
         {pendingGroups.map((g) => <SkeletonGroup key={g.group} label={g.group} rows={Math.min(g.hits.length || 2, 3)} />)}
@@ -974,6 +1171,43 @@ export function GlobalSearch({ activePage, onNavigate }: GlobalSearchProps) {
                       <span className="block text-[11px] text-[#7B8FA5]">{s.desc}</span>
                     </button>
                   ))}
+                  {/* The filter analytics the brief asks to instrument. A real build ships these
+                      to a collector; here they are readable so the events can be verified. */}
+                  <div className="mt-1 border-t border-[#F0F2F5] pt-1">
+                    <button
+                      onClick={() => setShowAnalytics((v) => !v)}
+                      className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[12px] font-medium text-[#364658] transition-colors hover:bg-[#F9FAFB]"
+                    >
+                      <BarChart3 size={12} className="text-[#7B8FA5]" />
+                      Filter analytics
+                      <ChevronRight size={12} className={`ml-auto text-[#9CA3AF] transition-transform ${showAnalytics ? 'rotate-90' : ''}`} />
+                    </button>
+                    {showAnalytics && (() => {
+                      const a = filterAnalytics();
+                      if (!a.totals.length) return <div className="px-3 pb-2 text-[11px] text-[#9CA3AF]">No filter events yet — apply a filter.</div>;
+                      return (
+                        <div className="px-3 pb-2">
+                          {a.totals.map(([name, n]) => (
+                            <div key={name} className="flex justify-between py-px text-[11px]">
+                              <span className="text-[#7B8FA5]">{name.replace(/_/g, ' ')}</span>
+                              <span className="font-semibold text-[#364658]">{n}</span>
+                            </div>
+                          ))}
+                          {!!a.topFields.length && (
+                            <>
+                              <div className="mt-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#9CA3AF]">Most-used filters</div>
+                              {a.topFields.map(([k, n]) => (
+                                <div key={k} className="flex justify-between py-px text-[11px]">
+                                  <span className="truncate text-[#7B8FA5]">{k}</span>
+                                  <span className="ml-2 font-semibold text-[#364658]">{n}</span>
+                                </div>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               </>
             )}

@@ -147,33 +147,34 @@ export const subscribeSearchRole = (f: () => void) => {
 // built list pages for. They are indexed anyway — a technician searching "VPN" expects the
 // knowledge article, and leaving the group out would misrepresent the feature.
 
-interface KbArticle { id: string; title: string; category: string; author: string; updated: string; views: number }
+interface KbArticle { id: string; title: string; category: string; author: string; created: string; updated: string; views: number }
 
 const KB_ARTICLES: KbArticle[] = [
-  { id: 'KB-1042', title: 'How to connect to the corporate VPN (Windows & macOS)', category: 'Network', author: 'Tabrez Khan', updated: '12 Jul 2026', views: 3410 },
-  { id: 'KB-1038', title: 'VPN disconnects every few minutes — troubleshooting steps', category: 'Network', author: 'Neha Raje', updated: '02 Jul 2026', views: 1876 },
-  { id: 'KB-1031', title: 'Reset your Active Directory password from the portal', category: 'Accounts', author: 'Farah Sheikh', updated: '28 Jun 2026', views: 5920 },
-  { id: 'KB-1027', title: 'Request a new laptop — eligibility and approval flow', category: 'Hardware', author: 'Rohan Mehta', updated: '19 Jun 2026', views: 2140 },
-  { id: 'KB-1019', title: 'Outlook not receiving mail after mailbox migration', category: 'Email', author: 'Vikram Sethi', updated: '11 Jun 2026', views: 1502 },
-  { id: 'KB-1014', title: 'Printer setup guide — floor-wise queue names', category: 'Hardware', author: 'Imran Qureshi', updated: '04 Jun 2026', views: 986 },
-  { id: 'KB-1008', title: 'Enable BitLocker on a corporate Windows laptop', category: 'Security', author: 'Neha Raje', updated: '27 May 2026', views: 1320 },
-  { id: 'KB-0994', title: 'Wi-Fi troubleshooting on the 3rd floor access points', category: 'Network', author: 'Tabrez Khan', updated: '15 May 2026', views: 774 },
-  { id: 'KB-0987', title: 'Onboarding checklist for a new employee (IT scope)', category: 'Onboarding', author: 'Rohan Mehta', updated: '30 Apr 2026', views: 2605 },
-  { id: 'KB-0961', title: 'Requesting software: approved catalogue and licence rules', category: 'Software', author: 'Farah Sheikh', updated: '18 Apr 2026', views: 1189 },
-  { id: 'KB-0940', title: 'Deprecated: legacy VPN client (Cisco AnyConnect) setup', category: 'Network', author: 'Vikram Sethi', updated: '09 Jan 2026', views: 210 },
+  { id: 'KB-1042', title: 'How to connect to the corporate VPN (Windows & macOS)', category: 'Network', author: 'Tabrez Khan', created: '02 Aug 2026', updated: '12 Jul 2026', views: 3410 },
+  { id: 'KB-1038', title: 'VPN disconnects every few minutes — troubleshooting steps', category: 'Network', author: 'Neha Raje', created: '28 Jul 2026', updated: '02 Jul 2026', views: 1876 },
+  { id: 'KB-1031', title: 'Reset your Active Directory password from the portal', category: 'Accounts', author: 'Farah Sheikh', created: '14 Jun 2026', updated: '28 Jun 2026', views: 5920 },
+  { id: 'KB-1027', title: 'Request a new laptop — eligibility and approval flow', category: 'Hardware', author: 'Rohan Mehta', created: '02 Jun 2026', updated: '19 Jun 2026', views: 2140 },
+  { id: 'KB-1019', title: 'Outlook not receiving mail after mailbox migration', category: 'Email', author: 'Vikram Sethi', created: '21 May 2026', updated: '11 Jun 2026', views: 1502 },
+  { id: 'KB-1014', title: 'Printer setup guide — floor-wise queue names', category: 'Hardware', author: 'Imran Qureshi', created: '09 May 2026', updated: '04 Jun 2026', views: 986 },
+  { id: 'KB-1008', title: 'Enable BitLocker on a corporate Windows laptop', category: 'Security', author: 'Neha Raje', created: '30 Apr 2026', updated: '27 May 2026', views: 1320 },
+  { id: 'KB-0994', title: 'Wi-Fi troubleshooting on the 3rd floor access points', category: 'Network', author: 'Tabrez Khan', created: '11 Apr 2026', updated: '15 May 2026', views: 774 },
+  { id: 'KB-0987', title: 'Onboarding checklist for a new employee (IT scope)', category: 'Onboarding', author: 'Rohan Mehta', created: '18 Mar 2026', updated: '30 Apr 2026', views: 2605 },
+  { id: 'KB-0961', title: 'Requesting software: approved catalogue and licence rules', category: 'Software', author: 'Farah Sheikh', created: '02 Mar 2026', updated: '18 Apr 2026', views: 1189 },
+  { id: 'KB-0940', title: 'Deprecated: legacy VPN client (Cisco AnyConnect) setup', category: 'Network', author: 'Vikram Sethi', created: '06 Nov 2025', updated: '09 Jan 2026', views: 210 },
 ];
 /** The one deprecated article demonstrates include:archived rather than being decoration. */
 const KB_ARCHIVED = new Set(['KB-0940']);
 
-interface ProjectRec { id: string; name: string; status: string; manager: string; due: string }
+// Priority and start date exist because the Tier 1 filter set for Projects calls for them.
+interface ProjectRec { id: string; name: string; status: string; priority: string; manager: string; start: string; due: string }
 
 const PROJECTS: ProjectRec[] = [
-  { id: 'PRJ-4', name: 'Datacenter migration to Mumbai DC2', status: 'In Progress', manager: 'Vikram Sethi', due: '30 Sep 2026' },
-  { id: 'PRJ-7', name: 'Windows 11 fleet upgrade', status: 'In Progress', manager: 'Tabrez Khan', due: '15 Dec 2026' },
-  { id: 'PRJ-9', name: 'VPN replacement — zero trust rollout', status: 'Planning', manager: 'Neha Raje', due: '28 Feb 2027' },
-  { id: 'PRJ-11', name: 'Service desk knowledge base refresh', status: 'In Progress', manager: 'Rohan Mehta', due: '31 Aug 2026' },
-  { id: 'PRJ-12', name: 'Asset barcode re-tagging — all offices', status: 'On Hold', manager: 'Imran Qureshi', due: '—' },
-  { id: 'PRJ-14', name: 'Office 365 tenant consolidation', status: 'Completed', manager: 'Farah Sheikh', due: '12 Mar 2026' },
+  { id: 'PRJ-4', name: 'Datacenter migration to Mumbai DC2', status: 'In Progress', priority: 'High', manager: 'Vikram Sethi', start: '06 Apr 2026', due: '30 Sep 2026' },
+  { id: 'PRJ-7', name: 'Windows 11 fleet upgrade', status: 'In Progress', priority: 'Medium', manager: 'Tabrez Khan', start: '18 May 2026', due: '15 Dec 2026' },
+  { id: 'PRJ-9', name: 'VPN replacement — zero trust rollout', status: 'Planning', priority: 'High', manager: 'Neha Raje', start: '03 Aug 2026', due: '28 Feb 2027' },
+  { id: 'PRJ-11', name: 'Service desk knowledge base refresh', status: 'In Progress', priority: 'Low', manager: 'Rohan Mehta', start: '13 Apr 2026', due: '31 Aug 2026' },
+  { id: 'PRJ-12', name: 'Asset barcode re-tagging — all offices', status: 'On Hold', priority: 'Low', manager: 'Imran Qureshi', start: '26 Jan 2026', due: '—' },
+  { id: 'PRJ-14', name: 'Office 365 tenant consolidation', status: 'Completed', priority: 'Medium', manager: 'Farah Sheikh', start: '05 Nov 2025', due: '12 Mar 2026' },
 ];
 
 interface UserRec { name: string; title: string; department: string; email: string; location: string }
@@ -494,7 +495,7 @@ function buildIndex(): SearchHit[] {
 
   KB_ARTICLES.forEach((k) => push({
     key: `kb:${k.id}`, group: 'Knowledge', type: 'Knowledge Article', id: k.id, title: k.title,
-    icon: 'knowledge', href: `/knowledge/${k.id}`,
+    icon: 'knowledge', href: `/knowledge/${k.id}`, data: k,
     fields: [
       { label: 'Category', value: k.category },
       { label: 'Author', value: k.author },
@@ -507,18 +508,18 @@ function buildIndex(): SearchHit[] {
 
   PROJECTS.forEach((p) => push({
     key: `prj:${p.id}`, group: 'Projects', type: 'Project', id: p.id, title: p.name,
-    icon: 'project', href: `/project/${p.id}`,
+    icon: 'project', href: `/project/${p.id}`, data: p,
     fields: [
       { label: 'Status', value: p.status, dot: dotFor(STATUS_DOT, p.status) },
-      { label: 'Manager', value: p.manager },
+      { label: 'Owner', value: p.manager },
       { label: 'Due', value: p.due },
     ],
-    facets: { type: ['project', 'prj'], status: p.status, people: [p.manager], tags: [] },
+    facets: { type: ['project', 'prj'], status: p.status, people: [p.manager], tags: [norm(p.priority).toLowerCase()] },
   }));
 
   USERS.forEach((u) => push({
     key: `user:${u.email}`, group: 'Users', type: 'User', title: u.name,
-    icon: 'user', href: `/user/${u.email}`,
+    icon: 'user', href: `/user/${u.email}`, data: u,
     fields: [
       { label: 'Title', value: u.title },
       { label: 'Department', value: u.department },
@@ -530,7 +531,7 @@ function buildIndex(): SearchHit[] {
 
   REPORTS.forEach((r) => push({
     key: `rpt:${r.id}`, group: 'Reports & Dashboards', type: r.kind, id: r.id, title: r.name,
-    icon: r.kind === 'Dashboard' ? 'dashboard' : 'report', href: `/${r.kind.toLowerCase()}/${r.id}`,
+    icon: r.kind === 'Dashboard' ? 'dashboard' : 'report', href: `/${r.kind.toLowerCase()}/${r.id}`, data: r,
     fields: [
       { label: 'Owner', value: r.owner },
       { label: 'Access', value: r.access },
@@ -675,6 +676,9 @@ export interface GroupResult {
   hits: SearchHit[];
   /** Before per-group truncation, so "See all 47" tells the truth. */
   total: number;
+  /** Every match in this group, in rank order. Filtering runs over this and re-truncates, so a
+   *  filter can surface a record that was previously below the fold. */
+  all: SearchHit[];
 }
 
 export interface SearchResult {
@@ -729,9 +733,9 @@ export function runSearch(raw: string, opts: { role?: SearchRole } = {}): Search
 
   const groups: GroupResult[] = [];
   for (const g of SEARCH_GROUPS) {
-    const inGroup = scored.filter(({ hit }) => hit.group === g && hit !== dominant);
+    const inGroup = scored.filter(({ hit }) => hit.group === g && hit !== dominant).map((s) => s.hit);
     if (!inGroup.length) continue;
-    groups.push({ group: g, hits: inGroup.slice(0, PER_GROUP).map((s) => s.hit), total: inGroup.length });
+    groups.push({ group: g, hits: inGroup.slice(0, PER_GROUP), total: inGroup.length, all: inGroup });
   }
 
   return { parsed, groups, total, dominant, dominantReason, capped };
