@@ -1,5 +1,6 @@
 import { Plus, Calendar, Bell, Settings, Keyboard, Info } from 'lucide-react';
 import svgPaths from "../../imports/svg-vmnsig04gh";
+import { GlobalSearchButton } from './GlobalSearch';
 
 function MotadataLogo() {
   return (
@@ -132,7 +133,10 @@ export function Header({ selectedCount, onOpenAdmin }: HeaderProps) {
         <button className="flex h-[32px] w-[32px] items-center justify-center rounded bg-[#3D8BD0] text-white hover:bg-[#2d6ca0]">
           <Plus size={18} strokeWidth={2} />
         </button>
-        
+
+        {/* Global Search — before Calendar. Hides itself for a role with nothing to search. */}
+        <GlobalSearchButton />
+
         <button className="flex h-[32px] w-[32px] items-center justify-center rounded text-[#6b7280] hover:bg-[#f3f4f6]">
           <Calendar size={18} strokeWidth={2} />
         </button>
