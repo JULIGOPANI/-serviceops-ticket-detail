@@ -9,13 +9,16 @@ import { useDrawerStack } from './DrawerStack';
 import { mockEndpoints } from './EndpointsListPage';
 import type { Endpoint } from './EndpointsListPage';
 import { bomForEndpoint } from './bomData';
+import type { BomRecord } from './bomData';
+import { BomIngestPanel } from './BomIngestPanel';
+import type { IngestResult } from './BomIngestPanel';
 import type { Patch } from './PatchesListPage';
 
 /* BOM Inventory — the BOM module's listing. Same fleet as the Endpoints page, but every column
  * answers a BOM question (what was generated, how much of it, and how much of it is a problem).
  * Clicking a row opens that endpoint's detail page landed on its BOM tab. */
 
-type Scope = 'agent' | 'managed';
+type Scope = 'all' | 'agent' | 'managed';
 
 /** Adapt an endpoint onto the Patch shape the EndpointDrawer body expects, flagged so the
  *  drawer lands on the BOM tab (the same record opened from Patch/Vulnerability does not). */
@@ -34,47 +37,38 @@ const endpointToBomShape = (e: Endpoint): Patch => ({
 });
 
 function BomToolbar({
-  searchQuery, setSearchQuery, scope, setScope, agentCount, managedCount,
+  searchQuery, setSearchQuery, scope, setScope, allCount, agentCount, managedCount, onIngest,
 }: {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   scope: Scope;
   setScope: (s: Scope) => void;
+  allCount: number;
   agentCount: number;
   managedCount: number;
+  onIngest: () => void;
 }) {
   const IconBtn = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <button className="flex h-[30px] w-[30px] items-center justify-center rounded text-[#6b7280] hover:bg-[#f3f4f6]" title={title}>
       {children}
     </button>
   );
-  const ScopePill = ({ id, label, count }: { id: Scope; label: string; count: number }) => (
-    <button
-      onClick={() => setScope(id)}
-      className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[13px] font-medium transition-colors ${
-        scope === id ? 'bg-[#3D8BD0] text-white' : 'text-[#364658] hover:bg-[#F5F7FA]'
-      }`}
-    >
-      {label}
-      <span className={scope === id ? 'text-white/80' : 'text-[#7B8FA5]'}>· {count}</span>
-    </button>
-  );
+
+  const TABS: { id: Scope; label: string; count: number }[] = [
+    { id: 'all', label: 'All', count: allCount },
+    { id: 'agent', label: 'Agent CIs', count: agentCount },
+    { id: 'managed', label: 'Managed CIs', count: managedCount },
+  ];
 
   return (
     <div className="bg-white">
-      {/* First row: title + scope pills + Ingest CTA + actions */}
-      <div className="flex items-center justify-between px-6 py-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-[16px] font-semibold text-[#364658]">BOM Inventory</h1>
-          <div className="flex items-center gap-1 rounded border border-[#DFE5ED] p-0.5">
-            <ScopePill id="agent" label="Agent CIs" count={agentCount} />
-            <ScopePill id="managed" label="Managed CIs" count={managedCount} />
-          </div>
-        </div>
+      {/* First row: title + Ingest CTA + actions */}
+      <div className="flex items-center justify-between px-6 pb-2 pt-3">
+        <h1 className="text-[16px] font-semibold text-[#364658]">BOM Inventory</h1>
 
         <div className="flex items-center gap-1">
           <button
-            onClick={() => toast.success('BOM ingestion started — upload a CycloneDX or SPDX document to attach it to a CI')}
+            onClick={onIngest}
             className="mr-1 inline-flex h-8 items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
           >
             <Plus size={15} /> Ingest BOM
@@ -87,8 +81,26 @@ function BomToolbar({
         </div>
       </div>
 
-      {/* Second row: full-width search */}
-      <div className="px-6 pb-3">
+      {/* Scope tabs — the standard content-tab treatment, under the title */}
+      <div className="flex items-center gap-2.5 border-b border-[#e5e7eb] px-6">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setScope(t.id)}
+            className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-3 text-[14px] font-medium transition-colors ${
+              scope === t.id
+                ? 'border-[#3D8BD0] text-[#3D8BD0]'
+                : 'border-transparent text-[#6b7280] hover:border-[#CBD5E1] hover:bg-[#F5F7FA] hover:text-[#364658]'
+            }`}
+          >
+            {t.label}
+            <span className={`rounded px-1 py-0.5 text-[12px] font-medium ${scope === t.id ? 'bg-[#E8F4FD] text-[#3D8BD0]' : 'bg-[#E5E7EB] text-[#364658]'}`}>{t.count}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="px-6 pb-3 pt-3">
         <div className="relative">
           <input
             type="text"
@@ -119,16 +131,52 @@ export function BomInventoryListPage({ onNavigate }: { onNavigate: (page: string
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showIngest, setShowIngest] = useState(false);
+  /** CIs whose BOM was ingested this session — the Managed CIs tab. */
+  const [ingested, setIngested] = useState<{ endpoint: Endpoint; bom: BomRecord; managed: true }[]>([]);
 
   useEffect(() => { setCurrentPage(1); setSelected(new Set()); }, [searchQuery, scope]);
+
+  /** Turn an ingest into a listing row. An ingested BOM has no scan history, so its counts come
+   *  from the document rather than from the deterministic per-endpoint generator. */
+  const addIngested = (r: IngestResult) => {
+    const seed = [...r.ciId + r.ciName].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 0);
+    const components = 40 + (seed % 260);
+    const endpoint: Endpoint = {
+      id: r.ciId, agentOnline: false, hostName: r.ciName, ipAddress: r.ipAddress,
+      osName: r.osName, version: null, servicePack: null, architecture: '64 BIT',
+      remoteOffice: null, systemHealth: null, tags: ['ingested'], rebootRequired: 'No',
+    };
+    const bom: BomRecord = {
+      endpointId: r.ciId,
+      status: 'Generated',
+      products: [{
+        key: r.product.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'ingested',
+        name: r.product, version: null, path: r.sourceLabel,
+        source: r.source === 'file' ? 'ingested · file upload' : 'ingested · API',
+        status: 'Scanned', lastScan: 'Just now', findings: seed % 6, excludePaths: [],
+        isDefault: true,
+      }],
+      components,
+      findings: seed % 6,
+      cryptoAssets: seed % 9,
+      aiModels: seed % 4,
+      lastGenerated: 'Just now',
+    };
+    setIngested((prev) => [{ endpoint, bom, managed: true }, ...prev.filter((x) => x.endpoint.id !== r.ciId)]);
+    setShowIngest(false);
+    setScope('managed');
+    toast.success(`${r.ciName} ingested · ${components} components mapped to ${r.ciId}`);
+  };
 
   const { open: openInStack } = useDrawerStack();
   const handleOpen = (e: Endpoint) => openInStack('endpoints', e.id, e.hostName, endpointToBomShape(e));
 
-  // Agent CIs = the fleet the agent reports on. Managed CIs (agentless / imported BOMs) is a
-  // separate ingest path and has no records in this prototype.
-  const all = mockEndpoints.map((e) => ({ endpoint: e, bom: bomForEndpoint(e.id) }));
-  const scoped = scope === 'agent' ? all : [];
+  // Agent CIs = the fleet the agent reports on. Managed CIs carry a BOM that was ingested
+  // rather than scanned, so they only exist once something has been ingested.
+  const agentRows = mockEndpoints.map((e) => ({ endpoint: e, bom: bomForEndpoint(e.id), managed: false }));
+  const managedRows = ingested;
+  const scoped = scope === 'agent' ? agentRows : scope === 'managed' ? managedRows : [...managedRows, ...agentRows];
 
   const q = searchQuery.trim().toLowerCase();
   const filtered = !q ? scoped : scoped.filter(({ endpoint: e, bom }) =>
@@ -165,12 +213,14 @@ export function BomInventoryListPage({ onNavigate }: { onNavigate: (page: string
           setSearchQuery={setSearchQuery}
           scope={scope}
           setScope={setScope}
-          agentCount={all.length}
-          managedCount={0}
+          allCount={agentRows.length + managedRows.length}
+          agentCount={agentRows.length}
+          managedCount={managedRows.length}
+          onIngest={() => setShowIngest(true)}
         />
         <main className="flex flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1 overflow-auto bg-white">
-            {scope === 'managed' ? (
+            {scope === 'managed' && managedRows.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 text-center">
                 <div className="mb-3 inline-flex size-14 items-center justify-center rounded-full bg-[#F5F7FA]">
                   <Layers className="size-6 text-[#9CA3AF]" />
@@ -181,6 +231,10 @@ export function BomInventoryListPage({ onNavigate }: { onNavigate: (page: string
                   <span className="font-medium text-[#364658]"> Ingest BOM </span>
                   to attach a CycloneDX or SPDX document to a CI.
                 </p>
+                <button
+                  onClick={() => setShowIngest(true)}
+                  className="mt-4 inline-flex h-8 items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
+                ><Plus size={15} /> Ingest BOM</button>
               </div>
             ) : (
               <BomInventoryTable
@@ -203,6 +257,8 @@ export function BomInventoryListPage({ onNavigate }: { onNavigate: (page: string
           />
         </main>
       </div>
+
+      <BomIngestPanel isOpen={showIngest} onClose={() => setShowIngest(false)} onIngest={addIngested} />
     </div>
   );
 }
