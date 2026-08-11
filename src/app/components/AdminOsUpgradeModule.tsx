@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Search, X, Eye, Upload, AlertCircle, CheckCircle2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { Pagination } from './Pagination';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { AdminOsUpgradeDetail } from './AdminOsUpgradeDetail';
 import { UploadIsoModal, UploadDock, UploadStatusPill, UPLOAD_TONE, jobPct } from './OsUpgradeUpload';
 import type { UploadJob } from './OsUpgradeUpload';
@@ -243,9 +244,10 @@ export function AdminOsUpgradeModule({ onExit }: AdminOsUpgradeModuleProps) {
           <h1 className="text-[20px] font-semibold text-[#364658]">OS Upgrade</h1>
           <p className="mt-1 text-[13px] leading-[1.6] text-[#7B8FA5]">
             Upload the ISO file for upgrading the OS of the computers.{' '}
+            {/* Explicit size — a bare button does NOT inherit the paragraph's font-size here. */}
             <button
               onClick={() => toast.success('Opening the OS Upgrade documentation')}
-              className="inline-flex items-center gap-1 font-medium text-[#3D8BD0] hover:underline"
+              className="inline-flex items-center gap-1 text-[13px] font-medium text-[#3D8BD0] hover:underline"
             >View Docs <ExternalLink size={12} /></button>
           </p>
         </div>
@@ -379,6 +381,8 @@ function UploadActivityPanel({ image, status, job, attempts, onClose }: {
 }) {
   const tone = UPLOAD_TONE[status];
   const live = job && (job.status === 'uploading' || job.status === 'paused');
+  /** Attempts are newest-first, so the head of the list is what the current state describes. */
+  const latest = attempts[0];
 
   // Every attempt status is also an upload status, so one tone map serves both.
   const attemptTone = (s: UploadAttempt['status']) => UPLOAD_TONE[s];
@@ -412,13 +416,32 @@ function UploadActivityPanel({ image, status, job, attempts, onClose }: {
                 </div>
                 <div className="mt-1.5 text-[12px] text-[#7B8FA5]">{formatBytes(job.loaded)} of {formatBytes(job.fileSize)} transferred</div>
               </>
+            ) : latest ? (
+              /* The file this state is about, then why it ended that way. A bare "Failed" tells
+                 an admin nothing they can act on — the reason is the whole point of opening this. */
+              <>
+                <div className="mt-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className="text-[13px] font-medium text-[#364658]">{latest.fileName}</span>
+                  <span className="text-[12px] text-[#7B8FA5]">{latest.size} · {latest.by} · {latest.at}</span>
+                </div>
+                {latest.detail && (
+                  <div className={`mt-2 flex items-start gap-2 rounded border px-3 py-2 text-[12px] ${
+                    latest.status === 'Failed'
+                      ? 'border-[#FEE4E2] bg-[#FFFBFA] text-[#DC2626]'
+                      : 'border-[#E5E7EB] bg-[#F9FAFB] text-[#64748B]'
+                  }`}>
+                    <AlertCircle size={14} className="mt-px flex-shrink-0" />
+                    <span>{latest.detail}</span>
+                  </div>
+                )}
+                {status === 'Uploaded' && (
+                  <div className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-[#22A06B]">
+                    <CheckCircle2 size={14} /> Ready to deploy
+                  </div>
+                )}
+              </>
             ) : (
-              <div className="mt-2 text-[13px] text-[#364658]">
-                {status === 'Uploaded' && <span className="inline-flex items-center gap-1.5 text-[#22A06B]"><CheckCircle2 size={15} /> {image.fileName} · {image.size} · {image.uploadTime}</span>}
-                {status === 'Failed' && <span className="inline-flex items-center gap-1.5 text-[#DC2626]"><AlertCircle size={15} /> The last attempt did not complete. Retry from the Action column.</span>}
-                {status === 'Cancelled' && <span className="text-[#64748B]">The last attempt was stopped before it finished.</span>}
-                {status === 'Not Uploaded' && <span className="text-[#64748B]">No ISO has been uploaded for this image yet.</span>}
-              </div>
+              <div className="mt-2 text-[13px] text-[#64748B]">No ISO has been uploaded for this image yet.</div>
             )}
           </div>
 
@@ -433,29 +456,43 @@ function UploadActivityPanel({ image, status, job, attempts, onClose }: {
               Nothing has been uploaded for {image.id} yet.
             </div>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-[#E5E7EB]">
-              <table className="w-full">
-                <thead className="bg-[#F9FAFB]">
+            /* Standard borderless listing grid — no card, no tinted header. Full-bleed via -mx-5
+               so the header rule spans the panel like it does on a list page. */
+            <div className="-mx-5 overflow-x-auto">
+              <table className="w-full min-w-[620px]">
+                <thead className="border-y border-[#e5e7eb]">
                   <tr>
                     {['File Name', 'Size', 'Uploaded By', 'Time', 'Status'].map((h) => (
-                      <th key={h} className="whitespace-nowrap px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">{h}</th>
+                      <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658]">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#F0F2F5]">
+                <tbody className="divide-y divide-[#e5e7eb] bg-white">
                   {attempts.map((a) => {
                     const t = attemptTone(a.status);
+                    const pill = (
+                      <span
+                        className={`inline-block rounded-sm px-2 py-0.5 text-[12px] font-medium ${a.detail ? 'cursor-help' : ''}`}
+                        style={{ color: t.fg, backgroundColor: t.bg }}
+                      >{a.status}</span>
+                    );
                     return (
-                      <tr key={a.id}>
-                        <td className="px-3 py-2.5">
-                          <div className="max-w-[260px] truncate text-[13px] text-[#364658]" title={a.fileName}>{a.fileName}</div>
-                          {a.detail && <div className="mt-0.5 max-w-[260px] text-[12px]" style={{ color: a.status === 'Failed' ? '#DC2626' : '#7B8FA5' }}>{a.detail}</div>}
+                      <tr key={a.id} className="transition-colors hover:bg-[#f9fafb]">
+                        <td className="px-4 py-3">
+                          <span className="block max-w-[280px] truncate text-[13px] text-[#364658]" title={a.fileName}>{a.fileName}</span>
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2.5 text-[13px] tabular-nums text-[#364658]">{a.size}</td>
-                        <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#364658]">{a.by}</td>
-                        <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#7B8FA5]">{a.at}</td>
-                        <td className="whitespace-nowrap px-3 py-2.5">
-                          <span className="rounded-sm px-2 py-0.5 text-[12px] font-medium" style={{ color: t.fg, backgroundColor: t.bg }}>{a.status}</span>
+                        <td className="whitespace-nowrap px-4 py-3 text-[13px] tabular-nums text-[#364658]">{a.size}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-[13px] text-[#364658]">{a.by}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-[13px] text-[#7B8FA5]">{a.at}</td>
+                        {/* The reason lives on the status, not under the file name — the row stays
+                            one line and the explanation is where the reader asks "why?". */}
+                        <td className="whitespace-nowrap px-4 py-3">
+                          {a.detail ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>{pill}</TooltipTrigger>
+                              <TooltipContent className="max-w-[280px] text-wrap">{a.detail}</TooltipContent>
+                            </Tooltip>
+                          ) : pill}
                         </td>
                       </tr>
                     );

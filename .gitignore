@@ -39,3 +39,12 @@ Thumbs.db
 # Local credentials — never commit
 credentials.txt
 *.credentials
+
+# Screenshots dropped into the project root while working. Project images live
+# under src/assets and src/imports; anything landing here is a working file and
+# must not be swept into a public repo by `git add -A`.
+/screencapture-*.png
+/Screenshot*.png
+/screenshot*.png
+/*.jpg
+/*.jpeg

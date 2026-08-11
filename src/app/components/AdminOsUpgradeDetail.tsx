@@ -154,25 +154,29 @@ export function AdminOsUpgradeDetail({ image, status, onCrumb }: AdminOsUpgradeD
 
   return (
     <div>
-      {/* ── Header band ── breadcrumb, title, KPI strip. One left edge for all three: the back
-          arrow used to sit beside the title and push it out of line with everything above it,
-          and the breadcrumb's "OS Upgrade" link is already the way back. */}
+      {/* ── Header band ── title + KPI strip own the left edge; the trail sits small at the top
+          right, because it is orientation and a way back, not the page's headline. (No back
+          arrow either — it used to sit beside the title and knock it out of line.) */}
       <div className="border-b border-[#e5e7eb] px-8 pb-4 pt-6">
-        <div className="flex items-center gap-1.5 text-[13px]">
-          {([['Admin', 'admin'], ['Patch Management', 'patch'], ['OS Upgrade', 'list']] as const).map(([label, to]) => (
-            <span key={label} className="inline-flex items-center gap-1.5">
-              <button onClick={() => onCrumb(to)} className="text-[#3D8BD0] transition-colors hover:underline">{label}</button>
-              <ChevronRight size={14} className="text-[#9CA3AF]" />
-            </span>
-          ))}
-          <span className="text-[#64748B]">{image.id}</span>
-        </div>
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0 flex-1">
+            <h1 className="flex items-center gap-2 truncate text-[18px] font-semibold text-[#364658]">
+              <HeaderIdPill id={image.id} />
+              <span className="truncate">{image.title}</span>
+            </h1>
+            <HeaderKpiRow items={kpis} />
+          </div>
 
-        <h1 className="mt-2 flex items-center gap-2 truncate text-[18px] font-semibold text-[#364658]">
-          <HeaderIdPill id={image.id} />
-          <span className="truncate">{image.title}</span>
-        </h1>
-        <HeaderKpiRow items={kpis} />
+          <div className="flex flex-shrink-0 items-center gap-1 pt-1 text-[12px]">
+            {([['Admin', 'admin'], ['Patch Management', 'patch'], ['OS Upgrade', 'list']] as const).map(([label, to]) => (
+              <span key={label} className="inline-flex items-center gap-1">
+                <button onClick={() => onCrumb(to)} className="text-[12px] text-[#3D8BD0] transition-colors hover:underline">{label}</button>
+                <ChevronRight size={12} className="text-[#9CA3AF]" />
+              </span>
+            ))}
+            <span className="text-[#64748B]">{image.id}</span>
+          </div>
+        </div>
       </div>
 
       {/* ── Tabs ── */}
@@ -236,7 +240,8 @@ export function AdminOsUpgradeDetail({ image, status, onCrumb }: AdminOsUpgradeD
               <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-[#E5E7EB] pt-3 text-[12px] text-[#7B8FA5]">
                 <span>Evaluated against <span className="font-semibold text-[#364658]">{fleet.length}</span> endpoints ·</span>
                 <span className="font-semibold text-[#22A06B]">{counts.Compatible} eligible</span>
-                <button onClick={() => setTab('computers')} className="ml-auto font-medium text-[#3D8BD0] hover:underline">View computers ›</button>
+                {/* Explicit size — a bare button does NOT inherit the row's font-size here. */}
+                <button onClick={() => setTab('computers')} className="ml-auto text-[12px] font-medium text-[#3D8BD0] hover:underline">View computers ›</button>
               </div>
             </div>
           </section>

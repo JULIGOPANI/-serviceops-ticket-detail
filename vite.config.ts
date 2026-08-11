@@ -36,4 +36,24 @@ export default defineConfig(({ command }) => ({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+
+  server: {
+    watch: {
+      /* Dropping a file into the project root — a screenshot, a spec — kills the dev server:
+       * the tool writing it holds a lock, Chokidar's watch() throws EBUSY on Windows, and the
+       * FSWatcher error is fatal. It has happened three times.
+       *
+       * Tradeoff: this stops watching images everywhere, including src/assets and src/imports,
+       * so replacing one of those needs a manual refresh. They are Figma exports that do not
+       * change mid-session, which is a cheap price for a dev server that stays up. */
+      ignored: [
+        '**/*.png', '**/*.jpg', '**/*.jpeg', '**/*.gif', '**/*.webp',
+        '**/*.zip', '**/*.pdf',
+        // Reference docs and briefs live in the root and are edited outside the app.
+        '**/BOM-DESIGN-SYSTEM.md', '**/SHORTCUTS.md', '**/ATTRIBUTIONS.md',
+        '**/ServiceOps_Global_Search_Claude_Prompt.md',
+        '**/Add Tiered Filtering to ServiceOps Global Search.md',
+      ],
+    },
+  },
 }))
