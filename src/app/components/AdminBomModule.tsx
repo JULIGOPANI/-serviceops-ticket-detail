@@ -901,7 +901,7 @@ function NewExceptionDrawer({ isOpen, onClose, onSave }: {
 
 export function AdminBomModule({ screen, onScreen }: { screen: BomAdminScreen; onScreen: (s: BomAdminScreen) => void }) {
   return (
-    <div className="mx-auto max-w-[1400px] px-8 py-6">
+    <div className="mx-auto max-w-[1400px] px-4 py-6">
       {screen === 'landing' && <Landing go={onScreen} />}
       {screen === 'licensing' && <Licensing go={onScreen} />}
       {screen === 'scheduler' && <Scheduler go={onScreen} />}

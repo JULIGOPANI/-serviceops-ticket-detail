@@ -115,7 +115,7 @@ export function AdminPage({ onNavigate }: { onNavigate: (page: string) => void }
             /* White, not the hub's grey: an admin LISTING is the same surface as a technician
                portal list page — head, search, then a full-bleed table with no card around it. */
             <div className="min-h-0 flex-1 overflow-y-auto bg-white">
-              <AdminOsUpgradeModule onExit={(to) => select(to === 'patch' ? 'Patch Management' : 'Overview')} />
+              <AdminOsUpgradeModule />
             </div>
           ) : (
             <AdminOverview

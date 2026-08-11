@@ -367,6 +367,8 @@ interface AssetFieldsProps {
   // Patch DEPLOYMENT page: within patchMode, show the deployment-run fields
   // (Status / Task Type / Deployment Policy / Install After / Expiry Date) instead.
   patchDeployMode?: boolean;
+  /** Patch DEPLOYMENT page: 'Patch' | 'OS Upgrade' for the Deployment Type field. */
+  deploymentType?: string;
   // ENDPOINT page: endpoint-inventory fields (host/OS/agent/scan info) instead of the patch catalog's.
   endpointMode?: boolean;
   // DETECTED CVE page: CVE-metadata fields.
@@ -378,7 +380,7 @@ interface AssetFieldsProps {
   footer?: React.ReactNode;
 }
 
-export function AssetFields({ state, pinnedFields, togglePinField, propertiesSearchQuery, softwareMode = false, nonItMode = false, licenseMode = false, contractMode = false, purchaseMode = false, patchMode = false, patchDeployMode = false, endpointMode = false, cveMode = false, cmdbMode = false, footer }: AssetFieldsProps) {
+export function AssetFields({ state, pinnedFields, togglePinField, propertiesSearchQuery, softwareMode = false, nonItMode = false, licenseMode = false, contractMode = false, purchaseMode = false, patchMode = false, patchDeployMode = false, deploymentType, endpointMode = false, cveMode = false, cmdbMode = false, footer }: AssetFieldsProps) {
   const { assetType, setAssetType, status, setStatus, impact, setImpact, managedByGroup, setManagedByGroup, managedBy, setManagedBy, ci } = state;
   const softwareType = state.softwareType ?? '';
   const setSoftwareType = state.setSoftwareType ?? (() => {});
@@ -607,6 +609,9 @@ export function AssetFields({ state, pinnedFields, togglePinField, propertiesSea
 
     // Patch DEPLOYMENT page variant — the deployment run's own properties, not the patch catalog's.
     const PATCH_DEPLOYMENT_FIELDS: PatchField[] = [
+      /* Leads the card: it decides what the run delivers, and therefore what every field under
+         it means. Passed in rather than hard-coded — a Patch run must not claim OS Upgrade. */
+      { label: 'Deployment Type', value: deploymentType ?? 'Patch' },
       { label: 'Status', value: 'Ready to Deploy', dot: '#3D8BD0' },
       { label: 'Task Type', value: 'Auto Patch Deploy Task' },
       { label: 'Deployment Policy', value: 'Production Servers — Staged Rollout' },

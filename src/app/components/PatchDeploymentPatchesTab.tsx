@@ -6,7 +6,7 @@ import type { PatchInstallation, InstallationStatus } from './PatchComputersTab'
  * Standard borderless grid + search, columns mirroring the patch catalog
  * (ID / Name / Category / Severity / Approval / Application / Release Date / KB / Size / UUID). */
 
-interface DeployedPatch {
+export interface DeployedPatch {
   id: string;
   name: string;
   category: string;

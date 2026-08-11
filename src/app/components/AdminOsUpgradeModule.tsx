@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, X, Eye, Upload, AlertCircle, CheckCircle2, ExternalLink } from 'lucide-react';
+import { Search, X, Eye, Upload, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { Pagination } from './Pagination';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
@@ -26,12 +26,9 @@ const scriptedFailure = (name: string) => (/fail|corrupt/i.test(name) ? 0.62 : u
 
 const inputCls = 'h-9 w-full rounded border border-[#d1d5db] bg-white pl-9 pr-8 text-[13px] text-[#364658] placeholder:text-[#9ca3af] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]';
 
-interface AdminOsUpgradeModuleProps {
-  /** Leaves the module — 'admin' goes to the Overview, 'patch' scrolls it to Patch Management. */
-  onExit: (to: 'admin' | 'patch') => void;
-}
-
-export function AdminOsUpgradeModule({ onExit }: AdminOsUpgradeModuleProps) {
+/* No exit prop: with both breadcrumbs gone, leaving the module is the sidebar's job (its nav
+ * rows and "Back to app"), and the detail page's back arrow only returns to the listing. */
+export function AdminOsUpgradeModule() {
   const [images, setImages] = useState<OsImage[]>(OS_IMAGES);
   const [jobs, setJobs] = useState<UploadJob[]>([]);
   const [attempts, setAttempts] = useState<Record<string, UploadAttempt[]>>(
@@ -192,7 +189,6 @@ export function AdminOsUpgradeModule({ onExit }: AdminOsUpgradeModuleProps) {
       {activityImage && (
         <UploadActivityPanel
           image={activityImage}
-          status={rowStatus(activityImage)}
           job={jobFor(activityImage.id)}
           attempts={attempts[activityImage.id] ?? []}
           onClose={() => setActivityFor(null)}
@@ -220,7 +216,14 @@ export function AdminOsUpgradeModule({ onExit }: AdminOsUpgradeModuleProps) {
         <AdminOsUpgradeDetail
           image={detail}
           status={rowStatus(detail)}
-          onCrumb={(c) => (c === 'list' ? setDetailId(null) : onExit(c))}
+          onBack={() => setDetailId(null)}
+          job={jobFor(detail.id)}
+          latestAttempt={(attempts[detail.id] ?? [])[0]}
+          onStart={(f) => startUpload(detail.id, f)}
+          onHistory={() => openActivity(detail.id)}
+          onPause={() => { const j = activeJobFor(detail.id); if (j) setJobStatus(j.jobId, 'paused'); }}
+          onResume={() => { const j = activeJobFor(detail.id); if (j) setJobStatus(j.jobId, 'uploading'); }}
+          onStop={() => { const j = activeJobFor(detail.id); if (j) stopUpload(j); }}
         />
         {overlays}
       </>
@@ -237,7 +240,7 @@ export function AdminOsUpgradeModule({ onExit }: AdminOsUpgradeModuleProps) {
 
   return (
     <>
-      <div className="px-8 py-6">
+      <div className="px-4 py-6">
         {/* Page head — title, one line of purpose, docs. No breadcrumb: the nav already says
             where you are, and an admin listing is a destination, not a step in a trail. */}
         <div className="mb-5">
@@ -276,7 +279,7 @@ export function AdminOsUpgradeModule({ onExit }: AdminOsUpgradeModuleProps) {
             <table className="w-full min-w-[1180px]">
               <thead className="border-b border-[#e5e7eb]">
                 <tr>
-                  {['ID', 'Name', 'Edition', 'Language', 'Size', 'Upload Status', 'Upload Time', 'Platform', 'Action'].map((h) => (
+                  {['ID', 'Name', 'Edition', 'Language', 'Size', 'Upload Status', 'Upload Time', 'Platform', 'File Uploading Actions'].map((h) => (
                     <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658]">{h}</th>
                   ))}
                 </tr>
@@ -372,24 +375,38 @@ export function AdminOsUpgradeModule({ onExit }: AdminOsUpgradeModuleProps) {
 
 // ── Upload activity (the eye icon) ─────────────────────────────────────────
 
-function UploadActivityPanel({ image, status, job, attempts, onClose }: {
+function UploadActivityPanel({ image, job, attempts, onClose }: {
   image: OsImage;
-  status: OsUploadStatus;
   job?: UploadJob;
   attempts: UploadAttempt[];
   onClose: () => void;
 }) {
-  const tone = UPLOAD_TONE[status];
-  const live = job && (job.status === 'uploading' || job.status === 'paused');
-  /** Attempts are newest-first, so the head of the list is what the current state describes. */
-  const latest = attempts[0];
+  /* A transfer only becomes an attempt once it ends, so an in-flight one is prepended as a live
+     row — otherwise removing the current-state card would hide an upload while it runs. */
+  const live = job && (job.status === 'uploading' || job.status === 'paused')
+    ? [{
+      id: job.jobId,
+      fileName: job.fileName,
+      size: formatBytes(job.fileSize),
+      by: 'Aarti Shah',
+      at: `${Math.round(jobPct(job))}% uploaded`,
+      status: (job.status === 'paused' ? 'Paused' : 'In Progress') as UploadAttempt['status'],
+    }]
+    : [];
+  const rows: UploadAttempt[] = [...live, ...attempts];
+
+  /** The ISO in place right now: the newest attempt that actually LANDED. A failed attempt on top
+   *  of a good one doesn't replace it, so "newest row" would be the wrong answer. */
+  const currentId = attempts.find((a) => a.status === 'Uploaded')?.id;
 
   // Every attempt status is also an upload status, so one tone map serves both.
   const attemptTone = (s: UploadAttempt['status']) => UPLOAD_TONE[s];
 
   return (
+    /* 860px, not 720: five columns of file/size/user/time/status don't fit 720 without the
+       Status pill running off the edge, and Status is the column the panel exists for. */
     <div className="fixed inset-0 z-[10000] flex items-center justify-end bg-black/40">
-      <div className="flex h-full w-[720px] max-w-[95vw] flex-col bg-white shadow-xl">
+      <div className="flex h-full w-[860px] max-w-[95vw] flex-col bg-white shadow-xl">
         <div className="flex items-center justify-between gap-3 border-b border-[#DFE5ED] px-5 py-3">
           <div className="min-w-0">
             <h3 className="text-[16px] font-semibold text-[#364658]">Upload Status</h3>
@@ -399,76 +416,41 @@ function UploadActivityPanel({ image, status, job, attempts, onClose }: {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          {/* Current state */}
-          <div className="rounded-lg border border-[#E5E7EB] bg-white p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Current state</span>
-              <UploadStatusPill status={status} />
-            </div>
-            {live && job ? (
-              <>
-                <div className="mt-2.5 flex items-center justify-between gap-3">
-                  <span className="min-w-0 truncate text-[13px] font-medium text-[#364658]">{job.fileName}</span>
-                  <span className="flex-shrink-0 text-[13px] font-semibold tabular-nums text-[#364658]">{Math.round(jobPct(job))}%</span>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#EEF2F6]">
-                  <div className="h-full rounded-full transition-[width] duration-300 ease-linear" style={{ width: `${jobPct(job)}%`, backgroundColor: tone.dot }} />
-                </div>
-                <div className="mt-1.5 text-[12px] text-[#7B8FA5]">{formatBytes(job.loaded)} of {formatBytes(job.fileSize)} transferred</div>
-              </>
-            ) : latest ? (
-              /* The file this state is about, then why it ended that way. A bare "Failed" tells
-                 an admin nothing they can act on — the reason is the whole point of opening this. */
-              <>
-                <div className="mt-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                  <span className="text-[13px] font-medium text-[#364658]">{latest.fileName}</span>
-                  <span className="text-[12px] text-[#7B8FA5]">{latest.size} · {latest.by} · {latest.at}</span>
-                </div>
-                {latest.detail && (
-                  <div className={`mt-2 flex items-start gap-2 rounded border px-3 py-2 text-[12px] ${
-                    latest.status === 'Failed'
-                      ? 'border-[#FEE4E2] bg-[#FFFBFA] text-[#DC2626]'
-                      : 'border-[#E5E7EB] bg-[#F9FAFB] text-[#64748B]'
-                  }`}>
-                    <AlertCircle size={14} className="mt-px flex-shrink-0" />
-                    <span>{latest.detail}</span>
-                  </div>
-                )}
-                {status === 'Uploaded' && (
-                  <div className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-[#22A06B]">
-                    <CheckCircle2 size={14} /> Ready to deploy
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="mt-2 text-[13px] text-[#64748B]">No ISO has been uploaded for this image yet.</div>
-            )}
-          </div>
-
-          {/* History */}
-          <div className="mb-2 mt-5 flex items-center gap-2">
+          {/* History only — the state of the image is the CURRENT row's status, so a separate
+              "current state" card above the table would just say it twice. */}
+          <div className="mb-2 flex items-center gap-2">
             <h4 className="text-[13px] font-semibold text-[#364658]">Attempt history</h4>
-            <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#EEF2F6] px-1.5 text-[12px] font-semibold text-[#64748B]">{attempts.length}</span>
+            <span className="inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#EEF2F6] px-1.5 text-[12px] font-semibold text-[#64748B]">{rows.length}</span>
           </div>
 
-          {attempts.length === 0 ? (
+          {rows.length === 0 ? (
             <div className="rounded-lg border border-dashed border-[#E5E7EB] px-4 py-10 text-center text-[13px] text-[#9CA3AF]">
               Nothing has been uploaded for {image.id} yet.
             </div>
           ) : (
             /* Standard borderless listing grid — no card, no tinted header. Full-bleed via -mx-5
                so the header rule spans the panel like it does on a list page. */
-            <div className="-mx-5 overflow-x-auto">
-              <table className="w-full min-w-[620px]">
+            /* table-fixed with declared column widths: the four right-hand columns get exactly
+               what they need and File Name absorbs the rest, truncating. That makes horizontal
+               scrolling impossible at any panel width — Status can never be pushed out of view. */
+            <div>
+              <table className="w-full table-fixed">
+                <colgroup>
+                  <col />
+                  <col className="w-[90px]" />
+                  <col className="w-[140px]" />
+                  <col className="w-[185px]" />
+                  <col className="w-[110px]" />
+                </colgroup>
                 <thead className="border-y border-[#e5e7eb]">
                   <tr>
-                    {['File Name', 'Size', 'Uploaded By', 'Time', 'Status'].map((h) => (
-                      <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658]">{h}</th>
+                    {['File Name', 'Size', 'Uploaded By', 'Time', 'Status'].map((h, i) => (
+                      <th key={h} className={`whitespace-nowrap py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658] ${i === 0 ? 'pr-4' : 'px-4'} ${i === 4 ? 'pr-0' : ''}`}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#e5e7eb] bg-white">
-                  {attempts.map((a) => {
+                  {rows.map((a) => {
                     const t = attemptTone(a.status);
                     const pill = (
                       <span
@@ -478,15 +460,22 @@ function UploadActivityPanel({ image, status, job, attempts, onClose }: {
                     );
                     return (
                       <tr key={a.id} className="transition-colors hover:bg-[#f9fafb]">
-                        <td className="px-4 py-3">
-                          <span className="block max-w-[280px] truncate text-[13px] text-[#364658]" title={a.fileName}>{a.fileName}</span>
+                        <td className="py-3 pr-4">
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span className="truncate text-[13px] text-[#364658]" title={a.fileName}>{a.fileName}</span>
+                            {/* The ISO actually in place — the newest attempt that LANDED, which
+                                is not always the newest attempt. */}
+                            {a.id === currentId && (
+                              <span className="flex-shrink-0 rounded-sm bg-[#EBF5FF] px-1.5 py-0.5 text-[11px] font-semibold text-[#3D8BD0]">Current</span>
+                            )}
+                          </span>
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-[13px] tabular-nums text-[#364658]">{a.size}</td>
                         <td className="whitespace-nowrap px-4 py-3 text-[13px] text-[#364658]">{a.by}</td>
                         <td className="whitespace-nowrap px-4 py-3 text-[13px] text-[#7B8FA5]">{a.at}</td>
                         {/* The reason lives on the status, not under the file name — the row stays
                             one line and the explanation is where the reader asks "why?". */}
-                        <td className="whitespace-nowrap px-4 py-3">
+                        <td className="whitespace-nowrap py-3 pl-4">
                           {a.detail ? (
                             <Tooltip>
                               <TooltipTrigger asChild>{pill}</TooltipTrigger>

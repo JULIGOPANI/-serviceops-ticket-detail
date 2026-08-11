@@ -45,6 +45,8 @@ interface TicketPropertiesPanelProps {
   patchMode?: boolean;
   // Patch DEPLOYMENT page: deployment-run fields in the Patch Fields accordion
   patchDeployMode?: boolean;
+  /** Deployment Type value shown in the patch-deployment fields card. */
+  deploymentType?: string;
   // ENDPOINT page: endpoint-inventory fields in the (renamed) Endpoint Fields accordion
   endpointMode?: boolean;
   // DETECTED CVE page: CVE-metadata fields in the CVE Fields accordion
@@ -358,6 +360,7 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
     purchaseMode = false,
     patchMode = false,
     patchDeployMode = false,
+    deploymentType,
     endpointMode = false,
     cveMode = false,
     compactTicketFields = false,
@@ -1840,6 +1843,7 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
           purchaseMode={purchaseMode}
           patchMode={patchMode}
           patchDeployMode={patchDeployMode}
+          deploymentType={deploymentType}
           endpointMode={endpointMode}
           cveMode={cveMode}
           assetState={assetState}

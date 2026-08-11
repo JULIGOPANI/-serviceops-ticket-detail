@@ -96,6 +96,41 @@ export const PREREQUISITES: Record<PrereqProfile, Prereq[]> = {
 
 export const prerequisitesFor = (img: OsImage): Prereq[] => PREREQUISITES[img.prereq];
 
+/* ── Reading a rule as a sentence ──────────────────────────────────────────
+ *
+ * "RAM  >=  4 GB" is builder syntax; a reader wants "RAM — 4 GB or more". The phrasing is derived
+ * from the rule rather than written out per profile, so a new OS profile reads correctly for free
+ * and the words can never drift from the operator they describe. */
+
+export interface PrereqPhrase {
+  /** Muted words before the value ("Turned", "One of"). */
+  lead?: string;
+  /** The part that carries the number — emphasised. */
+  value: string;
+  /** Muted words after it ("or more", "or later", "only"). */
+  qualifier?: string;
+}
+
+export function prereqPhrase(p: Prereq): PrereqPhrase {
+  switch (p.key) {
+    // "Enabled" is a field value; "Turned on" is how the requirement is spoken.
+    case 'secureBoot':
+      return { lead: 'Turned', value: 'on' };
+    case 'arch':
+      return { value: p.value, qualifier: 'only' };
+    // '[Windows 10 2004+]' — the brackets are syntax and the '+' is what "or later" already says.
+    case 'currentOs':
+      return { lead: 'One of', value: p.value.replace(/^\[|\]$/g, '').replace(/\+$/, ''), qualifier: 'or later' };
+    case 'tpm':
+      return { value: p.value, qualifier: 'or higher' };
+    case 'cpuSpeed':
+      return { value: p.value, qualifier: 'or faster' };
+    // ram / disk / cpuCores — a plain minimum.
+    default:
+      return { value: p.value, qualifier: 'or more' };
+  }
+}
+
 // ── The catalogue ──────────────────────────────────────────────────────────
 
 /* Fifteen images so the listing exercises pagination (the shared Pagination hides itself at 10 or
@@ -474,12 +509,14 @@ export function formatEta(seconds: number): string {
 /** Maximum ISO the uploader accepts, matching the guideline shown in the popup. */
 export const MAX_ISO_BYTES = 10 * 1024 ** 3;
 
+/* Kept to one line each: on the detail page these sit beside the dropzone, and a wrapped bullet
+ * pushes the whole ISO section past the fold. */
 export const UPLOAD_GUIDELINES = [
-  'Supported formats: .iso',
-  'Maximum file size: 7–10 GB',
-  'Ensure the ISO file is not corrupted before uploading',
-  'Upload time may vary based on file size and network speed',
-  'Do not close the browser during the upload process',
+  'Supported format: .iso only',
+  'Maximum file size: 10 GB',
+  'Verify the ISO is not corrupted',
+  'Time varies with size and network',
+  'Keep the browser open while uploading',
 ];
 
 /** Rejects a file before any transfer starts; null means it's good to go. */

@@ -39,7 +39,7 @@ export function AdminOverview({ openKeys, onToggle, query, onQuery, registerSect
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto bg-[#F7F9FC]">
-      <div className="mx-auto max-w-[1400px] px-8 py-6">
+      <div className="mx-auto max-w-[1400px] px-4 py-6">
         {/* Page head */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

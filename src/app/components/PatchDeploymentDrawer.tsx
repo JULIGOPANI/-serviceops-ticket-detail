@@ -150,6 +150,69 @@ const STATUS_BY_REMOTE_OFFICE: Record<string, StatusSplit> = {
   'Local Office': { success: 9, failed: 0, inProgress: 0, other: 0 },
 };
 
+/* Count + first-three-rows preview card — the Overview's top row.
+ *
+ * A donut splits a payload into slices; on a deployment the question is simply "what is in this
+ * run, and where is it going?", so the count leads and the records themselves are listed. Same
+ * card shape for both Patches and Endpoints so the pair reads as one row. */
+function CountListCard({
+  label, icon: Icon, color, total, caption, items, onClick, wide,
+}: {
+  label: string;
+  icon: typeof Package;
+  color: string;
+  total: number;
+  /** Sits under the number — "patches in this deployment", "endpoints targeted". */
+  caption: string;
+  items: { key: string; primary: string; secondary?: string; dot: string }[];
+  onClick?: () => void;
+  wide: boolean;
+}) {
+  const PREVIEW = 3;
+  const rest = Math.max(0, items.length - PREVIEW);
+  return (
+    <div className="rounded-xl border border-[#E5E7EB] bg-white p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="flex size-7 flex-shrink-0 items-center justify-center rounded" style={{ backgroundColor: `${color}1A`, color }}>
+          <Icon size={15} />
+        </span>
+        <h3 className="text-[14px] font-semibold text-[#364658]">{label}</h3>
+        {onClick && (
+          <button onClick={onClick} className="ml-auto flex items-center gap-1 text-[13px] font-medium text-[#3D8BD0] hover:underline">
+            View more<ChevronRight size={14} />
+          </button>
+        )}
+      </div>
+
+      <div className={`flex gap-4 ${wide ? '' : 'flex-col'}`}>
+        <div className={`flex flex-col items-center justify-center rounded-lg bg-[#F7F9FC] px-4 py-5 text-center ${wide ? 'w-[132px] flex-shrink-0' : 'w-full'}`}>
+          <div className="text-[28px] font-semibold leading-none tabular-nums text-[#364658]">{total}</div>
+          <div className="mt-2 text-[12px] leading-[1.4] text-[#7B8FA5]">{caption}</div>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="space-y-1">
+            {items.length === 0 ? (
+              <div className="rounded bg-[#F9FAFB] px-3 py-2 text-[12px] text-[#9CA3AF]">Nothing added yet.</div>
+            ) : items.slice(0, PREVIEW).map((it) => (
+              <div key={it.key} className="flex items-center gap-2 rounded bg-[#F9FAFB] px-3 py-2">
+                <span className="size-1.5 flex-shrink-0 rounded-full" style={{ backgroundColor: it.dot }} />
+                <span className="min-w-0 flex-1 truncate text-[13px] text-[#364658]" title={it.primary}>{it.primary}</span>
+                {it.secondary && <span className="flex-shrink-0 text-[12px] text-[#7B8FA5]">{it.secondary}</span>}
+              </div>
+            ))}
+          </div>
+          {rest > 0 && (
+            <button onClick={onClick} className="mt-1.5 inline-flex items-center gap-0.5 text-[12px] font-medium text-[#3D8BD0] hover:underline">
+              +{rest} more<ChevronRight size={12} />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Donut gauge + legend card (Patches / Endpoints / Deployment Status) — extracted so the three
 // gauges can be placed individually (Patches + Endpoints on top, Deployment Status in its section).
 function DonutKpiCard({
@@ -413,6 +476,8 @@ onStackMinimizedChange,
   const activeAsset = assetList.find(a => a.id === activeAssetId);
   // The RAW patch record (the adapted HardwareAsset shape has no description).
   const activePatchRecord = openAssets.find(p => p.id === activeAssetId) ?? openAssets[0];
+  /** OS Upgrade runs get the count+preview Overview; patch runs keep the donut Overview. */
+  const isOsUpgradeRun = activePatchRecord?.deployment?.deploymentType === 'OS Upgrade';
   // Overview description is optional and collapsed by default; reset when switching patch tabs.
   const [descExpanded, setDescExpanded] = useState(false);
   useEffect(() => { setDescExpanded(false); }, [activeAssetId]);
@@ -3039,36 +3104,10 @@ onStackMinimizedChange,
                 );
               })()}
 
-              {/* KPI strip — each card shows a headline count plus its own distribution as a
-                  stacked bar + legend (far easier to read at this size than a pie), and each card
-                  is clickable, jumping to the tab / right-panel group that owns the detail. */}
+              {/* Overview — what is in the run and where it is going, then how it is going. Each
+                  card links to the tab that owns the detail. */}
               {(() => {
                 const wide = drawerWidth > 1080;
-
-                type Seg = { label: string; value: number; color: string };
-                type Kpi = {
-                  key: string; label: string; icon: typeof Activity; color: string;
-                  total: number; segments?: Seg[]; note?: string;
-                  /** 'donut' = gauge + legend (same treatment as the Software Installation snapshot);
-                   *  'list'  = the first 2 records inline (same as the Hardware "Users" card). */
-                  chart: 'donut' | 'bar' | 'none' | 'list';
-                  /** Preview rows for chart: 'list'. */
-                  items?: { icon: React.ReactNode; primary: string; secondary: string; actions?: React.ReactNode }[];
-                  /** Spans half the row instead of a third. */
-                  half?: boolean;
-                  onClick: () => void;
-                };
-
-                // Patches in this deployment, broken down by severity for the Overview donut.
-                const patchSev = (s: string) => DEPLOYED_PATCHES.filter((p) => p.severity === s).length;
-                const patchCritical = patchSev('Critical');
-                const patchImportant = patchSev('Important');
-                const patchModerate = patchSev('Moderate');
-                const patchLow = patchSev('Low');
-
-                const epMissing = patchComputers.filter((c) => c.bucket === 'Missing').length;
-                const epInstalled = patchComputers.filter((c) => c.bucket === 'Installed').length;
-                const epIgnored = patchComputers.filter((c) => c.bucket === 'Ignored').length;
 
                 const dep = (s: string) => patchInstallations.filter((r) => r.installationStatus === s).length;
                 const depSuccess = dep('Success');
@@ -3076,86 +3115,122 @@ onStackMinimizedChange,
                 const depProgress = dep('In Progress');
                 const depOther = patchInstallations.length - depSuccess - depFailed - depProgress;
 
-                const kpis: Kpi[] = [
-                  {
-                    key: 'patches', label: 'Patches', icon: Package, color: '#3D8BD0',
-                    chart: 'donut', total: DEPLOYED_PATCHES.length,
-                    segments: [
-                      { label: 'Critical', value: patchCritical, color: '#EF4444' },
-                      { label: 'Important', value: patchImportant, color: '#F59E0B' },
-                      { label: 'Moderate', value: patchModerate, color: '#EAB308' },
-                      { label: 'Low', value: patchLow, color: '#94A3B8' },
-                    ],
-                    onClick: () => setActiveMainTab('patches-list'),
-                  },
-                  {
-                    key: 'endpoints', label: 'Endpoints', icon: Monitor, color: '#3D8BD0',
-                    chart: 'donut', total: patchComputers.length,
-                    segments: [
-                      { label: 'Missing', value: epMissing, color: '#F59E0B' },
-                      { label: 'Installed', value: epInstalled, color: '#22C55E' },
-                      { label: 'Ignored', value: epIgnored, color: '#94A3B8' },
-                    ],
-                    onClick: () => setActiveMainTab('computers'),
-                  },
-                  {
-                    key: 'deployments', label: 'Deployments', icon: Download, color: '#8B5CF6',
-                    chart: 'donut', total: patchInstallations.length,
-                    segments: [
-                      { label: 'Success', value: depSuccess, color: '#22C55E' },
-                      { label: 'Failed', value: depFailed, color: '#EF4444' },
-                      { label: 'In Progress', value: depProgress, color: '#F59E0B' },
-                      { label: 'Others', value: depOther, color: '#94A3B8' },
-                    ],
-                    onClick: () => setActiveMainTab('installation'),
-                  },
-                  // Deployment Overview: no Affected Products / Files preview cards — those are
-                  // patch-catalog details (and their right-rail groups don't exist on this page).
-                ];
+                /* Overall-status stat card — shared by both layouts. `stretch` makes it fill its
+                   grid cell so the 2×2 block squares up against the drill-down beside it. */
+                const statCard = (s: typeof BREAKDOWN_STATUSES[number], stretch: boolean) => {
+                  const val = s.key === 'success' ? depSuccess : s.key === 'failed' ? depFailed : s.key === 'inProgress' ? depProgress : depOther;
+                  return (
+                    <div
+                      key={s.key}
+                      className={`rounded-lg border border-[#E5E7EB] bg-white px-4 text-center ${
+                        stretch ? 'flex h-full flex-col items-center justify-center py-6' : 'py-3'
+                      }`}
+                    >
+                      <div className="inline-flex items-center gap-1.5 text-[13px] text-[#64748B]">
+                        <span className="size-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                        {s.label}
+                      </div>
+                      <div className="mt-2 text-[22px] font-bold leading-none tabular-nums" style={{ color: val > 0 ? s.color : '#94A3B8' }}>{val}</div>
+                    </div>
+                  );
+                };
 
-                const patchesKpi = kpis.find((k) => k.key === 'patches')!;
-                const endpointsKpi = kpis.find((k) => k.key === 'endpoints')!;
+                const deploymentHeader = (
+                  <div className="mb-4 flex items-center gap-2">
+                    <span className="flex size-7 flex-shrink-0 items-center justify-center rounded" style={{ backgroundColor: '#8B5CF61A', color: '#8B5CF6' }}>
+                      <Download size={15} />
+                    </span>
+                    <h3 className="text-[15px] font-semibold text-[#364658]">Deployment</h3>
+                    <button onClick={() => setActiveMainTab('installation')} className="ml-auto flex items-center gap-1 text-[13px] font-medium text-[#3D8BD0] hover:underline">
+                      View more<ChevronRight size={14} />
+                    </button>
+                  </div>
+                );
+
+                /* ── OS Upgrade run ── the Package-Deployment overview: counts + record previews,
+                   then overall status beside the remote-office drill-down. */
+                if (isOsUpgradeRun) {
+                  // Dots carry state, so a preview row reads without a second legend.
+                  const sevDot = (s: string) => (s === 'Critical' ? '#EF4444' : s === 'Important' ? '#F59E0B' : s === 'Moderate' ? '#EAB308' : '#94A3B8');
+                  const bucketDot = (b: string) => (b === 'Installed' ? '#22C55E' : b === 'Missing' ? '#F59E0B' : '#94A3B8');
+
+                  return (
+                    <>
+                      <div className={`grid gap-4 ${wide ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                        {/* ⚠️ Still the patch payload — the Patches tab, the header KPI and the
+                            deployment matrix all read the same data, so relabelling this card
+                            alone would contradict everything it links to. */}
+                        <CountListCard
+                          label="Patches"
+                          icon={Package}
+                          color="#3D8BD0"
+                          total={DEPLOYED_PATCHES.length}
+                          caption="patches in this deployment"
+                          items={DEPLOYED_PATCHES.map((p) => ({ key: p.id, primary: p.application || p.name, dot: sevDot(p.severity) }))}
+                          onClick={() => setActiveMainTab('patches-list')}
+                          wide={wide}
+                        />
+                        <CountListCard
+                          label="Endpoints"
+                          icon={Monitor}
+                          color="#3D8BD0"
+                          total={patchComputers.length}
+                          caption="endpoints targeted"
+                          items={patchComputers.map((c) => ({ key: c.id, primary: c.hostName, secondary: c.ipAddress, dot: bucketDot(c.bucket) }))}
+                          onClick={() => setActiveMainTab('computers')}
+                          wide={wide}
+                        />
+                      </div>
+
+                      <div className="mt-5 rounded-xl border border-[#E5E7EB] bg-white p-4">
+                        {deploymentHeader}
+                        {/* items-stretch (the grid default) + h-full on the cells: the 2×2 block
+                            grows to the drill-down's height instead of floating at the top. */}
+                        <div className={`grid gap-4 ${wide ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                          <div className="grid grid-cols-2 grid-rows-2 gap-3">
+                            {BREAKDOWN_STATUSES.map((s) => statCard(s, true))}
+                          </div>
+                          <StatusBreakdownCard title="Status by Remote Office" icon={MapPin} data={STATUS_BY_REMOTE_OFFICE} totalLabel="Total Installations" allLabel="All Remote Offices" />
+                        </div>
+                      </div>
+                    </>
+                  );
+                }
+
+                /* ── Patch run ── unchanged: severity/bucket donuts, then the four stat cards over
+                   both drill-downs. */
+                const patchSev = (s: string) => DEPLOYED_PATCHES.filter((p) => p.severity === s).length;
+                const epCount = (b: string) => patchComputers.filter((c) => c.bucket === b).length;
 
                 return (
                   <>
-                    {/* Row 1 — Patches + Endpoints (the two things being deployed / deployed to) */}
                     <div className={`grid gap-4 ${wide ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                      {[patchesKpi, endpointsKpi].map((k) => (
-                        <DonutKpiCard key={k.key} label={k.label} icon={k.icon} color={k.color} total={k.total} segments={k.segments ?? []} onClick={k.onClick} wide={wide} />
-                      ))}
+                      <DonutKpiCard
+                        label="Patches" icon={Package} color="#3D8BD0" total={DEPLOYED_PATCHES.length} wide={wide}
+                        segments={[
+                          { label: 'Critical', value: patchSev('Critical'), color: '#EF4444' },
+                          { label: 'Important', value: patchSev('Important'), color: '#F59E0B' },
+                          { label: 'Moderate', value: patchSev('Moderate'), color: '#EAB308' },
+                          { label: 'Low', value: patchSev('Low'), color: '#94A3B8' },
+                        ]}
+                        onClick={() => setActiveMainTab('patches-list')}
+                      />
+                      <DonutKpiCard
+                        label="Endpoints" icon={Monitor} color="#3D8BD0" total={patchComputers.length} wide={wide}
+                        segments={[
+                          { label: 'Missing', value: epCount('Missing'), color: '#F59E0B' },
+                          { label: 'Installed', value: epCount('Installed'), color: '#22C55E' },
+                          { label: 'Ignored', value: epCount('Ignored'), color: '#94A3B8' },
+                        ]}
+                        onClick={() => setActiveMainTab('computers')}
+                      />
                     </div>
 
-                    {/* Deployment group — ONE bordered section holding the overall status (4 stat
-                        cards) plus both drill-downs (by category, by remote office), so all the
-                        deployment context reads as one block. */}
                     <div className="mt-5 rounded-xl border border-[#E5E7EB] p-4">
-                      <div className="mb-4 flex items-center gap-2">
-                        <span className="flex size-7 flex-shrink-0 items-center justify-center rounded" style={{ backgroundColor: '#8B5CF61A', color: '#8B5CF6' }}>
-                          <Download size={15} />
-                        </span>
-                        <h3 className="text-[15px] font-semibold text-[#364658]">Deployment</h3>
-                        <button onClick={() => setActiveMainTab('installation')} className="ml-auto flex items-center gap-1 text-[13px] font-medium text-[#3D8BD0] hover:underline">
-                          View more<ChevronRight size={14} />
-                        </button>
-                      </div>
-
-                      {/* Overall deployment status — one stat card per status */}
+                      {deploymentHeader}
                       <div className={`grid gap-3 ${wide ? 'grid-cols-4' : 'grid-cols-2'}`}>
-                        {BREAKDOWN_STATUSES.map((s) => {
-                          const val = s.key === 'success' ? depSuccess : s.key === 'failed' ? depFailed : s.key === 'inProgress' ? depProgress : depOther;
-                          return (
-                            <div key={s.key} className="rounded-lg border border-[#E5E7EB] bg-white px-4 py-3 text-center">
-                              <div className="inline-flex items-center gap-1.5 text-[13px] text-[#64748B]">
-                                <span className="size-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-                                {s.label}
-                              </div>
-                              <div className="mt-1.5 text-[22px] font-bold leading-none tabular-nums" style={{ color: val > 0 ? s.color : '#94A3B8' }}>{val}</div>
-                            </div>
-                          );
-                        })}
+                        {BREAKDOWN_STATUSES.map((s) => statCard(s, false))}
                       </div>
-
-                      {/* Drill-downs — status by category / by remote office */}
                       <div className={`mt-4 grid gap-4 ${wide ? 'grid-cols-2' : 'grid-cols-1'}`}>
                         <StatusBreakdownCard title="Patch Status by Category" icon={Layers} data={PATCH_STATUS_BY_CATEGORY} totalLabel="Total Patches" allLabel="All Categories" />
                         <StatusBreakdownCard title="Status by Remote Office" icon={MapPin} data={STATUS_BY_REMOTE_OFFICE} totalLabel="Total Installations" allLabel="All Remote Offices" />
@@ -7878,6 +7953,7 @@ onStackMinimizedChange,
             nonItMode={true}
             patchMode={true}
             patchDeployMode={true}
+            deploymentType={activePatchRecord?.deployment?.deploymentType ?? 'Patch'}
             assetState={assetState}
             activeGroup={activeGroup}
             setActiveGroup={setActiveGroup}
