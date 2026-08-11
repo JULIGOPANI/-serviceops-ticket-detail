@@ -625,6 +625,9 @@ export function AssetFields({ state, pinnedFields, togglePinField, propertiesSea
     const ENDPOINT_FIELDS: PatchField[] = [
       // CMDB linkage leads — it is the first thing asked of an endpoint record.
       { label: 'CMDB link', value: 'AST-4 · CI-2', kind: 'links' },
+      // Whether this host's BOM carries a valid cosign signature. A compliance reviewer asks it
+      // right after "which CI is this?", so it sits directly under the CMDB link.
+      { label: 'Cosigned', value: 'Successful', dot: '#22C55E', sub: 'cosign · verified' },
       { label: 'System Health', value: 'Healthy', dot: '#22C55E' },
       { label: 'Used By', value: '---' },
       { label: 'Service Pack', value: 'None' },

@@ -12,8 +12,15 @@
  */
 
 import { mockEndpoints } from './EndpointsListPage';
+import { RETENTION_DEFAULT } from './bomAdminData';
 
 export type BomType = 'SBOM' | 'CBOM' | 'AI BOM';
+
+/* The BOM screens address a host by its CI id: Component Intelligence is a CMDB-level view, and
+ * the BOM Inventory listing already calls these rows "Agent CIs". The Patch/Endpoint modules
+ * keep their own EP-### ids for the same machines — this is a display mapping for BOM screens
+ * only, so the two never have to be renumbered against each other. */
+export const bomCiId = (endpointId: string): string => endpointId.replace(/^EP-/, 'CI-');
 export type BomStatus = 'Generated' | 'Partial' | 'Not Generated';
 
 /** Stable string hash — keeps generated data identical across renders. */
@@ -303,7 +310,30 @@ export interface BomVersion {
   runs: BomScanRun[];
   /** Summary line rendered on the connector below the card. */
   gapLabel: string;
+  /** Days until retention deletes this version. `null` on the current version, which is never
+   *  aged out — a living SBOM always keeps its newest generation. */
+  expiresInDays: number | null;
 }
+
+/* Retention is an ADMIN policy, so both screens read it from one place: change "delete versions
+ * older than N days" under Admin › BOM Management › Retention and these expiry counts move with
+ * it. Ages are measured against the newest scan date rather than the real clock, so the demo
+ * never drifts into showing every version as long expired. */
+const NEWEST_SCAN = new Date(2026, 5, 16); // Jun 16, 2026 — SCAN_DATES[0]
+
+const parseScanDate = (s: string): Date | null => {
+  const d = new Date(s.replace(/\s+\d{2}:\d{2}\s+[AP]M$/, ''));
+  return isNaN(d.getTime()) ? null : d;
+};
+
+/** How many older versions retention has already removed for a scope, and the policy behind it. */
+export const bomRetention = (endpointId: string, productKey: string, type: BomType) => {
+  const { keepVersions, deleteAfterDays } = RETENTION_DEFAULT;
+  // Deterministic per scope: some hosts have been enrolled long enough to have lost versions,
+  // others have not.
+  const deleted = hash(`${endpointId}:${productKey}:${type}:retained`) % 6;
+  return { deleted, keepVersions, deleteAfterDays };
+};
 
 const TIMES = ['08:33 AM', '06:12 AM', '06:40 PM', '11:20 PM', '02:47 PM', '09:05 AM'];
 
@@ -347,11 +377,17 @@ export const bomVersions = (endpointId: string, productKey: string, type: BomTyp
         outcome: failed ? '—' : r === 0 ? (isFirst ? `first ${type} generated` : `+${added}${removed ? ` · −${removed}` : ''} → v${i}`) : 'no change',
       });
     }
+    const generatedAt = runs[0].timestamp;
+    const gen = parseScanDate(generatedAt);
+    const ageDays = gen ? Math.max(0, Math.round((NEWEST_SCAN.getTime() - gen.getTime()) / 86_400_000)) : 0;
     out.push({
       v: i,
       // A version IS the output of its newest run, so it carries that run's timestamp.
-      generatedAt: runs[0].timestamp,
+      generatedAt,
       state: i === count ? 'Current' : 'Superseded',
+      // The current version never expires; a superseded one is deleted once it passes the
+      // retention window measured from when it was generated.
+      expiresInDays: i === count ? null : Math.max(0, RETENTION_DEFAULT.deleteAfterDays - ageDays),
       added,
       removed,
       updated: updatedN,

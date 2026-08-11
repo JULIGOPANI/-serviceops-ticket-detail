@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Search, Download, Columns3, ChevronRight, Check, Filter, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Pagination } from './Pagination';
-import { bomComponents, bomCryptoAssets, bomAiModels, bomDiff } from './bomData';
+import { bomComponents, bomCryptoAssets, bomAiModels, bomDiff, bomCiId } from './bomData';
 import type { BomType } from './bomData';
 
 /* Side drawer listing every record in ONE BOM scope — opened from "View components / crypto
@@ -56,6 +56,10 @@ const matches = (cellValue: string, c: Condition): boolean => {
   }
 };
 
+/** The change categories this version's listing can be narrowed to. */
+export type ChangeTab = 'All' | 'Added' | 'Updated' | 'Removed' | 'Unchanged';
+const CHANGE_TABS: ChangeTab[] = ['All', 'Added', 'Updated', 'Removed', 'Unchanged'];
+
 interface BomComponentsPanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -68,11 +72,15 @@ interface BomComponentsPanelProps {
   format: string;
   /** Opened from a version's CVE metric — lead with the vulnerable components. */
   cveFirst?: boolean;
+  /** Which change tab to open on — set by whichever count the user clicked. */
+  initialTab?: ChangeTab;
 }
 
 export function BomComponentsPanel({
-  isOpen, onClose, endpointId, hostName, productKey, productLabel, type, version, format, cveFirst = false,
+  isOpen, onClose, endpointId, hostName, productKey, productLabel, type, version, format,
+  cveFirst = false, initialTab = 'All',
 }: BomComponentsPanelProps) {
+  const [tab, setTab] = useState<ChangeTab>(initialTab);
   const [conditions, setConditions] = useState<Condition[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
@@ -89,6 +97,9 @@ export function BomComponentsPanel({
     if (!isOpen) return;
     setConditions([]); setSelected(new Set()); setCurrentPage(1); setBuilder(null); setValueQuery('');
   }, [isOpen, type, productKey, version]);
+  // Each opening honours the count that was clicked, so re-opening on a different metric lands
+  // on that metric's tab rather than wherever the panel was last left.
+  useEffect(() => { if (isOpen) { setTab(initialTab); setCurrentPage(1); } }, [isOpen, initialTab, version]);
 
   if (!isOpen) return null;
 
@@ -102,12 +113,28 @@ export function BomComponentsPanel({
   let headers: string[] = [];
   let rows: Row[] = [];
 
-  // What this version changed, keyed by component name, so the grid can lead with it.
+  /* What this version changed. Keyed by name AND version, because a real host carries several
+   * BUILDS of the same library and the catalog reflects that — keying on name alone tagged every
+   * build of a changed component, so the tab counts disagreed with the version card. The
+   * name-only map is the fallback for types whose rows carry no comparable version (CBOM). */
   const diff = version > 1 ? bomDiff(endpointId, productKey, type, version - 1, version) : null;
   const changeOf = new Map<string, string>();
-  diff?.added.forEach((e) => changeOf.set(e.name, 'Added'));
-  diff?.updated.forEach((e) => changeOf.set(e.name, 'Updated'));
-  const change = (name: string) => (version === 1 ? 'Added' : changeOf.get(name) ?? 'Unchanged');
+  const changeOfName = new Map<string, string>();
+  const tag = (e: { name: string; version: string; fromVersion?: string }, kind: string) => {
+    changeOf.set(`${e.name}@${e.version}`, kind);
+    // An update is one component at two builds. The grid renders the host's current inventory,
+    // so the row may still carry the version it was updated FROM — tag both, or the change
+    // silently disappears from the listing while the version card still counts it.
+    if (e.fromVersion) changeOf.set(`${e.name}@${e.fromVersion}`, kind);
+    changeOfName.set(e.name, kind);
+  };
+  diff?.added.forEach((e) => tag(e, 'Added'));
+  diff?.updated.forEach((e) => tag(e, 'Updated'));
+  const change = (name: string, ver?: string) => {
+    if (version === 1) return 'Added';
+    if (ver !== undefined) return changeOf.get(`${name}@${ver}`) ?? 'Unchanged';
+    return changeOfName.get(name) ?? 'Unchanged';
+  };
 
   if (type === 'SBOM') {
     headers = ['Component', 'Version', 'Vulnerabilities', 'Type', 'Ecosystem', 'PURL', 'License', 'Origin'];
@@ -142,17 +169,23 @@ export function BomComponentsPanel({
   // Removed components are no longer in the BOM, but they are part of what this version did —
   // append them so the listing tells the whole change story, then sort changes to the top.
   const nameKey = headers[0];
+  // SBOM and AI BOM rows carry a Version column that pins a change to one build; CBOM does not.
+  const verKey = headers.includes('Version') ? 'Version' : undefined;
   if (diff) {
-    const present = new Set(rows.map((r) => String(r.fields[nameKey] ?? '')));
+    const present = new Set(rows.map((r) => `${r.fields[nameKey] ?? ''}@${verKey ? r.fields[verKey] ?? '' : ''}`));
     diff.removed.forEach((e, i) => {
-      changeOf.set(e.name, 'Removed');
+      tag(e, 'Removed');
       // Only synthesise a row when the component is genuinely gone from the current list —
       // otherwise the existing row just gets tagged Removed and we'd render it twice.
-      if (present.has(e.name)) return;
-      const blank = headers.slice(1).map(() => '—');
+      if (present.has(`${e.name}@${verKey ? e.version : ''}`)) return;
+      const blank = headers.slice(1).map((h) => (verKey && h === verKey ? e.version : '—'));
       rows.push({
         id: `removed:${e.name}#${i}`,
-        fields: { ...Object.fromEntries(headers.map((h) => [h, '—'])), [nameKey]: e.name },
+        fields: {
+          ...Object.fromEntries(headers.map((h) => [h, '—'])),
+          [nameKey]: e.name,
+          ...(verKey ? { [verKey]: e.version } : {}),
+        },
         cells: [e.name, ...blank],
         mono: [0],
       });
@@ -163,7 +196,7 @@ export function BomComponentsPanel({
   headers = ['Change', ...headers];
   rows = rows
     .map((r) => {
-      const c = change(String(r.fields[nameKey] ?? ''));
+      const c = change(String(r.fields[nameKey] ?? ''), verKey ? String(r.fields[verKey] ?? '') : undefined);
       return {
         ...r,
         fields: { ...r.fields, Change: c },
@@ -185,7 +218,13 @@ export function BomComponentsPanel({
   const fieldNames = rows.length ? Object.keys(rows[0].fields) : headers.filter((h) => h !== 'Excluded Paths');
   const valuesFor = (field: string) => Array.from(new Set(rows.map((r) => r.fields[field]).filter(Boolean))).sort();
 
-  const filtered = rows.filter((r) => conditions.every((c) => matches(r.fields[c.field] ?? '', c)));
+  // Counts come from the unfiltered set, so a tab badge always says how many exist rather than
+  // how many survive the current search.
+  const tabCount = (t: ChangeTab) => (t === 'All' ? rows.length : rows.filter((r) => r.fields.Change === t).length);
+
+  const filtered = rows
+    .filter((r) => tab === 'All' || r.fields.Change === tab)
+    .filter((r) => conditions.every((c) => matches(r.fields[c.field] ?? '', c)));
   const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
   const pageRows = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -211,20 +250,35 @@ export function BomComponentsPanel({
           <div className="min-w-0">
             <h3 className="text-[16px] font-semibold text-[#364658]">{title}</h3>
             <p className="mt-0.5 text-[13px] text-[#7B8FA5]">
-              {endpointId} · {hostName} · {productLabel} · {type} v{version} · {format}
+              {bomCiId(endpointId)} · {hostName} · {productLabel} · {type} v{version} · {format}
             </p>
           </div>
-          <div className="flex flex-shrink-0 items-center gap-2">
-            <button
-              onClick={() => toast.success(`${exportCount} ${noun} exported`)}
-              className="inline-flex h-8 items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
-            >
-              <Download size={15} /> {exportLabel}
-            </button>
-            <button onClick={onClose} className="flex size-8 items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]">
-              <X size={18} />
-            </button>
-          </div>
+          <button onClick={onClose} className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* What this version changed. The tab is the first cut a reviewer makes — "show me only
+            what came in" — so it sits above the search rather than inside it. */}
+        <div className="flex items-center gap-2.5 border-b border-[#EEF2F6] px-5">
+          {CHANGE_TABS.map((t) => {
+            const n = tabCount(t);
+            const on = tab === t;
+            return (
+              <button
+                key={t}
+                onClick={() => { setTab(t); setCurrentPage(1); }}
+                className={`flex items-center gap-1.5 border-b-2 px-2 py-3 text-[13px] transition-colors ${
+                  on
+                    ? 'border-[#3D8BD0] font-medium text-[#3D8BD0]'
+                    : 'border-transparent text-[#64748B] hover:border-[#CBD5E1] hover:bg-[#F9FAFB]'
+                }`}
+              >
+                {t}
+                <span className={`rounded-sm px-1.5 py-px text-[11px] font-semibold ${on ? 'bg-[#EBF5FF] text-[#3D8BD0]' : 'bg-[#F1F5F9] text-[#64748B]'}`}>{n}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Search that builds filters — one control instead of a select per column */}
@@ -348,6 +402,14 @@ export function BomComponentsPanel({
           )}
           <button className="flex size-8 flex-shrink-0 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#7B8FA5] transition-colors hover:bg-[#F5F7FA] hover:text-[#364658]" title="Columns">
             <Columns3 size={16} />
+          </button>
+          {/* Export sits with the controls that decide WHAT gets exported — the tab, the search
+              and the selection — rather than up in the title bar away from all of them. */}
+          <button
+            onClick={() => toast.success(`${exportCount} ${noun} exported`)}
+            className="inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
+          >
+            <Download size={15} /> {exportLabel}
           </button>
         </div>
 

@@ -1,5 +1,6 @@
 import { ShieldCheck, RefreshCw, MinusCircle, KeyRound } from 'lucide-react';
 import type { Endpoint } from './EndpointsListPage';
+import { bomCiId } from './bomData';
 import type { BomRecord, BomStatus } from './bomData';
 
 /* BOM Inventory grid — one row per CI, showing what its Bill of Materials contains.
@@ -80,10 +81,12 @@ export function BomInventoryTable({ rows, selected, allSelected, onSelectAll, on
                 <span className="inline-flex items-center gap-2">
                   {/* agent-health dot, same treatment as the Endpoints listing */}
                   <span className="size-2 flex-shrink-0 rounded-full" style={{ backgroundColor: e.agentOnline ? '#22C55E' : '#EAB308' }} />
+                  {/* BOM addresses a host by its CI id — Component Intelligence is a CMDB-level
+                      view, and this column is literally "CI". */}
                   <button
                     onClick={() => onRowClick?.(e)}
                     className="inline-block rounded bg-[#e8f4fd] px-2 py-0.5 text-[12px] font-semibold text-[#3D8BD0] transition-colors hover:bg-[#d0e8f9]"
-                  >{e.id}</button>
+                  >{bomCiId(e.id)}</button>
                 </span>
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-[12px] text-[#364658]">

@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Settings, Columns3, Download, Layers, Check, Search, X, CalendarDays, Info, ShieldAlert, CirclePlus, CircleMinus, RefreshCw, ScanLine, ArrowRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Settings, Columns3, Download, Layers, Check, Search, X, CalendarDays, Info, ShieldAlert, CirclePlus, CircleMinus, RefreshCw, ScanLine, ArrowRight, Trash2 } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 import { toast } from 'sonner';
 import { BomComponentsPanel } from './BomComponentsPanel';
 import { BomCompareVersionsPanel } from './BomCompareVersionsPanel';
 import { BomScanPathsPanel } from './BomScanPathsPanel';
 import { BomScanRunsPanel } from './BomScanRunsPanel';
-import { bomForEndpoint, bomVersions, componentCount, OS_PRODUCT_KEY } from './bomData';
+import { bomForEndpoint, bomVersions, componentCount, bomRetention, bomCiId, OS_PRODUCT_KEY } from './bomData';
 import type { BomType, BomVersion, BomScanRun } from './bomData';
+import type { ChangeTab } from './BomComponentsPanel';
 
 /* BOM tab of the ENDPOINT detail page.
  *
@@ -311,6 +312,9 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
   // Set when the listing was opened from the CVE metric — that entry point leads with the
   // vulnerable components rather than the changed ones.
   const [componentsCveFirst, setComponentsCveFirst] = useState(false);
+  // Which change tab the listing opens on — set by whichever count was clicked, so the number
+  // you press is the list you get.
+  const [componentsTab, setComponentsTab] = useState<ChangeTab>('All');
   const [dateFilter, setDateFilter] = useState<DateFilter>({ kind: 'all' });
 
   // A different endpoint means a different set of products — reset the whole tab.
@@ -325,6 +329,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
   const productLabel = product ? (product.version ? `${product.name} ${product.version}` : product.name) : 'OS / base platform';
   const versions = product ? bomVersions(endpointId, product.key, type) : [];
   const count = product ? componentCount(endpointId, product.key, type) : 0;
+  const retention = bomRetention(endpointId, product?.key ?? OS_PRODUCT_KEY, type);
 
   // Date filter over the rail. Presets are relative to the newest version, so the demo data
   // stays inside the window instead of ageing out of it.
@@ -528,6 +533,23 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                   {v.state === 'Current' && (
                     <span className="rounded-sm bg-[#E8F4FD] px-2 py-0.5 text-[12px] font-medium text-[#3D8BD0]">{v.state}</span>
                   )}
+                  {/* How long a superseded version has left before retention deletes it. The
+                      current version never expires, so it carries no chip. */}
+                  {v.expiresInDays !== null && (
+                    <Tooltip delayDuration={0}>
+                      <TooltipTrigger asChild>
+                        <span
+                          className={`cursor-help text-[12px] ${v.expiresInDays <= 14 ? 'font-medium text-[#EA580C]' : 'text-[#7B8FA5]'}`}
+                        >
+                          Expiry: {v.expiresInDays} day{v.expiresInDays === 1 ? '' : 's'}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        Retention deletes versions older than {retention.deleteAfterDays} days.
+                        Change it in Admin › BOM Management › Retention.
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </div>
                   {/* What this version changed. CVEs lead (they are the reason to care), then
                       added / updated / removed as icon + count — the labels are carried by the
@@ -540,7 +562,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                       <TooltipTrigger asChild>
                         {v.cves > 0 ? (
                           <button
-                            onClick={() => { setComponentsCveFirst(true); setComponentsFor(v.v); }}
+                            onClick={() => { setComponentsCveFirst(true); setComponentsTab('All'); setComponentsFor(v.v); }}
                             className="inline-flex items-center gap-1.5 rounded text-[#DC2626] transition-colors hover:underline"
                           >
                             <ShieldAlert size={15} className="group-hover/card:hidden" />
@@ -563,19 +585,34 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                       </TooltipContent>
                     </Tooltip>
 
+                    {/* Each count is a way in: clicking opens this version's components already
+                        on the matching tab, so the number you clicked is the list you get. */}
                     {([
-                      [CirclePlus, '#22C55E', v.added, 'added'],
-                      [RefreshCw, '#F59E0B', v.updated, 'updated'],
-                      [CircleMinus, '#EF4444', v.removed, 'removed'],
-                    ] as const).map(([Icon, color, n, label]) => (
+                      [CirclePlus, '#22C55E', v.added, 'added', 'Added'],
+                      [RefreshCw, '#F59E0B', v.updated, 'updated', 'Updated'],
+                      [CircleMinus, '#EF4444', v.removed, 'removed', 'Removed'],
+                    ] as const).map(([Icon, color, n, label, tab]) => (
                       <Tooltip key={label} delayDuration={0}>
                         <TooltipTrigger asChild>
-                          <span className="inline-flex cursor-help items-center gap-1.5" style={{ color: n > 0 ? color : '#9CA3AF' }}>
-                            <Icon size={15} />
-                            <span className="text-[12px] font-semibold">{n}</span>
-                          </span>
+                          {n > 0 ? (
+                            <button
+                              onClick={() => { setComponentsCveFirst(false); setComponentsTab(tab); setComponentsFor(v.v); }}
+                              className="inline-flex items-center gap-1.5 rounded transition-colors hover:underline"
+                              style={{ color }}
+                            >
+                              <Icon size={15} />
+                              <span className="text-[12px] font-semibold">{n}</span>
+                            </button>
+                          ) : (
+                            <span className="inline-flex cursor-help items-center gap-1.5 text-[#9CA3AF]">
+                              <Icon size={15} />
+                              <span className="text-[12px] font-semibold">{n}</span>
+                            </span>
+                          )}
                         </TooltipTrigger>
-                        <TooltipContent side="top">{n} component{n === 1 ? '' : 's'} {label}</TooltipContent>
+                        <TooltipContent side="top">
+                          {n > 0 ? `View the ${n} component${n === 1 ? '' : 's'} ${label}` : `No components ${label}`}
+                        </TooltipContent>
                       </Tooltip>
                     ))}
                   </div>
@@ -599,7 +636,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                     )}
                   </div>
                   <button
-                    onClick={() => { setComponentsCveFirst(false); setComponentsFor(v.v); }}
+                    onClick={() => { setComponentsCveFirst(false); setComponentsTab('All'); setComponentsFor(v.v); }}
                     className="inline-flex h-8 items-center gap-1 rounded px-2 text-[13px] font-medium text-[#3D8BD0] transition-colors hover:bg-[#F5FAFF]"
                   >
                     {viewLabel(type)} · {count}
@@ -638,6 +675,18 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
               {i === shownVersions.length - 1 && <div className="h-2" />}
             </div>
           ))}
+
+          {/* Retention already removed the versions older than v1 — they sat before it in time,
+              so the note closes the rail rather than opening it. */}
+          {retention.deleted > 0 && shownVersions.length > 0 && (
+            <div className="flex items-center gap-2 border-t border-dashed border-[#E5E7EB] pt-3 text-[12px] text-[#9CA3AF]">
+              <Trash2 size={13} className="flex-shrink-0" />
+              <span>
+                <span className="font-medium text-[#7B8FA5]">{retention.deleted} older version{retention.deleted === 1 ? '' : 's'}</span>
+                {' '}deleted by retention — the policy keeps the latest {retention.keepVersions} and removes anything older than {retention.deleteAfterDays} days.
+              </span>
+            </div>
+          )}
         </>
       )}
 
@@ -653,6 +702,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
         version={componentsFor ?? 0}
         format="CycloneDX 1.6"
         cveFirst={componentsCveFirst}
+        initialTab={componentsTab}
       />
       <BomScanPathsPanel
         isOpen={showPaths}

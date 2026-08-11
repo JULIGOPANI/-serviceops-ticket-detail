@@ -140,7 +140,14 @@ export function DrawerStackProvider({ children, activePage }: { children: ReactN
     const technician = typeof tech === 'string' && tech.trim() ? tech : undefined;
     return { status, priority, technician };
   };
-  const stackTabs = stack.map((s) => ({ id: s.id, subject: s.subject, ...tabMeta(s.data) }));
+  const stackTabs = stack.map((s) => ({
+    id: s.id,
+    // A record opened from BOM is addressed by its CI id, so the tab agrees with the header and
+    // with the listing it was opened from. Selection and closing still key off the real id.
+    displayId: s.data?.bomMode ? s.id.replace(/^EP-/, 'CI-') : undefined,
+    subject: s.subject,
+    ...tabMeta(s.data),
+  }));
 
   let drawer: ReactNode = null;
   if (active) {

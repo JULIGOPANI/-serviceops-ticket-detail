@@ -7,10 +7,6 @@ import { mockEndpoints } from './EndpointsListPage';
  * agent-scanned ones. The whole point is the mapping: components only become useful once they
  * hang off a CI, because that is what lets the vulnerability engine match CVEs to an asset. */
 
-const CI_TYPES = [
-  'Server', 'Windows Laptop', 'Mac Laptop', 'Application', 'Switch', 'Mobile Device', 'Base CI',
-];
-
 export interface IngestResult {
   ciId: string;
   ciName: string;
@@ -31,12 +27,11 @@ interface BomIngestPanelProps {
 
 export function BomIngestPanel({ isOpen, onClose, onIngest }: BomIngestPanelProps) {
   const [ciId, setCiId] = useState('');
-  const [ciType, setCiType] = useState('');
   const [showCiMenu, setShowCiMenu] = useState(false);
-  const [showTypeMenu, setShowTypeMenu] = useState(false);
   const [product, setProduct] = useState('');
 
-  // Inline "add new CI" — three fields do not warrant a third stacked drawer.
+  // Creating a CI is its own task with its own required field, so it gets its own drawer rather
+  // than an inline form that pushes the rest of this one down.
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newIp, setNewIp] = useState('');
@@ -52,10 +47,10 @@ export function BomIngestPanel({ isOpen, onClose, onIngest }: BomIngestPanelProp
 
   useEffect(() => {
     if (!isOpen) return;
-    setCiId(''); setCiType(''); setProduct(''); setAdding(false);
+    setCiId(''); setProduct(''); setAdding(false);
     setNewName(''); setNewIp(''); setNewOs(''); setNewTouched(false);
     setFile(null); setApiUrl(''); setDragOver(false);
-    setShowCiMenu(false); setShowTypeMenu(false);
+    setShowCiMenu(false);
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -88,7 +83,8 @@ export function BomIngestPanel({ isOpen, onClose, onIngest }: BomIngestPanelProp
     onIngest({
       ciId,
       ciName: selected?.name ?? ciId,
-      ciType: ciType || 'Base CI',
+      // The CI's type is classified by the CMDB, not restated here.
+      ciType: mockEndpoints.find((x) => x.id === ciId) ? 'Server' : 'Base CI',
       ipAddress: c?.ip || e?.ipAddress || '—',
       osName: c?.os || e?.osName || 'Unknown',
       product: product.trim() || 'OS / base platform',
@@ -97,7 +93,7 @@ export function BomIngestPanel({ isOpen, onClose, onIngest }: BomIngestPanelProp
     });
   };
 
-  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  const Field = ({ label, children }: { label: React.ReactNode; children: React.ReactNode }) => (
     <div className="min-w-0">
       <label className="mb-1.5 block text-[12px] font-medium text-[#7B8FA5]">{label}</label>
       {children}
@@ -169,86 +165,18 @@ export function BomIngestPanel({ isOpen, onClose, onIngest }: BomIngestPanelProp
               )}
             </div>
 
-            {/* CI type */}
-            <div className="relative w-[150px] flex-shrink-0">
-              <button
-                onClick={() => { setShowTypeMenu((v) => !v); setShowCiMenu(false); }}
-                className={`${input} flex items-center justify-between gap-2 text-left`}
-              >
-                <span className={`truncate ${ciType ? 'text-[#364658]' : 'text-[#9ca3af]'}`}>{ciType || 'CI type…'}</span>
-                <span className="flex-shrink-0 text-[#7B8FA5]">▾</span>
-              </button>
-              {showTypeMenu && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowTypeMenu(false)} />
-                  <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
-                    {CI_TYPES.map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => { setCiType(t); setShowTypeMenu(false); }}
-                        className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] transition-colors ${
-                          t === ciType ? 'bg-[#F5FAFF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F9FAFB]'
-                        }`}
-                      >
-                        {t}
-                        {t === ciType && <Check size={15} className="text-[#3D8BD0]" />}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
             <button
-              onClick={() => setAdding((v) => !v)}
+              onClick={() => setAdding(true)}
               className="inline-flex h-9 flex-shrink-0 items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
             >
               <Plus size={15} /> Add new CI
             </button>
           </div>
 
-          <p className="mt-2 text-[12px] leading-[1.6] text-[#7B8FA5]">
-            Components become Software Assets linked to this CI (<span className="font-mono text-[#364658]">parentAssetId</span>)
-            so the vulnerability engine can match CVEs. The CI type is classified from the{' '}
-            <span className="font-semibold text-[#364658]">CMDB</span>.
-          </p>
-
-          {/* Inline new-CI form */}
-          {adding && (
-            <div className="mt-3 rounded-lg border border-[#DFE5ED] bg-[#FAFBFC] p-3.5">
-              <div className="mb-2.5 text-[12px] font-semibold uppercase tracking-wide text-[#7B8FA5]">New CI</div>
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="CI name / host name (e.g. WIN-NEWHOST01)"
-                className={`${input} ${newTouched && !newName.trim() ? 'border-[#DC2626] focus:border-[#DC2626] focus:ring-[#DC2626]' : ''}`}
-              />
-              {newTouched && !newName.trim() && (
-                <p className="mt-1 text-[12px] text-[#DC2626]">A CI needs a name — it is what the components hang off.</p>
-              )}
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <input type="text" value={newIp} onChange={(e) => setNewIp(e.target.value)} placeholder="IP address (optional)" className={input} />
-                <input type="text" value={newOs} onChange={(e) => setNewOs(e.target.value)} placeholder="OS / details (optional)" className={input} />
-              </div>
-              <div className="mt-3 flex items-center justify-end gap-2">
-                <button
-                  onClick={() => { setAdding(false); setNewTouched(false); }}
-                  className="inline-flex h-8 items-center rounded border border-[#DFE5ED] bg-white px-3 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
-                >Cancel</button>
-                <button
-                  onClick={saveNewCi}
-                  className="inline-flex h-8 items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
-                ><Check size={15} /> Save CI</button>
-              </div>
-            </div>
-          )}
-
           {/* ── Product / application ──────────────────────────────────────── */}
           <div className="mb-2 mt-6 flex items-center gap-2">
             <Box size={16} className="text-[#3D8BD0]" />
             <h4 className="text-[14px] font-semibold text-[#364658]">Product / application</h4>
-            <span className="text-[13px] text-[#7B8FA5]">— which product on the CI</span>
           </div>
           <input
             type="text"
@@ -257,10 +185,6 @@ export function BomIngestPanel({ isOpen, onClose, onIngest }: BomIngestPanelProp
             placeholder="e.g. Payments Web 2.4.1 — auto-detected from the SBOM"
             className={input}
           />
-          <p className="mt-2 text-[12px] leading-[1.6] text-[#7B8FA5]">
-            On a multi-product CI this keeps each product's BOM separate. Pick an existing product to
-            update it, or type a new name. Left blank, it rolls up to the OS scope.
-          </p>
 
           {/* ── Source: a file, or a URL to pull from ──────────────────────── */}
           <div className="mt-6 rounded-lg bg-[#F7F9FC] p-4">
@@ -353,6 +277,64 @@ export function BomIngestPanel({ isOpen, onClose, onIngest }: BomIngestPanelProp
           </div>
         </div>
       </div>
+
+      {/* New CI — its own drawer, stacked over this one. Creating a CI is a separate task with
+          its own required field, and it must not push the ingest form around while open. */}
+      {adding && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-end bg-black/40">
+          <div className="flex h-full w-[460px] max-w-[96vw] flex-col bg-white shadow-xl">
+            <div className="flex items-start justify-between gap-3 border-b border-[#DFE5ED] px-5 py-3">
+              <div className="min-w-0">
+                <h3 className="text-[16px] font-semibold text-[#364658]">New CI</h3>
+                <p className="mt-0.5 text-[13px] text-[#7B8FA5]">The asset the ingested components will hang off.</p>
+              </div>
+              <button
+                onClick={() => { setAdding(false); setNewTouched(false); }}
+                className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]"
+              ><X size={18} /></button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+              <Field label={<>CI name <span className="text-[#DC2626]">*</span></>}>
+                <input
+                  type="text"
+                  value={newName}
+                  autoFocus
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveNewCi(); }}
+                  placeholder="e.g. WIN-NEWHOST01"
+                  className={`${input} ${newTouched && !newName.trim() ? 'border-[#DC2626] focus:border-[#DC2626] focus:ring-[#DC2626]' : ''}`}
+                />
+                {newTouched && !newName.trim() && (
+                  <p className="mt-1 text-[12px] text-[#DC2626]">A CI needs a name — it is what the components hang off.</p>
+                )}
+              </Field>
+              <div className="mt-4">
+                <Field label="IP address">
+                  <input type="text" value={newIp} onChange={(e) => setNewIp(e.target.value)} placeholder="10.20.40.11" className={input} />
+                </Field>
+              </div>
+              <div className="mt-4">
+                <Field label="Operating system">
+                  <input type="text" value={newOs} onChange={(e) => setNewOs(e.target.value)} placeholder="Microsoft Windows Server 2022" className={input} />
+                </Field>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-[#DFE5ED] px-5 py-3">
+              <button
+                onClick={() => { setAdding(false); setNewTouched(false); }}
+                className="inline-flex h-8 items-center rounded border border-[#DFE5ED] bg-white px-4 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
+              >Cancel</button>
+              <button
+                onClick={saveNewCi}
+                disabled={!newName.trim()}
+                className="inline-flex h-8 items-center gap-1.5 rounded bg-[#3D8BD0] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5] disabled:cursor-not-allowed disabled:bg-[#CBD5E1]"
+              ><Check size={15} /> Create CI</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

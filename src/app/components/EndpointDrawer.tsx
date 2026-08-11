@@ -58,6 +58,7 @@ import { INITIAL_COMPUTERS, INITIAL_INSTALLATIONS, type PatchComputer, type Patc
 import { EndpointPatchesTab, INITIAL_ENDPOINT_PATCHES, type EndpointPatch } from './EndpointPatchesTab';
 import { EndpointDeploymentTab } from './EndpointDeploymentTab';
 import { EndpointBomTab } from './EndpointBomTab';
+import { bomCiId } from './bomData';
 import { PatchInstallationTab } from './PatchInstallationTab';
 import { PatchVulnerabilitiesTab, VULNERABILITIES } from './PatchVulnerabilitiesTab';
 import { PatchSupersededTab } from './PatchSupersededTab';
@@ -2092,7 +2093,10 @@ onStackMinimizedChange,
                 className="inline-block size-2.5 rounded-full flex-shrink-0"
                 style={{ backgroundColor: (activePatchRecord?.endpoint?.agentOnline ?? true) ? '#22C55E' : '#EAB308' }}
               />
-              <HeaderIdPill id={activeTicket.id} />
+              {/* Opened from BOM, the record is addressed by its CI id — clicking CI-408 in the
+                  BOM listing must not land on a page headed EP-408. Opened from Patch or
+                  Vulnerability it stays the endpoint id those modules use. */}
+              <HeaderIdPill id={activePatchRecord?.bomMode ? bomCiId(activeTicket.id) : activeTicket.id} />
               <span className="truncate">{activeTicket.subject}</span>
             </h1>
             {/* Endpoint KPIs — System Health · Missing Patches · Reboot Required · Last Scan */}

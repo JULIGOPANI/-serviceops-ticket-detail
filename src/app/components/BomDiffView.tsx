@@ -98,12 +98,27 @@ export function BomDiffView({ endpointId, productKey, type, older, newer, spotli
     return c;
   }, [rows]);
 
-  // Rows the current tab points at — what ˄ ˅ steps through.
-  const targets = useMemo(
-    () => rows.map((r, i) => (r.kind === spotlight ? i : -1)).filter((i) => i >= 0),
-    [rows, spotlight],
+  /* Which change kind the view is showing. Seeded from the active comparison tab, then owned by
+   * the select below — the two entry points agree, and changing it here does not fight the tab. */
+  const [kind, setKind] = useState<DiffKind | 'all'>(spotlight ?? 'all');
+  useEffect(() => { setKind(spotlight ?? 'all'); }, [spotlight]);
+
+  /* Picking a kind FILTERS the document to those lines rather than only tinting them, so the
+   * changes come to the top instead of being hunted for between hundreds of identical lines.
+   * Line numbers ride along, so a filtered row still says where it sits in the real document. */
+  const shown = useMemo(
+    () => (kind === 'all' ? rows : rows.filter((r) => r.kind === kind)),
+    [rows, kind],
   );
-  useEffect(() => { setCursor(0); }, [spotlight, older, newer, productKey, type]);
+
+  // Rows ˄ ˅ steps through. With a kind selected everything on screen is a target.
+  const targets = useMemo(
+    () => (kind === 'all'
+      ? shown.map((r, i) => (r.kind !== 'same' ? i : -1)).filter((i) => i >= 0)
+      : shown.map((_, i) => i)),
+    [shown, kind],
+  );
+  useEffect(() => { setCursor(0); }, [kind, older, newer, productKey, type]);
 
   const jump = (dir: 1 | -1) => {
     if (!targets.length) return;
@@ -144,20 +159,38 @@ export function BomDiffView({ endpointId, productKey, type, older, newer, spotli
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Legend — counts only; the tabs above are what filter. */}
+      {/* Kind selector + counts. The select is the control; the swatches read as its legend. */}
       <div className="flex items-center gap-4 px-5 py-2.5">
+        <div className="relative">
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as DiffKind | 'all')}
+            className="app-select h-8 rounded border border-[#DFE5ED] bg-white pl-2.5 pr-8 text-[13px] font-medium text-[#364658] focus:border-[#3D8BD0] focus:outline-none"
+          >
+            <option value="all">All lines ({rows.length})</option>
+            <option value="inserted">Inserted ({counts.inserted})</option>
+            <option value="modified">Modified ({counts.modified})</option>
+            <option value="deleted">Removed ({counts.deleted})</option>
+          </select>
+        </div>
         {(['modified', 'inserted', 'deleted'] as const).map((k) => (
-          <span key={k} className="inline-flex items-center gap-1.5">
+          <button
+            key={k}
+            onClick={() => setKind(kind === k ? 'all' : k)}
+            className={`inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 transition-colors ${
+              kind === k ? 'bg-[#F1F5F9]' : 'hover:bg-[#F9FAFB]'
+            }`}
+          >
             <span className="size-2 rounded-sm" style={{ backgroundColor: KIND_STYLE[k].swatch }} />
             <span className="text-[12px] text-[#7B8FA5]">{KIND_STYLE[k].label}</span>
             <span className="text-[12px] font-semibold text-[#364658]">{counts[k]}</span>
-          </span>
+          </button>
         ))}
         <div className="ml-auto flex items-center gap-1">
           <span className="mr-1 text-[12px] text-[#7B8FA5]">
-            {spotlight && targets.length
+            {targets.length
               ? `${cursor + 1} of ${targets.length}`
-              : spotlight ? 'none' : 'all lines'}
+              : kind === 'all' ? 'no changes' : 'none'}
           </span>
           <button
             onClick={() => jump(-1)}
@@ -186,17 +219,19 @@ export function BomDiffView({ endpointId, productKey, type, older, newer, spotli
         ref={scrollRef}
         className="mx-5 mb-4 min-h-0 flex-1 overflow-auto rounded-b-lg border border-[#E5E7EB] bg-white"
       >
-        {rows.map((r, i) => {
+        {!shown.length && (
+          <div className="px-4 py-10 text-center text-[13px] text-[#9CA3AF]">
+            No {kind === 'all' ? '' : `${KIND_STYLE[kind as Exclude<DiffKind, 'same'>].label.toLowerCase()} `}lines between v{older} and v{newer}.
+          </div>
+        )}
+        {shown.map((r, i) => {
           const style = r.kind === 'same' ? null : KIND_STYLE[r.kind];
-          // Spotlight: with a kind selected, non-matching rows fade rather than disappear, so
-          // the document still reads as a document.
-          const dim = !!spotlight && r.kind !== spotlight;
-          const isCursor = spotlight && targets[cursor] === i;
+          const isCursor = targets[cursor] === i;
           return (
             <div
               key={i}
               ref={(el) => { rowRefs.current[i] = el; }}
-              className={`flex font-mono text-[12px] leading-[1.6] transition-opacity ${dim ? 'opacity-35' : ''} ${
+              className={`flex font-mono text-[12px] leading-[1.6] ${
                 isCursor ? 'ring-1 ring-inset ring-[#3D8BD0]' : ''
               }`}
             >

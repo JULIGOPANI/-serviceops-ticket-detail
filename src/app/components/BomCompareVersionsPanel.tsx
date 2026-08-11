@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Search, ChevronDown, ChevronRight, Check, ShieldAlert, SlidersHorizontal, CirclePlus, CircleMinus, RefreshCw, CircleDashed, ExternalLink, Repeat, List as ListIcon, Columns2 } from 'lucide-react';
 import { BomDiffView } from './BomDiffView';
 import type { DiffKind } from './BomDiffView';
-import { bomDiff, bomVersions, componentCount } from './bomData';
+import { bomDiff, bomVersions, componentCount, bomCiId } from './bomData';
 import type { BomType, BomProduct, BomDiffEntry } from './bomData';
 import { useDrawerStack } from './DrawerStack';
 import { mockDetectedCves, cveToPatchShape } from './DetectedCvesListPage';
@@ -326,7 +326,7 @@ export function BomCompareVersionsPanel({
         <div className="flex items-center justify-between gap-3 border-b border-[#DFE5ED] px-5 py-3">
           <div className="min-w-0">
             <h3 className="text-[16px] font-semibold text-[#364658]">Compare BOMs</h3>
-            <p className="mt-0.5 text-[13px] text-[#7B8FA5]">{endpointId} · {hostName} · {type}</p>
+            <p className="mt-0.5 text-[13px] text-[#7B8FA5]">{bomCiId(endpointId)} · {hostName} · {type}</p>
           </div>
           <button onClick={onClose} className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]">
             <X size={18} />
@@ -542,9 +542,11 @@ export function BomCompareVersionsPanel({
                 return (
                   <div key={k} className="mb-10">
                     <SectionHeader k={k} n={rows.length} />
+                    {/* Collapsed like every other tab — an expanded list of vulnerable
+                        components is the hardest one to scan, not the easiest. */}
                     <div className="space-y-2">
                       {rows.map((e, i) => (
-                        <DiffRow key={`cve-${k}-${e.name}-${i}`} e={e} showKindPill onOpenCve={openCve} defaultOpen />
+                        <DiffRow key={`cve-${k}-${e.name}-${i}`} e={e} showKindPill onOpenCve={openCve} />
                       ))}
                     </div>
                   </div>
