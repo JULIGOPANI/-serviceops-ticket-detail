@@ -56,9 +56,10 @@ const matches = (cellValue: string, c: Condition): boolean => {
   }
 };
 
-/** The change categories this version's listing can be narrowed to. */
-export type ChangeTab = 'All' | 'Added' | 'Updated' | 'Removed' | 'Unchanged';
-const CHANGE_TABS: ChangeTab[] = ['All', 'Added', 'Updated', 'Removed', 'Unchanged'];
+/** How this version's listing can be narrowed: by what it changed, or by what carries a CVE. */
+export type ChangeTab = 'All' | 'CVEs' | 'Added' | 'Updated' | 'Removed' | 'Unchanged';
+// CVEs sits second — it is the cut a reviewer makes most often, and it is not a change kind.
+const CHANGE_TABS: ChangeTab[] = ['All', 'CVEs', 'Added', 'Updated', 'Removed', 'Unchanged'];
 
 interface BomComponentsPanelProps {
   isOpen: boolean;
@@ -192,19 +193,13 @@ export function BomComponentsPanel({
     });
   }
 
-  // Prepend the Change column to every row and sort Added → Updated → Removed → Unchanged.
-  headers = ['Change', ...headers];
+  /* The change kind rides on the row as a FIELD, not a column — the tab above already says which
+   * change you are looking at, so a column repeating it on every row is dead width. */
   rows = rows
-    .map((r) => {
-      const c = change(String(r.fields[nameKey] ?? ''), verKey ? String(r.fields[verKey] ?? '') : undefined);
-      return {
-        ...r,
-        fields: { ...r.fields, Change: c },
-        cells: [{ pill: c, map: CHANGE_STYLE }, ...r.cells],
-        mono: r.mono.map((i) => i + 1),
-        link: r.link === undefined ? undefined : r.link + 1,
-      };
-    })
+    .map((r) => ({
+      ...r,
+      fields: { ...r.fields, Change: change(String(r.fields[nameKey] ?? ''), verKey ? String(r.fields[verKey] ?? '') : undefined) },
+    }))
     // Arriving from a version's CVE metric, the vulnerable components are the whole point, so
     // they lead — most CVEs first. Otherwise the change order stands.
     .sort((a, b) => {
@@ -215,15 +210,26 @@ export function BomComponentsPanel({
       return CHANGE_ORDER[a.fields.Change] - CHANGE_ORDER[b.fields.Change];
     });
 
-  const fieldNames = rows.length ? Object.keys(rows[0].fields) : headers.filter((h) => h !== 'Excluded Paths');
+  // Change is a tab, not a searchable column — offering it in the filter builder too would give
+  // two controls for one thing that could disagree.
+  const fieldNames = (rows.length ? Object.keys(rows[0].fields) : headers).filter((h) => h !== 'Excluded Paths' && h !== 'Change');
   const valuesFor = (field: string) => Array.from(new Set(rows.map((r) => r.fields[field]).filter(Boolean))).sort();
 
   // Counts come from the unfiltered set, so a tab badge always says how many exist rather than
   // how many survive the current search.
-  const tabCount = (t: ChangeTab) => (t === 'All' ? rows.length : rows.filter((r) => r.fields.Change === t).length);
+  const inTab = (r: Row, t: ChangeTab) =>
+    t === 'All' ? true : t === 'CVEs' ? (r.cveCount ?? 0) > 0 : r.fields.Change === t;
+  const tabCount = (t: ChangeTab) => rows.filter((r) => inTab(r, t)).length;
+  // Only SBOM rows carry vulnerabilities, so the CVEs tab is offered only where it can mean
+  // something rather than sitting permanently at zero.
+  const shownTabs = CHANGE_TABS.filter((t) => t !== 'CVEs' || rows.some((r) => (r.cveCount ?? 0) > 0));
+  /* The version card counts CVEs; this tab counts the COMPONENTS carrying them, because a tab
+   * badge has to match the number of rows behind it. One component can carry several, so the two
+   * legitimately differ — the tooltip says so rather than leaving it looking like a bug. */
+  const totalCves = rows.reduce((n, r) => n + (r.cveCount ?? 0), 0);
 
   const filtered = rows
-    .filter((r) => tab === 'All' || r.fields.Change === tab)
+    .filter((r) => inTab(r, tab))
     .filter((r) => conditions.every((c) => matches(r.fields[c.field] ?? '', c)));
   const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
   const pageRows = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -261,21 +267,28 @@ export function BomComponentsPanel({
         {/* What this version changed. The tab is the first cut a reviewer makes — "show me only
             what came in" — so it sits above the search rather than inside it. */}
         <div className="flex items-center gap-2.5 border-b border-[#EEF2F6] px-5">
-          {CHANGE_TABS.map((t) => {
+          {shownTabs.map((t) => {
             const n = tabCount(t);
             const on = tab === t;
+            // CVEs is a risk cut, not a change kind — its badge stays red so it never reads as
+            // one more category of edit.
+            const risk = t === 'CVEs' && n > 0;
             return (
               <button
                 key={t}
                 onClick={() => { setTab(t); setCurrentPage(1); }}
+                title={t === 'CVEs' ? `${n} component${n === 1 ? '' : 's'} carrying ${totalCves} CVE${totalCves === 1 ? '' : 's'}` : undefined}
                 className={`flex items-center gap-1.5 border-b-2 px-2 py-3 text-[13px] transition-colors ${
                   on
                     ? 'border-[#3D8BD0] font-medium text-[#3D8BD0]'
                     : 'border-transparent text-[#64748B] hover:border-[#CBD5E1] hover:bg-[#F9FAFB]'
                 }`}
               >
+                {t === 'CVEs' && <ShieldAlert size={13} className={risk ? 'text-[#DC2626]' : 'text-[#9CA3AF]'} />}
                 {t}
-                <span className={`rounded-sm px-1.5 py-px text-[11px] font-semibold ${on ? 'bg-[#EBF5FF] text-[#3D8BD0]' : 'bg-[#F1F5F9] text-[#64748B]'}`}>{n}</span>
+                <span className={`rounded-sm px-1.5 py-px text-[11px] font-semibold ${
+                  risk ? 'bg-[#FEF3F2] text-[#DC2626]' : on ? 'bg-[#EBF5FF] text-[#3D8BD0]' : 'bg-[#F1F5F9] text-[#64748B]'
+                }`}>{n}</span>
               </button>
             );
           })}

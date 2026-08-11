@@ -562,7 +562,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                       <TooltipTrigger asChild>
                         {v.cves > 0 ? (
                           <button
-                            onClick={() => { setComponentsCveFirst(true); setComponentsTab('All'); setComponentsFor(v.v); }}
+                            onClick={() => { setComponentsCveFirst(true); setComponentsTab('CVEs'); setComponentsFor(v.v); }}
                             className="inline-flex items-center gap-1.5 rounded text-[#DC2626] transition-colors hover:underline"
                           >
                             <ShieldAlert size={15} className="group-hover/card:hidden" />
@@ -579,9 +579,12 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                         )}
                       </TooltipTrigger>
                       <TooltipContent side="top">
+                        {/* The metric counts CVEs that arrived WITH this version; the tab it
+                            opens lists every vulnerable component on the host. Say both, or the
+                            two numbers look like they disagree. */}
                         {v.cves > 0
-                          ? `View the components carrying these ${v.cves} CVE${v.cves === 1 ? '' : 's'}`
-                          : 'Known CVEs in what this version added or updated'}
+                          ? `${v.cves} CVE${v.cves === 1 ? '' : 's'} arrived with this version — opens every component carrying a CVE`
+                          : 'No CVEs arrived with this version'}
                       </TooltipContent>
                     </Tooltip>
 
