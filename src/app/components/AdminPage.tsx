@@ -5,10 +5,19 @@ import { AdminOverview } from './AdminOverview';
 import { ADMIN_SECTIONS, sectionByTitle } from './adminData';
 import { AdminBomModule } from './AdminBomModule';
 import type { BomAdminScreen } from './AdminBomModule';
+import { AdminOsUpgradeModule } from './AdminOsUpgradeModule';
 
 /** Sections that have a real module behind them rather than only a card grid. Selecting one in
  *  the sidebar opens that module; everything else still scrolls the Overview. */
 const MODULE_TITLES = ['BOM Management'];
+
+/** Which screen each level-2 nav item opens. The nav, the Overview cards and the module's own
+ *  landing all route through this one map, so they can never disagree about where a card goes. */
+const BOM_SCREEN_FOR: Record<string, BomAdminScreen> = {
+  'BOM Licensing': 'licensing',
+  'BOM Scheduler': 'scheduler',
+  'BOM Retention': 'retention',
+};
 
 /* Admin hub — the settings surface. Its own shell: the product's left icon rail is replaced by a
  * grouped settings nav, with "Back to app" as the way out.
@@ -33,8 +42,20 @@ export function AdminPage({ onNavigate }: { onNavigate: (page: string) => void }
       return next;
     });
 
-  const select = (title: string) => {
+  /** Level-2 module inside the active section, when one is selected. Drives the nav highlight. */
+  const [activeCard, setActiveCard] = useState<string | null>(null);
+
+  const select = (title: string, card?: string) => {
     setActive(title);
+    setActiveCard(card ?? null);
+
+    // A level-2 module opens its listing on the right. Level 1 only expands the branch, which
+    // the sidebar handles on its own — it never reaches here for a tree section.
+    if (card && MODULE_TITLES.includes(title)) {
+      setModule(title);
+      setBomScreen(BOM_SCREEN_FOR[card] ?? 'landing');
+      return;
+    }
     if (MODULE_TITLES.includes(title)) {
       setModule(title);
       setBomScreen('landing');
@@ -59,11 +80,25 @@ export function AdminPage({ onNavigate }: { onNavigate: (page: string) => void }
     <div className="flex h-screen flex-col bg-[#F7F9FC]">
       <Header selectedCount={0} />
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <AdminSidebar active={active} onSelect={select} onBackToApp={() => onNavigate('request')} />
+        <AdminSidebar active={active} activeCard={activeCard} onSelect={select} onBackToApp={() => onNavigate('request')} />
         <div data-admin-scroll className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {module === 'BOM Management' ? (
             <div className="min-h-0 flex-1 overflow-y-auto bg-[#F7F9FC]">
-              <AdminBomModule screen={bomScreen} onScreen={setBomScreen} />
+              {/* The module's own navigation (its landing cards, its breadcrumb) reports back so
+                  the nav highlight follows — the sidebar must never say you are somewhere you
+                  have already navigated away from. */}
+              <AdminBomModule
+                screen={bomScreen}
+                onScreen={(s) => {
+                  setBomScreen(s);
+                  const card = Object.keys(BOM_SCREEN_FOR).find((k) => BOM_SCREEN_FOR[k] === s);
+                  setActiveCard(card ?? null);
+                }}
+              />
+            </div>
+          ) : module === 'OS Upgrade' ? (
+            <div className="min-h-0 flex-1 overflow-y-auto bg-[#F7F9FC]">
+              <AdminOsUpgradeModule onExit={(to) => select(to === 'patch' ? 'Patch Management' : 'Overview')} />
             </div>
           ) : (
             <AdminOverview
@@ -73,16 +108,16 @@ export function AdminPage({ onNavigate }: { onNavigate: (page: string) => void }
               onQuery={setQuery}
               registerSection={(key, el) => { sectionRefs.current[key] = el; }}
               onOpenCard={(sectionTitle, cardTitle) => {
+                // OS Upgrade is a card with a real module behind it — the listing IS the module.
+                if (sectionTitle === 'Patch Management' && cardTitle === 'OS Upgrade') {
+                  setActive('Patch Management');
+                  setModule('OS Upgrade');
+                  return true;
+                }
                 // A BOM card on the Overview jumps straight into that screen, rather than
                 // making the admin land on the module and click again.
                 if (sectionTitle !== 'BOM Management') return false;
-                setActive('BOM Management');
-                setModule('BOM Management');
-                setBomScreen(
-                  cardTitle === 'BOM Licensing' ? 'licensing'
-                    : cardTitle === 'BOM Scheduler' ? 'scheduler'
-                      : cardTitle === 'BOM Retention' ? 'retention' : 'landing',
-                );
+                select('BOM Management', cardTitle);
                 return true;
               }}
             />

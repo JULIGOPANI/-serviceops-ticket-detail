@@ -16,7 +16,25 @@ export interface AdminCard {
   icon: string;
   /** Route on the real product — kept so the prototype's links stay truthful. */
   href: string;
+  /** Level-3 submodules. Rendered WITHOUT icons, grouped by a left rail — see SIDEBAR_TREE. */
+  children?: { title: string; href: string }[];
 }
+
+/* ── Sidebar depth ─────────────────────────────────────────────────────────
+ *
+ * The admin nav is three levels deep, and each level looks different on purpose:
+ *
+ *   Level 1  section        icon + chevron   e.g. Automation, BOM Management
+ *   Level 2  module         icon             e.g. Workflow, SLA, BOM Licensing
+ *   Level 3  submodule      NO icon, left rail joining the group
+ *
+ * Only sections listed here expand in the nav; every other section stays a single row that
+ * scrolls the Overview, exactly as before. Expansion is opt-in per section rather than automatic
+ * for all 24, because a section only earns its own nav branch once its modules are real screens.
+ */
+export const SIDEBAR_TREE: string[] = ['BOM Management'];
+
+export const isTreeSection = (title: string) => SIDEBAR_TREE.includes(title);
 
 export interface AdminSection {
   key: string;
@@ -336,6 +354,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     { title: 'Deployment Management', desc: 'Control how and where patches are deployed to endpoints.', icon: 'MonitorDown', href: '/admin/patch-management/deployment-management?tab=deployment_policy' },
     { title: 'System Health Settings', desc: 'Define criteria to assess and tag endpoint health.', icon: 'Settings2', href: '/admin/patch-management/system-health-settings' },
     { title: 'Packages', desc: 'Build and deploy custom software packages to managed endpoints.', icon: 'Package', href: '/admin/packages' },
+    { title: 'OS Upgrade', desc: 'Configure and schedule operating system upgrade deployments.', icon: 'MonitorUp', href: '/admin/patch-management/os-upgrade' },
     { title: 'Registry Templates', desc: 'Define registry configurations applied to endpoints.', icon: 'LayoutTemplate', href: '/admin/registry-template' },
     ],
   },
