@@ -19,6 +19,13 @@ const BOM_SCREEN_FOR: Record<string, BomAdminScreen> = {
   'BOM Retention': 'retention',
 };
 
+/** Level-2 cards that own a module even though their SECTION doesn't, keyed "<section>/<card>".
+ *  Patch Management is still a card grid — OS Upgrade is the one entry with a real screen behind
+ *  it, so only that row swaps the pane. */
+const CARD_MODULES: Record<string, string> = {
+  'Patch Management/OS Upgrade': 'OS Upgrade',
+};
+
 /* Admin hub — the settings surface. Its own shell: the product's left icon rail is replaced by a
  * grouped settings nav, with "Back to app" as the way out.
  *
@@ -46,8 +53,16 @@ export function AdminPage({ onNavigate }: { onNavigate: (page: string) => void }
   const [activeCard, setActiveCard] = useState<string | null>(null);
 
   const select = (title: string, card?: string) => {
+    const cardModule = card ? CARD_MODULES[`${title}/${card}`] : undefined;
+    // A nav row that opens nothing must not stay highlighted while the Overview shows behind it.
+    const opensSomething = !!cardModule || (!!card && MODULE_TITLES.includes(title));
     setActive(title);
-    setActiveCard(card ?? null);
+    setActiveCard(opensSomething ? card! : null);
+
+    if (cardModule) {
+      setModule(cardModule);
+      return;
+    }
 
     // A level-2 module opens its listing on the right. Level 1 only expands the branch, which
     // the sidebar handles on its own — it never reaches here for a tree section.
@@ -97,7 +112,9 @@ export function AdminPage({ onNavigate }: { onNavigate: (page: string) => void }
               />
             </div>
           ) : module === 'OS Upgrade' ? (
-            <div className="min-h-0 flex-1 overflow-y-auto bg-[#F7F9FC]">
+            /* White, not the hub's grey: an admin LISTING is the same surface as a technician
+               portal list page — head, search, then a full-bleed table with no card around it. */
+            <div className="min-h-0 flex-1 overflow-y-auto bg-white">
               <AdminOsUpgradeModule onExit={(to) => select(to === 'patch' ? 'Patch Management' : 'Overview')} />
             </div>
           ) : (
@@ -108,10 +125,9 @@ export function AdminPage({ onNavigate }: { onNavigate: (page: string) => void }
               onQuery={setQuery}
               registerSection={(key, el) => { sectionRefs.current[key] = el; }}
               onOpenCard={(sectionTitle, cardTitle) => {
-                // OS Upgrade is a card with a real module behind it — the listing IS the module.
-                if (sectionTitle === 'Patch Management' && cardTitle === 'OS Upgrade') {
-                  setActive('Patch Management');
-                  setModule('OS Upgrade');
+                // A card that owns a module opens it, so the Overview and the nav agree.
+                if (CARD_MODULES[`${sectionTitle}/${cardTitle}`]) {
+                  select(sectionTitle, cardTitle);
                   return true;
                 }
                 // A BOM card on the Overview jumps straight into that screen, rather than

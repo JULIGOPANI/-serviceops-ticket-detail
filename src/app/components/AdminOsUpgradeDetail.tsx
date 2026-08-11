@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ChevronRight, ExternalLink, Search, X } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { ChevronRight, Disc, ExternalLink, ListChecks, Search, X } from 'lucide-react';
 import { Pagination } from './Pagination';
+import { HeaderIdPill } from './HeaderIdPill';
+import { HeaderKpiRow } from './HeaderKpiRow';
+import type { HeaderKpiItem } from './HeaderKpiRow';
 import { UploadStatusPill, UPLOAD_TONE } from './OsUpgradeUpload';
 import { compatCounts, computersFor, prerequisitesFor } from './osUpgradeData';
 import type { CompatStatus, OsImage, OsUploadStatus, PrereqKey } from './osUpgradeData';
@@ -15,7 +18,7 @@ interface AdminOsUpgradeDetailProps {
   image: OsImage;
   /** Live upload state — differs from image.status only while a transfer is in flight. */
   status: OsUploadStatus;
-  onBack: () => void;
+  /** 'list' returns to the OS Upgrade grid; the others leave the module. */
   onCrumb: (crumb: 'admin' | 'patch' | 'list') => void;
 }
 
@@ -31,19 +34,6 @@ function parseDay(s: string): Date | null {
 
 const Dash = () => <span className="text-[12px] text-[#9ca3af]">---</span>;
 
-/** Header chips: dot + label + value, divider between — the drawer KPI-strip recipe. */
-function KpiChip({ label, value, dot, tone }: { label: string; value: string; dot?: string; tone?: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      {dot && <span className="size-2 flex-shrink-0 rounded-full" style={{ backgroundColor: dot }} />}
-      <span className="text-[11px] text-[#7B8FA5]">{label}</span>
-      <span className="text-[12px] font-medium" style={{ color: tone ?? '#364658' }}>{value}</span>
-    </span>
-  );
-}
-
-const Divider = () => <span className="h-3 w-px bg-[#E5E7EB]" />;
-
 const COMPAT_TONE: Record<CompatStatus, { fg: string; bg: string }> = {
   Compatible: { fg: '#22A06B', bg: '#ECFDF3' },
   Incompatible: { fg: '#DC2626', bg: '#FEF3F2' },
@@ -55,7 +45,7 @@ const COL_LABEL: Partial<Record<PrereqKey, string>> = { tpm: 'TPM', disk: 'Free 
 
 const BUCKETS: CompatStatus[] = ['Compatible', 'Incompatible', 'Unknown'];
 
-export function AdminOsUpgradeDetail({ image, status, onBack, onCrumb }: AdminOsUpgradeDetailProps) {
+export function AdminOsUpgradeDetail({ image, status, onCrumb }: AdminOsUpgradeDetailProps) {
   const [tab, setTab] = useState<'summary' | 'computers'>('summary');
   const [bucket, setBucket] = useState<CompatStatus>('Compatible');
   const [search, setSearch] = useState('');
@@ -119,113 +109,143 @@ export function AdminOsUpgradeDetail({ image, status, onBack, onCrumb }: AdminOs
     )],
   ];
 
+  /* Header KPIs — the same chip vocabulary every detail drawer uses, fed through the shared
+     HeaderKpiRow so the strip collapses into a "+N" pill instead of wrapping. */
+  const kpis: HeaderKpiItem[] = [
+    { key: 'platform', tip: `Platform: ${image.platform}`, node: (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="text-[11px] text-[#7B8FA5]">Platform</span>
+        <span className="text-[12px] font-medium text-[#364658]">{image.platform}</span>
+      </span>
+    ) },
+    { key: 'arch', tip: `Architecture: ${image.architecture}`, node: (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="text-[11px] text-[#7B8FA5]">Architecture</span>
+        <span className="text-[12px] font-medium text-[#364658]">{image.architecture}</span>
+      </span>
+    ) },
+    { key: 'lang', tip: `Language: ${image.language}`, node: (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="text-[11px] text-[#7B8FA5]">Language</span>
+        <span className="text-[12px] font-medium text-[#364658]">{image.language}</span>
+      </span>
+    ) },
+    { key: 'size', tip: `Size: ${image.size}`, node: (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="text-[11px] text-[#7B8FA5]">Size</span>
+        <span className="text-[12px] font-medium text-[#364658]">{image.size}</span>
+      </span>
+    ) },
+    { key: 'upload', tip: `Upload: ${status}`, node: (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="text-[11px] text-[#7B8FA5]">Upload</span>
+        <span className="size-2 flex-shrink-0 rounded-full" style={{ backgroundColor: tone.dot }} />
+        <span className="text-[12px] font-medium" style={{ color: tone.fg }}>{status}</span>
+      </span>
+    ) },
+    { key: 'eos', tip: `End of support: ${image.eosDate}${eosPast ? ' (expired)' : ''}`, node: (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="text-[11px] text-[#7B8FA5]">EOS</span>
+        {eosPast && <span className="size-2 flex-shrink-0 rounded-full bg-[#EF4444]" />}
+        <span className="text-[12px] font-medium" style={{ color: eosPast ? '#DC2626' : '#364658' }}>{image.eosDate}</span>
+      </span>
+    ) },
+  ];
+
   return (
-    <div className="mx-auto max-w-[1400px] px-8 py-6">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-[13px]">
-        {([['Admin', 'admin'], ['Patch Management', 'patch'], ['OS Upgrade', 'list']] as const).map(([label, to]) => (
-          <span key={label} className="inline-flex items-center gap-1.5">
-            <button onClick={() => onCrumb(to)} className="text-[#3D8BD0] transition-colors hover:underline">{label}</button>
-            <ChevronRight size={14} className="text-[#9CA3AF]" />
-          </span>
-        ))}
-        <span className="text-[#64748B]">{image.id}</span>
+    <div>
+      {/* ── Header band ── breadcrumb, title, KPI strip. One left edge for all three: the back
+          arrow used to sit beside the title and push it out of line with everything above it,
+          and the breadcrumb's "OS Upgrade" link is already the way back. */}
+      <div className="border-b border-[#e5e7eb] px-8 pb-4 pt-6">
+        <div className="flex items-center gap-1.5 text-[13px]">
+          {([['Admin', 'admin'], ['Patch Management', 'patch'], ['OS Upgrade', 'list']] as const).map(([label, to]) => (
+            <span key={label} className="inline-flex items-center gap-1.5">
+              <button onClick={() => onCrumb(to)} className="text-[#3D8BD0] transition-colors hover:underline">{label}</button>
+              <ChevronRight size={14} className="text-[#9CA3AF]" />
+            </span>
+          ))}
+          <span className="text-[#64748B]">{image.id}</span>
+        </div>
+
+        <h1 className="mt-2 flex items-center gap-2 truncate text-[18px] font-semibold text-[#364658]">
+          <HeaderIdPill id={image.id} />
+          <span className="truncate">{image.title}</span>
+        </h1>
+        <HeaderKpiRow items={kpis} />
       </div>
 
-      {/* Title + KPI strip */}
-      <div className="mt-2 flex items-start gap-3">
-        <button
-          onClick={onBack}
-          title="Back to OS Upgrade"
-          className="mt-0.5 flex size-8 flex-shrink-0 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#64748B] transition-colors hover:bg-[#F5F7FA] hover:text-[#364658]"
-        ><ArrowLeft size={16} /></button>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded bg-[#e8f4fd] px-2 py-0.5 text-[12px] font-semibold text-[#3D8BD0]">{image.id}</span>
-            <h1 className="text-[20px] font-semibold text-[#364658]">{image.title}</h1>
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <KpiChip label="Platform" value={image.platform} />
-            <Divider />
-            <KpiChip label="Architecture" value={image.architecture} />
-            <Divider />
-            <KpiChip label="Language" value={image.language} />
-            <Divider />
-            <KpiChip label="Size" value={image.size} />
-            <Divider />
-            <KpiChip label="Upload" value={status} dot={tone.dot} tone={tone.fg} />
-            <Divider />
-            <KpiChip label="EOS" value={image.eosDate} dot={eosPast ? '#EF4444' : undefined} tone={eosPast ? '#DC2626' : undefined} />
-          </div>
+      {/* ── Tabs ── */}
+      <div className="border-b border-[#e5e7eb] px-8">
+        <div className="flex items-center gap-2.5">
+          {([['summary', 'Summary'], ['computers', 'Computers']] as const).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`whitespace-nowrap border-b-2 px-2 py-3 text-[14px] font-medium transition-colors ${
+                tab === id ? 'border-[#3D8BD0] text-[#3D8BD0]' : 'border-transparent text-[#6b7280] hover:border-[#CBD5E1] hover:text-[#364658]'
+              }`}
+            >{label}</button>
+          ))}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="mt-4 flex items-center gap-2.5 border-b border-[#e5e7eb]">
-        {([['summary', 'Summary'], ['computers', 'Computers']] as const).map(([id, label]) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            className={`whitespace-nowrap border-b-2 px-2 py-3 text-[14px] font-medium transition-colors ${
-              tab === id ? 'border-[#3D8BD0] text-[#3D8BD0]' : 'border-transparent text-[#6b7280] hover:border-[#CBD5E1] hover:text-[#364658]'
-            }`}
-          >{label}</button>
-        ))}
-      </div>
-
+      <div className="px-8 py-5">
       {tab === 'summary' && (
-        <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-12">
-          {/* Metadata — the label-over-value grid used by the endpoint drawer's System Overview */}
-          <div className="rounded-lg border border-[#E5E7EB] bg-white p-5 xl:col-span-7">
-            <h3 className="mb-4 text-[14px] font-semibold text-[#364658]">OS Image Details</h3>
-            <div className="grid grid-cols-1 gap-x-6 gap-y-3.5 sm:grid-cols-2">
-              {meta.map(([label, value]) => (
-                <div key={label} className="min-w-0">
-                  <div className="mb-0.5 text-[12px] text-[#64748B]">{label}</div>
-                  <div className="break-words text-[13px] font-medium text-[#364658]">{value}</div>
-                </div>
-              ))}
+        /* items-start, or the shorter card stretches to its neighbour and shows a block of dead
+           space — which is what the two equal-height cards were doing. */
+        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-12">
+          {/* Metadata — the asset Hardware tab's container: section head, then a grey panel of
+              label-over-value pairs. */}
+          <section className="xl:col-span-7">
+            <div className="mb-3 flex items-center gap-2">
+              <Disc className="size-4 flex-shrink-0 text-[#3D8BD0]" />
+              <h3 className="text-[14px] font-semibold text-[#364658]">OS Image Details</h3>
             </div>
-          </div>
+            <div className="rounded-lg bg-[#F9FAFB] p-5">
+              <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+                {meta.map(([label, value]) => (
+                  <div key={label} className="min-w-0">
+                    <div className="mb-1 text-[12px] text-[#64748B]">{label}</div>
+                    <div className="break-words text-[13px] font-medium text-[#364658]">{value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
 
-          {/* Prerequisites — the rules the Computers tab is evaluated against */}
-          <div className="flex flex-col rounded-lg border border-[#E5E7EB] bg-white p-5 xl:col-span-5">
-            <h3 className="text-[14px] font-semibold text-[#364658]">Prerequisites</h3>
-            <p className="mt-1 text-[12px] leading-[1.5] text-[#7B8FA5]">
-              An endpoint must satisfy every rule below before this upgrade is offered to it.
-            </p>
-            <div className="mt-3 overflow-hidden rounded border border-[#E5E7EB]">
-              <table className="w-full">
-                <thead className="bg-[#F9FAFB]">
-                  <tr>
-                    {['Attribute', 'Operator', 'Value'].map((h) => (
-                      <th key={h} className="whitespace-nowrap px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F0F2F5]">
-                  {prereqs.map((p) => (
-                    <tr key={p.key}>
-                      <td className="whitespace-nowrap px-3 py-2.5 text-[13px] font-medium text-[#364658]">{p.attribute}</td>
-                      <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[13px] text-[#3D8BD0]">{p.operator}</td>
-                      <td className="px-3 py-2.5 text-[13px] text-[#364658]">{p.value}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* Prerequisites — rendered as the admin condition-builder reads (Where / and · field ·
+              operator · value), read-only. Same panel as the metadata beside it. */}
+          <section className="xl:col-span-5">
+            <div className="mb-3 flex items-center gap-2">
+              <ListChecks className="size-4 flex-shrink-0 text-[#3D8BD0]" />
+              <h3 className="text-[14px] font-semibold text-[#364658]">Prerequisites</h3>
+              <span className="ml-auto text-[12px] text-[#7B8FA5]">{prereqs.length} rules · all must pass</span>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-[#F0F2F5] pt-3 text-[12px] text-[#7B8FA5]">
-              <span>Evaluated against <span className="font-semibold text-[#364658]">{fleet.length}</span> endpoints ·</span>
-              <span className="font-semibold text-[#22A06B]">{counts.Compatible} eligible</span>
-              <button onClick={() => setTab('computers')} className="ml-auto font-medium text-[#3D8BD0] hover:underline">View computers ›</button>
+            <div className="rounded-lg bg-[#F9FAFB] p-5">
+              <div className="grid grid-cols-[38px_minmax(0,1fr)_auto_minmax(0,1.15fr)] items-center gap-x-3 gap-y-3">
+                {prereqs.map((p, i) => (
+                  <Fragment key={p.key}>
+                    <span className="text-[12px] text-[#7B8FA5]">{i === 0 ? 'Where' : 'and'}</span>
+                    <span className="truncate text-[13px] font-medium text-[#364658]" title={p.attribute}>{p.attribute}</span>
+                    <span className="inline-flex h-6 items-center justify-center rounded border border-[#E3E8EF] bg-white px-2 font-mono text-[12px] text-[#3D8BD0]">{p.operator}</span>
+                    <span className="truncate text-[13px] text-[#364658]" title={p.value}>{p.value}</span>
+                  </Fragment>
+                ))}
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-[#E5E7EB] pt-3 text-[12px] text-[#7B8FA5]">
+                <span>Evaluated against <span className="font-semibold text-[#364658]">{fleet.length}</span> endpoints ·</span>
+                <span className="font-semibold text-[#22A06B]">{counts.Compatible} eligible</span>
+                <button onClick={() => setTab('computers')} className="ml-auto font-medium text-[#3D8BD0] hover:underline">View computers ›</button>
+              </div>
             </div>
-          </div>
+          </section>
         </div>
       )}
 
       {tab === 'computers' && (
         /* Full-bleed, no card — same listing chrome as the module's own grid. */
-        <div className="mt-4">
+        <div>
           <div>
             {/* Sub-tabs with counts — the patch detail page's bucket pills */}
             <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -318,6 +338,7 @@ export function AdminOsUpgradeDetail({ image, status, onBack, onCrumb }: AdminOs
           />
         </div>
       )}
+      </div>
     </div>
   );
 }

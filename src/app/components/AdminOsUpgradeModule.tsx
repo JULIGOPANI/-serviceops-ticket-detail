@@ -219,7 +219,6 @@ export function AdminOsUpgradeModule({ onExit }: AdminOsUpgradeModuleProps) {
         <AdminOsUpgradeDetail
           image={detail}
           status={rowStatus(detail)}
-          onBack={() => setDetailId(null)}
           onCrumb={(c) => (c === 'list' ? setDetailId(null) : onExit(c))}
         />
         {overlays}
