@@ -158,8 +158,15 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
 - **Onboarding tour is TICKET-page-only**: the first-visit guide (`TicketDetailsOnboarding`, session key `hasSeenTicketDetailsOnboarding`) auto-opens ONLY in `TicketDrawer` + `TicketDrawerV2` — the auto-open `setTimeout` was replaced with a comment in the other 12 drawers. Only `TicketActionsMenu` ever rendered the manual "Restart Tour" item, so no menu edits were needed.
 
 ## Deployment
-Repo: https://github.com/ronak-patel-motadata/ServiceOps-Ticket-Detail-
-Live URL: https://ronak-patel-motadata.github.io/ServiceOps-Ticket-Detail-/
+Repo: https://github.com/zenichakalasiya/serviceops-ticket-detail
+Live URL: https://zenichakalasiya.github.io/serviceops-ticket-detail/
+
+Pages serves the **`gh-pages` branch** (legacy `build_type`), not an Actions workflow — the
+workflow pipeline stalled on `deployment_queued`, so deploys run `npx gh-pages -d dist` after
+`pnpm build`. `vite.config.ts` `base` is `/serviceops-ticket-detail/`; changing the repo name
+means changing that too or every asset 404s.
+
+Upstream original: https://github.com/ronak-patel-motadata/ServiceOps-Ticket-Detail-
 
 ## Handoff
 Latest session state is in [HANDOFF.md](HANDOFF.md) — read it first.
