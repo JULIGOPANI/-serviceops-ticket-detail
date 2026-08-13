@@ -60,7 +60,7 @@ interface PickerColumn<T> {
 }
 
 /** One picker for every "Add …" on this form — patches, OS images, offices, endpoints. */
-function PickerDrawer<T extends { id: string }>({ isOpen, title, subtitle, rows, columns, selected, searchOf, onClose, onApply }: {
+function PickerDrawer<T extends { id: string }>({ isOpen, title, subtitle, rows, columns, selected, searchOf, onClose, onApply, single = false }: {
   isOpen: boolean;
   title: string;
   subtitle: string;
@@ -70,6 +70,8 @@ function PickerDrawer<T extends { id: string }>({ isOpen, title, subtitle, rows,
   searchOf: (row: T) => string;
   onClose: () => void;
   onApply: (ids: string[]) => void;
+  /** Radio behaviour — picking replaces rather than adds. A run installs ONE OS image. */
+  single?: boolean;
 }) {
   const [picked, setPicked] = useState<string[]>(selected);
   const [q, setQ] = useState('');
@@ -80,6 +82,10 @@ function PickerDrawer<T extends { id: string }>({ isOpen, title, subtitle, rows,
   const query = q.trim().toLowerCase();
   const visible = query ? rows.filter((r) => searchOf(r).toLowerCase().includes(query)) : rows;
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+  /* Single mode locks the rest of the list once something is chosen, rather than silently swapping
+     the pick. The chosen row stays live so it can be unselected, which re-opens the whole list —
+     so the limit is enforced by the control and there is no state holding two. */
+  const lockedOut = (id: string) => single && picked.length > 0 && !picked.includes(id);
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-end bg-black/40">
@@ -110,28 +116,48 @@ function PickerDrawer<T extends { id: string }>({ isOpen, title, subtitle, rows,
             <tbody className="divide-y divide-[#e5e7eb]">
               {visible.length === 0 ? (
                 <EmptyRow colSpan={columns.length + 1} text={`Nothing matches “${q}”.`} />
-              ) : visible.map((r) => (
-                <tr key={r.id} onClick={() => toggle(r.id)} className="cursor-pointer transition-colors hover:bg-[#f9fafb]">
-                  <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={picked.includes(r.id)}
-                      onChange={() => {}}
-                      className="h-3.5 w-3.5 cursor-pointer rounded border-[#d1d5db] text-[#3D8BD0] focus:ring-[#3D8BD0] focus:ring-offset-0"
-                    />
-                  </td>
-                  {columns.map((c) => <td key={c.header} className="px-4 py-3 text-[12px] text-[#364658]">{c.cell(r)}</td>)}
-                </tr>
-              ))}
+              ) : visible.map((r) => {
+                const locked = lockedOut(r.id);
+                return (
+                  <tr
+                    key={r.id}
+                    onClick={() => { if (!locked) toggle(r.id); }}
+                    title={locked ? 'Unselect the chosen image to pick a different one' : undefined}
+                    className={`transition-colors ${locked ? 'cursor-not-allowed opacity-45' : 'cursor-pointer hover:bg-[#f9fafb]'}`}
+                  >
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={picked.includes(r.id)}
+                        disabled={locked}
+                        onChange={() => {}}
+                        className="h-3.5 w-3.5 cursor-pointer rounded border-[#d1d5db] text-[#3D8BD0] focus:ring-[#3D8BD0] focus:ring-offset-0 disabled:cursor-not-allowed"
+                      />
+                    </td>
+                    {columns.map((c) => <td key={c.header} className="px-4 py-3 text-[12px] text-[#364658]">{c.cell(r)}</td>)}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
         <div className="flex items-center justify-between border-t border-[#DFE5ED] px-5 py-3">
-          <span className="text-[13px] text-[#7B8FA5]"><span className="font-semibold text-[#364658]">{picked.length}</span> selected</span>
+          {/* Says why the rest is greyed out — otherwise a locked row just looks broken. */}
+          <span className="text-[13px] text-[#7B8FA5]">
+            {single
+              ? (picked.length
+                ? <>One image selected · <span className="text-[#64748B]">unselect it to choose a different one</span></>
+                : 'Select one image')
+              : <><span className="font-semibold text-[#364658]">{picked.length}</span> selected</>}
+          </span>
           <div className="flex items-center gap-2">
             <button onClick={onClose} className={btnSecondary}>Cancel</button>
-            <button onClick={() => onApply(picked)} className={btnPrimary}><Check size={15} /> Add {picked.length || ''}</button>
+            <button
+              onClick={() => onApply(picked)}
+              disabled={single && picked.length === 0}
+              className={btnPrimary}
+            ><Check size={15} /> {single ? 'Add' : `Add ${picked.length || ''}`}</button>
           </div>
         </div>
       </div>
@@ -287,8 +313,10 @@ export function CreatePatchDeployment({ onCancel, onCreate }: CreatePatchDeploym
           <FormSection title={isOsUpgrade ? 'OS Image' : 'Patches'}>
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <span className="text-[13px] text-[#64748B]">{isOsUpgrade ? 'OS Image' : 'Patches'} <Required /></span>
+              {/* Once an image is on, the action is to CHANGE it — "Add" would promise a second. */}
               <button onClick={() => setPicker('payload')} className={addLinkCls}>
-                <CirclePlus size={15} /> {isOsUpgrade ? 'Add OS Image' : 'Add Patches'}
+                <CirclePlus size={15} />
+                {isOsUpgrade ? (imageIds.length ? 'Change OS Image' : 'Add OS Image') : 'Add Patches'}
               </button>
             </div>
             <div className="overflow-x-auto">
@@ -301,7 +329,7 @@ export function CreatePatchDeployment({ onCancel, onCreate }: CreatePatchDeploym
                   </thead>
                   <tbody className="divide-y divide-[#e5e7eb]">
                     {chosenImages.length === 0 ? (
-                      <EmptyRow colSpan={9} text="No OS image selected yet — add one to deploy." />
+                      <EmptyRow colSpan={9} text="No OS image selected yet — add the one this run should install." />
                     ) : chosenImages.map((i) => (
                       <tr key={i.id} className="transition-colors hover:bg-[#f9fafb]">
                         <td className="whitespace-nowrap px-4 py-3"><span className="rounded bg-[#e8f4fd] px-2 py-0.5 text-[12px] font-semibold text-[#3D8BD0]">{i.id}</span></td>
@@ -475,8 +503,9 @@ export function CreatePatchDeployment({ onCancel, onCreate }: CreatePatchDeploym
 
       <PickerDrawer
         isOpen={picker === 'payload' && isOsUpgrade}
-        title="Add OS Image"
-        subtitle="Only images whose ISO has finished uploading can be deployed."
+        single
+        title={imageIds.length ? 'Change OS Image' : 'Add OS Image'}
+        subtitle="One image per run. Only images whose ISO has finished uploading can be deployed."
         rows={deployableImages}
         selected={imageIds}
         searchOf={(i: OsImage) => `${i.id} ${i.title} ${i.platform} ${i.edition} ${i.architecture}`}

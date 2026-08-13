@@ -229,16 +229,6 @@
   scrollbar-color: #3D8BD0 transparent;
 }
 
-/* Hide scrollbar but keep functionality */
-.scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;  /* Chrome, Safari and Opera */
-}
-
 /* Auto-hide scrollbars — the thumb stays invisible until the pointer is over that
    scroll area (or something inside it), so we never show several bars at once.
    Applied globally to Tailwind's overflow utilities; the gutter stays reserved so
@@ -295,6 +285,23 @@
 .overflow-y-scroll::-webkit-scrollbar-thumb:hover,
 .overflow-x-scroll::-webkit-scrollbar-thumb:hover {
   background-color: #94A3B8;
+}
+
+/* Hide the scrollbar entirely while keeping the element scrollable — for strips the user drags
+   sideways instead of scrolling (the builder's element-group tabs).
+
+   ⚠️ This MUST come after the auto-hide block above. Both are single-class selectors, so source
+   order decides: declared earlier, `.overflow-x-auto` re-asserts `scrollbar-width: thin` and the
+   bar comes back. The same trap catches Tailwind's `[scrollbar-width:none]` arbitrary utility,
+   which is why this is a named class rather than a utility on the element. */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;             /* Chrome, Safari, Opera */
+  width: 0;
+  height: 0;
 }
 
 /* AI Shimmer Animation */

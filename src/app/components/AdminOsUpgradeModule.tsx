@@ -156,18 +156,6 @@ export function AdminOsUpgradeModule() {
     toast.error(`ISO removed from ${img.id}`);
   };
 
-  /** Removes the whole OS image — its in-flight transfer and its upload history go with it, or
-   *  they would outlive the record they describe. */
-  const deleteImage = (img: OsImage) => {
-    setImages((prev) => prev.filter((i) => i.id !== img.id));
-    setJobs((prev) => prev.filter((j) => j.imageId !== img.id));
-    setAttempts((prev) => { const next = { ...prev }; delete next[img.id]; return next; });
-    if (detailId === img.id) setDetailId(null);
-    if (modalFor === img.id) setModalFor(null);
-    if (activityFor === img.id) setActivityFor(null);
-    toast.error(`${img.id} deleted`);
-  };
-
   const dismissJob = (job: UploadJob) => setJobs((prev) => prev.filter((j) => j.jobId !== job.jobId));
   const clearFinished = () => setJobs((prev) => prev.filter((j) => j.status === 'uploading' || j.status === 'paused'));
 
@@ -213,6 +201,7 @@ export function AdminOsUpgradeModule() {
           job={jobFor(activityImage.id)}
           attempts={attempts[activityImage.id] ?? []}
           onClose={() => setActivityFor(null)}
+          onDelete={() => deleteIso(activityImage)}
         />
       )}
 
@@ -291,7 +280,7 @@ export function AdminOsUpgradeModule() {
             <table className="w-full min-w-[1180px]">
               <thead className="border-b border-[#e5e7eb]">
                 <tr>
-                  {['ID', 'Name', 'Language', 'Size', 'Upload Status', 'Upload Time', 'Platform', 'File action', 'Action'].map((h) => (
+                  {['ID', 'Name', 'Language', 'Size', 'Upload Status', 'Upload Time', 'Platform', 'File action'].map((h) => (
                     <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658]">{h}</th>
                   ))}
                 </tr>
@@ -399,16 +388,6 @@ export function AdminOsUpgradeModule() {
                           )}
                         </div>
                       </td>
-                      {/* Action is the RECORD's column — deleting here removes the image itself,
-                          not just its file. Kept apart from the file actions beside it so the two
-                          scopes can't be confused. */}
-                      <td className="whitespace-nowrap px-4 py-3">
-                        <button
-                          onClick={() => deleteImage(img)}
-                          title="Delete OS image"
-                          className="flex size-8 items-center justify-center rounded text-[#EF4444] transition-colors hover:bg-[#FEF3F2]"
-                        ><Trash2 size={16} /></button>
-                      </td>
                     </tr>
                   );
                 })}
@@ -434,11 +413,13 @@ export function AdminOsUpgradeModule() {
 
 // ── Upload activity (the eye icon) ─────────────────────────────────────────
 
-function UploadActivityPanel({ image, job, attempts, onClose }: {
+function UploadActivityPanel({ image, job, attempts, onClose, onDelete }: {
   image: OsImage;
   job?: UploadJob;
   attempts: UploadAttempt[];
   onClose: () => void;
+  /** Removes the ISO currently in place — offered on that row only. */
+  onDelete: () => void;
 }) {
   /* A transfer only becomes an attempt once it ends, so an in-flight one is prepended as a live
      row — otherwise removing the current-state card would hide an upload while it runs. */
@@ -498,14 +479,15 @@ function UploadActivityPanel({ image, job, attempts, onClose }: {
                 <colgroup>
                   <col />
                   <col className="w-[90px]" />
-                  <col className="w-[140px]" />
-                  <col className="w-[185px]" />
-                  <col className="w-[110px]" />
+                  <col className="w-[130px]" />
+                  <col className="w-[175px]" />
+                  <col className="w-[105px]" />
+                  <col className="w-[70px]" />
                 </colgroup>
                 <thead className="border-y border-[#e5e7eb]">
                   <tr>
-                    {['File Name', 'Size', 'Uploaded By', 'Time', 'Status'].map((h, i) => (
-                      <th key={h} className={`whitespace-nowrap py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658] ${i === 0 ? 'pr-4' : 'px-4'} ${i === 4 ? 'pr-0' : ''}`}>{h}</th>
+                    {['File Name', 'Size', 'Uploaded By', 'Time', 'Status', 'Action'].map((h, i) => (
+                      <th key={h} className={`whitespace-nowrap py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658] ${i === 0 ? 'pr-4' : 'px-4'} ${i === 5 ? 'pr-0' : ''}`}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -542,6 +524,17 @@ function UploadActivityPanel({ image, job, attempts, onClose }: {
                               <TooltipContent className="max-w-[280px] text-wrap">{a.detail}</TooltipContent>
                             </Tooltip>
                           ) : pill}
+                        </td>
+                        {/* Only the CURRENT row can be deleted — the others are history, and there
+                            is no file behind them left to remove. */}
+                        <td className="whitespace-nowrap py-3 pl-4">
+                          {a.id === currentId && (
+                            <button
+                              onClick={onDelete}
+                              title="Delete this ISO"
+                              className="flex size-8 items-center justify-center rounded text-[#EF4444] transition-colors hover:bg-[#FEF3F2]"
+                            ><Trash2 size={15} /></button>
+                          )}
                         </td>
                       </tr>
                     );

@@ -13,7 +13,7 @@ import {
   compatCounts, computersFor, formatBytes, formatEta, prereqPhrase, prerequisitesFor,
   UPLOAD_GUIDELINES, validateIso,
 } from './osUpgradeData';
-import type { CompatStatus, OsImage, OsUploadStatus, PrereqKey, UploadAttempt } from './osUpgradeData';
+import type { CompatStatus, OsImage, OsUploadStatus, UploadAttempt } from './osUpgradeData';
 
 /* OS Upgrade — detail page.
  *
@@ -52,15 +52,6 @@ function parseDay(s: string): Date | null {
 }
 
 const Dash = () => <span className="text-[12px] text-[#9ca3af]">---</span>;
-
-const COMPAT_TONE: Record<CompatStatus, { fg: string; bg: string }> = {
-  Compatible: { fg: '#22A06B', bg: '#ECFDF3' },
-  Incompatible: { fg: '#DC2626', bg: '#FEF3F2' },
-  Unknown: { fg: '#64748B', bg: '#F1F5F9' },
-};
-
-/** Grid header for a prerequisite that is also a column. 'TPM Version' would wrap. */
-const COL_LABEL: Partial<Record<PrereqKey, string>> = { tpm: 'TPM', disk: 'Free Disk', ram: 'RAM', secureBoot: 'Secure Boot' };
 
 const BUCKETS: CompatStatus[] = ['Compatible', 'Incompatible', 'Unknown'];
 
@@ -289,12 +280,14 @@ export function AdminOsUpgradeDetail({ image, status, onBack, job, latestAttempt
   const prereqs = useMemo(() => prerequisitesFor(image), [image]);
   const fleet = useMemo(() => computersFor(image), [image]);
   const counts = useMemo(() => compatCounts(fleet), [fleet]);
-  const columns = prereqs.filter((p) => p.column);
 
   const q = search.trim().toLowerCase();
   const rows = fleet
     .filter((c) => c.status === bucket)
-    .filter((c) => !q || [c.hostName, c.ipAddress, c.currentOs, c.reasons.join(' ')].some((f) => f.toLowerCase().includes(q)));
+    // Search covers what the grid shows, plus the reasons behind an Incompatible row even though
+    // the column is gone — the bucket is still explained by the data, just not in a cell.
+    .filter((c) => !q || [c.endpointId, c.hostName, c.ipAddress, c.currentOs, c.agentVersion ?? '', c.arch ?? '', c.reasons.join(' ')]
+      .some((f) => f.toLowerCase().includes(q)));
 
   useEffect(() => { setPage(1); }, [bucket, search, image.id]);
   useEffect(() => { setTab('summary'); setBucket('Compatible'); setSearch(''); }, [image.id]);
@@ -306,18 +299,6 @@ export function AdminOsUpgradeDetail({ image, status, onBack, job, latestAttempt
   const eosPast = !!eos && eos.getTime() < Date.now();
   const tone = UPLOAD_TONE[status];
 
-  const cellValue = (c: (typeof fleet)[number], key: PrereqKey) => {
-    switch (key) {
-      case 'ram': return c.ram === null ? <Dash /> : `${c.ram} GB`;
-      case 'disk': return c.disk === null ? <Dash /> : `${c.disk} GB`;
-      case 'tpm': return c.tpm === null ? <Dash /> : c.tpm.toFixed(1);
-      case 'secureBoot': return c.secureBoot === null ? <Dash /> : c.secureBoot ? 'Enabled' : 'Disabled';
-      case 'cpuSpeed': return c.cpuSpeed === null ? <Dash /> : `${c.cpuSpeed.toFixed(1)} GHz`;
-      case 'cpuCores': return c.cpuCores === null ? <Dash /> : String(c.cpuCores);
-      case 'arch': return c.arch ?? <Dash />;
-      default: return <Dash />;
-    }
-  };
 
   const meta: [string, React.ReactNode][] = [
     ['OS Name', image.title],
@@ -543,18 +524,13 @@ export function AdminOsUpgradeDetail({ image, status, onBack, job, latestAttempt
             </div>
           </div>
 
+          {/* The standard endpoint grid — identity and inventory. Which bucket a row is in is
+              answered by the pills above it, so the grid doesn't repeat it as a column. */}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px]">
+            <table className="w-full min-w-[900px]">
               <thead className="border-y border-[#e5e7eb]">
                 <tr>
-                  {['Host Name', 'IP Address', 'Current OS'].map((h) => (
-                    <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658]">{h}</th>
-                  ))}
-                  {/* Columns follow the prerequisites, so every reason below has a visible value */}
-                  {columns.map((p) => (
-                    <th key={p.key} className="whitespace-nowrap px-4 py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658]">{COL_LABEL[p.key] ?? p.attribute}</th>
-                  ))}
-                  {['Status', 'Reasons'].map((h) => (
+                  {['Endpoint ID', 'Host Name', 'IP Address', 'OS Name', 'Agent Version', 'Architecture'].map((h) => (
                     <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658]">{h}</th>
                   ))}
                 </tr>
@@ -562,28 +538,22 @@ export function AdminOsUpgradeDetail({ image, status, onBack, job, latestAttempt
               <tbody className="divide-y divide-[#e5e7eb]">
                 {pageRows.length === 0 ? (
                   <tr>
-                    <td colSpan={5 + columns.length} className="px-4 py-12 text-center text-[13px] text-[#9CA3AF]">
+                    <td colSpan={6} className="px-4 py-12 text-center text-[13px] text-[#9CA3AF]">
                       No {bucket.toLowerCase()} endpoints{q ? ` match “${search}”` : ''}.
                     </td>
                   </tr>
                 ) : pageRows.map((c) => (
-                  <tr key={c.hostName} className="transition-colors hover:bg-[#f9fafb]">
+                  <tr key={c.endpointId} className="transition-colors hover:bg-[#f9fafb]">
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <span className="rounded bg-[#e8f4fd] px-2 py-0.5 text-[12px] font-semibold text-[#3D8BD0]">{c.endpointId}</span>
+                    </td>
                     <td className="whitespace-nowrap px-4 py-3 text-[12px] font-medium text-[#364658]">{c.hostName}</td>
                     <td className="whitespace-nowrap px-4 py-3 font-mono text-[12px] text-[#364658]">{c.ipAddress}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-[12px] text-[#364658]">
                       {c.currentOs === 'Unknown' ? <span className="text-[#9CA3AF]">Unknown</span> : c.currentOs}
                     </td>
-                    {columns.map((p) => (
-                      <td key={p.key} className="whitespace-nowrap px-4 py-3 text-[12px] text-[#364658]">{cellValue(c, p.key)}</td>
-                    ))}
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <span className="rounded-sm px-2 py-0.5 text-[12px] font-medium" style={{ color: COMPAT_TONE[c.status].fg, backgroundColor: COMPAT_TONE[c.status].bg }}>
-                        {c.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-[12px] text-[#DC2626]">
-                      {c.reasons.length ? c.reasons.join('; ') : <Dash />}
-                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-[12px] text-[#364658]">{c.agentVersion ?? <Dash />}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-[12px] text-[#364658]">{c.arch ?? <Dash />}</td>
                   </tr>
                 ))}
               </tbody>

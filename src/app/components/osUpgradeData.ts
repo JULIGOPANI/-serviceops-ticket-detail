@@ -246,8 +246,12 @@ export const OS_IMAGES: OsImage[] = [
 // ── Fleet ──────────────────────────────────────────────────────────────────
 
 export interface OsComputer {
+  /** The endpoint's own id — the Computers grid leads with it, as every endpoint grid does. */
+  endpointId: string;
   hostName: string;
   ipAddress: string;
+  /** Reported BY the agent, so a never-scanned endpoint has none. */
+  agentVersion: string | null;
   /** Display string; 'Unknown' when the endpoint has never reported an inventory scan. */
   currentOs: string;
   /** Comparable rank for the Current OS prerequisite. null = never scanned. */
@@ -318,14 +322,15 @@ export function evaluate(c: OsComputer, prereqs: Prereq[]): EvaluatedComputer {
  * disk, TPM 1.2, Secure Boot off) — the evaluator says all three rather than the two the static
  * mock listed, because the grid and the Prerequisites card read from the same rules. */
 const WIN11_SEEDS: OsComputer[] = [
-  { hostName: 'DESKTOP-5JPPI6F', ipAddress: '192.168.29.100', currentOs: 'Windows 10 22H2', osRank: 2202, ram: 16, disk: 210, tpm: 2, secureBoot: true, cpuSpeed: 2.4, cpuCores: 8, arch: '64-bit' },
-  { hostName: 'WIN-400A8KHMR82', ipAddress: '172.16.14.111', currentOs: 'Windows 10 21H2', osRank: 2102, ram: 8, disk: 120, tpm: 2, secureBoot: true, cpuSpeed: 2.1, cpuCores: 4, arch: '64-bit' },
-  { hostName: 'FIN-LAPTOP-22', ipAddress: '172.16.14.88', currentOs: 'Windows 10 2004', osRank: 2004, ram: 4, disk: 55, tpm: 1.2, secureBoot: false, cpuSpeed: 1.8, cpuCores: 4, arch: '64-bit' },
-  { hostName: 'HR-PC-09', ipAddress: '172.16.14.61', currentOs: 'Windows 10 1909', osRank: 1909, ram: 8, disk: 96, tpm: 2, secureBoot: true, cpuSpeed: 2.0, cpuCores: 4, arch: '64-bit' },
-  { hostName: 'SALES-WKS-14', ipAddress: '172.16.14.77', currentOs: 'Windows 10 22H2', osRank: 2202, ram: 4, disk: 40, tpm: 2, secureBoot: true, cpuSpeed: 1.9, cpuCores: 4, arch: '64-bit' },
-  { hostName: 'DEV-BOX-03', ipAddress: '172.16.14.19', currentOs: 'Windows 10 22H2', osRank: 2202, ram: 32, disk: 480, tpm: 2, secureBoot: true, cpuSpeed: 3.2, cpuCores: 12, arch: '64-bit' },
-  { hostName: 'LEGACY-PC-01', ipAddress: '172.16.14.5', currentOs: 'Unknown', osRank: null, ram: null, disk: null, tpm: null, secureBoot: null, cpuSpeed: null, cpuCores: null, arch: null },
-  { hostName: 'REMOTE-EP-42', ipAddress: '10.20.41.9', currentOs: 'Unknown', osRank: null, ram: null, disk: null, tpm: null, secureBoot: null, cpuSpeed: null, cpuCores: null, arch: null },
+  { endpointId: 'EP-380', hostName: 'DESKTOP-5JPPI6F', ipAddress: '192.168.29.100', agentVersion: '8.7.408', currentOs: 'Windows 10 22H2', osRank: 2202, ram: 16, disk: 210, tpm: 2, secureBoot: true, cpuSpeed: 2.4, cpuCores: 8, arch: '64-bit' },
+  { endpointId: 'EP-397', hostName: 'WIN-400A8KHMR82', ipAddress: '172.16.14.111', agentVersion: '8.7.404', currentOs: 'Windows 10 21H2', osRank: 2102, ram: 8, disk: 120, tpm: 2, secureBoot: true, cpuSpeed: 2.1, cpuCores: 4, arch: '64-bit' },
+  { endpointId: 'EP-400', hostName: 'FIN-LAPTOP-22', ipAddress: '172.16.14.88', agentVersion: '8.6.300', currentOs: 'Windows 10 2004', osRank: 2004, ram: 4, disk: 55, tpm: 1.2, secureBoot: false, cpuSpeed: 1.8, cpuCores: 4, arch: '64-bit' },
+  { endpointId: 'EP-402', hostName: 'HR-PC-09', ipAddress: '172.16.14.61', agentVersion: '8.6.101', currentOs: 'Windows 10 1909', osRank: 1909, ram: 8, disk: 96, tpm: 2, secureBoot: true, cpuSpeed: 2.0, cpuCores: 4, arch: '64-bit' },
+  { endpointId: 'EP-405', hostName: 'SALES-WKS-14', ipAddress: '172.16.14.77', agentVersion: '8.7.301', currentOs: 'Windows 10 22H2', osRank: 2202, ram: 4, disk: 40, tpm: 2, secureBoot: true, cpuSpeed: 1.9, cpuCores: 4, arch: '64-bit' },
+  { endpointId: 'EP-411', hostName: 'DEV-BOX-03', ipAddress: '172.16.14.19', agentVersion: '8.7.408', currentOs: 'Windows 10 22H2', osRank: 2202, ram: 32, disk: 480, tpm: 2, secureBoot: true, cpuSpeed: 3.2, cpuCores: 12, arch: '64-bit' },
+  // Never scanned — no agent has reported, so there is no version or architecture to show either.
+  { endpointId: 'EP-418', hostName: 'LEGACY-PC-01', ipAddress: '172.16.14.5', agentVersion: null, currentOs: 'Unknown', osRank: null, ram: null, disk: null, tpm: null, secureBoot: null, cpuSpeed: null, cpuCores: null, arch: null },
+  { endpointId: 'EP-426', hostName: 'REMOTE-EP-42', ipAddress: '10.20.41.9', agentVersion: null, currentOs: 'Unknown', osRank: null, ram: null, disk: null, tpm: null, secureBoot: null, cpuSpeed: null, cpuCores: null, arch: null },
 ];
 
 interface FleetShape {
@@ -366,6 +371,8 @@ const FLEETS: Record<PrereqProfile, FleetShape> = {
 
 const RAM_OK = [8, 16, 16, 32, 8, 16];
 const DISK_OK = [120, 210, 256, 480, 96, 180];
+/** Agent builds in the field — a fleet is never all on the same one. */
+const AGENT_VERSIONS = ['8.7.408', '8.7.404', '8.7.301', '8.7.200', '8.6.300', '8.6.101'];
 
 /* Fleet generator. The i % 20 rota fixes the shape of the estate — roughly 70-80% compatible, the
  * rest blocked on a real prerequisite or never scanned — so the three sub-tab counts stay
@@ -385,8 +392,11 @@ function generateFleet(profile: PrereqProfile, seed: number, count: number, ramM
     const rel = shape.releases[i % shape.releases.length];
     const old = shape.oldReleases[i % shape.oldReleases.length];
     const base: OsComputer = {
+      // +30 keeps generated ids clear of the hand-written WIN11_SEEDS above (EP-380…EP-426).
+      endpointId: `EP-${430 + i}`,
       hostName,
       ipAddress,
+      agentVersion: AGENT_VERSIONS[i % AGENT_VERSIONS.length],
       currentOs: rel[0],
       osRank: rel[1],
       ram: RAM_OK[i % RAM_OK.length],
@@ -404,8 +414,10 @@ function generateFleet(profile: PrereqProfile, seed: number, count: number, ramM
       case 16: return { ...base, currentOs: old[0], osRank: old[1] };
       case 17: return { ...base, ram: Math.max(1, ramMin - 2) };
       case 18: return { ...base, secureBoot: false, disk: Math.max(6, diskMin - 4) };
+      // Never scanned: the agent has reported nothing, so its version and specs are unknown too.
       case 19: return {
-        hostName, ipAddress, currentOs: 'Unknown', osRank: null, ram: null, disk: null,
+        endpointId: base.endpointId, hostName, ipAddress, agentVersion: null,
+        currentOs: 'Unknown', osRank: null, ram: null, disk: null,
         tpm: null, secureBoot: null, cpuSpeed: null, cpuCores: null, arch: null,
       };
       default: return base;
