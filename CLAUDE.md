@@ -169,10 +169,17 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
 Repo: https://github.com/zenichakalasiya/serviceops-ticket-detail
 Live URL: https://zenichakalasiya.github.io/serviceops-ticket-detail/
 
-Pages serves the **`gh-pages` branch** (legacy `build_type`), not an Actions workflow — the
-workflow pipeline stalled on `deployment_queued`, so deploys run `npx gh-pages -d dist` after
-`pnpm build`. `vite.config.ts` `base` is `/serviceops-ticket-detail/`; changing the repo name
-means changing that too or every asset 404s.
+**Deploying is just `git push` to `main`.** `.github/workflows/deploy.yml` builds with pnpm and
+publishes to Pages; `build_type` is `workflow` and the run takes ~2 min. Verified 13 Aug 2026 —
+the push deployed on its own and the new code was live in the bundle, so no manual step is needed.
+
+⚠️ An earlier note here said Pages served the **`gh-pages` branch** and that deploys had to be run
+by hand with `npx gh-pages -d dist`, because the workflow once stalled on `deployment_queued`.
+That is no longer true and running it by hand now would fight the workflow. Kept as a pointer in
+case the pipeline stalls again.
+
+`vite.config.ts` `base` is `/serviceops-ticket-detail/`; changing the repo name means changing that
+too or every asset 404s.
 
 Upstream original: https://github.com/ronak-patel-motadata/ServiceOps-Ticket-Detail-
 
