@@ -92,7 +92,7 @@ export const DEPLOYMENT_VIEWS: DeploymentView[] = [
   { id: 'draft', label: 'Draft Deployments', chip: 'Status In Draft', match: (d) => d.status === 'Draft' },
   { id: 'canceled', label: 'Canceled Deployments', chip: 'Status In Cancelled', match: (d) => d.status === 'Cancelled' },
   { id: 'expired', label: 'Expired Deployments', chip: 'Status In Expired', match: (d) => d.status === 'Expired' },
-  { id: 'os-upgrade', label: 'OS Upgrade Deployments', chip: 'Deployment Type In OS Upgrade', match: (d) => d.deploymentType === 'OS Upgrade' },
+  { id: 'os-upgrade', label: 'OS Upgrade Deployments', chip: 'Deployment Category In OS Upgrade', match: (d) => d.deploymentType === 'OS Upgrade' },
   { id: 'all', label: 'All Deployments', chip: '', match: () => true },
   { id: 'archived', label: 'Archived Deployments', chip: 'Archived In Yes', match: (d) => !!d.archived },
 ];

@@ -1,17 +1,17 @@
 import { useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 import {
-  X, Paperclip, Trash2, UploadCloud, Pause, Play, Square, CheckCircle2, AlertCircle,
-  ChevronDown, RotateCcw,
+  X, Paperclip, Trash2, UploadCloud, Pause, Play, Square, CheckCircle2, AlertCircle, RotateCcw,
 } from 'lucide-react';
 import { formatBytes, formatEta, UPLOAD_GUIDELINES, validateIso } from './osUpgradeData';
 import type { OsImage, OsUploadStatus } from './osUpgradeData';
 
-/* The ISO uploader — the popup, and the dock it minimises into.
+/* The ISO uploader popup — used by the LISTING, where a row has nowhere inline to put a picker.
  *
- * A 5 GB ISO takes minutes, so the transfer must survive the admin closing the popup and carrying
- * on with other rows. The dock is therefore the source of truth for anything in flight; the popup
- * is just a bigger view of one job. */
+ * A 5 GB ISO takes minutes, so the transfer must survive the popup being dismissed. Minimising or
+ * closing simply CLOSES it: the listing row then carries the upload (progress in its Status cell,
+ * pause/stop in its actions), rather than a panel floating over the page. The popup is just a
+ * bigger view of one job, never the source of truth. */
 
 export type JobStatus = 'uploading' | 'paused' | 'done' | 'failed';
 
@@ -134,11 +134,11 @@ export function UploadIsoModal({ image, job, onClose, onMinimize, onStart, onPau
           </div>
           <div className="flex flex-shrink-0 items-center">
             {job && (
-              <button onClick={onMinimize} title="Minimize — the upload keeps running" className={iconBtn}>
+              <button onClick={onMinimize} title="Minimize — track the upload from the list" className={iconBtn}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M5 12h14" /></svg>
               </button>
             )}
-            <button onClick={onClose} title={active ? 'Close — the upload keeps running' : 'Close'} className={iconBtn}><X size={18} /></button>
+            <button onClick={onClose} title={active ? 'Close — track the upload from the list' : 'Close'} className={iconBtn}><X size={18} /></button>
           </div>
         </div>
 
@@ -217,7 +217,7 @@ export function UploadIsoModal({ image, job, onClose, onMinimize, onStart, onPau
                     <button onClick={onStop} className="inline-flex h-8 items-center gap-1.5 rounded border border-[#FEE4E2] bg-white px-3 text-[13px] font-medium text-[#DC2626] transition-colors hover:bg-[#FEF3F2]">
                       <Square size={13} /> Stop
                     </button>
-                    <span className="ml-auto text-[12px] text-[#7B8FA5]">Minimize to keep working while this finishes</span>
+                    <span className="ml-auto text-[12px] text-[#7B8FA5]">Close this — the list keeps showing progress</span>
                   </>
                 )}
                 {job.status === 'failed' && (
@@ -258,108 +258,6 @@ export function UploadIsoModal({ image, job, onClose, onMinimize, onStart, onPau
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── Minimised dock ─────────────────────────────────────────────────────────
-
-interface UploadDockProps {
-  jobs: UploadJob[];
-  onOpen: (job: UploadJob) => void;
-  onPause: (job: UploadJob) => void;
-  onResume: (job: UploadJob) => void;
-  onStop: (job: UploadJob) => void;
-  onRetry: (job: UploadJob) => void;
-  onDismiss: (job: UploadJob) => void;
-  /** Clears every finished row; the dock disappears once nothing is left. */
-  onClearFinished: () => void;
-}
-
-export function UploadDock({ jobs, onOpen, onPause, onResume, onStop, onRetry, onDismiss, onClearFinished }: UploadDockProps) {
-  const [collapsed, setCollapsed] = useState(false);
-  if (!jobs.length) return null;
-
-  const active = jobs.filter((j) => j.status === 'uploading' || j.status === 'paused');
-  const failed = jobs.filter((j) => j.status === 'failed');
-  const done = jobs.filter((j) => j.status === 'done');
-  const title = active.length
-    ? `Uploading ${active.length} file${active.length === 1 ? '' : 's'}`
-    : failed.length
-      ? `${failed.length} upload${failed.length === 1 ? '' : 's'} failed`
-      : `${done.length} upload${done.length === 1 ? '' : 's'} complete`;
-
-  const dockIcon = 'flex size-7 items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]';
-
-  return (
-    <div className="fixed bottom-4 right-4 z-[10000] w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-[#DFE5ED] bg-white shadow-[0_8px_24px_rgba(16,24,40,0.16)]">
-      <div className="flex items-center gap-2 border-b border-[#F0F2F5] bg-[#F9FAFB] px-3.5 py-2.5">
-        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#364658]">{title}</span>
-        {failed.length > 0 && active.length > 0 && (
-          <span className="flex-shrink-0 rounded-sm bg-[#FEF3F2] px-1.5 py-0.5 text-[11px] font-medium text-[#DC2626]">{failed.length} failed</span>
-        )}
-        <button onClick={() => setCollapsed((v) => !v)} title={collapsed ? 'Expand' : 'Collapse'} className={dockIcon}>
-          <ChevronDown size={16} className={`transition-transform ${collapsed ? '' : 'rotate-180'}`} />
-        </button>
-        <button onClick={onClearFinished} title="Clear finished" className={dockIcon}><X size={16} /></button>
-      </div>
-
-      {!collapsed && (
-        <div className="max-h-[320px] overflow-y-auto">
-          {jobs.map((j) => {
-            const pct = jobPct(j);
-            return (
-              <div key={j.jobId} className="border-b border-[#F0F2F5] px-3.5 py-2.5 last:border-b-0">
-                <div className="flex items-center gap-2">
-                  <button onClick={() => onOpen(j)} className="min-w-0 flex-1 text-left">
-                    <div className="truncate text-[12px] font-medium text-[#364658] hover:text-[#3D8BD0]" title={j.fileName}>{j.fileName}</div>
-                    <div className="truncate text-[11px] text-[#7B8FA5]">{j.imageId} · {j.imageName}</div>
-                  </button>
-                  <span className={`flex-shrink-0 text-[12px] font-semibold tabular-nums ${
-                    j.status === 'failed' ? 'text-[#DC2626]' : j.status === 'done' ? 'text-[#22A06B]' : 'text-[#64748B]'
-                  }`}>
-                    {j.status === 'done' ? <CheckCircle2 size={15} /> : j.status === 'failed' ? <AlertCircle size={15} /> : `${Math.round(pct)}%`}
-                  </span>
-                </div>
-
-                {j.status !== 'done' && (
-                  <div className="mt-2">
-                    <ProgressBar pct={pct} tone={j.status === 'failed' ? '#EF4444' : j.status === 'paused' ? '#F59E0B' : '#3D8BD0'} />
-                  </div>
-                )}
-
-                <div className="mt-1.5 flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-[11px] text-[#7B8FA5]">
-                    {j.status === 'done' && 'Uploaded'}
-                    {j.status === 'failed' && (j.error ?? 'Upload failed')}
-                    {j.status === 'paused' && `Paused · ${formatBytes(j.loaded)} of ${formatBytes(j.fileSize)}`}
-                    {j.status === 'uploading' && `${formatBytes(j.loaded)} of ${formatBytes(j.fileSize)} · ${formatEta((j.fileSize - j.loaded) / Math.max(j.rate, 1))}`}
-                  </span>
-                  <div className="flex flex-shrink-0 items-center gap-0.5">
-                    {(j.status === 'uploading' || j.status === 'paused') && (
-                      <>
-                        <button onClick={() => (j.status === 'paused' ? onResume(j) : onPause(j))} title={j.status === 'paused' ? 'Resume' : 'Pause'} className={dockIcon}>
-                          {j.status === 'paused' ? <Play size={14} /> : <Pause size={14} />}
-                        </button>
-                        <button onClick={() => onStop(j)} title="Stop upload" className="flex size-7 items-center justify-center rounded text-[#EF4444] transition-colors hover:bg-[#FEF3F2]"><Square size={13} /></button>
-                      </>
-                    )}
-                    {j.status === 'failed' && (
-                      <>
-                        <button onClick={() => onRetry(j)} title="Retry" className={dockIcon}><RotateCcw size={14} /></button>
-                        <button onClick={() => onDismiss(j)} title="Dismiss" className={dockIcon}><X size={14} /></button>
-                      </>
-                    )}
-                    {j.status === 'done' && (
-                      <button onClick={() => onDismiss(j)} title="Dismiss" className={dockIcon}><X size={14} /></button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }

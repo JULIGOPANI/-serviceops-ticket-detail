@@ -611,7 +611,7 @@ export function AssetFields({ state, pinnedFields, togglePinField, propertiesSea
     const PATCH_DEPLOYMENT_FIELDS: PatchField[] = [
       /* Leads the card: it decides what the run delivers, and therefore what every field under
          it means. Passed in rather than hard-coded — a Patch run must not claim OS Upgrade. */
-      { label: 'Deployment Type', value: deploymentType ?? 'Patch' },
+      { label: 'Deployment Category', value: deploymentType ?? 'Patch' },
       { label: 'Status', value: 'Ready to Deploy', dot: '#3D8BD0' },
       { label: 'Task Type', value: 'Auto Patch Deploy Task' },
       { label: 'Deployment Policy', value: 'Production Servers — Staged Rollout' },

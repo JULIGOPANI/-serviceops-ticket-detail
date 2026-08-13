@@ -3165,7 +3165,7 @@ onStackMinimizedChange,
                           icon={Package}
                           color="#3D8BD0"
                           total={DEPLOYED_PATCHES.length}
-                          caption="patches in this deployment"
+                          caption={`${DEPLOYED_PATCHES.length === 1 ? 'patch' : 'patches'} in this deployment`}
                           items={DEPLOYED_PATCHES.map((p) => ({ key: p.id, primary: p.application || p.name, dot: sevDot(p.severity) }))}
                           onClick={() => setActiveMainTab('patches-list')}
                           wide={wide}
@@ -3175,7 +3175,7 @@ onStackMinimizedChange,
                           icon={Monitor}
                           color="#3D8BD0"
                           total={patchComputers.length}
-                          caption="endpoints targeted"
+                          caption={`endpoint${patchComputers.length === 1 ? '' : 's'} targeted`}
                           items={patchComputers.map((c) => ({ key: c.id, primary: c.hostName, secondary: c.ipAddress, dot: bucketDot(c.bucket) }))}
                           onClick={() => setActiveMainTab('computers')}
                           wide={wide}

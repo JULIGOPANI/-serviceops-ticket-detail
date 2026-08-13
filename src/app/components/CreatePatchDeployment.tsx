@@ -235,9 +235,20 @@ export function CreatePatchDeployment({ onCancel, onCreate }: CreatePatchDeploym
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" className={inputCls} />
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 lg:grid-cols-2">
+          {/* Three across: Deployment Category sits beside Expiry Date rather than alone on its
+              own row, which had left half the line empty. */}
+          <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2 lg:grid-cols-3">
             <div>
-              <label className={labelCls}>Deployment Type <Required /></label>
+              <label className={labelCls}>Install After</label>
+              <input type="datetime-local" value={installAfter} onChange={(e) => setInstallAfter(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Expiry Date</label>
+              <input type="datetime-local" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className={inputCls} />
+              {expiresIn && <p className="mt-1 text-[12px] text-[#7B8FA5]">{expiresIn}</p>}
+            </div>
+            <div>
+              <label className={labelCls}>Deployment Category <Required /></label>
               <select
                 value={deploymentType}
                 onChange={(e) => setDeploymentType(e.target.value as DeploymentType)}
@@ -251,17 +262,6 @@ export function CreatePatchDeployment({ onCancel, onCreate }: CreatePatchDeploym
                   ? 'Deploys an uploaded ISO from Admin › Patch Management › OS Upgrade.'
                   : 'Deploys approved patches to the endpoints you target below.'}
               </p>
-            </div>
-            <div />
-
-            <div>
-              <label className={labelCls}>Install After</label>
-              <input type="datetime-local" value={installAfter} onChange={(e) => setInstallAfter(e.target.value)} className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Expiry Date</label>
-              <input type="datetime-local" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className={inputCls} />
-              {expiresIn && <p className="mt-1 text-[12px] text-[#7B8FA5]">{expiresIn}</p>}
             </div>
           </div>
 

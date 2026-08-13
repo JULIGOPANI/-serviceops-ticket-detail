@@ -19,12 +19,11 @@ export interface DeployedPatch {
   uuid: string;
 }
 
-// Realistic patches carried by this deployment run (exported: the header KPI strip counts them).
+/* The patch this deployment run carries — exported, because the Overview card, the header KPI and
+ * the deployment matrix all count it. ONE patch by design: a run deploys a single payload, so the
+ * Overview, the Patches tab and the matrix cannot disagree about how many there are. */
 export const DEPLOYED_PATCHES: DeployedPatch[] = [
   { id: 'PCH-4345', name: '2025-10 Cumulative Update for Windows 11, version 25H2 for x64-based Systems', category: 'Security Updates', severity: 'Critical', approvalStatus: 'Approved', application: 'Windows 11', releaseDate: 'Tue, Oct 14, 2025 05:00 PM', kbNumber: '5066128', downloadSize: '93.84 MB', uuid: 'BF92D4D8-5410-4EBB-A2C7-3E81D904F213' },
-  { id: 'PCH-3986', name: '2025-09 Cumulative Update for Windows 10, version 22H2 for x64-based Systems', category: 'Security Updates', severity: 'Critical', approvalStatus: 'Approved', application: 'Windows 10, version 22H2', releaseDate: 'Tue, Sep 09, 2025 05:00 PM', kbNumber: '5065429', downloadSize: '758.13 MB', uuid: '2680C385-659A-432E-91D8-7AC04D115E60' },
-  { id: 'PCH-2440', name: '2023-10 Servicing Stack Update for Windows 10, version 22H2 for x64-based Systems', category: 'Security Updates', severity: 'Critical', approvalStatus: 'Approved', application: 'Windows 10, version 22H2', releaseDate: 'Tue, Oct 10, 2023 05:00 PM', kbNumber: '5031539', downloadSize: '15.99 MB', uuid: 'F4FCE270-A397-467F-B1D3-06C24A98E5C1' },
-  { id: 'PCH-3121', name: '2025-07 Security Update for Microsoft .NET Framework 4.8.1 for Windows 11 for x64', category: 'Security Updates', severity: 'Important', approvalStatus: 'Approved', application: '.NET Framework 4.8.1', releaseDate: 'Tue, Jul 08, 2025 05:00 PM', kbNumber: '5056579', downloadSize: '68.42 MB', uuid: '9C31A7E4-0D52-48F1-B6A9-51E20C87D3B4' },
 ];
 
 const severityDot = (s: DeployedPatch['severity']) =>

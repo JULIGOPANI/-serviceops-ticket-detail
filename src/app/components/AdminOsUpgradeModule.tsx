@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, X, Eye, Upload, ExternalLink } from 'lucide-react';
+import { Search, X, Eye, Upload, ExternalLink, Pause, Play, Square, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Pagination } from './Pagination';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { AdminOsUpgradeDetail } from './AdminOsUpgradeDetail';
-import { UploadIsoModal, UploadDock, UploadStatusPill, UPLOAD_TONE, jobPct } from './OsUpgradeUpload';
+import { UploadIsoModal, UploadStatusPill, UPLOAD_TONE, jobPct } from './OsUpgradeUpload';
 import type { UploadJob } from './OsUpgradeUpload';
-import { OS_IMAGES, formatBytes, formatStamp, seedAttempts } from './osUpgradeData';
+import { OS_IMAGES, formatBytes, formatEta, formatStamp, seedAttempts } from './osUpgradeData';
 import type { OsImage, OsUploadStatus, UploadAttempt } from './osUpgradeData';
 
 /* OS Upgrade — Admin › Patch Management.
@@ -147,6 +147,27 @@ export function AdminOsUpgradeModule() {
       ? { ...j, loaded: 0, status: 'uploading', error: undefined, failAt: scriptedFailure(j.fileName) }
       : j)));
 
+  /** Removes the ISO from an image. The record itself stays — only its file is gone, so the row
+   *  and the detail card both fall back to "Not Uploaded" and can take a new one. `size` is the
+   *  image's expected size in the catalogue, not the file's, so it is left alone. */
+  const deleteIso = (img: OsImage) => {
+    setImages((prev) => prev.map((i) => (i.id === img.id ? { ...i, status: 'Not Uploaded', uploadTime: '', fileName: '' } : i)));
+    setJobs((prev) => prev.filter((j) => j.imageId !== img.id));
+    toast.error(`ISO removed from ${img.id}`);
+  };
+
+  /** Removes the whole OS image — its in-flight transfer and its upload history go with it, or
+   *  they would outlive the record they describe. */
+  const deleteImage = (img: OsImage) => {
+    setImages((prev) => prev.filter((i) => i.id !== img.id));
+    setJobs((prev) => prev.filter((j) => j.imageId !== img.id));
+    setAttempts((prev) => { const next = { ...prev }; delete next[img.id]; return next; });
+    if (detailId === img.id) setDetailId(null);
+    if (modalFor === img.id) setModalFor(null);
+    if (activityFor === img.id) setActivityFor(null);
+    toast.error(`${img.id} deleted`);
+  };
+
   const dismissJob = (job: UploadJob) => setJobs((prev) => prev.filter((j) => j.jobId !== job.jobId));
   const clearFinished = () => setJobs((prev) => prev.filter((j) => j.status === 'uploading' || j.status === 'paused'));
 
@@ -195,18 +216,8 @@ export function AdminOsUpgradeModule() {
         />
       )}
 
-      {!modalImage && !activityImage && (
-      <UploadDock
-        jobs={jobs}
-        onOpen={(j) => openModal(j.imageId)}
-        onPause={(j) => setJobStatus(j.jobId, 'paused')}
-        onResume={(j) => setJobStatus(j.jobId, 'uploading')}
-        onStop={stopUpload}
-        onRetry={retryUpload}
-        onDismiss={dismissJob}
-        onClearFinished={clearFinished}
-      />
-      )}
+      {/* No floating dock. Minimising used to swap the popup for a panel in the corner, which
+          reads as "the popup moved", not "the popup closed" — the row now carries the transfer. */}
     </>
   );
 
@@ -224,6 +235,7 @@ export function AdminOsUpgradeModule() {
           onPause={() => { const j = activeJobFor(detail.id); if (j) setJobStatus(j.jobId, 'paused'); }}
           onResume={() => { const j = activeJobFor(detail.id); if (j) setJobStatus(j.jobId, 'uploading'); }}
           onStop={() => { const j = activeJobFor(detail.id); if (j) stopUpload(j); }}
+          onDelete={() => deleteIso(detail)}
         />
         {overlays}
       </>
@@ -279,7 +291,7 @@ export function AdminOsUpgradeModule() {
             <table className="w-full min-w-[1180px]">
               <thead className="border-b border-[#e5e7eb]">
                 <tr>
-                  {['ID', 'Name', 'Edition', 'Language', 'Size', 'Upload Status', 'Upload Time', 'Platform', 'File Uploading Actions'].map((h) => (
+                  {['ID', 'Name', 'Language', 'Size', 'Upload Status', 'Upload Time', 'Platform', 'File action', 'Action'].map((h) => (
                     <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658]">{h}</th>
                   ))}
                 </tr>
@@ -294,6 +306,10 @@ export function AdminOsUpgradeModule() {
                   // Nothing has ever been uploaded and nothing is running: there is no status to
                   // view, so the row carries the upload action alone.
                   const canView = history.length > 0 || !!job;
+                  /* Why a Failed (or Cancelled) row ended that way, read off the attempt that
+                     produced the current status — so the listing tells the same story the history
+                     panel does instead of restating it in the row and pushing it to two lines. */
+                  const reason = history.find((a) => a.status === status)?.detail;
                   return (
                     <tr key={img.id} className="transition-colors hover:bg-[#f9fafb]">
                       <td className="whitespace-nowrap px-4 py-3">
@@ -308,23 +324,39 @@ export function AdminOsUpgradeModule() {
                         </button>
                         <div className="max-w-[220px] truncate text-[12px] text-[#7B8FA5]">{img.osVersion} · {img.architecture}</div>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-[13px] text-[#364658]">{img.edition}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-[13px] text-[#364658]">{img.language}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-[13px] tabular-nums text-[#364658]">{img.size}</td>
+                      {/* Once the popup is dismissed this cell IS the upload — status, how far
+                          along, and how much is left, without anything floating over the page. */}
                       <td className="px-4 py-3">
-                        <UploadStatusPill status={status} />
-                        {job && (
-                          <div className="mt-1.5 w-[140px]">
-                            <div className="h-1 overflow-hidden rounded-full bg-[#EEF2F6]">
+                        {job ? (
+                          <div className="w-[190px]">
+                            <div className="flex items-center justify-between gap-2">
+                              <UploadStatusPill status={status} />
+                              <span className="text-[12px] font-semibold tabular-nums text-[#364658]">{Math.round(jobPct(job))}%</span>
+                            </div>
+                            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#EEF2F6]">
                               <div
                                 className="h-full rounded-full transition-[width] duration-300 ease-linear"
                                 style={{ width: `${jobPct(job)}%`, backgroundColor: UPLOAD_TONE[status].dot }}
                               />
                             </div>
-                            <div className="mt-1 text-[11px] tabular-nums text-[#7B8FA5]">
-                              {Math.round(jobPct(job))}% · {formatBytes(job.loaded)} of {formatBytes(job.fileSize)}
+                            <div className="mt-1 truncate text-[11px] tabular-nums text-[#7B8FA5]">
+                              {formatBytes(job.loaded)} of {formatBytes(job.fileSize)}
+                              {job.status === 'uploading' && ` · ${formatEta((job.fileSize - job.loaded) / Math.max(job.rate, 1))}`}
                             </div>
                           </div>
+                        ) : reason ? (
+                          /* Radix needs a real element to attach to — UploadStatusPill doesn't
+                             forward a ref, so the span is the trigger. */
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-block cursor-help"><UploadStatusPill status={status} /></span>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[300px] text-wrap">{reason}</TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <UploadStatusPill status={status} />
                         )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-[13px] text-[#364658]">
@@ -342,13 +374,40 @@ export function AdminOsUpgradeModule() {
                               className="flex size-8 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]"
                             ><Eye size={16} /></button>
                           )}
-                          <button
-                            onClick={() => openModal(img.id)}
-                            disabled={!!job}
-                            title={job ? 'An upload is already running for this image' : 'Upload ISO'}
-                            className="flex size-8 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658] disabled:cursor-not-allowed disabled:text-[#CBD5E1] disabled:hover:bg-transparent"
-                          ><Upload size={16} /></button>
+                          {/* While a transfer runs the row owns it: pause and stop live here, in
+                              the actions column, rather than in a panel floating over the page.
+                              A greyed-out upload icon would have been a dead end. */}
+                          {job ? (
+                            <>
+                              <button
+                                onClick={() => setJobStatus(job.jobId, job.status === 'paused' ? 'uploading' : 'paused')}
+                                title={job.status === 'paused' ? 'Resume upload' : 'Pause upload'}
+                                className="flex size-8 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]"
+                              >{job.status === 'paused' ? <Play size={15} /> : <Pause size={15} />}</button>
+                              <button
+                                onClick={() => stopUpload(job)}
+                                title="Stop upload"
+                                className="flex size-8 items-center justify-center rounded text-[#EF4444] transition-colors hover:bg-[#FEF3F2]"
+                              ><Square size={14} /></button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => openModal(img.id)}
+                              title="Upload ISO"
+                              className="flex size-8 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]"
+                            ><Upload size={16} /></button>
+                          )}
                         </div>
+                      </td>
+                      {/* Action is the RECORD's column — deleting here removes the image itself,
+                          not just its file. Kept apart from the file actions beside it so the two
+                          scopes can't be confused. */}
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <button
+                          onClick={() => deleteImage(img)}
+                          title="Delete OS image"
+                          className="flex size-8 items-center justify-center rounded text-[#EF4444] transition-colors hover:bg-[#FEF3F2]"
+                        ><Trash2 size={16} /></button>
                       </td>
                     </tr>
                   );
@@ -396,8 +455,9 @@ function UploadActivityPanel({ image, job, attempts, onClose }: {
   const rows: UploadAttempt[] = [...live, ...attempts];
 
   /** The ISO in place right now: the newest attempt that actually LANDED. A failed attempt on top
-   *  of a good one doesn't replace it, so "newest row" would be the wrong answer. */
-  const currentId = attempts.find((a) => a.status === 'Uploaded')?.id;
+   *  of a good one doesn't replace it, so "newest row" would be the wrong answer — and once the
+   *  file has been DELETED nothing is current at all, however the attempts ended. */
+  const currentId = image.fileName ? attempts.find((a) => a.status === 'Uploaded')?.id : undefined;
 
   // Every attempt status is also an upload status, so one tone map serves both.
   const attemptTone = (s: UploadAttempt['status']) => UPLOAD_TONE[s];

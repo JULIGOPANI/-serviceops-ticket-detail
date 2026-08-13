@@ -37,6 +37,8 @@ interface AdminOsUpgradeDetailProps {
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
+  /** Removes the uploaded ISO from this image. */
+  onDelete: () => void;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -72,7 +74,7 @@ const btnSecondary = 'inline-flex h-8 items-center gap-1.5 rounded border border
  * steps for one intent. Dropping a file on the empty state IS the upload, and the guidelines that
  * used to live in the dialog sit beside the dropzone where they are read before choosing, not
  * after. Drives the same shared machinery, so the row, header and history still move together. */
-function IsoFileCard({ image, status, job, latestAttempt, onStart, onHistory, onPause, onResume, onStop }: {
+function IsoFileCard({ image, status, job, latestAttempt, onStart, onHistory, onPause, onResume, onStop, onDelete }: {
   image: OsImage;
   status: OsUploadStatus;
   job?: UploadJob;
@@ -82,6 +84,8 @@ function IsoFileCard({ image, status, job, latestAttempt, onStart, onHistory, on
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
+  /** Removes the uploaded ISO — the card falls back to its dropzone. */
+  onDelete: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -246,7 +250,13 @@ function IsoFileCard({ image, status, job, latestAttempt, onStart, onHistory, on
                 </div>
               </div>
             </div>
-            <button onClick={() => setReplacing(true)} className={btnSecondary}><UploadCloud size={15} /> Replace ISO</button>
+            {/* Delete, not Replace: removing the file returns the card to its dropzone, which is
+                already the way to put a new one on — so "replace" was a second door to one room. */}
+            <button
+              onClick={onDelete}
+              title="Delete ISO"
+              className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#EF4444] transition-colors hover:bg-[#FEF3F2]"
+            ><Trash2 size={16} /></button>
           </div>
         ) : (
           /* ── Failed ── the reason is the point; the retry sits next to it */
@@ -268,7 +278,7 @@ function IsoFileCard({ image, status, job, latestAttempt, onStart, onHistory, on
   );
 }
 
-export function AdminOsUpgradeDetail({ image, status, onBack, job, latestAttempt, onStart, onHistory, onPause, onResume, onStop }: AdminOsUpgradeDetailProps) {
+export function AdminOsUpgradeDetail({ image, status, onBack, job, latestAttempt, onStart, onHistory, onPause, onResume, onStop, onDelete }: AdminOsUpgradeDetailProps) {
   const [tab, setTab] = useState<'summary' | 'computers'>('summary');
   const [bucket, setBucket] = useState<CompatStatus>('Compatible');
   const [search, setSearch] = useState('');
@@ -430,6 +440,7 @@ export function AdminOsUpgradeDetail({ image, status, onBack, job, latestAttempt
             onPause={onPause}
             onResume={onResume}
             onStop={onStop}
+            onDelete={onDelete}
           />
 
           {/* Metadata — the asset Hardware tab's container: section head, then a grey panel of
