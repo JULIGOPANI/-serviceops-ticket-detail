@@ -1,0 +1,280 @@
+/* Support Portal Customization — Admin › Organization.
+ *
+ * Two data sets live here and nothing else does:
+ *   1. the PAGES an admin has built (the listing's rows, created by the builder), and
+ *   2. the TEMPLATES the "Use Template" gallery offers.
+ *
+ * The portal CONTENT below (requests, approvals, knowledge) is what the builder canvas renders as
+ * the default layout. It is the requester's real dashboard, so the numbers in a card's header and
+ * the rows beneath it are read from the SAME array — a count and its list can never disagree.
+ */
+
+export type PortalPageStatus = 'Published' | 'Draft';
+
+export interface PortalPage {
+  id: string;
+  name: string;
+  /** System pages ship with the product; Custom ones are built here. */
+  type: 'System' | 'Custom';
+  status: PortalPageStatus;
+  /** 'Blank layout' for a from-scratch page, otherwise the template it was started from. */
+  source: string;
+  audience: string;
+  modifiedAt: string;
+  modifiedBy: string;
+}
+
+export type TemplateLayout = 'classic' | 'spotlight' | 'catalog' | 'knowledge' | 'minimal' | 'status';
+
+export interface PortalTemplate {
+  id: string;
+  name: string;
+  desc: string;
+  category: 'IT Support' | 'HR' | 'Facilities' | 'General';
+  layout: TemplateLayout;
+  /** Tints the hero of the page this template produces, so picking one is visibly a choice. */
+  accent: string;
+  badge?: string;
+  /** What the template drops onto the canvas — read on the gallery's detail rail. */
+  blocks: string[];
+}
+
+/* ── Templates ───────────────────────────────────────────────────────────── */
+
+export const PORTAL_TEMPLATES: PortalTemplate[] = [
+  {
+    id: 'tpl-classic',
+    name: 'Classic Service Desk',
+    desc: 'The default ServiceOps portal — hero search, three quick actions, and the requester’s own work below.',
+    category: 'IT Support',
+    layout: 'classic',
+    accent: '#0F172A',
+    badge: 'Most used',
+    blocks: ['Hero search', 'Quick actions', 'My Open Requests', 'Pending Approvals', 'Most Read', 'My Assets', 'My CIs'],
+  },
+  {
+    id: 'tpl-spotlight',
+    name: 'Search Spotlight',
+    desc: 'Puts deflection first: a full-bleed search hero with popular articles surfaced before any form.',
+    category: 'IT Support',
+    layout: 'spotlight',
+    accent: '#1E3A8A',
+    blocks: ['Full-bleed search', 'Popular articles', 'Quick actions', 'My Open Requests'],
+  },
+  {
+    id: 'tpl-catalog',
+    name: 'Service Catalog First',
+    desc: 'Leads with browsable service categories for portals where most traffic is a request, not an incident.',
+    category: 'General',
+    layout: 'catalog',
+    accent: '#134E4A',
+    blocks: ['Compact search', 'Category grid', 'Featured services', 'My Open Requests'],
+  },
+  {
+    id: 'tpl-knowledge',
+    name: 'Knowledge Hub',
+    desc: 'A self-service reading room — curated collections, most read, and a contact-us fallback at the end.',
+    category: 'General',
+    layout: 'knowledge',
+    accent: '#3730A3',
+    blocks: ['Search hero', 'Collections', 'Most Read', 'Contact us'],
+  },
+  {
+    id: 'tpl-hr',
+    name: 'People & HR Desk',
+    desc: 'An HR-facing portal — leave, payroll and onboarding requests up front, policy documents beside them.',
+    category: 'HR',
+    layout: 'catalog',
+    accent: '#831843',
+    blocks: ['Compact search', 'HR service categories', 'Policy documents', 'My Open Requests'],
+  },
+  {
+    id: 'tpl-minimal',
+    name: 'Minimal Landing',
+    desc: 'One search field and three actions on a light canvas. Nothing else competes for the first click.',
+    category: 'General',
+    layout: 'minimal',
+    accent: '#334155',
+    badge: 'New',
+    blocks: ['Light hero', 'Quick actions', 'Announcements'],
+  },
+  {
+    id: 'tpl-status',
+    name: 'Announcements & Status',
+    desc: 'Opens with live announcements and service status, for portals used during major incidents.',
+    category: 'Facilities',
+    layout: 'status',
+    accent: '#7C2D12',
+    blocks: ['Announcement banner', 'Service status', 'Hero search', 'My Open Requests'],
+  },
+];
+
+export const TEMPLATE_CATEGORIES = ['All', 'IT Support', 'HR', 'Facilities', 'General'] as const;
+
+/* ── The default layout the canvas renders ───────────────────────────────── */
+
+export interface PortalRequest { id: string; subject: string; at: string; status: string }
+export interface PortalApproval { id: string; subject: string; reason: string; at: string; by: string; initials: string; color: string }
+export interface PortalArticle { id: string; title: string; at: string; tag: string }
+
+export const PORTAL_QUICK_ACTIONS = [
+  { key: 'incident', title: 'New Incident', desc: 'Report an incident' },
+  { key: 'service', title: 'Request Service', desc: 'Browse the services offered' },
+  { key: 'knowledge', title: 'Knowledge', desc: 'Browse knowledge' },
+] as const;
+
+/** 17 open in total; the card lists the five most recent, which is what the live portal does. */
+export const PORTAL_OPEN_REQUEST_TOTAL = 17;
+
+/* Statuses vary on purpose: the builder's Statuses filter has to visibly do something, and a list
+   where every row says "Open" would make a working filter look broken. */
+export const PORTAL_OPEN_REQUESTS: PortalRequest[] = [
+  { id: 'SR-201', subject: 'Request for New Laptop', at: 'Wed, Aug 12, 2026 10:09 AM', status: 'Open' },
+  { id: 'INC-187', subject: 'Cannot Create KB Article', at: 'Mon, Aug 10, 2026 11:43 AM', status: 'In Progress' },
+  { id: 'SR-180', subject: 'Employee On-boarding', at: 'Wed, Aug 05, 2026 03:22 PM', status: 'Open' },
+  { id: 'INC-178', subject: 'Password Reset Required', at: 'Wed, Aug 05, 2026 12:03 PM', status: 'Pending' },
+  { id: 'INC-170', subject: 'Laptop Slow and Lagging', at: 'Tue, Aug 04, 2026 03:51 PM', status: 'In Progress' },
+  { id: 'SR-166', subject: 'Access to Finance Drive', at: 'Mon, Aug 03, 2026 09:14 AM', status: 'On Hold' },
+  { id: 'INC-159', subject: 'VPN Disconnects Frequently', at: 'Fri, Jul 31, 2026 04:02 PM', status: 'Open' },
+  { id: 'INC-151', subject: 'Monitor Flickering', at: 'Thu, Jul 30, 2026 11:20 AM', status: 'Resolved' },
+  { id: 'SR-147', subject: 'Software License Renewal', at: 'Wed, Jul 29, 2026 02:45 PM', status: 'Closed' },
+  { id: 'INC-142', subject: 'Printer Not Responding', at: 'Tue, Jul 28, 2026 10:33 AM', status: 'Reopened' },
+];
+
+/** Status pill colours, so a filtered list still reads at a glance. */
+export const REQUEST_STATUS_TONE: Record<string, { fg: string; bg: string }> = {
+  'Open': { fg: '#B45309', bg: '#FEF3C7' },
+  'In Progress': { fg: '#1D4ED8', bg: '#DBEAFE' },
+  'Pending': { fg: '#7C3AED', bg: '#EDE9FE' },
+  'On Hold': { fg: '#64748B', bg: '#F1F5F9' },
+  'Resolved': { fg: '#22A06B', bg: '#ECFDF3' },
+  'Closed': { fg: '#64748B', bg: '#F1F5F9' },
+  'Reopened': { fg: '#DC2626', bg: '#FEF3F2' },
+};
+
+export const PORTAL_APPROVALS: PortalApproval[] = [
+  {
+    id: 'INC-192', subject: 'Wrong configuration details', reason: 'Peer review requested',
+    at: 'Tue, Aug 11, 2026 02:14 PM', by: 'Rosy', initials: 'RO', color: '#3D8BD0',
+  },
+  {
+    id: 'AST-13', subject: 'DESKTOP-5JPPI6F', reason: 'Approval Required for - AST-13',
+    at: 'Mon, Aug 10, 2026 12:57 PM', by: 'Keya', initials: 'KE', color: '#7C3AED',
+  },
+];
+
+export const PORTAL_ARTICLES: PortalArticle[] = [
+  { id: 'KB-4', title: 'How to Reset Your Password', at: 'Thu, Jul 30, 2026 11:34 AM', tag: 'Guideline Documents' },
+  { id: 'KB-1', title: 'Connecting to Company VPN', at: 'Sun, Jul 19, 2026 10:58 PM', tag: 'FAQs' },
+  { id: 'KB-6', title: 'Reporting a Hardware Fault', at: 'Tue, Aug 11, 2026 04:38 PM', tag: 'Guideline Documents' },
+];
+
+/* ── Add panel — the element catalogue ───────────────────────────────────── */
+
+/* Groups render in this order. **Components** is deliberately first: the system blocks a support
+ * portal is actually made of are what an admin reaches for, and burying them under generic layout
+ * primitives would make the common case the hard one. Everything below Components is the generic
+ * toolkit, in the order Duda uses (layout → basic → visual → business → custom). */
+export const PORTAL_ELEMENT_GROUPS = ['Components', 'Layout', 'Basic', 'Visual', 'Business', 'Custom'] as const;
+export type PortalElementGroup = (typeof PORTAL_ELEMENT_GROUPS)[number];
+
+export interface PortalElement {
+  id: string;
+  name: string;
+  /** Key into the panel's icon registry. */
+  icon: string;
+  group: PortalElementGroup;
+  /** System components only — already placed on the page, so it can't be added twice. */
+  onPage?: boolean;
+  /** Extra words the search should match (variants, synonyms) without cluttering the row. */
+  keywords?: string;
+}
+
+/* ⚠️ `onPage` mirrors what SupportPortalPreview actually renders. Keep the two in step — a row
+ *    claiming "Added" for a block the canvas doesn't show is worse than no badge at all. */
+export const PORTAL_ELEMENTS: PortalElement[] = [
+  // ── Components — the ServiceOps portal's own blocks ──
+  { id: 'c-search', name: 'Search', icon: 'search', group: 'Components', onPage: true, keywords: 'knowledge base hero find' },
+  { id: 'c-services', name: 'Services', icon: 'services', group: 'Components', onPage: true, keywords: 'catalog request service' },
+  { id: 'c-categories', name: 'Categories', icon: 'categories', group: 'Components', keywords: 'service categories browse' },
+  { id: 'c-requests', name: 'My Requests', icon: 'requests', group: 'Components', onPage: true, keywords: 'tickets incidents open' },
+  { id: 'c-approvals', name: 'Approvals', icon: 'approvals', group: 'Components', onPage: true, keywords: 'pending approve' },
+  { id: 'c-assets', name: 'My Assets', icon: 'assets', group: 'Components', onPage: true, keywords: 'hardware devices' },
+  { id: 'c-tasks', name: 'My Tasks', icon: 'tasks', group: 'Components', keywords: 'todo work' },
+  { id: 'c-announcements', name: 'Announcements', icon: 'announcements', group: 'Components', keywords: 'news broadcast banner' },
+  { id: 'c-knowledge', name: 'Knowledge', icon: 'knowledge', group: 'Components', onPage: true, keywords: 'articles kb most read' },
+  { id: 'c-faq', name: 'FAQ', icon: 'faq', group: 'Components', keywords: 'questions help' },
+  { id: 'c-contact', name: 'Contact / Escalation', icon: 'contact', group: 'Components', keywords: 'support escalate raise' },
+
+  // ── Layout ──
+  { id: 'l-tabs', name: 'Advanced Tabs', icon: 'tabs', group: 'Layout' },
+  { id: 'l-accordion', name: 'Advanced Accordion', icon: 'accordionAdv', group: 'Layout', keywords: 'collapse expand' },
+  { id: 'l-divider', name: 'Divider', icon: 'divider', group: 'Layout', keywords: 'vertical horizontal v/h separator rule' },
+
+  // ── Basic ──
+  { id: 'b-text', name: 'Text', icon: 'text', group: 'Basic', keywords: 'paragraph body copy' },
+  { id: 'b-button', name: 'Button', icon: 'button', group: 'Basic', keywords: 'cta link action' },
+  { id: 'b-spacer', name: 'Spacer', icon: 'spacer', group: 'Basic', keywords: 'gap whitespace' },
+  { id: 'b-large-title', name: 'Large Title', icon: 'largeTitle', group: 'Basic', keywords: 'heading h1 h2' },
+  { id: 'b-small-title', name: 'Small Title', icon: 'smallTitle', group: 'Basic', keywords: 'heading h3 h4 subtitle' },
+  { id: 'b-file', name: 'File Download', icon: 'file', group: 'Basic', keywords: 'attachment cta button download' },
+  { id: 'b-list', name: 'List', icon: 'list', group: 'Basic', keywords: 'bullets items' },
+  { id: 'b-countdown', name: 'Countdown', icon: 'countdown', group: 'Basic', keywords: 'timer deadline' },
+  { id: 'b-table', name: 'Table', icon: 'table', group: 'Basic', keywords: 'grid rows columns data' },
+  { id: 'b-accordion', name: 'Accordion', icon: 'accordion', group: 'Basic', keywords: 'collapse faq expand' },
+  { id: 'b-text-image', name: 'Text with Image', icon: 'textImage', group: 'Basic', keywords: 'media split' },
+  { id: 'b-card', name: 'Card', icon: 'card', group: 'Basic', keywords: 'tile panel' },
+
+  // ── Visual ──
+  { id: 'v-image', name: 'Image', icon: 'image', group: 'Visual', keywords: 'picture photo' },
+  { id: 'v-slider', name: 'Media Slider', icon: 'slider', group: 'Visual', keywords: 'carousel gallery' },
+  { id: 'v-gallery', name: 'Photo Gallery', icon: 'gallery', group: 'Visual', keywords: 'grid images' },
+  { id: 'v-icon', name: 'Icon', icon: 'icon', group: 'Visual', keywords: 'glyph symbol' },
+  { id: 'v-shape', name: 'Shape', icon: 'shape', group: 'Visual', keywords: 'divider decoration' },
+
+  // ── Business ──
+  { id: 'z-call', name: 'Click to Call', icon: 'call', group: 'Business', keywords: 'phone dial support' },
+  { id: 'z-mail', name: 'Click to Mail', icon: 'mail', group: 'Business', keywords: 'email contact' },
+  { id: 'z-form', name: 'Contact Form', icon: 'form', group: 'Business', keywords: 'enquiry submit' },
+  { id: 'z-share', name: 'Share', icon: 'share', group: 'Business', keywords: 'social send' },
+  { id: 'z-nav', name: 'Navigation Links', icon: 'nav', group: 'Business', keywords: 'menu links' },
+
+  // ── Custom ──
+  { id: 'x-action-card', name: 'Action Card', icon: 'actionCard', group: 'Custom', keywords: 'quick action tile' },
+  { id: 'x-action-icon', name: 'Action Icon', icon: 'actionIcon', group: 'Custom', keywords: 'quick action shortcut' },
+  { id: 'x-kpi', name: 'KPI', icon: 'kpi', group: 'Custom', keywords: 'metric stat number' },
+  { id: 'x-search', name: 'Search', icon: 'searchCustom', group: 'Custom', keywords: 'find input' },
+  { id: 'x-predefined', name: 'Predefined Cards', icon: 'predefined', group: 'Custom', keywords: 'all cards library presets' },
+];
+
+/* ── Helpers ─────────────────────────────────────────────────────────────── */
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** 'Wed, Aug 12, 2026 10:09 AM' — the stamp format every list in this product uses. */
+export function formatPortalStamp(d: Date): string {
+  const h = d.getHours();
+  const hh = ((h + 11) % 12) + 1;
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${String(d.getDate()).padStart(2, '0')}, ${d.getFullYear()} ${String(hh).padStart(2, '0')}:${mm} ${h < 12 ? 'AM' : 'PM'}`;
+}
+
+/** Next free `SPP-#`, so ids stay stable and readable as pages come and go. */
+export function nextPageId(pages: PortalPage[]): string {
+  const max = pages.reduce((n, p) => {
+    const m = /^SPP-(\d+)$/.exec(p.id);
+    return m ? Math.max(n, Number(m[1])) : n;
+  }, 0);
+  return `SPP-${max + 1}`;
+}
+
+/** 'New page', then 'New page 2'… — a builder must never make the admin resolve a clash. */
+export function uniquePageName(pages: PortalPage[], base: string): string {
+  const taken = new Set(pages.map((p) => p.name.toLowerCase()));
+  if (!taken.has(base.toLowerCase())) return base;
+  for (let n = 2; ; n += 1) {
+    const candidate = `${base} ${n}`;
+    if (!taken.has(candidate.toLowerCase())) return candidate;
+  }
+}

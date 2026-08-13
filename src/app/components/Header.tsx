@@ -2,7 +2,8 @@ import { Plus, Calendar, Bell, Settings, Keyboard, Info } from 'lucide-react';
 import svgPaths from "../../imports/svg-vmnsig04gh";
 import { GlobalSearchButton } from './GlobalSearch';
 
-function MotadataLogo() {
+/** Exported so the Support Portal preview renders the same mark the product header does. */
+export function MotadataLogo() {
   return (
     <div className="h-[28.577px] w-[99.563px]">
       <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 99.5625 28.5767">

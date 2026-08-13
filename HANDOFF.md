@@ -1,110 +1,109 @@
-# Handoff — 2026-08-11 19:03
+# Handoff — 2026-08-13 19:36
 
 ## Read first
-CLAUDE.md `## Key context` → the **OS Upgrade (Admin › Patch Management)** bullet, then the
-**Admin listing layout** bullet (it is the standard for every admin listing from now on), then the
-**Patch Deployment — deployment type, saved views, and the create form** bullet. The V2 rule still
-stands ("version 2" feature asks → `TicketDrawerV2.tsx` only).
+CLAUDE.md `## Key context` → the **four Support Portal builder bullets** (they run consecutively,
+starting at "Support Portal Customization (Admin › Organization)"). Read them in order: the module
+and builder shell, then the Add panel + canvas selection, then the spacing matrix + added sections,
+then placement + toolbar actions + the pickers. Also **`## Structure`** → the Support Portal
+Customization line for the file map.
 
-An earlier session the same day shipped **BOM Management (Admin)**, **Global Search + tiered
-filtering**, a round of **BOM refinements**, and the **three-level Admin nav** — all committed and
-documented in CLAUDE.md; see commits up to `9675549`.
+Two research/spec docs sit at the repo root and are the source for design decisions here:
+- **[DUDA-ADD-AND-THEME-RESEARCH.md](DUDA-ADD-AND-THEME-RESEARCH.md)** — Duda's Add and Theme panels, read from a live editor.
+- **[DUDA-ELEMENT-DESIGN-AND-QUICK-ACTIONS.md](DUDA-ELEMENT-DESIGN-AND-QUICK-ACTIONS.md)** — per-element design panel, selection quick-actions, breakpoints.
+- **[PORTAL-ELEMENT-STYLING-SPEC.md](PORTAL-ELEMENT-STYLING-SPEC.md)** — all 41 elements × 12 reusable style blocks, plus a build order.
 
 ## What we worked on this session
-Two features. First the **OS Upgrade admin module** — a new listing and detail page under Admin ›
-Patch Management carrying the whole ISO-upload flow. Then **OS Upgrade as a deployment type** in
-Patch Deployment: a create form, a saved view, and a type-specific detail Overview. Along the way
-we set the standard for how every admin listing is laid out.
+Built **Support Portal Customization** end to end — a new admin module with a page listing, a
+template gallery, and a full-screen page builder with canvas selection, an element library, and a
+per-element content + style editor. Along the way, researched Duda's builder (created a trial
+account and read the real editor) and wrote the element/styling spec that the next phase works from.
 
 ## Completed
+**Admin module**
+- `AdminSupportPortalModule` — empty state → standard admin listing (`SPP-#` pages, scope tabs,
+  duplicate/delete with confirm). A page is created as a **Draft the moment a New-page route is
+  chosen**, so leaving the builder is lossless; Publish is the only thing that goes live.
+- `SupportPortalTemplateGallery` — 7 templates, wireframe thumbnails drawn from layout data,
+  right rail listing exactly which blocks land.
+- Reached from both the Organization **card** and the level-2 **nav row**, via `CARD_MODULES`.
 
-**OS Upgrade admin module** (new files)
-- `osUpgradeData.ts` — 15 `OSU-#` images, prerequisite profiles, the deterministic fleet generator
-  + evaluator, upload-attempt seeds, `prereqPhrase()`.
-- `AdminOsUpgradeModule.tsx` — the listing, the upload state machine, the Upload Status panel.
-- `AdminOsUpgradeDetail.tsx` — Summary (ISO File → OS Image Details → Prerequisites) + Computers.
-- `OsUpgradeUpload.tsx` — the Upload ISO popup (listing only), the minimised dock, shared pills.
-- Reached from the **OS Upgrade card** in Patch Management AND a **level-2 sidebar nav row**
-  (`Patch Management` added to `SIDEBAR_TREE`); both route through `CARD_MODULES` in `AdminPage`.
-- Upload flow verified end to end in the browser: empty → in progress → pause/resume → stop →
-  failed → retry → uploaded, with the dock, the listing row, the header KPI, the detail card and
-  the history panel all moving together.
+**Builder shell** (`SupportPortalBuilder`)
+- Full-screen; admin sidebar + product header stand down. Inline-editable title, save indicator,
+  Preview (real, selection off), Publish.
+- Resizable design panel clamped 400–600px; right rail **Add · Theme · Branding · Templates · AI**
+  with AI pinned bottom in a gradient pill.
 
-**Patch Deployment**
-- `deploymentType: 'Patch' | 'OS Upgrade'` + `archived` on `PatchDeployment`; the type shows as the
-  first row of the right-panel **Patch Deployment Fields** card, threaded from the record.
-- **Saved views** dropdown (search, pin, active highlight) plus the star + filter-chip row, with a
-  new **OS Upgrade Deployments** view.
-- **`CreatePatchDeployment.tsx`** — the create form behind the listing CTA, with the new
-  **Deployment Type** field. OS Upgrade collapses Configuration Type to **Install only** and swaps
-  the payload picker to OS images (uploaded ones only).
-- Overview is now **two layouts branched on the run's type**: OS Upgrade gets the
-  Package-Deployment layout (count + preview cards, 2×2 stats beside the remote-office
-  drill-down); a Patch run keeps its donuts and both drill-downs, unchanged.
+**Add panel** (`SupportPortalAddPanel`)
+- 41 elements in 6 groups, Components first. Drag-scrollable group tabs with a scroll-spy.
+- Added components show a green tick and are not draggable (one instance each).
 
-**Admin chrome**
-- Admin listing standard — white surface, head + docs link, compact left-icon search, full-bleed
-  table with no card. Every admin pane now uses `px-4`.
+**Canvas** (`PortalCanvas`, `SupportPortalPreview`, `portalPageModel`)
+- Explicit selection model; blocks + key children; parent step-up via chip chevron and breadcrumb.
+- Kind-aware floating toolbars — sections `↓↑`, cards/columns `←→`, text gets the dark rich-text bar.
+- **Functional**: resize handles (min-height floor, sibling shares redistribute so a row always
+  fills), spacing drag with magenta guides + live badge, seam drag to stretch the band above.
+- Add Section seam → 10-layout picker (tiles drawn from the same data the section is built from).
+- Columns: split left/right at equal width; drag-to-place from the Add panel; auto-section on seam drop.
+- All toolbar actions real (move / delete / clear padding / align / `+`); duplicate correctly
+  disabled on fixed blocks.
+
+**Element editor** (`PortalElementPanel`)
+- One scroll: CONTENT (per element) → STYLE (Layout / Style / Spacing).
+- Content is **wired to the canvas** — My Requests' statuses/scope/show, hero text, nav links,
+  action-card title/description/icon all render live.
+- `SpacingMatrix` (nested margin/padding rings), `PortalColorPicker`, `PortalIconPicker`
+  (43 ITSM icons + SVG upload), per-corner radius, border.
 
 ## In progress
-Nothing mid-flight. Everything under Next steps is a deliberate gap, not unfinished work.
+Nothing half-written — but **the last four rounds of changes are unverified in the browser**. See
+Gotchas. The files to re-check first are `SupportPortalPreview.tsx` (seam `slot()` ordering,
+column adders) and `PortalCanvas.tsx` (toolbar action handlers).
 
 ## Next steps
-1. **An OS Upgrade deployment still carries PATCH data** — the header KPI, the Overview payload
-   card, the Patches tab and the deployment matrix all read `DEPLOYED_PATCHES`. The Overview card
-   is deliberately still labelled "Patches" for that reason. Swapping the payload has to be done as
-   one piece (`PatchDeploymentDrawer` + `PatchDeploymentPatchesTab`), or the labels contradict the
-   tabs they link to.
-2. The **listing** still opens `UploadIsoModal` from a row's upload icon. Intentional — a row has
-   nowhere inline to put a picker — but if that popup should go too, the options are to send the
-   row icon into the detail page or expand the row inline.
-3. The **Patch Deployment detail page** was only partly revisited; its Endpoint / Patches /
-   Deployment / Audit Trail tabs are untouched.
-4. Optional: retrofit the **BOM Management** admin screens to the new listing layout (they still
-   use the older card-wrapped one).
-5. On a short viewport (~820px tall) the OS Upgrade Summary empty state runs ~15px over. Closing
-   that would mean tightening the field spacing the user explicitly asked to keep roomy.
+1. **Verify in the browser** — drag-to-place, the toolbar actions, the action-card icon picker, and
+   the Add Section seams under the lower bands. Three of the last four rounds surfaced bugs only
+   visible on screen.
+2. **Build the style blocks** in the order set out in PORTAL-ELEMENT-STYLING-SPEC.md §8:
+   Box → Typography → Rows + Pills → States → Icon → Layout → Media.
+3. **Restore deleted blocks** — a removed built-in band cannot be added back. Needs undo or a
+   hidden-blocks list.
+4. Confirm whether Components stay **single-instance** (the "Added" tick assumes they do).
+5. Decide whether status-pill colours live in **Theme** rather than per element — five components
+   render them and will otherwise disagree.
 
 ## Decisions made
-- **Compatibility is evaluated, never stored.** `computersFor()` generates a deterministic fleet
-  and `evaluate()` judges it against that image's own `PREREQUISITES`, so the Prerequisites card
-  and the Compatible/Incompatible/Unknown counts cannot drift. The grid's spec columns are
-  generated from the prerequisites, so no row is flagged for a value the reader cannot see.
-- **Prerequisite phrasing is derived, not authored.** `prereqPhrase()` builds "4 GB or more" /
-  "Turned on" / "One of Windows 10 2004 or later" from the rule's key and operator, so a new OS
-  profile reads correctly for free. `p.value` is untouched because the evaluator compares on it.
-- **One overlay at a time** in the OS Upgrade module — popup, activity panel and dock are mutually
-  exclusive, or an admin gets two sets of controls for one transfer.
-- **The detail page's uploader is inline, no dialog.** "Click Upload → read a dialog → click Upload
-  again" was two steps for one intent; the guidelines now sit beside the dropzone, read *before*
-  choosing rather than after.
-- **"Current" in the upload history = the newest attempt that LANDED**, not the newest row — a
-  failed attempt on top of a good file does not replace it.
-- **Archived deployments belong to exactly one view**, enforced in `inView()` rather than in each
-  `match`, so a new view cannot resurrect them. "All Deployments" therefore shows 29, not 32.
-- **`deploymentType` is threaded, not hard-coded** into the fields card — hard-coding would make
-  every Patch run claim to be an OS Upgrade.
-- Kept the asset **Hardware tab's** field spacing verbatim on the Summary grids, and took the
-  height needed for the one-screen fit out of the upload chrome instead.
+- **Theme panel follows Squarespace "Site Styles"** (rows that preview what they control) rather
+  than Duda's flat accordions. Confirmed later when the live Duda editor turned out to use the same
+  pattern.
+- **Rail keeps five items** (Add · Theme · Branding · Templates · AI) rather than mirroring Duda —
+  Branding is already its own admin card, so a rail item keeps the builder consistent with the
+  admin IA.
+- **Statuses on My Requests is a display toggle, not a row filter** — otherwise "Show 5" and the
+  status list fight over how many rows appear.
+- **Size on the selection wrapper, as `minHeight` not `height`** — a dragged height is a floor, so
+  resizing never clips content, and the outline always matches the painted box.
+- **A row member takes a share, not a width** — every sibling carries one, so a row always adds up.
+- **Duplicate disabled on fixed page blocks** rather than faking success — they have no instance
+  identity to clone.
+- **Elements land blank** (no data, no styling) but shaped like what they will become.
 
 ## Gotchas & notes
-- ⚠️ **A JSX comment `{/* … */}` is invalid directly inside a parenthesised expression** — e.g.
-  straight after `{cond && (`. It parses as an object literal and the build fails with
-  `Expected ")" but found "className"`. Use a plain `/* … */` there. This bit three times.
-- ⚠️ **A bare `<button>` does NOT inherit font-size in this app** — preflight leaves it at the
-  16px default. Link-style buttons need an explicit `text-[Npx]`; check with `getComputedStyle`
-  when one looks too big.
-- ⚠️ `overflow-x-auto` + `min-w` does NOT stop a table clipping — nowrap columns simply demand more
-  width. The Upload Status history uses **`table-fixed` + a `colgroup`** so Status can never be
-  pushed out of view.
-- ⚠️ `vite build` does **not** typecheck (the script is bare `vite build`), so type errors compile
-  through silently. Verify in the browser, not just by building.
-- Demo hooks in the uploader: only `.iso` under 10 GB is accepted, and a file named
-  `*fail*` / `*corrupt*` fails at 62% — the only way to reach the Failed state from the UI.
-- A **parallel Claude session was editing this repo** throughout (three-level admin nav,
-  `vite.config.ts` watcher ignores, a `.gitignore` screenshot rule). It swept some of this
-  session's staged files into its own commit `9675549`, whose message does not describe them.
-- Run `git status --short` before staging; do not blind-`git add -A` (a `credentials.txt` was
-  committed to a public repo that way earlier in this project).
-- `pnpm` is not on PATH by default here; `corepack prepare pnpm@10 --activate` fixes it.
-  `npm install` still crashes on this pnpm-managed tree — use `pnpm add`.
+- ⚠️ **`npm run build` is NOT a typecheck.** TypeScript isn't installed; Vite/esbuild only. A
+  removed variable still referenced in JSX passes the build and blanks the page at runtime. The
+  browser is the only real gate.
+- ⚠️ **The MCP automation Chrome has been stuck** in a relaunch loop for the last several rounds —
+  it refuses connections and respawns when killed. Everything since the sibling-resize round is
+  built and compiling but **not visually verified**. Clearing it: kill every `chrome.exe` whose
+  command line contains `chrome-devtools-mcp`, then retry; sometimes it recovers on its own.
+- ⚠️ **Popovers inside the design panel must be portalled.** It is `overflow-y-auto`, so an
+  absolutely-positioned popover is clipped once it is taller than the space below its field. Both
+  pickers use `createPortal` + fixed positioning.
+- ⚠️ **Flex `order` needs every sibling to have one.** Bands take even slots, seams the odd slot
+  after them. A seam without one collapses to 0 and the lower seams vanish.
+- ⚠️ **`overflow-hidden` on a selection wrapper hides the chip and toolbar** — they sit at `-top-4`
+  and `-top-11`, outside the box. This cost a round to find.
+- Duda trial account exists (`zeni.chakalasiya@motadata.com`, site `4fa39e6e`, Beauty Salon
+  template) — valid ~14 days from 12 Aug 2026 if more of the real editor needs checking. Google
+  OAuth cannot be driven from an automated browser; the Duda password form can.
+- `image.png`, `04-personas-jtbd.md` and `14-case-study.md` are untracked at the repo root and are
+  not part of this feature.

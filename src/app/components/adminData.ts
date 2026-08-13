@@ -32,7 +32,7 @@ export interface AdminCard {
  * scrolls the Overview, exactly as before. Expansion is opt-in per section rather than automatic
  * for all 24, because a section only earns its own nav branch once its modules are real screens.
  */
-export const SIDEBAR_TREE: string[] = ['BOM Management', 'Patch Management'];
+export const SIDEBAR_TREE: string[] = ['BOM Management', 'Patch Management', 'Organization'];
 
 export const isTreeSection = (title: string) => SIDEBAR_TREE.includes(title);
 
@@ -100,6 +100,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     cards: [
     { title: 'Account', desc: 'Edit core account details for your ServiceOps instance.', icon: 'Settings2', href: '/admin/organization/account' },
     { title: 'Branding', desc: 'Customize portal logo, colors, and theme to match your brand.', icon: 'Palette', href: '/admin/organization/branding?tab=details' },
+    { title: 'Support Portal Customization', desc: 'Design the pages requesters land on — build from scratch or start from a template.', icon: 'MonitorSmartphone', href: '/admin/organization/support-portal-customization' },
     { title: 'Departments', desc: 'Define departments for reporting, routing, and access control.', icon: 'Building2', href: '/admin/organization/department' },
     { title: 'Locations', desc: 'Define physical locations referenced across ServiceOps.', icon: 'MapPin', href: '/admin/organization/location' },
     { title: 'Business Hours', desc: 'Set operating hours used to calculate SLAs and schedules.', icon: 'Clock', href: '/admin/business-hours' },

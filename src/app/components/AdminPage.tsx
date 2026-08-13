@@ -6,6 +6,7 @@ import { ADMIN_SECTIONS, sectionByTitle } from './adminData';
 import { AdminBomModule } from './AdminBomModule';
 import type { BomAdminScreen } from './AdminBomModule';
 import { AdminOsUpgradeModule } from './AdminOsUpgradeModule';
+import { AdminSupportPortalModule } from './AdminSupportPortalModule';
 
 /** Sections that have a real module behind them rather than only a card grid. Selecting one in
  *  the sidebar opens that module; everything else still scrolls the Overview. */
@@ -24,6 +25,7 @@ const BOM_SCREEN_FOR: Record<string, BomAdminScreen> = {
  *  it, so only that row swaps the pane. */
 const CARD_MODULES: Record<string, string> = {
   'Patch Management/OS Upgrade': 'OS Upgrade',
+  'Organization/Support Portal Customization': 'Support Portal Customization',
 };
 
 /* Admin hub — the settings surface. Its own shell: the product's left icon rail is replaced by a
@@ -41,6 +43,8 @@ export function AdminPage({ onNavigate }: { onNavigate: (page: string) => void }
   /** Title of the module currently open, or null for the Overview. */
   const [module, setModule] = useState<string | null>(null);
   const [bomScreen, setBomScreen] = useState<BomAdminScreen>('landing');
+  /** The portal builder is a canvas — it takes the whole screen, so the admin shell stands down. */
+  const [builderOpen, setBuilderOpen] = useState(false);
 
   const toggle = (key: string) =>
     setOpenKeys((prev) => {
@@ -93,9 +97,11 @@ export function AdminPage({ onNavigate }: { onNavigate: (page: string) => void }
 
   return (
     <div className="flex h-screen flex-col bg-[#F7F9FC]">
-      <Header selectedCount={0} />
+      {!builderOpen && <Header selectedCount={0} />}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <AdminSidebar active={active} activeCard={activeCard} onSelect={select} onBackToApp={() => onNavigate('request')} />
+        {!builderOpen && (
+          <AdminSidebar active={active} activeCard={activeCard} onSelect={select} onBackToApp={() => onNavigate('request')} />
+        )}
         <div data-admin-scroll className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {module === 'BOM Management' ? (
             <div className="min-h-0 flex-1 overflow-y-auto bg-[#F7F9FC]">
@@ -116,6 +122,10 @@ export function AdminPage({ onNavigate }: { onNavigate: (page: string) => void }
                portal list page — head, search, then a full-bleed table with no card around it. */
             <div className="min-h-0 flex-1 overflow-y-auto bg-white">
               <AdminOsUpgradeModule />
+            </div>
+          ) : module === 'Support Portal Customization' ? (
+            <div className="min-h-0 flex-1 overflow-y-auto bg-white">
+              <AdminSupportPortalModule onBuilder={setBuilderOpen} />
             </div>
           ) : (
             <AdminOverview
