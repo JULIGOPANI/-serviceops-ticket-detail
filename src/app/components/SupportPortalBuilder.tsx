@@ -244,6 +244,46 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     toast.success('This element sits on its own — nothing to swap it with');
   }, [blockOrder, rowOrder]);
 
+  /** Which ordered list an id lives in, so a drag knows what it can be dropped among. */
+  const listOf = useCallback((id: string): 'block' | 'section' | string | null => {
+    if (blockOrder.includes(id)) return 'block';
+    if (/^sec-\d+$/.test(id)) return 'section';
+    const row = Object.keys(rowOrder).find((r) => rowOrder[r].includes(id));
+    return row ?? null;
+  }, [blockOrder, rowOrder]);
+
+  const areSiblings = useCallback((a: string, b: string) => {
+    const la = listOf(a);
+    return !!la && la === listOf(b);
+  }, [listOf]);
+
+  /** Drag-to-reorder: lift `source` out of its list and drop it at `target`'s index. */
+  const moveTo = useCallback((source: string, target: string) => {
+    const list = listOf(source);
+    if (!list || list !== listOf(target)) {
+      toast.error('Drop it on something in the same row or section');
+      return;
+    }
+    const reorder = (arr: string[]) => {
+      const from = arr.indexOf(source);
+      const to = arr.indexOf(target);
+      if (from < 0 || to < 0) return arr;
+      const next = [...arr];
+      next.splice(from, 1);
+      next.splice(to, 0, source);
+      return next;
+    };
+    if (list === 'block') setBlockOrder(reorder);
+    else if (list === 'section') {
+      setSections((prev) => {
+        const ids = prev.map((s) => s.section.id);
+        const order = reorder(ids);
+        return order.map((sid) => prev.find((s) => s.section.id === sid)!);
+      });
+    } else setRowOrder((o) => ({ ...o, [list]: reorder(o[list]) }));
+    toast.success('Moved');
+  }, [listOf]);
+
   /** Only things with their own identity can be cloned; a fixed page band has none. */
   const canDuplicate = useCallback((id: string) => /^sec-\d+$/.test(id) || /^el-\d+$/.test(id), []);
 
@@ -319,7 +359,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   const canvasCtx = {
     selectedId, hoverId, select, setHover: setHoverId, styles, setStyle,
     addSection, addColumnBeside, dropInColumn, dropAtSeam, dropInRow,
-    moveNode, duplicateNode, deleteNode, canDuplicate, addInside,
+    moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, areSiblings,
   };
 
   // Title — inline edit, committed on Enter or blur, abandoned on Escape.

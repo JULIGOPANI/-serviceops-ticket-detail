@@ -8,7 +8,7 @@ import {
 // ArrowLeft stays in use by the card toolbar's "Move left".
 import { toast } from 'sonner';
 import { AiSparkle } from './AiSparkle';
-import { HEADING_SIZE, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, nodeById } from './portalPageModel';
+import { HEADING_SIZE, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, nodeById, nodePath } from './portalPageModel';
 import type { NodeStyle, PortalStyles, SpacingBox } from './portalPageModel';
 
 /* Canvas selection layer.
@@ -47,6 +47,10 @@ interface CanvasCtx {
   /** True when this node has an identity that can be cloned. */
   canDuplicate: (id: string) => boolean;
   addInside: (id: string) => void;
+  /** Drops `sourceId` at `targetId`'s position — the grip's drag-to-reorder. */
+  moveTo: (sourceId: string, targetId: string) => void;
+  /** True when the two ids sit in the same list, so a drop between them is meaningful. */
+  areSiblings: (a: string, b: string) => boolean;
 }
 
 const Ctx = createContext<CanvasCtx>({
@@ -54,10 +58,14 @@ const Ctx = createContext<CanvasCtx>({
   select: () => {}, setHover: () => {}, styles: {}, setStyle: () => {},
   addSection: () => {}, addColumnBeside: () => {}, dropInColumn: () => {}, dropAtSeam: () => {}, dropInRow: () => {},
   moveNode: () => {}, duplicateNode: () => {}, deleteNode: () => {}, canDuplicate: () => false, addInside: () => {},
+  moveTo: () => {}, areSiblings: () => false,
 });
 
 /** Reads a dragged catalogue element off a drop event, or null when it isn't one of ours. */
 export const draggedElement = (e: React.DragEvent) => e.dataTransfer.getData('text/portal-element') || null;
+/** Reads a node being dragged by its grip. Same caveat: only readable on `drop`. */
+export const draggedNode = (e: React.DragEvent) => e.dataTransfer.getData('text/portal-move') || null;
+export const MOVE_MIME = 'text/portal-move';
 
 export const CanvasProvider = Ctx.Provider;
 export const useCanvas = () => useContext(Ctx);
@@ -155,7 +163,13 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
       onClick={(e) => e.stopPropagation()}
       className="flex items-center gap-0.5 rounded border border-[#E5E7EB] bg-white px-1 py-1 shadow-[0_4px_6px_-2px_rgba(16,24,40,0.06),0_12px_16px_-4px_rgba(16,24,40,0.10)]"
     >
-      <span className="flex size-7 cursor-grab items-center justify-center text-[#9CA3AF]"><GripVertical size={14} /></span>
+      {/* The grip drags the element itself — pick it up here, drop it on a sibling to reorder. */}
+      <span
+        draggable
+        onDragStart={(e) => { e.dataTransfer.setData(MOVE_MIME, id); e.dataTransfer.effectAllowed = 'move'; }}
+        title="Drag to move"
+        className="flex size-7 cursor-grab items-center justify-center text-[#9CA3AF] active:cursor-grabbing"
+      ><GripVertical size={14} /></span>
       {moves.map(([label, ic, dir]) => (
         <button key={label} className={btn} title={label} onClick={() => moveNode(id, dir)}>{ic}</button>
       ))}
@@ -300,7 +314,10 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
   ];
 
   return (
-    <span className="absolute inset-0 z-20">
+    /* ⚠️ pointer-events-none on the WRAPPER, auto on each handle. Without it this overlay covers
+       the whole selected element and swallows clicks on its children — so selecting a section made
+       everything inside it unreachable. */
+    <span className="pointer-events-none absolute inset-0 z-20">
       {/* Magenta guides mark the padded edges while you drag them. */}
       {live?.kind === 'padY' && (
         <>
@@ -421,7 +438,7 @@ function LayoutTile({ rows }: { rows: number[][] }) {
 /* The seam between two sections: an invisible strip that becomes a blue bar on hover, carrying the
    "+ Add Section" pill and a drag grip for stretching the section above it. */
 export function AddSectionSeam({ afterId }: { afterId: string }) {
-  const { enabled, addSection, setStyle, dropAtSeam } = useCanvas();
+  const { enabled, addSection, setStyle, dropAtSeam, hoverId } = useCanvas();
   const [hover, setHover] = useState(false);
   const [picking, setPicking] = useState(false);
   const [live, setLive] = useState<number | null>(null);
@@ -474,7 +491,11 @@ export function AddSectionSeam({ afterId }: { afterId: string }) {
     document.body.style.userSelect = 'none';
   };
 
-  const showBar = hover || picking || !!live;
+  /* The seam belongs to the section ABOVE it, so hovering anywhere in that section reveals it —
+     not just the 12px gap. Hunting for a hairline between two bands is a worse way to find "add a
+     section here" than simply being over the section you want to add after. */
+  const withinSection = !!hoverId && nodePath(hoverId).some((n) => n.id === afterId);
+  const showBar = hover || picking || withinSection || !!live;
 
   return (
     <div
@@ -578,8 +599,9 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
   /** Layout defaults from the page (a row member's default share). sizeOf overrides these. */
   style?: React.CSSProperties;
 }) {
-  const { enabled, selectedId, hoverId, select, setHover, styles } = useCanvas();
+  const { enabled, selectedId, hoverId, select, setHover, styles, moveTo } = useCanvas();
   const ref = useRef<HTMLDivElement>(null);
+  const [moveOver, setMoveOver] = useState(false);
   const node = nodeById(id);
   // Size applies in preview too — a resized page must publish the way it was designed.
   const size = { ...baseStyle, ...sizeOf(styles, id) };
@@ -599,6 +621,23 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
       onMouseOver={(e) => { e.stopPropagation(); setHover(id); }}
       onMouseOut={(e) => { e.stopPropagation(); setHover(null); }}
       onClick={(e) => { e.stopPropagation(); select(id); }}
+      /* Grip-drag drop target. The dragged id is unreadable during dragover, so accept broadly
+         here and let moveTo decide whether the two are actually siblings. */
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes(MOVE_MIME)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setMoveOver(true);
+      }}
+      onDragLeave={() => setMoveOver(false)}
+      onDrop={(e) => {
+        setMoveOver(false);
+        const src = draggedNode(e);
+        if (!src || src === id) return;
+        e.preventDefault();
+        e.stopPropagation();
+        moveTo(src, id);
+      }}
       /* No display change here — call sites pass their own layout classes (the header is a flex
          row), so forcing flex-col on every wrapper would rearrange the page. The painted child
          gets the same minHeight instead, which keeps the two boxes the same size. */
@@ -618,6 +657,8 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
           {node.name}
         </span>
       )}
+
+      {moveOver && <span className="pointer-events-none absolute inset-0 z-30 rounded ring-2 ring-[#3D8BD0] ring-offset-2" />}
 
       {on && <SelectionHandles id={id} elRef={ref} />}
 
