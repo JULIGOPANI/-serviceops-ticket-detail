@@ -55,6 +55,12 @@ const Dash = () => <span className="text-[12px] text-[#9ca3af]">---</span>;
 
 const BUCKETS: CompatStatus[] = ['Compatible', 'Incompatible', 'Unknown'];
 
+const COMPAT_TONE: Record<CompatStatus, { fg: string; bg: string }> = {
+  Compatible: { fg: '#22A06B', bg: '#ECFDF3' },
+  Incompatible: { fg: '#DC2626', bg: '#FEF3F2' },
+  Unknown: { fg: '#64748B', bg: '#F1F5F9' },
+};
+
 const btnPrimary = 'inline-flex h-8 items-center gap-1.5 rounded bg-[#3D8BD0] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#2d6ca0]';
 const btnSecondary = 'inline-flex h-8 items-center gap-1.5 rounded border border-[#DFE5ED] bg-white px-3.5 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]';
 
@@ -524,13 +530,14 @@ export function AdminOsUpgradeDetail({ image, status, onBack, job, latestAttempt
             </div>
           </div>
 
-          {/* The standard endpoint grid — identity and inventory. Which bucket a row is in is
-              answered by the pills above it, so the grid doesn't repeat it as a column. */}
+          {/* The standard endpoint grid — identity and inventory, then the verdict and why. The
+              bucket pills above filter; these two columns explain a row on its own terms, which
+              matters most in the Incompatible bucket where every row failed for its own reason. */}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px]">
+            <table className="w-full min-w-[1240px]">
               <thead className="border-y border-[#e5e7eb]">
                 <tr>
-                  {['Endpoint ID', 'Host Name', 'IP Address', 'OS Name', 'Agent Version', 'Architecture'].map((h) => (
+                  {['Endpoint ID', 'Host Name', 'IP Address', 'OS Name', 'Agent Version', 'Architecture', 'Compatibility Status', 'Reason'].map((h) => (
                     <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658]">{h}</th>
                   ))}
                 </tr>
@@ -538,7 +545,7 @@ export function AdminOsUpgradeDetail({ image, status, onBack, job, latestAttempt
               <tbody className="divide-y divide-[#e5e7eb]">
                 {pageRows.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-[13px] text-[#9CA3AF]">
+                    <td colSpan={8} className="px-4 py-12 text-center text-[13px] text-[#9CA3AF]">
                       No {bucket.toLowerCase()} endpoints{q ? ` match “${search}”` : ''}.
                     </td>
                   </tr>
@@ -554,6 +561,20 @@ export function AdminOsUpgradeDetail({ image, status, onBack, job, latestAttempt
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-[12px] text-[#364658]">{c.agentVersion ?? <Dash />}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-[12px] text-[#364658]">{c.arch ?? <Dash />}</td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <span className="rounded-sm px-2 py-0.5 text-[12px] font-medium" style={{ color: COMPAT_TONE[c.status].fg, backgroundColor: COMPAT_TONE[c.status].bg }}>
+                        {c.status}
+                      </span>
+                    </td>
+                    {/* Unknown has no reasons because it was never judged — say that rather than
+                        leaving a dash that reads like "no problems found". */}
+                    <td className="px-4 py-3 text-[12px]">
+                      {c.reasons.length ? (
+                        <span className="text-[#DC2626]">{c.reasons.join('; ')}</span>
+                      ) : c.status === 'Unknown' ? (
+                        <span className="text-[#9CA3AF]">Never scanned</span>
+                      ) : <Dash />}
+                    </td>
                   </tr>
                 ))}
               </tbody>
