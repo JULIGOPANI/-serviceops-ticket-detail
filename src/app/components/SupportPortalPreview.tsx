@@ -37,11 +37,38 @@ interface SupportPortalPreviewProps {
   blockOrder?: string[];
   rowOrder?: Record<string, string[]>;
   removed?: string[];
+  /** Elements dropped into a built-in row, rendered after that row's own cards. */
+  rowExtras?: Record<string, PlacedElement[]>;
 }
 
 /* An added section: rows of equal-height columns, each empty until something is dropped in. The
    grey `+` is the resting affordance; selecting or hovering the column reveals the blue ones that
    split it left/right. */
+/* A built-in row that accepts drops.
+ *
+ * Every section takes an element, not just the ones an admin added — otherwise "add anything
+ * anywhere" is only true in half the page. A drop lands in that row alongside the cards already
+ * there, sharing the row the same way they do. */
+function RowDrop({ rowId, className, children }: { rowId: string; className: string; children: ReactNode }) {
+  const { dropInRow } = useCanvas();
+  const [over, setOver] = useState(false);
+  return (
+    <div
+      onDragOver={(e) => { if (e.dataTransfer.types.includes('text/portal-element')) { e.preventDefault(); setOver(true); } }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        const type = draggedElement(e);
+        setOver(false);
+        if (!type) return;
+        e.preventDefault();
+        e.stopPropagation();
+        dropInRow(rowId, type);
+      }}
+      className={`${className} ${over ? 'rounded outline-2 outline-dashed -outline-offset-4 outline-[#3D8BD0]' : ''}`}
+    >{children}</div>
+  );
+}
+
 /* A column: empty and dashed until something is dropped in, then just the element on the section's
    own surface. No wrapper card — the element brings whatever chrome it actually needs. */
 function ColumnBody({ id, item, live, icons, placedText }: { id: string; item?: PlacedElement; live: boolean; icons?: Record<string, IconChoice | undefined>; placedText?: Record<string, { title?: string; desc?: string }> }) {
@@ -229,7 +256,7 @@ function CardShell({ titleNodeId, title, count, children }: {
 
 /* ── The page ────────────────────────────────────────────────────────────── */
 
-export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CONTENT, sections = [], icons, placedText, blockOrder = DEFAULT_BLOCK_ORDER, rowOrder = DEFAULT_ROW_ORDER, removed = [] }: SupportPortalPreviewProps) {
+export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CONTENT, sections = [], icons, placedText, blockOrder = DEFAULT_BLOCK_ORDER, rowOrder = DEFAULT_ROW_ORDER, removed = [], rowExtras }: SupportPortalPreviewProps) {
   const { styles, enabled, select } = useCanvas();
   const st = (id: string) => styleOf(styles, id);
 
@@ -327,9 +354,11 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
           {/* No horizontal padding here: a SECTION runs from the page's left edge to its right
               edge, so each one carries its own inset instead of sitting inside a padded column. */}
           <div className="flex flex-col pb-8">
+            {after('hero')}
+
             {/* ── Quick actions ── */}
             <Sel id="quick" className={`relative z-10 px-6 ${blockOrder.indexOf("quick") === 0 ? "-mt-[62px]" : "mt-5"}`} style={{ order: slot("quick") }}>
-              <div className="flex flex-wrap gap-4">
+              <RowDrop rowId="quick" className="flex flex-wrap gap-4">
                 {quickCards.map((a) => (
                   <Sel key={a.id} id={a.id} className="rounded-lg" style={share(content.cols.quick)}>
                     <div
@@ -350,13 +379,21 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                     </div>
                   </Sel>
                 ))}
-              </div>
+
+                {(rowExtras?.['quick'] ?? []).map((el) => (
+                  <Sel key={el.id} id={el.id} style={share(content.cols.quick)}>
+                    <PortalPlacedElement item={el} icon={icons?.[el.id]} text={placedText?.[el.id]} />
+                  </Sel>
+                ))}
+              </RowDrop>
             </Sel>
+
+            {after('quick')}
 
             {/* ── Work row ── */}
             {/* ── Work row ── one section, three cards, full width. */}
             <Sel id="work" className="mt-5 px-6" style={{ order: slot("work") }}>
-              <div className="flex flex-wrap gap-4">
+              <RowDrop rowId="work" className="flex flex-wrap gap-4">
               {card('requests', (
                 <CardShell titleNodeId="requests-title" title={content.requests.title} count={visibleRequests.length}>
                   <Sel id="requests-list">
@@ -432,17 +469,29 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                   </div>
                 </CardShell>
               ), content.cols.work)}
-              </div>
+
+                {(rowExtras?.['work'] ?? []).map((el) => (
+                  <Sel key={el.id} id={el.id} style={share(content.cols.work)}>
+                    <PortalPlacedElement item={el} icon={icons?.[el.id]} text={placedText?.[el.id]} />
+                  </Sel>
+                ))}
+              </RowDrop>
             </Sel>
 
             {after('work')}
 
             {/* ── Records row ── Assets and CIs, in a parent section like every other card. */}
             <Sel id="records" className="mt-4 px-6" style={{ order: slot("records") }}>
-              <div className="flex flex-wrap gap-4">
+              <RowDrop rowId="records" className="flex flex-wrap gap-4">
                 {card('assets', <EmptyCard title={content.assets.title} />, content.cols.records)}
                 {card('cis', <EmptyCard title={content.cis.title} />, content.cols.records)}
-              </div>
+
+                {(rowExtras?.['records'] ?? []).map((el) => (
+                  <Sel key={el.id} id={el.id} style={share(content.cols.records)}>
+                    <PortalPlacedElement item={el} icon={icons?.[el.id]} text={placedText?.[el.id]} />
+                  </Sel>
+                ))}
+              </RowDrop>
             </Sel>
 
             {after('records')}

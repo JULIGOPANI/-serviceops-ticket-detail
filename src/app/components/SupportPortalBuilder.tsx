@@ -173,6 +173,16 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     return el;
   }, []);
 
+  /** Elements dropped straight into a built-in row (Quick Actions, Cards Row, Records Row). */
+  const [rowExtras, setRowExtras] = useState<Record<string, PlacedElement[]>>({});
+
+  const dropInRow = useCallback((rowId: string, type: string) => {
+    const el = makeElement(type, rowId);
+    setRowExtras((prev) => ({ ...prev, [rowId]: [...(prev[rowId] ?? []), el] }));
+    select(el.id);
+    toast.success(`${el.name} added`);
+  }, [makeElement, select]);
+
   const dropInColumn = useCallback((columnId: string, type: string) => {
     const sectionId = columnId.replace(/-c\d+$/, '');
     const el = makeElement(type, columnId);
@@ -308,7 +318,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
   const canvasCtx = {
     selectedId, hoverId, select, setHover: setHoverId, styles, setStyle,
-    addSection, addColumnBeside, dropInColumn, dropAtSeam,
+    addSection, addColumnBeside, dropInColumn, dropAtSeam, dropInRow,
     moveNode, duplicateNode, deleteNode, canDuplicate, addInside,
   };
 
@@ -392,7 +402,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
         <div className="min-h-0 flex-1 overflow-y-auto">
           {/* Preview must behave like the real portal — selection off. */}
           <CanvasProvider value={{ ...canvasCtx, enabled: false, selectedId: null, hoverId: null, select: () => {}, setHover: () => {} }}>
-            <SupportPortalPreview accent={accent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} />
+            <SupportPortalPreview accent={accent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} />
           </CanvasProvider>
         </div>
       </div>
@@ -486,7 +496,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
         <div className="relative min-w-0 flex-1 overflow-y-auto p-5">
           <div className="mx-auto max-w-[1600px] overflow-hidden rounded-lg border border-[#E1E6ED] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_rgba(16,24,40,0.06)]">
             <CanvasProvider value={{ ...canvasCtx, enabled: true }}>
-              <SupportPortalPreview accent={accent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} />
+              <SupportPortalPreview accent={accent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} />
             </CanvasProvider>
           </div>
 

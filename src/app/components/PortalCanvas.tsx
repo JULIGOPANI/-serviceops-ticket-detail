@@ -38,6 +38,8 @@ interface CanvasCtx {
   dropInColumn: (columnId: string, elementType: string) => void;
   /** Drops onto a seam — builds a new one-column section there and puts the element in it. */
   dropAtSeam: (afterId: string, elementType: string) => void;
+  /** Drops into a built-in row, alongside the cards already there. */
+  dropInRow: (rowId: string, elementType: string) => void;
   /* ── toolbar actions ── */
   moveNode: (id: string, dir: 'prev' | 'next') => void;
   duplicateNode: (id: string) => void;
@@ -50,7 +52,7 @@ interface CanvasCtx {
 const Ctx = createContext<CanvasCtx>({
   enabled: false, selectedId: null, hoverId: null,
   select: () => {}, setHover: () => {}, styles: {}, setStyle: () => {},
-  addSection: () => {}, addColumnBeside: () => {}, dropInColumn: () => {}, dropAtSeam: () => {},
+  addSection: () => {}, addColumnBeside: () => {}, dropInColumn: () => {}, dropAtSeam: () => {}, dropInRow: () => {},
   moveNode: () => {}, duplicateNode: () => {}, deleteNode: () => {}, canDuplicate: () => false, addInside: () => {},
 });
 
