@@ -19,12 +19,16 @@ type Side = keyof SpacingBox;
 interface Props {
   style: NodeStyle;
   onChange: (patch: Partial<NodeStyle>) => void;
+  /* ⚠️ Restricts the widget to ONE ring. A divider and a shape have no inside, so they get a margin
+     box and no padding box at all — NEW-ELEMENT-PANELS-SPEC §3.6/§3.14. Showing both and letting one
+     do nothing is the failure that spec spends its first section arguing against. */
+  only?: Ring;
 }
 
 const unitOf = (side: Side) => (side === 'left' || side === 'right' ? '%' : 'px');
 
-export function SpacingMatrix({ style, onChange }: Props) {
-  const [ring, setRing] = useState<Ring>('padding');
+export function SpacingMatrix({ style, onChange, only }: Props) {
+  const [ring, setRing] = useState<Ring>(only ?? 'padding');
   const [focus, setFocus] = useState<{ ring: Ring; side: Side } | null>(null);
 
   const margin = style.margin ?? ZERO_BOX;
@@ -58,8 +62,11 @@ export function SpacingMatrix({ style, onChange }: Props) {
             type="number"
             value={v}
             onChange={(e) => setSide(r, side, e.target.value)}
-            onBlur={() => setFocus(null)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') setFocus(null); }}
+            /* ⚠️ Blur must NOT clear the selection. Reaching for the slider blurs this input, which
+               cleared `focus`, which disabled the slider — so the one gesture the hint tells you to
+               make was the one that switched it off. The side stays selected until another is
+               picked; Escape is the way out. */
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur(); }}
             className="h-6 w-9 bg-transparent px-1 text-center text-[12px] text-[#364658] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
           />
           <span className="border-l border-[#E5E7EB] bg-[#F7F9FC] px-1 text-[11px] leading-[24px] text-[#7B8FA5]">{unitOf(side)}</span>

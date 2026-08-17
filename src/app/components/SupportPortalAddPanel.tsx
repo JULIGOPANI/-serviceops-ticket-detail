@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-  Boxes, Check, ChevronsUpDown, ClipboardList, Download, GalleryHorizontal, Gauge, Grid2x2, Heading,
-  HelpCircle, Image as ImageIcon, Images, LayoutGrid, LayoutTemplate, LifeBuoy, Link2, List, Mail,
-  Megaphone, Minus, MousePointerClick, MoveVertical, PanelTop, Phone, Rows3, Search, Shapes, Share2,
-  ShoppingCart, Smile, Square, Table, Timer, Type, X, Zap,
+  Boxes, Check, ChevronsUpDown, ClipboardList, Download, GalleryHorizontal, Gauge, Heading,
+  HelpCircle, Image as ImageIcon, Images, KeyRound, LayoutGrid, LayoutTemplate, LifeBuoy, Link2, List, Mail,
+  Megaphone, Minus, MousePointerClick, MoveVertical, Network, PanelTop, Phone, Rows3, Search, Shapes, Share2,
+  ShoppingCart, Smile, Square, Star, Table, Timer, Type, X, Zap,
 } from 'lucide-react';
-import { toast } from 'sonner';
 import {
-  IconAssets, IconKnowledge, IconMyApproval, IconRequest, IconTask,
+  IconAssets, IconKnowledge, IconMyApproval, IconRequest,
 } from './SidebarIcons';
 import { PORTAL_ELEMENT_GROUPS, PORTAL_ELEMENTS } from './supportPortalData';
+import { WIDGET_FOR_TYPE, specById } from './portalWidgetSpec';
 import type { PortalElement, PortalElementGroup } from './supportPortalData';
 
 /* Add → Elements.
@@ -31,15 +31,17 @@ const ICONS: Record<string, ReactNode> = {
   // Components
   search: <Search size={16} />,
   services: <ShoppingCart size={16} />,
-  categories: <Grid2x2 size={16} />,
   requests: <IconRequest size={16} />,
   approvals: <IconMyApproval size={16} />,
   assets: <IconAssets size={16} />,
-  tasks: <IconTask size={16} />,
+  cis: <Network size={16} />,
+  incident: <IconRequest size={16} />,
+  adself: <KeyRound size={16} />,
   announcements: <Megaphone size={16} />,
   knowledge: <IconKnowledge size={16} />,
   faq: <HelpCircle size={16} />,
   contact: <LifeBuoy size={16} />,
+  feedback: <Star size={16} />,
   // Layout
   tabs: <PanelTop size={16} />,
   accordionAdv: <Rows3 size={16} />,
@@ -81,10 +83,16 @@ const icon = (key: string) => ICONS[key] ?? <Square size={16} />;
 
 const searchText = (e: PortalElement) => `${e.name} ${e.group} ${e.keywords ?? ''}`.toLowerCase();
 
-export function SupportPortalAddPanel() {
+interface Props {
+  /** Places the element on the page. Click and drag are the same add — one lands it where the
+   *  builder decides, the other where you aimed. */
+  onAdd: (elementId: string) => void;
+  /** Catalogue types the page is already carrying, so a single-instance block reads "added". */
+  placedTypes: string[];
+}
+
+export function SupportPortalAddPanel({ onAdd, placedTypes }: Props) {
   const [query, setQuery] = useState('');
-  /** Components added during this session, on top of the ones the page already renders. */
-  const [added, setAdded] = useState<string[]>([]);
 
   const q = query.trim().toLowerCase();
 
@@ -92,7 +100,7 @@ export function SupportPortalAddPanel() {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const groupRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const stripRef = useRef<HTMLDivElement>(null);
-  const [activeGroup, setActiveGroup] = useState<PortalElementGroup>('Components');
+  const [activeGroup, setActiveGroup] = useState<PortalElementGroup>('Live data');
   /** Ignore the scroll-spy briefly after a tab click, so the smooth scroll isn't fought mid-flight. */
   const lockUntil = useRef(0);
 
@@ -106,12 +114,21 @@ export function SupportPortalAddPanel() {
 
   const total = groups.reduce((n, g) => n + g.items.length, 0);
 
-  const isAdded = (e: PortalElement) => !!e.onPage || added.includes(e.id);
-
-  const add = (e: PortalElement) => {
-    setAdded((prev) => [...prev, e.id]);
-    toast.success(`“${e.name}” added to the page`);
+  /* ⚠️ Reuse comes from the SPEC (§6's `single` / `many`), not from the palette group. FAQ and Card
+     sit in Components here but are freely repeatable, and greying FAQ out after one use made a
+     second one impossible to place. The group is only the fallback for the elements the
+     specification does not cover.
+     ⚠️ And it is read off what the page actually HOLDS, never off what was clicked — the two
+     drifting apart is exactly how this list came to claim things it had not added. */
+  const isSingle = (e: PortalElement) => {
+    const spec = specById(WIDGET_FOR_TYPE[e.id]);
+    return spec ? spec.reuse === 'single' : e.group === 'Live data' || e.group === 'Actions';
   };
+  /* ⚠️ An explicit `onPage` marks a row added whatever its reuse rule says. FAQ is repeatable, so
+     the reuse test alone could never grey it — but this page already carries one in the banner, and
+     a palette that offers a second is describing a page other than the one on screen. Reuse governs
+     what an admin PLACES; onPage states what is already there. */
+  const isAdded = (e: PortalElement) => !!e.onPage || (isSingle(e) && placedTypes.includes(e.id));
 
   /** A search can remove the group the tabs are pointing at. */
   useEffect(() => {
@@ -206,7 +223,7 @@ export function SupportPortalAddPanel() {
       </div>
 
       {/* Group tabs — jump to a group without scrolling for it. Drag the strip sideways to reach
-          the ones past the edge; the panel is only 400px so they will not all fit. */}
+          the ones past the edge; the panel starts at 340px so they will not all fit. */}
       {groups.length > 1 && (
         <div
           ref={stripRef}
@@ -288,8 +305,8 @@ export function SupportPortalAddPanel() {
                       ev.dataTransfer.setData('text/portal-element', e.id);
                       ev.dataTransfer.effectAllowed = 'copy';
                     }}
-                    onClick={() => add(e)}
-                    title={`Drag “${e.name}” onto the page`}
+                    onClick={() => onAdd(e.id)}
+                    title={`Click to add “${e.name}”, or drag it where you want it`}
                     className="group/el flex w-full cursor-grab items-center gap-3 rounded border border-[#E5E7EB] bg-white px-3 py-2.5 text-left transition-all hover:border-[#3D8BD0] hover:shadow-[0_1px_2px_rgba(16,24,40,0.04),0_2px_8px_rgba(16,24,40,0.06)] active:cursor-grabbing"
                   >
                     {/* Icon and label share one colour in every state — they are one thing. */}

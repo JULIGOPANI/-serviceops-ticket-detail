@@ -9,6 +9,7 @@ import {
 import { toast } from 'sonner';
 import { AiSparkle } from './AiSparkle';
 import { HEADING_SIZE, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, nodeById, nodePath } from './portalPageModel';
+import { boxCss, containerCss } from './portalStyleResolver';
 import type { NodeStyle, PortalStyles, SpacingBox } from './portalPageModel';
 
 /* Canvas selection layer.
@@ -70,41 +71,18 @@ export const MOVE_MIME = 'text/portal-move';
 export const CanvasProvider = Ctx.Provider;
 export const useCanvas = () => useContext(Ctx);
 
-/** Style overrides for a node, as inline CSS the preview can spread onto its element. */
+/* Style for a node, as inline CSS the preview spreads onto its element.
+ *
+ * ⚠️ RESOLVED, not own-only: a value set on a section now paints on every descendant that has not
+ * overridden it, which is the §1.1 inheritance model. `containerCss` skips anything whose nearest
+ * source is the theme, so the page's resting look still comes from its Tailwind classes and only
+ * deliberate edits paint. See the note in portalStyleResolver.
+ *
+ * Vertical padding is px and horizontal is %, the units the spacing matrix edits in. Margin is
+ * applied by sizeOf() on the WRAPPER; only padding belongs on the painted element. A dragged height
+ * is a FLOOR (minHeight), never a fixed height, so content is never clipped. */
 export function styleOf(styles: PortalStyles, id: string): React.CSSProperties {
-  const s = styles[id];
-  if (!s) return {};
-  const css: React.CSSProperties = {};
-  if (s.align) css.textAlign = s.align;
-  if (s.bg) css.background = s.bg;
-  if (s.radius !== undefined) css.borderRadius = `${s.radius}px`;
-  // Per-corner wins over the single value — it is the more specific instruction.
-  if (s.corners) {
-    css.borderTopLeftRadius = `${s.corners.tl}px`; css.borderTopRightRadius = `${s.corners.tr}px`;
-    css.borderBottomRightRadius = `${s.corners.br}px`; css.borderBottomLeftRadius = `${s.corners.bl}px`;
-  }
-  if (s.borderWidth) {
-    css.borderWidth = `${s.borderWidth}px`;
-    css.borderStyle = s.borderStyle ?? 'solid';
-    css.borderColor = s.borderColor ?? '#E5E7EB';
-  }
-  if (s.padY !== undefined) { css.paddingTop = `${s.padY}px`; css.paddingBottom = `${s.padY}px`; }
-  // Vertical sides in px, horizontal in % — the units the matrix edits in. Margin is applied by
-  // sizeOf() on the wrapper; only padding belongs on the painted element.
-  if (s.padding) {
-    css.paddingTop = `${s.padding.top}px`; css.paddingBottom = `${s.padding.bottom}px`;
-    css.paddingLeft = `${s.padding.left}%`; css.paddingRight = `${s.padding.right}%`;
-  }
-  /* The same floor the wrapper gets, so the painted box grows with it rather than sitting short
-     inside a taller outline. A FLOOR, not a fixed height — content is never clipped. */
-  if (s.height !== undefined) css.minHeight = `${s.height}px`;
-  if (s.color) css.color = s.color;
-  if (s.fontSize) css.fontSize = `${s.fontSize}px`;
-  if (s.heading && !s.fontSize) css.fontSize = `${HEADING_SIZE[s.heading]}px`;
-  if (s.bold !== undefined) css.fontWeight = s.bold ? 700 : undefined;
-  if (s.italic) css.fontStyle = 'italic';
-  if (s.underline) css.textDecoration = 'underline';
-  return css;
+  return containerCss(styles, id);
 }
 
 /* Size lives on the SELECTION WRAPPER, not on the painted element inside it.
@@ -115,9 +93,12 @@ export function styleOf(styles: PortalStyles, id: string): React.CSSProperties {
  * clips or squashes what is inside it. `maxWidth: 100%` keeps a resized card inside its grid cell
  * instead of bursting out of the layout. */
 export function sizeOf(styles: PortalStyles, id: string): React.CSSProperties {
+  /* P2's outer spacing and width share resolve through the chain; the drag-set values below are
+     deliberately OWN-only — a px width dragged on one card is about that card, and inheriting it
+     would resize every sibling that had never been touched. */
+  const css: React.CSSProperties = { ...boxCss(styles, id) };
   const s = styles[id];
-  if (!s) return {};
-  const css: React.CSSProperties = {};
+  if (!s) return css;
   /* A row member takes a SHARE, not a width: every sibling carries one, so the row always adds up
      to 100% and stays aligned however you drag. A standalone element still takes a plain width. */
   if (s.flex !== undefined) css.flex = `${s.flex} 1 0%`;
@@ -491,11 +472,16 @@ export function AddSectionSeam({ afterId }: { afterId: string }) {
     document.body.style.userSelect = 'none';
   };
 
-  /* The seam belongs to the section ABOVE it, so hovering anywhere in that section reveals it —
-     not just the 12px gap. Hunting for a hairline between two bands is a worse way to find "add a
-     section here" than simply being over the section you want to add after. */
+  /* The seam belongs to the section ABOVE it, so hovering anywhere in that section offers the
+     "+ Add Section" CTA — hunting for a hairline between two bands is a worse way to find "add a
+     section here" than simply being over the section you want to add after.
+     ⚠️ The blue rule is NOT part of that offer: it is the section's bottom EDGE, i.e. the resize
+     handle. Drawing it across the page every time the pointer crossed a section made the canvas
+     flash a thick line on every move, for a grip nobody had reached for. It appears only once you
+     are actually at the seam, beside the CTA — where dragging it is the next thing you'd do. */
   const withinSection = !!hoverId && nodePath(hoverId).some((n) => n.id === afterId);
-  const showBar = hover || picking || withinSection || !!live;
+  const showPill = hover || picking || withinSection || !!live;
+  const showLine = hover || picking || !!live;
 
   return (
     <div
@@ -519,9 +505,9 @@ export function AddSectionSeam({ afterId }: { afterId: string }) {
       {dropping && (
         <div className="pointer-events-none absolute inset-x-0 top-1/2 h-[5px] -translate-y-1/2 rounded-full bg-[#3D8BD0] shadow-[0_0_0_4px_rgba(61,139,208,0.25)]" />
       )}
-      {showBar && (
+      {showLine && (
         <>
-          {/* The bar itself doubles as the section's bottom edge — drag it to stretch. */}
+          {/* The bar IS the section's bottom edge — drag it to stretch. */}
           <div
             onMouseDown={beginResize}
             className="absolute inset-x-0 top-1/2 h-[5px] -translate-y-1/2 cursor-ns-resize bg-[#3D8BD0]"
@@ -534,11 +520,13 @@ export function AddSectionSeam({ afterId }: { afterId: string }) {
               {live}px
             </span>
           )}
-          <button
-            onClick={() => setPicking((p) => !p)}
-            className="absolute left-1/2 top-1/2 z-10 inline-flex h-7 -translate-x-1/2 -translate-y-1/2 items-center rounded-full bg-[#3D8BD0] px-3.5 text-[12px] font-medium text-white shadow-sm transition-colors hover:bg-[#2d6ca0]"
-          >+ Add Section</button>
         </>
+      )}
+      {showPill && (
+        <button
+          onClick={() => setPicking((p) => !p)}
+          className="absolute left-1/2 top-1/2 z-10 inline-flex h-7 -translate-x-1/2 -translate-y-1/2 items-center rounded-full bg-[#3D8BD0] px-3.5 text-[12px] font-medium text-white shadow-sm transition-colors hover:bg-[#2d6ca0]"
+        >+ Add Section</button>
       )}
 
       {picking && (
@@ -562,7 +550,7 @@ export function AddSectionSeam({ afterId }: { afterId: string }) {
 }
 
 /** The `+` affordances on an empty column: sides insert a sibling column, centre adds an element. */
-export function ColumnAdders({ columnId }: { columnId: string }) {
+export function ColumnAdders({ columnId, filled }: { columnId: string; filled?: boolean }) {
   const { addColumnBeside, addInside } = useCanvas();
   const dot = 'flex size-5 items-center justify-center rounded-full bg-[#3D8BD0] text-white shadow-sm transition-transform hover:scale-110';
   return (
@@ -574,11 +562,16 @@ export function ColumnAdders({ columnId }: { columnId: string }) {
       ><Plus size={13} /></button>
       {/* The middle one swaps the right panel to the element library — the list you pick from is
           the answer to "add what?", so it takes the panel rather than opening a second surface. */}
-      <button
-        onClick={(e) => { e.stopPropagation(); addInside(columnId); }}
-        title="Add an element here"
-        className={`${dot} absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2`}
-      ><Plus size={13} /></button>
+      {/* ⚠️ Only on an EMPTY column. On a filled one it would sit on top of the element it is
+          offering to replace, and a column holds one thing — so the side adders, which make room
+          rather than compete for it, are the whole offer there. */}
+      {!filled && (
+        <button
+          onClick={(e) => { e.stopPropagation(); addInside(columnId); }}
+          title="Add an element here"
+          className={`${dot} absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2`}
+        ><Plus size={13} /></button>
+      )}
       <button
         onClick={(e) => { e.stopPropagation(); addColumnBeside(columnId, 'right'); }}
         title="Add a column to the right"
@@ -594,8 +587,11 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
   id: string;
   children: ReactNode;
   className?: string;
-  /** Bands at the very top have no room above them for the toolbar. */
-  toolbarBelow?: boolean;
+  /* Where the toolbar goes when there is no room above the element.
+     `true`  — just inside its own top edge, for a tall band like the hero whose top strip is empty.
+     'under' — fully below its bottom edge, for a short dense bar like the portal's top navigation,
+               where "just inside the top" is directly on top of the logo and the actions. */
+  toolbarBelow?: boolean | 'under';
   /** Layout defaults from the page (a row member's default share). sizeOf overrides these. */
   style?: React.CSSProperties;
 }) {
@@ -649,8 +645,9 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
         <span
           /* Sits fully ABOVE the element, clear of its top edge. Straddling the border put the
              chip inside the card and covered the content it was meant to label. */
-          className={`pointer-events-none absolute left-0 z-30 flex items-center gap-0.5 rounded-sm rounded-b-none bg-[#3D8BD0] px-1.5 text-[10px] font-medium leading-[16px] text-white ${
-            toolbarBelow ? 'top-0' : '-top-4'
+          className={`pointer-events-none absolute left-0 z-30 flex items-center gap-0.5 rounded-sm bg-[#3D8BD0] px-1.5 text-[10px] font-medium leading-[16px] text-white ${
+            toolbarBelow === 'under' ? 'top-full rounded-t-none'
+              : toolbarBelow ? 'top-0 rounded-b-none' : '-top-4 rounded-b-none'
           }`}
         >
           {node.parent && <ChevronRight size={11} className="rotate-180 opacity-70" />}
@@ -663,7 +660,9 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
       {on && <SelectionHandles id={id} elRef={ref} />}
 
       {on && (
-        <div className={`absolute left-0 z-40 ${toolbarBelow ? 'top-5' : '-top-11'}`}>
+        <div className={`absolute left-0 z-40 ${
+          toolbarBelow === 'under' ? 'top-full mt-1' : toolbarBelow ? 'top-5' : '-top-11'
+        }`}>
           {node.kind === 'text' ? <TextToolbar id={id} /> : <ElementToolbar id={id} kind={node.kind} name={node.name} />}
         </div>
       )}

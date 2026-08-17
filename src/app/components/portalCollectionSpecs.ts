@@ -1,0 +1,684 @@
+/* Support Portal builder — the collection widgets (spec §7.9, §7.15–7.19).
+ *
+ * Kept apart from the flat widgets because they carry a second and third editing layer: the widget,
+ * its items, and an item's sub-elements. The SHAPE is identical for all six — that is the §4
+ * contract — so what differs here is only the item's own fields and the widget's own styling.
+ *
+ * Seeds matter (§8.4 rule 4): a new item arrives with plausible copy, never `Untitled`, so the page
+ * reads as something on the day it is dropped and the list rows are scannable.
+ */
+
+import type { Cfg, WidgetField, WidgetSpec } from './portalWidgetSpec';
+
+/* Shared option sets, declared ABOVE every spec that uses them.
+   ⚠️ Position matters: these are module-level consts referenced inside spec object literals, so
+   declaring them further down the file is a temporal-dead-zone crash at import time — and esbuild
+   does not typecheck, so the build stays green while the page goes blank. */
+const FONTS = ['Inherit from theme', 'Inter', 'Poppins', 'Roboto', 'Source Sans 3', 'Merriweather'];
+const WEIGHTS = ['Light', 'Normal', 'Medium', 'Semibold', 'Bold'];
+const FORMATS = ['Bold', 'Underline', 'Italic'];
+const ALIGN_4 = [
+  { value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' },
+  { value: 'right', label: 'Right' }, { value: 'justify', label: 'Justify' },
+];
+
+let seq = 0;
+export const nextItemId = () => `k${(seq += 1)}`;
+
+/* ── §7.16 FAQ ───────────────────────────────────────────────────────────── */
+
+const FAQ_SEEDS: Cfg[] = [
+  {
+    q: 'How do I reset my password?',
+    a: 'Use AD Self Service on the portal home. If your account is locked, raise an incident and the service desk will unlock it.',
+  },
+  {
+    q: 'How long until someone picks up my ticket?',
+    a: 'A P3 request is picked up within one working day. P1 and P2 are picked up inside the hour, around the clock.',
+  },
+  {
+    q: 'How do I request new software?',
+    a: 'Request it from the service catalog. Anything with a licence cost goes to your line manager for approval first.',
+  },
+];
+
+const FAQ_NEW: Cfg[] = [
+  { q: 'Who do I contact out of hours?', a: 'The on-call service desk number is on the Contact Us card.' },
+  { q: 'Can I track a request I raised for someone else?', a: 'Yes — switch My Open Requests to “Raised for me”.' },
+  { q: 'How do I get access to a shared mailbox?', a: 'Raise a service request; the mailbox owner approves it.' },
+];
+
+export const FAQ_SPEC: WidgetSpec = {
+  id: 'faq', name: 'FAQ', group: 'Content', reuse: 'many', family: 'collection',
+  fields: [
+    { key: 'title', label: 'Title', control: 'text', group: 'Content' },
+    { key: 'openFirst', label: 'Show the first answer open', control: 'toggle', group: 'Behaviour' },
+    { key: 'allowMultiOpen', label: 'Let more than one answer be open at once', control: 'toggle', group: 'Behaviour' },
+    // Accordion styling (§7.16), on the Styling tab.
+    {
+      key: 'itemContainer', label: 'Item container', control: 'segmented', tab: 'style', group: 'Accordion',
+      options: [{ value: 'flat', label: 'Flat' }, { value: 'bordered', label: 'Bordered' }, { value: 'card', label: 'Card per item' }],
+    },
+    { key: 'itemDivider', label: 'Divider between items', control: 'toggle', tab: 'style', group: 'Accordion' },
+    {
+      key: 'chevron', label: 'Chevron position', control: 'segmented', tab: 'style', group: 'Accordion',
+      options: [{ value: 'left', label: 'Left' }, { value: 'right', label: 'Right' }],
+    },
+    { key: 'chevronRotates', label: 'Chevron rotates on open', control: 'toggle', tab: 'style', group: 'Accordion' },
+    { key: 'qPad', label: 'Question padding', control: 'slider', tab: 'style', group: 'Accordion', min: 8, max: 24 },
+    { key: 'aIndent', label: 'Answer indent', control: 'slider', tab: 'style', group: 'Accordion', min: 0, max: 32 },
+    { key: 'openBg', label: 'Open-item background', control: 'color', tab: 'style', group: 'Accordion' },
+    {
+      key: 'animation', label: 'Expand animation', control: 'segmented', tab: 'style', group: 'Accordion',
+      options: [{ value: 'none', label: 'None' }, { value: 'fast', label: 'Fast' }, { value: 'normal', label: 'Normal' }],
+    },
+  ],
+  packs: ['P1', 'P2', 'P4'],
+  /* ⚠️ Said ONCE, here: the platform has no FAQ entity, so this content is authored and the drawer
+     must never imply a data source. Anything needing review or versioning is a knowledge article. */
+  notes: [{
+    tone: 'info',
+    text: 'These questions are written here, not fetched from anywhere — the platform has no FAQ records. Anything that needs review, an owner or version history belongs in a knowledge article instead.',
+  }],
+  collection: {
+    key: 'items', group: 'Questions', addLabel: 'Add question',
+    emptyHint: 'No questions yet. A FAQ with nothing in it is invisible on the portal.',
+    label: (it) => String(it.q ?? ''),
+    meta: (it) => String(it.a ?? '').replace(/<[^>]+>/g, '').slice(0, 60),
+    seed: (i) => ({ ...FAQ_NEW[i % FAQ_NEW.length] }),
+    fields: [
+      { key: 'q', label: 'Question', control: 'text', group: 'Content' },
+      { key: 'a', label: 'Answer', control: 'rich', group: 'Content', help: 'Links and lists matter here.' },
+      {
+        key: 'openByDefault', label: 'Open by default', control: 'toggle', group: 'Content',
+        help: 'Overrides the widget’s “first answer open” for this question.',
+      },
+    ],
+    packs: ['P1'],
+    subElements: [
+      { key: 'q', name: 'Question', role: 'subtitle' },
+      { key: 'a', name: 'Answer', role: 'body' },
+    ],
+  },
+  defaults: {
+    title: 'Frequently asked questions',
+    openFirst: true,
+    allowMultiOpen: false,
+    itemContainer: 'flat', itemDivider: true, chevron: 'right', chevronRotates: true,
+    qPad: 12, aIndent: 0, animation: 'normal',
+    items: FAQ_SEEDS.map((s, i) => ({ id: `faq${i}`, ...s })),
+  },
+};
+
+/* ── §7.15 Card ──────────────────────────────────────────────────────────── */
+
+export const CARD_SPEC: WidgetSpec = {
+  id: 'card', name: 'Card', group: 'Content', reuse: 'many', family: 'collection',
+  fields: [
+    {
+      /* ⚠️ Layout and Shape moved to DESIGN. Where the image sits and what it is cropped to are
+         how the card LOOKS, not what it says — Content is the picture and the words. */
+      key: 'template', label: 'Layout', control: 'segmented', tab: 'style', group: 'Card',
+      options: [{ value: 'left', label: 'Icon left' }, { value: 'top', label: 'Icon top' }, { value: 'right', label: 'Icon right' }, { value: 'none', label: 'Text only' }],
+      help: 'Where the image sits is the real question, so pick it by looking rather than by reading.',
+      /* ⚠️ Leaving Icon top while the shape is Banner would strand a full-width bar beside the
+         title. The shape falls back to Circle and the drawer SAYS it did — a silent repair is how
+         people lose a setting they never saw change. */
+      consequence: (v, c) => (v !== 'top' && c.imageShape === 'wide'
+        ? { patch: { imageShape: 'circle' }, say: 'Banner needs the Icon top layout — the shape went back to Circle' }
+        : undefined),
+    },
+    { key: 'image', label: 'Image', control: 'upload', group: 'Card properties', when: (c) => c.template !== 'none' },
+    {
+      key: 'imageShape', label: 'Shape', control: 'segmented', tab: 'style', group: 'Card',
+      when: (c) => c.template !== 'none',
+      // Banner is a full-width bar, so it is only OFFERED on Icon top — it has nowhere to go beside text.
+      options: (c) => (c.template === 'top'
+        ? [{ value: 'circle', label: 'Circle' }, { value: 'square', label: 'Square' }, { value: 'wide', label: 'Banner' }]
+        : [{ value: 'circle', label: 'Circle' }, { value: 'square', label: 'Square' }]),
+    },
+    { key: 'title', label: 'Card title', control: 'text', group: 'Card properties' },
+    { key: 'body', label: 'Description', control: 'textarea', group: 'Card properties' },
+    { key: 'link', label: 'Link', control: 'text', group: 'Card properties', help: 'Leave blank to make it read-only.' },
+    { key: 'newTab', label: 'Open in a new tab', control: 'toggle', group: 'Card properties', when: (c) => !!c.link },
+
+    {
+      key: 'contentAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Card',
+      options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }],
+    },
+  ],
+  /* ⚠️ No P5 Media. An image's crop, ratio and focal point are edited on the IMAGE, not from the
+     card that happens to hold one — a Media section here styled something the card does not own. */
+  packs: ['P1', 'P2', 'P4'],
+  collection: {
+    key: 'children', group: 'Extra content', addLabel: 'Add a block',
+    emptyHint: 'A card is a container. Add a Text, Image or Button block to put something else inside it.',
+    /* A child block is an ORDINARY widget — it opens the same panels its type opens out on the
+       page, which is why the item carries a `type` the drawer routes on. */
+    childTypes: [
+      { type: 'text', label: 'Text' },
+      { type: 'image', label: 'Image' },
+      { type: 'button', label: 'Button' },
+    ],
+    label: (it) => String(it.label ?? it.title ?? it.html ?? 'Block').replace(/<[^>]+>/g, '').slice(0, 44),
+    meta: (it) => String(it.type ?? ''),
+    seed: () => ({ type: 'text', html: 'A line of supporting copy.' }),
+    fields: [],
+  },
+  defaults: {
+    template: 'left', imageShape: 'circle', title: 'Custom card', body: 'Add card description',
+    link: '', newTab: true, pad: 16, border: 'line', contentAlign: 'left', children: [],
+  },
+};
+
+/* ── §7.17 Table ─────────────────────────────────────────────────────────── */
+
+/* An escalation matrix — exactly the case §7.17 says a static table is right for: short, stable
+   content that is not already a record in the system. */
+const TABLE_SEED = [
+  ['Tier', 'Contact', 'Response'],
+  ['L1 · Service Desk', 'servicedesk@acme.com', '30 min'],
+  ['L2 · Infrastructure', 'infra@acme.com', '2 hrs'],
+];
+
+export const TABLE_SPEC: WidgetSpec = {
+  id: 'table', name: 'Table', group: 'Content', reuse: 'many', family: 'collection',
+  fields: [
+    /* Size leads: you decide the shape before you fill it, and the picker is the only control here
+       that changes what the other fields are even editing. */
+    { key: 'size', label: 'Size', control: 'grid', group: 'Content', max: 10 },
+    { key: 'title', label: 'Title', control: 'text', group: 'Content', help: 'Optional.' },
+    { key: 'headerRow', label: 'First row is a header', control: 'toggle', group: 'Content' },
+    /* §7.17's column list. Width and alignment live HERE rather than in a second Styling block —
+       reordering a column and setting its width are the same act of shaping the table, and the
+       spec's own rule forbids two controls for one value. */
+    /* ⚠️ No per-column width/alignment list. Columns are equal by construction now, and one
+       Alignment row under Table governs every cell — a per-column editor was a second, finer answer
+       to two questions the table already answers once. */
+    /* ── Header ───────────────────────────────────────────────────────────────
+     * ⚠️ Replaces the old "Header emphasis" preset. Bold / Filled / None was three canned answers
+     * to a question that has a colour and a face in it — once the header has its own background and
+     * typeface, the preset can only contradict them. */
+    { key: 'headBg', label: 'Background colour', control: 'color', tab: 'style', group: 'Header' },
+    { key: 'headFont', label: 'Font', control: 'select', tab: 'style', group: 'Header', options: FONTS, divider: true },
+    { key: 'headWeight', label: 'Font weight', control: 'select', tab: 'style', group: 'Header', options: WEIGHTS },
+    { key: 'headSize', label: 'Font size', control: 'sliderUnit', tab: 'style', group: 'Header', min: 10, max: 32, unit: 'px' },
+    { key: 'headColor', label: 'Font colour', control: 'color', tab: 'style', group: 'Header' },
+    { key: 'headFormat', label: 'Font format', control: 'chips', tab: 'style', group: 'Header', options: FORMATS },
+
+    /* ── Rows ─────────────────────────────────────────────────────────────────
+     * ⚠️ Two row colours replace the old "Striped rows" switch. Striping is what you get by giving
+     * the two a different colour, so the switch was a second control for the same outcome — and it
+     * could disagree with the colours the moment both were set. */
+    { key: 'evenBg', label: 'Even rows', control: 'color', tab: 'style', group: 'Rows' },
+    { key: 'oddBg', label: 'Odd rows', control: 'color', tab: 'style', group: 'Rows' },
+    { key: 'rowFont', label: 'Font', control: 'select', tab: 'style', group: 'Rows', options: FONTS, divider: true },
+    { key: 'rowWeight', label: 'Font weight', control: 'select', tab: 'style', group: 'Rows', options: WEIGHTS },
+    { key: 'rowSize', label: 'Font size', control: 'sliderUnit', tab: 'style', group: 'Rows', min: 10, max: 32, unit: 'px' },
+    { key: 'rowColor', label: 'Font colour', control: 'color', tab: 'style', group: 'Rows' },
+    { key: 'rowFormat', label: 'Font format', control: 'chips', tab: 'style', group: 'Rows', options: FORMATS },
+
+    // ── Table — what is left once the header and the rows own their own look ──
+    { key: 'firstColumn', label: 'First column', control: 'toggle', tab: 'style', group: 'Table', help: 'Style the first column like a header.' },
+    { key: 'cellPad', label: 'Cell padding', control: 'sliderUnit', tab: 'style', group: 'Table', min: 4, max: 24, unit: 'px' },
+    { key: 'cellAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Table', options: ALIGN_4 },
+    { key: 'hScroll', label: 'Horizontal scroll on narrow screens', control: 'toggle', tab: 'style', group: 'Table' },
+
+    /* ── Frame — the table's own box, using the shared components ──
+       ⚠️ Its own group, not rows on Table: a border round the whole table and a border between its
+       cells are different lines, and the old single "Bordered" switch answered for both. */
+    { key: 'frameBorderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Frame' },
+    { key: 'shadowOn', label: 'Shadow', control: 'shadow', tab: 'style', group: 'Frame' },
+  ],
+  /* ⚠️ No P1. The table's fill, border and radius are answered by Frame and by the Header/Rows
+     backgrounds — a Style section on top of those is a third place to set the same box. */
+  packs: ['P2'],
+  /* The 10×10 cap is not technical. It is the point past which a static table wants search, sorting
+     and paging — which means it wants to be a knowledge article. */
+  notes: [{
+    tone: 'info',
+    text: 'This binds to nothing, which is exactly when it is right: short, stable content that is not already a record. Past about ten rows it wants search and sorting — which means it wants to be a knowledge article.',
+  }],
+  collection: {
+    key: 'rows', group: 'Rows', addLabel: 'Add row',
+    emptyHint: 'No rows yet.',
+    label: (it, i) => (Array.isArray(it.cells) ? (it.cells as string[])[0] : '') || `Row ${i + 1}`,
+    meta: (it) => (Array.isArray(it.cells) ? (it.cells as string[]).slice(1).join(' · ') : ''),
+    seed: () => ({ cells: ['New row', '', ''] }),
+    fields: [],
+    isTableRow: true,
+  },
+  defaults: {
+    title: '', headerRow: true,
+    headBg: '#F9FAFB', headFont: 'Inherit from theme', headWeight: 'Semibold', headSize: 13, headColor: '#364658', headFormat: [],
+    evenBg: '#FFFFFF', oddBg: '#FFFFFF', rowFont: 'Inherit from theme', rowWeight: 'Normal', rowSize: 13, rowColor: '#364658', rowFormat: [],
+    /* ⚠️ Even widths are the DEFAULT. Off, the table falls back to the per-column widths from the
+       columns editor, which is a deliberate choice rather than the resting state — a fresh table
+       whose columns each sized to their own longest cell is the ragged thing this fixes. */
+    firstColumn: false, cellAlign: 'left',
+    frameBorderWidth: 1, frameBorderColor: '#E5E7EB', shadowOn: false,
+    cellPad: 8, hScroll: true,
+    rows: TABLE_SEED.map((cells, i) => ({ id: `r${i}`, cells })),
+    cols: 3,
+    // Equal widths and left alignment until someone decides otherwise (§7.17 defaults).
+    widths: [34, 33, 33],
+    aligns: ['left', 'left', 'left'],
+  },
+};
+
+/* ── §7.18 Media Slider ──────────────────────────────────────────────────── */
+
+export const SLIDER_SPEC: WidgetSpec = {
+  id: 'media_slider', name: 'Media Slider', group: 'Content', reuse: 'many', family: 'collection',
+  fields: [
+    { key: 'title', label: 'Title', control: 'text', group: 'Content', help: 'Optional — hidden when blank.' },
+    { key: 'autoplay', label: 'Autoplay', control: 'toggle', group: 'Playback' },
+    { key: 'interval', label: 'Interval', control: 'number', group: 'Playback', min: 2, max: 20, when: (c) => c.autoplay === true },
+    { key: 'pauseOnHover', label: 'Pause on hover', control: 'toggle', group: 'Playback', when: (c) => c.autoplay === true },
+    { key: 'loop', label: 'Loop', control: 'toggle', group: 'Playback' },
+    { key: 'arrows', label: 'Show arrows', control: 'toggle', group: 'Navigation' },
+    { key: 'dots', label: 'Show dots', control: 'toggle', group: 'Navigation' },
+    { key: 'swipe', label: 'Allow swipe / drag', control: 'toggle', group: 'Navigation' },
+    // Accessibility floor, not an option (§8.5).
+    { key: 'keyboard', label: 'Keyboard navigation', control: 'lockedToggle', group: 'Navigation', help: 'Always on. A slider nobody can tab through is a slider some people cannot use.' },
+    { key: 'perView', label: 'Slides per view', control: 'number', tab: 'style', group: 'Track', min: 1, max: 4 },
+    { key: 'trackGap', label: 'Gap between slides', control: 'slider', tab: 'style', group: 'Track', min: 0, max: 32 },
+    {
+      key: 'transition', label: 'Transition', control: 'segmented', tab: 'style', group: 'Track',
+      options: [{ value: 'slide', label: 'Slide' }, { value: 'fade', label: 'Fade' }],
+    },
+    {
+      key: 'speed', label: 'Transition speed', control: 'segmented', tab: 'style', group: 'Track',
+      options: [{ value: 'fast', label: 'Fast' }, { value: 'normal', label: 'Normal' }, { value: 'slow', label: 'Slow' }],
+    },
+    { key: 'slideMaxWidth', label: 'Content max width', control: 'slider', tab: 'style', group: 'Slide', min: 30, max: 100, unit: '%' },
+    { key: 'slideOverlay', label: 'Text-over-media overlay', control: 'slider', tab: 'style', group: 'Slide', min: 0, max: 80, unit: '%' },
+    {
+      key: 'arrowPlacement', label: 'Arrow placement', control: 'segmented', tab: 'style', group: 'Arrows',
+      options: [{ value: 'inside', label: 'Inside' }, { value: 'outside', label: 'Outside' }, { value: 'over', label: 'Over media' }],
+    },
+    {
+      key: 'dotPlacement', label: 'Dot placement', control: 'segmented', tab: 'style', group: 'Dots',
+      options: [{ value: 'over', label: 'Over media' }, { value: 'below', label: 'Below' }],
+    },
+    {
+      key: 'dotStyle', label: 'Dot style', control: 'segmented', tab: 'style', group: 'Dots',
+      options: [{ value: 'dots', label: 'Dots' }, { value: 'bars', label: 'Bars' }, { value: 'numbers', label: 'Numbers' }],
+    },
+  ],
+  packs: ['P1', 'P2', 'P5'],
+  collection: {
+    key: 'slides', group: 'Slides', addLabel: 'Add slide', max: 10, hideable: true,
+    emptyHint: 'No slides yet. A slider with nothing in it renders as an empty band.',
+    label: (it, i) => String(it.heading ?? '') || `Slide ${i + 1}`,
+    meta: (it) => (it.src ? 'Image set' : 'No media yet'),
+    seed: (i) => ({ kind: 'image', heading: `Slide ${i + 2}`, caption: 'A line about what this slide is for.', ctaEnabled: false }),
+    fields: [
+      {
+        key: 'kind', label: 'Media type', control: 'segmented', group: 'Media',
+        options: [{ value: 'image', label: 'Image' }, { value: 'video', label: 'Video' }],
+      },
+      { key: 'src', label: 'Source', control: 'upload', group: 'Media' },
+      {
+        key: 'alt', label: 'Alt text', control: 'text', group: 'Media', when: (c) => c.kind !== 'video',
+        warnWhenBlank: 'No alt text yet — screen-reader users will hear nothing where this slide’s image is.',
+      },
+      { key: 'poster', label: 'Poster image', control: 'upload', group: 'Media', when: (c) => c.kind === 'video' },
+      { key: 'heading', label: 'Heading', control: 'text', group: 'Text' },
+      { key: 'caption', label: 'Caption', control: 'textarea', group: 'Text' },
+      { key: 'ctaEnabled', label: 'Call to action', control: 'toggle', group: 'Action' },
+      { key: 'ctaLabel', label: 'CTA label', control: 'text', group: 'Action', when: (c) => c.ctaEnabled === true },
+      {
+        key: 'ctaAction', label: 'CTA opens', control: 'select', group: 'Action', when: (c) => c.ctaEnabled === true,
+        options: [
+          { value: 'url', label: 'External link' }, { value: 'page', label: 'A page in this portal' },
+          { value: 'download', label: 'Download a file' }, { value: 'email', label: 'Compose an email' },
+          { value: 'phone', label: 'Call a number' },
+        ],
+      },
+      { key: 'ctaUrl', label: 'URL', control: 'text', group: 'Action', when: (c) => c.ctaEnabled === true && c.ctaAction === 'url' },
+    ],
+    packs: ['P5'],
+    subElements: [
+      { key: 'heading', name: 'Heading', role: 'title' },
+      { key: 'caption', name: 'Caption', role: 'body' },
+    ],
+  },
+  defaults: {
+    title: '', autoplay: false, interval: 5, pauseOnHover: true, loop: true,
+    arrows: true, dots: true, swipe: true,
+    perView: 1, trackGap: 0, transition: 'slide', speed: 'normal',
+    slideMaxWidth: 60, slideOverlay: 30, arrowPlacement: 'over', dotPlacement: 'over', dotStyle: 'dots',
+    slides: [{ id: 's0', kind: 'image', heading: 'Tell people what matters this week', caption: 'A short line under the heading.', ctaEnabled: false }],
+  },
+};
+
+/* ── §7.19 Photo Gallery ─────────────────────────────────────────────────── */
+
+export const GALLERY_SPEC: WidgetSpec = {
+  id: 'photo_gallery', name: 'Photo Gallery', group: 'Content', reuse: 'many', family: 'collection',
+  fields: [
+    { key: 'title', label: 'Title', control: 'text', group: 'Content', help: 'Optional — hidden when blank.' },
+    { key: 'lightbox', label: 'Open in lightbox on click', control: 'toggle', group: 'Behaviour' },
+    { key: 'lightboxCaptions', label: 'Show captions in lightbox', control: 'toggle', group: 'Behaviour', when: (c) => c.lightbox !== false },
+    {
+      key: 'showMoreAfter', label: 'Show more / paginate after', control: 'number', group: 'Behaviour',
+      min: 0, max: 24, help: '0 shows every photo.',
+    },
+    {
+      key: 'gridLayout', label: 'Layout', control: 'segmented', tab: 'style', group: 'Grid',
+      options: [{ value: 'grid', label: 'Grid' }, { value: 'masonry', label: 'Masonry' }, { value: 'justified', label: 'Justified' }],
+    },
+    { key: 'gridColumns', label: 'Columns', control: 'number', tab: 'style', group: 'Grid', min: 1, max: 6 },
+    { key: 'gridGap', label: 'Gap', control: 'slider', tab: 'style', group: 'Grid', min: 0, max: 32 },
+    {
+      key: 'hoverEffect', label: 'Hover effect', control: 'segmented', tab: 'style', group: 'Hover',
+      options: [{ value: 'none', label: 'None' }, { value: 'zoom', label: 'Zoom' }, { value: 'dim', label: 'Dim' }, { value: 'reveal', label: 'Reveal' }],
+    },
+  ],
+  packs: ['P1', 'P2', 'P4', 'P5'],
+  collection: {
+    key: 'photos', group: 'Photos', addLabel: 'Add photo', max: 24, hideable: true, bulkAdd: true,
+    emptyHint: 'No photos yet. Use “Add photo” once, or drop several files at a time.',
+    label: (it, i) => String(it.caption ?? '') || `Photo ${i + 1}`,
+    meta: (it) => (it.src ? 'Image set' : 'No image yet'),
+    seed: (i) => ({ caption: `Photo ${i + 1}`, span: 1 }),
+    fields: [
+      { key: 'src', label: 'Image', control: 'upload', group: 'Content' },
+      {
+        key: 'alt', label: 'Alt text', control: 'text', group: 'Content',
+        warnWhenBlank: 'No alt text yet — screen-reader users will hear nothing where this photo is.',
+      },
+      { key: 'caption', label: 'Caption', control: 'text', group: 'Content' },
+      { key: 'link', label: 'Link', control: 'text', group: 'Content', help: 'Overrides the lightbox for this photo.' },
+      { key: 'span', label: 'Column span', control: 'number', tab: 'style', group: 'Tile', min: 1, max: 3 },
+    ],
+    packs: ['P5'],
+    subElements: [{ key: 'caption', name: 'Caption', role: 'meta' }],
+  },
+  defaults: {
+    title: '', lightbox: true, lightboxCaptions: true, showMoreAfter: 0,
+    gridLayout: 'grid', gridColumns: 3, gridGap: 8, hoverEffect: 'zoom',
+    photos: [],
+  },
+};
+
+/* ── §7.9 Feedback ───────────────────────────────────────────────────────── */
+
+export const FEEDBACK_SPEC: WidgetSpec = {
+  id: 'feedback', name: 'Feedback', group: 'Live data', reuse: 'single', family: 'collection',
+  gate: { kind: 'permission', setting: 'Allow Requester To Submit Feedback', section: 'Organization' },
+  fields: [
+    { key: 'title', label: 'Title', control: 'text', group: 'Content' },
+    { key: 'prompt', label: 'Prompt', control: 'text', group: 'Content' },
+    {
+      key: 'scale', label: 'Scale', control: 'segmented', group: 'Content',
+      options: [{ value: 'stars', label: 'Stars' }, { value: 'number', label: '1–5' }],
+    },
+    { key: 'askFollowUp', label: 'Ask follow-up questions after the rating', control: 'toggle', group: 'Content' },
+    {
+      key: 'askWhen', label: 'Ask when', control: 'select', group: 'Behaviour', when: (c) => c.askFollowUp === true,
+      options: [
+        { value: 'always', label: 'After every rating' },
+        { value: 'low', label: 'Only when the rating is 3 or below' },
+      ],
+      help: 'Asking only on low scores keeps the happy path to one click.',
+    },
+    { key: 'markSize', label: 'Mark size', control: 'slider', tab: 'style', group: 'Rating', min: 16, max: 40 },
+    { key: 'markFilled', label: 'Mark colour — filled', control: 'color', tab: 'style', group: 'Rating' },
+    { key: 'markEmpty', label: 'Mark colour — empty', control: 'color', tab: 'style', group: 'Rating' },
+    {
+      key: 'ratingAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Rating',
+      options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }],
+    },
+  ],
+  packs: ['P1', 'P2', 'P4'],
+  notes: [{
+    tone: 'info',
+    text: 'A requester only sees this once they have a resolved request to rate. The canvas always shows its resting state, because that is what you are composing.',
+  }],
+  collection: {
+    key: 'questions', group: 'Questions', addLabel: 'Add question', max: 5,
+    // The list only exists once follow-ups are on — a question set nobody will be asked is clutter.
+    when: (c) => c.askFollowUp === true,
+    emptyHint: 'No follow-up questions yet. A rating alone gives you a score and never a reason.',
+    label: (it, i) => String(it.q ?? '') || `Question ${i + 1}`,
+    meta: (it) => String(it.type ?? 'text'),
+    seed: () => ({ q: 'What could we have done better?', type: 'text', required: false }),
+    fields: [
+      { key: 'q', label: 'Question', control: 'text', group: 'Content' },
+      {
+        key: 'type', label: 'Answer type', control: 'segmented', group: 'Content',
+        options: [{ value: 'text', label: 'Free text' }, { value: 'choice', label: 'Choose one' }, { value: 'yesno', label: 'Yes / No' }],
+      },
+      { key: 'options', label: 'Options', control: 'chipEditor', group: 'Content', when: (c) => c.type === 'choice' },
+      { key: 'required', label: 'Required', control: 'toggle', group: 'Content' },
+    ],
+    packs: ['P4'],
+  },
+  defaults: {
+    title: 'How are we doing?', prompt: 'Rate your last resolved request',
+    scale: 'stars', askFollowUp: false, askWhen: 'always',
+    markSize: 20, markFilled: '#F59E0B', markEmpty: '#E5E7EB', ratingAlign: 'left',
+    questions: [{ id: 'q0', q: 'What could we have done better?', type: 'choice', options: ['Speed', 'Clarity', 'The fix itself', 'Communication'], required: false }],
+  },
+};
+
+/* ── List ────────────────────────────────────────────────────────────────────
+ *
+ * A list is a collection whose items are two lines: a title and a description. It lands with four
+ * real points rather than empty rows, because a list you have to fill before you can see it is a
+ * list you cannot judge the design of.
+ *
+ * ⚠️ ITEM STYLE is one group, not per-item controls. Every point in a list has to look like every
+ * other point — that is what makes it a list — so the title and description faces are set once on
+ * the widget and every item follows. A per-item font is how a list stops reading as one. */
+const LIST_NEW: Cfg[] = [
+  { title: 'Raise it in the portal', desc: 'Requests logged here reach the right team straight away.' },
+  { title: 'Add what you have already tried', desc: 'It saves the first round of questions back.' },
+  { title: 'Attach a screenshot', desc: 'A picture of the error resolves most tickets faster.' },
+  { title: 'Track it from My Open Requests', desc: 'Every update lands there and in your email.' },
+];
+
+/** One typography block, authored once and applied to a named part of every item. */
+const typeFields = (part: 'title' | 'desc', group: string, size: number): WidgetField[] => [
+  { key: `${part}Font`, label: 'Font', control: 'select', tab: 'style', group,
+    options: ['Inherit from theme', 'Inter', 'Poppins', 'Roboto', 'Source Sans 3', 'Merriweather'] },
+  { key: `${part}Weight`, label: 'Font weight', control: 'select', tab: 'style', group,
+    options: ['Light', 'Normal', 'Medium', 'Semibold', 'Bold'] },
+  { key: `${part}Size`, label: 'Font size', control: 'sliderUnit', tab: 'style', group, min: 10, max: 48, unit: 'px' },
+  { key: `${part}Color`, label: 'Font colour', control: 'color', tab: 'style', group },
+  { key: `${part}Format`, label: 'Font format', control: 'chips', tab: 'style', group, options: ['Bold', 'Underline', 'Italic'] },
+  { key: `${part}Align`, label: 'Alignment', control: 'segmented', tab: 'style', group,
+    options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Right' }, { value: 'justify', label: 'Justify' }] },
+];
+
+export const LIST_SPEC: WidgetSpec = {
+  id: 'list_el', name: 'List', group: 'Basic', reuse: 'many', family: 'collection',
+  fields: [
+    /* Optional on purpose — a list inside a section that already has a heading does not want a
+       second one, and an empty title renders nothing rather than an empty line. */
+    { key: 'title', label: 'List title', control: 'text', group: 'Content', help: 'Optional — leave blank for a bare list.' },
+    {
+      key: 'marker', label: 'Bullet', control: 'segmented', tab: 'style', group: 'Item Style',
+      options: [{ value: 'disc', label: 'Dot' }, { value: 'number', label: 'Number' }, { value: 'none', label: 'None' }],
+    },
+    ...typeFields('title', 'Item Title', 23),
+    ...typeFields('desc', 'Item Description', 16),
+    /* The §7.20-style divider, as its own group: a rule between points is a property of the LIST,
+       not of any one item, and the width slider is meaningless until there is a line to widen. */
+    { key: 'dividerOn', label: 'Divider between items', control: 'toggle', tab: 'style', group: 'Divider' },
+    { key: 'dividerStyle', label: 'Layout', control: 'lineStyle', tab: 'style', group: 'Divider', when: (c) => c.dividerOn === true },
+    { key: 'dividerColor', label: 'Colour', control: 'color', tab: 'style', group: 'Divider', when: (c) => c.dividerOn === true },
+    { key: 'dividerWidth', label: 'Thickness', control: 'sliderUnit', tab: 'style', group: 'Divider', min: 1, max: 8, unit: 'px', when: (c) => c.dividerOn === true },
+    { key: 'dividerGap', label: 'Space below', control: 'sliderUnit', tab: 'style', group: 'Divider', min: 0, max: 40, unit: 'px', when: (c) => c.dividerOn === true },
+  ],
+  /* The same design a section gets: Style, Size, Spacing come from the packs; Alignment is per-part
+     inside Item Style, because a list aligns its text rather than itself. */
+  packs: ['P1', 'P2'],
+  collection: {
+    key: 'items', group: 'Items', addLabel: 'Add item',
+    emptyHint: 'No points yet. A list with nothing in it is invisible on the portal.',
+    hideable: true,
+    label: (it) => String(it.title ?? ''),
+    meta: (it) => String(it.desc ?? '').slice(0, 60),
+    seed: (i) => ({ ...LIST_NEW[i % LIST_NEW.length] }),
+    fields: [
+      { key: 'title', label: 'Item', control: 'text', group: 'Content' },
+      { key: 'desc', label: 'Item description', control: 'textarea', group: 'Content', help: 'Optional second line.' },
+    ],
+    subElements: [
+      { key: 'title', name: 'Item', role: 'subtitle' },
+      { key: 'desc', name: 'Description', role: 'body' },
+    ],
+  },
+  defaults: {
+    title: '',
+    marker: 'disc',
+    titleFont: 'Inherit from theme', titleWeight: 'Medium', titleSize: 15, titleColor: '#364658', titleFormat: [], titleAlign: 'left',
+    descFont: 'Inherit from theme', descWeight: 'Normal', descSize: 13, descColor: '#7B8FA5', descFormat: [], descAlign: 'left',
+    dividerOn: false, dividerStyle: 'solid', dividerColor: '#E5E7EB', dividerWidth: 1, dividerGap: 12,
+    items: LIST_NEW.map((it) => ({ ...it })),
+  },
+};
+
+/* ── Accordion ───────────────────────────────────────────────────────────────
+ *
+ * ⚠️ Its own spec, no longer an alias of FAQ. They look alike and are not the same thing: a FAQ is
+ * questions and answers, an accordion is any content that folds away — so an accordion styles its
+ * COLLAPSED and EXPANDED states separately, which is the whole reason it needs a panel of its own.
+ *
+ * ⚠️ The two style groups are per-STATE, not per-item. A row that looked different closed from its
+ * neighbours would read as broken rather than styled, so the face is set once and every row obeys. */
+const ACC_SEEDS: Cfg[] = [
+  { title: 'How do I reset my password?', body: 'Use AD Self Service on the portal home. If your account is locked, raise an incident and the service desk will unlock it.' },
+  { title: 'How long until someone picks up my ticket?', body: 'A P3 request is picked up within one working day. P1 and P2 are picked up inside the hour, around the clock.' },
+  { title: 'How do I request new software?', body: 'Request it from the service catalog. Anything with a licence cost goes to your line manager for approval first.' },
+];
+
+
+export const ACCORDION_SPEC: WidgetSpec = {
+  id: 'accordion', name: 'Accordion', group: 'Layout', reuse: 'many', family: 'collection',
+  fields: [
+    /* DISPLAY RULES — behaviour, so it belongs with the content it governs rather than in styling.
+       ⚠️ "First item expanded" only means something while rows CAN be open, which is always here;
+       but with one-at-a-time off it is the only thing deciding the opening state, so both stay. */
+    { key: 'oneAtATime', label: 'Show one expanded item at a time', control: 'toggle', group: 'Display rules' },
+    { key: 'firstOpen', label: 'Show first item expanded', control: 'toggle', group: 'Display rules' },
+
+    // ── Collapsed style ──
+    { key: 'titleType', label: 'Theme text', control: 'select', tab: 'style', group: 'Collapsed Style', options: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'Paragraph'] },
+    { key: 'titleFont', label: 'Font', control: 'select', tab: 'style', group: 'Collapsed Style', options: FONTS, divider: true },
+    { key: 'titleSize', label: 'Size', control: 'sliderUnit', tab: 'style', group: 'Collapsed Style', min: 10, max: 48, unit: 'px' },
+    { key: 'titleColor', label: 'Colour', control: 'color', tab: 'style', group: 'Collapsed Style' },
+    { key: 'titleFormat', label: 'Format', control: 'chips', tab: 'style', group: 'Collapsed Style', options: ['Bold', 'Underline', 'Italic'] },
+    { key: 'titleAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Collapsed Style', options: ALIGN_4 },
+    { key: 'headBg', label: 'Background colour', control: 'color', tab: 'style', group: 'Collapsed Style', divider: true },
+    { key: 'headBorderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Collapsed Style' },
+
+    // ── Expansion icon — part of the collapsed row, so it sits with it ──
+    { key: 'iconColor', label: 'Icon colour', control: 'color', tab: 'style', group: 'Expansion icon' },
+    { key: 'iconSize', label: 'Icon size', control: 'sliderUnit', tab: 'style', group: 'Expansion icon', min: 10, max: 40, unit: 'px' },
+    { key: 'iconBg', label: 'Background colour', control: 'color', tab: 'style', group: 'Expansion icon', divider: true },
+    { key: 'iconPad', label: 'Padding', control: 'sliderUnit', tab: 'style', group: 'Expansion icon', min: 0, max: 16, unit: 'px' },
+    { key: 'iconRadius', label: 'Corner radius', control: 'sliderUnit', tab: 'style', group: 'Expansion icon', min: 0, max: 50, unit: '%' },
+
+    // ── Expanded style ──
+    { key: 'bodyFont', label: 'Font', control: 'select', tab: 'style', group: 'Expanded Style', options: FONTS },
+    { key: 'bodySize', label: 'Size', control: 'sliderUnit', tab: 'style', group: 'Expanded Style', min: 10, max: 32, unit: 'px' },
+    { key: 'bodyColor', label: 'Colour', control: 'color', tab: 'style', group: 'Expanded Style' },
+    { key: 'bodyFormat', label: 'Format', control: 'chips', tab: 'style', group: 'Expanded Style', options: ['Bold', 'Underline', 'Italic'] },
+    { key: 'bodyAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Expanded Style', options: ALIGN_4 },
+    { key: 'bodyBg', label: 'Background colour', control: 'color', tab: 'style', group: 'Expanded Style', divider: true },
+    { key: 'bodyBorderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Expanded Style' },
+
+    { key: 'contentAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Alignment', options: ALIGN_4 },
+  ],
+  // Spacing comes from P1's padding box; no P4 — an accordion is one stack, not an arrangement.
+  packs: ['P1'],
+  collection: {
+    key: 'items', group: 'Items', addLabel: 'Add item',
+    emptyHint: 'No items yet. An accordion with nothing in it is invisible on the portal.',
+    hideable: true,
+    label: (it) => String(it.title ?? ''),
+    meta: (it) => String(it.body ?? '').replace(/<[^>]+>/g, '').slice(0, 60),
+    seed: (i) => ({ ...ACC_SEEDS[i % ACC_SEEDS.length] }),
+    fields: [
+      { key: 'title', label: 'Title or question', control: 'text', group: 'Textual content' },
+      {
+        key: 'body', label: 'Description', control: 'rich', group: 'Textual content',
+        help: 'Bullets, bold and links all work here.',
+      },
+    ],
+    subElements: [
+      { key: 'title', name: 'Title', role: 'subtitle' },
+      { key: 'body', name: 'Body text', role: 'body' },
+    ],
+  },
+  defaults: {
+    oneAtATime: true, firstOpen: false,
+    titleType: 'h4', titleFont: 'Inherit from theme', titleSize: 16, titleColor: '#364658', titleFormat: ['Bold'], titleAlign: 'left',
+    headBg: '#FFFFFF', headBorderWidth: 0, headBorderColor: '#E5E7EB',
+    iconColor: '#7B8FA5', iconSize: 18, iconBg: 'transparent', iconPad: 4, iconRadius: 50,
+    bodyFont: 'Inherit from theme', bodySize: 13, bodyColor: '#7B8FA5', bodyFormat: [], bodyAlign: 'left',
+    bodyBg: 'transparent', bodyBorderWidth: 0, bodyBorderColor: '#E5E7EB',
+    contentAlign: 'left',
+    items: ACC_SEEDS.map((s, i) => ({ id: `acc${i}`, ...s })),
+  },
+};
+
+/* ── Text with Image ─────────────────────────────────────────────────────────
+ *
+ * ⚠️ Not a collection — one image and one body of text, so it has no item list. It lives in this
+ * file only because that is where the shared FONTS/WEIGHTS/FORMATS sets are declared.
+ *
+ * ⚠️ Image position is a CONTENT decision, not a styling one: which side the picture sits on changes
+ * what the block says, the way a pull-quote's side does. It stays with the image it moves. */
+export const TEXT_IMAGE_SPEC: WidgetSpec = {
+  id: 'text_image', name: 'Text with Image', group: 'Basic', reuse: 'many', family: 'flat',
+  fields: [
+    {
+      key: 'imagePos', label: 'Image position', control: 'segmented', group: 'Content',
+      options: [{ value: 'left', label: 'Left' }, { value: 'right', label: 'Right' }],
+    },
+    /* The upload control already carries its own replace and remove actions, so there is no separate
+       Replace button — one control for one image. */
+    { key: 'image', label: 'Select image', control: 'upload', group: 'Content' },
+    {
+      key: 'alt', label: 'Alt text', control: 'text', group: 'Content',
+      warnWhenBlank: 'Without alt text this image is invisible to a screen reader. Leave it blank only if it is decorative.',
+    },
+    { key: 'body', label: 'Paragraph', control: 'rich', group: 'Content' },
+
+    // ── Image style ──
+    { key: 'imageWidth', label: 'Image size', control: 'sliderUnit', tab: 'style', group: 'Image style', min: 20, max: 80, unit: '%' },
+    { key: 'imageRadius', label: 'Corner radius', control: 'radius', tab: 'style', group: 'Image style' },
+    { key: 'imageBorderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Image style' },
+
+    // ── Text style — the same six rows every other widget's text block gets ──
+    { key: 'font', label: 'Font', control: 'select', tab: 'style', group: 'Text style', options: FONTS },
+    { key: 'weight', label: 'Font weight', control: 'select', tab: 'style', group: 'Text style', options: WEIGHTS },
+    { key: 'size', label: 'Font size', control: 'sliderUnit', tab: 'style', group: 'Text style', min: 10, max: 32, unit: 'px' },
+    { key: 'color', label: 'Font colour', control: 'color', tab: 'style', group: 'Text style' },
+    { key: 'format', label: 'Font format', control: 'chips', tab: 'style', group: 'Text style', options: FORMATS },
+    { key: 'textAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Text style', options: ALIGN_4 },
+
+    { key: 'contentAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Alignment', options: ALIGN_4 },
+  ],
+  // P1 carries the block's own fill, border and PADDING — the Spacing the panel asks for.
+  packs: ['P1'],
+  defaults: {
+    imagePos: 'left',
+    image: '',
+    alt: '',
+    body: 'Pair a picture with the words that explain it. The text wraps around the image, so a long paragraph keeps its shape whichever side the image sits on.',
+    imageWidth: 40, imageRadius: 8, imageBorderWidth: 0, imageBorderColor: '#E5E7EB',
+    font: 'Inherit from theme', weight: 'Normal', size: 15, color: '#364658', format: [], textAlign: 'left',
+    contentAlign: 'left',
+  },
+};
+
+export const COLLECTION_SPECS: WidgetSpec[] = [
+  FAQ_SPEC, CARD_SPEC, TABLE_SPEC, SLIDER_SPEC, GALLERY_SPEC, FEEDBACK_SPEC, LIST_SPEC, ACCORDION_SPEC,
+  TEXT_IMAGE_SPEC,
+];

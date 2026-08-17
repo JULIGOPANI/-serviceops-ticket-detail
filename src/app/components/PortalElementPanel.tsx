@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-  AlignCenter, AlignLeft, AlignRight, ChevronDown, ChevronRight, Layers, Link2, List, PanelLeft,
+  AlignCenter, AlignLeft, AlignRight, ChevronDown, ChevronLeft, ChevronRight, Layers, Link2, List, PanelLeft,
   Plus, Rows3, Search, Square, Trash2, Type,
 } from 'lucide-react';
 import {
-  HEADING_SIZE, REQUEST_SCOPES, REQUEST_STATUSES, nodeById, nodePath, placedType,
+  REQUEST_SCOPES, REQUEST_STATUSES, nodeById, nodePath, placedType,
 } from './portalPageModel';
 import { IconField } from './PortalIconPicker';
 import type { IconChoice } from './PortalIconPicker';
@@ -40,13 +40,16 @@ const inputCls = 'h-9 w-full rounded border border-[#d1d5db] bg-white px-3 text-
 
 const Field = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="mt-4 first:mt-0">
-    <div className="mb-1.5 text-[12px] font-medium text-[#364658]">{label}</div>
+    <div className="mb-1 text-[12px] font-normal text-[#7B8FA5]">{label}</div>
     {children}
   </div>
 );
 
-const SectionHead = ({ children }: { children: ReactNode }) => (
-  <div className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-[#7B8FA5]">{children}</div>
+const SectionHead = ({ children, action }: { children: ReactNode; action?: ReactNode }) => (
+  <div className="mb-1 flex items-center justify-between gap-2">
+    <span className="text-[11px] font-semibold uppercase tracking-wider text-[#7B8FA5]">{children}</span>
+    {action}
+  </div>
 );
 
 function Check({ label, on, onChange }: { label: string; on: boolean; onChange: (v: boolean) => void }) {
@@ -62,6 +65,15 @@ function Check({ label, on, onChange }: { label: string; on: boolean; onChange: 
     </label>
   );
 }
+
+/* The style drawers, in panel order.
+ *
+ * ⚠️ They are INDEPENDENT, not a one-at-a-time accordion: styling an element means moving between
+ * layout, colour and spacing on the same thought, and a drawer that shuts the one you were reading
+ * to open the next makes you re-open it every time. Any number can be open at once, and the head's
+ * toggle opens or shuts all three in one go. Layout starts open — the first drawer answers the
+ * commonest question, and an all-collapsed panel looks like it has nothing in it. */
+const DRAWERS = ['Layout', 'Style', 'Spacing'] as const;
 
 /** Collapsible style drawer, matching Duda's Layout / Style / Spacing accordions. */
 function Drawer({ title, children, open, onToggle }: { title: string; children: ReactNode; open: boolean; onToggle: () => void }) {
@@ -94,7 +106,9 @@ const TEXT_BINDING: Record<string, [keyof PortalPageContent, string]> = {
 export function PortalElementPanel({ nodeId, content, setContent, styles, setStyle, onSelect, icons, setIcon, placedText, setPlacedText }: Props) {
   const node = nodeById(nodeId);
   const path = nodePath(nodeId);
-  const [openDrawer, setOpenDrawer] = useState<string | null>('Layout');
+  const [openDrawers, setOpenDrawers] = useState<string[]>(['Layout']);
+  const toggleDrawer = (t: string) =>
+    setOpenDrawers((o) => (o.includes(t) ? o.filter((x) => x !== t) : [...o, t]));
 
   if (!node) return null;
   const s: NodeStyle = styles[nodeId] ?? {};
@@ -302,52 +316,31 @@ export function PortalElementPanel({ nodeId, content, setContent, styles, setSty
         );
       }
 
-      case 'nav':
-        return (
-          <Field label="Links">
-            <div className="space-y-1.5">
-              {content.nav.items.map((item, i) => (
-                <div key={i} className="flex items-center gap-1.5">
-                  <input
-                    className={inputCls}
-                    value={item}
-                    onChange={(e) => setContent((c) => ({ ...c, nav: { items: c.nav.items.map((x, j) => (j === i ? e.target.value : x)) } }))}
-                  />
-                  <button
-                    onClick={() => setContent((c) => ({ ...c, nav: { items: c.nav.items.filter((_, j) => j !== i) } }))}
-                    className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#EF4444] transition-colors hover:bg-[#FEF3F2]"
-                  ><Trash2 size={14} /></button>
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={() => setContent((c) => ({ ...c, nav: { items: [...c.nav.items, 'New link'] } }))}
-              className="mt-2 inline-flex items-center gap-1 text-[13px] font-medium text-[#3D8BD0] hover:underline"
-            ><Plus size={14} /> Add link</button>
-          </Field>
-        );
-
       default:
         return <p className="text-[13px] leading-[1.6] text-[#7B8FA5]">This element has no content of its own — style it below.</p>;
     }
   })();
 
   const isText = node.kind === 'text';
+  /* ⚠️ Expand all must offer the drawers this element actually HAS. Text has no Style drawer, so
+     including it here left the button stuck reading 'Expand all' with everything already open. */
+  const myDrawers = DRAWERS.filter((d) => d !== 'Style' || !isText);
+  const allOpen = myDrawers.every((d) => openDrawers.includes(d));
 
   return (
     <div className="flex h-full flex-col">
-      {/* Element header — breadcrumb, icon, name, and what this panel edits. */}
+      {/* Element header — icon, name, and what this panel edits.
+          ⚠️ No breadcrumb trail: the step up to the parent is the back arrow on this row, matching
+          the widget drawer so the two panels don't head themselves differently. */}
       <div className="flex-shrink-0 border-b border-[#F0F2F5] px-4 pb-3 pt-4">
-        {path.length > 1 && (
-          <div className="mb-1.5 flex items-center gap-0.5 text-[11px] text-[#7B8FA5]">
-            {path.slice(0, -1).map((p) => (
-              <button key={p.id} onClick={() => onSelect(p.id)} className="flex items-center gap-0.5 hover:text-[#3D8BD0]">
-                {p.name}<ChevronRight size={11} />
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
+          {path.length > 1 && (
+            <button
+              onClick={() => onSelect(path[path.length - 2].id)}
+              title={`Back to ${path[path.length - 2].name}`}
+              className="flex size-7 flex-shrink-0 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6]"
+            ><ChevronLeft size={16} /></button>
+          )}
           <span className="flex size-8 flex-shrink-0 items-center justify-center rounded bg-[#EBF5FF] text-[#3D8BD0]">
             {NODE_ICON[node.kind] ?? <Layers size={16} />}
           </span>
@@ -365,9 +358,16 @@ export function PortalElementPanel({ nodeId, content, setContent, styles, setSty
         </div>
 
         <div className="mt-7">
-          <SectionHead>Style</SectionHead>
+          <SectionHead
+            action={(
+              <button
+                onClick={() => setOpenDrawers(allOpen ? [] : [...myDrawers])}
+                className="text-[12px] font-medium normal-case tracking-normal text-[#3D8BD0] hover:underline"
+              >{allOpen ? 'Collapse all' : 'Expand all'}</button>
+            )}
+          >Style</SectionHead>
 
-          <Drawer title="Layout" open={openDrawer === 'Layout'} onToggle={() => setOpenDrawer(openDrawer === 'Layout' ? null : 'Layout')}>
+          <Drawer title="Layout" open={openDrawers.includes('Layout')} onToggle={() => toggleDrawer('Layout')}>
             <Field label="Alignment">
               <div className="flex gap-1">
                 {([['left', AlignLeft], ['center', AlignCenter], ['right', AlignRight]] as const).map(([a, Ic]) => (
@@ -383,40 +383,30 @@ export function PortalElementPanel({ nodeId, content, setContent, styles, setSty
             </Field>
           </Drawer>
 
-          <Drawer title="Style" open={openDrawer === 'Style'} onToggle={() => setOpenDrawer(openDrawer === 'Style' ? null : 'Style')}>
-            {isText ? (
-              <>
-                <Field label="Text style">
-                  <select className={`${inputCls} app-select`} value={s.heading ?? 'PAR'}
-                    onChange={(e) => patch({ heading: e.target.value, fontSize: undefined })}>
-                    {Object.keys(HEADING_SIZE).map((h) => <option key={h}>{h}</option>)}
-                  </select>
-                </Field>
-                <Field label="Text color">
-                  <ColorField value={s.color ?? '#364658'} onChange={(v) => patch({ color: v })} />
-                </Field>
-              </>
-            ) : (
-              <>
-                {/* A section takes a BACKGROUND; a leaf element takes a COLOUR. Same picker,
-                    different word, because they are different intentions. */}
-                <Field label={isSurface ? 'Background color' : 'Color'}>
-                  <ColorField value={s.bg ?? '#FFFFFF'} onChange={(v) => patch({ bg: v })} />
-                </Field>
+          {/* ⚠️ A TEXT node gets no Style drawer at all. Its only style rows were Text style and
+              Text colour, and both live on the floating toolbar over the selected words — the same
+              control in two places is two places to change one thing, and they drift. Layout and
+              Spacing stay: they position the text BLOCK, which the toolbar does not touch. */}
+          {!isText && (
+          <Drawer title="Style" open={openDrawers.includes('Style')} onToggle={() => toggleDrawer('Style')}>
+            {/* A section takes a BACKGROUND; a leaf element takes a COLOUR. Same picker,
+                different word, because they are different intentions. */}
+            <Field label={isSurface ? 'Background colour' : 'Colour'}>
+              <ColorField value={s.bg ?? '#FFFFFF'} onChange={(v) => patch({ bg: v })} />
+            </Field>
 
-                {/* Radius and border only reach elements that actually draw a box. Offering them on
-                    a nav row or a rail would be settings that do nothing. */}
-                {canHaveBox && (
-                  <>
-                    <div className="mt-5"><RadiusControl style={s} onChange={patch} /></div>
-                    <div className="mt-5"><BorderControl style={s} onChange={patch} /></div>
-                  </>
-                )}
+            {/* Radius and border only reach elements that actually draw a box. Offering them on
+                a nav row or a rail would be settings that do nothing. */}
+            {canHaveBox && (
+              <>
+                <div className="mt-5"><RadiusControl style={s} onChange={patch} /></div>
+                <div className="mt-5"><BorderControl style={s} onChange={patch} /></div>
               </>
             )}
           </Drawer>
+          )}
 
-          <Drawer title="Spacing" open={openDrawer === 'Spacing'} onToggle={() => setOpenDrawer(openDrawer === 'Spacing' ? null : 'Spacing')}>
+          <Drawer title="Spacing" open={openDrawers.includes('Spacing')} onToggle={() => toggleDrawer('Spacing')}>
             <SpacingMatrix style={s} onChange={patch} />
             <button
               onClick={() => patch({ margin: undefined, padding: undefined, radius: undefined, bg: undefined, align: undefined, color: undefined, fontSize: undefined, bold: undefined, italic: undefined, underline: undefined, heading: undefined })}

@@ -1,0 +1,157 @@
+/* Support Portal builder — the section-level visual controls.
+ *
+ * Three controls that a section owns and its children obey. All of them are icon-or-shape pickers
+ * rather than dropdowns, for the same reason the spec gives for card templates: *where a thing
+ * sits* is recognised by looking, and reading the word "space-between" is slower than seeing it.
+ */
+
+import type { ReactNode } from 'react';
+
+/* ── Card templates ──────────────────────────────────────────────────────────
+ *
+ * ⚠️ Chosen on the PARENT section, not on each card. A row of cards that don't share a layout is a
+ * row that reads as an accident — so the section owns the shape and every card in it follows. This
+ * is why the card's own panel has no Layout accordion at all. */
+const CARD_TEMPLATES: { value: string; dir: string; title: string }[] = [
+  { value: 'left', dir: 'flex-row', title: 'Icon left' },
+  { value: 'top', dir: 'flex-col', title: 'Icon top' },
+  { value: 'right', dir: 'flex-row-reverse', title: 'Icon right' },
+];
+
+export function TemplatePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex gap-2">
+      {CARD_TEMPLATES.map((t) => {
+        const on = value === t.value;
+        return (
+          <button
+            key={t.value}
+            onClick={() => onChange(t.value)}
+            title={t.title}
+            className={`flex h-[64px] flex-1 items-center justify-center rounded-lg border-2 bg-white transition-colors ${
+              on ? 'border-[#3D8BD0]' : 'border-[#E5E7EB] hover:border-[#C3CBD6]'
+            }`}
+          >
+            {/* The tile is drawn from the same shape the section produces, so it can never promise
+                a layout you don't get. */}
+            <span className={`flex items-center gap-1.5 ${t.dir}`}>
+              <span className={`flex-shrink-0 rounded ${on ? 'bg-[#3D8BD0]/30' : 'bg-[#DFE5ED]'} size-4`} />
+              <span className="flex flex-col gap-[3px]">
+                <span className={`h-[3px] w-8 rounded-full ${on ? 'bg-[#3D8BD0]/30' : 'bg-[#DFE5ED]'}`} />
+                <span className="h-[3px] w-6 rounded-full bg-[#EEF2F6]" />
+              </span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Icon-only alignment rows ───────────────────────────────────────────────
+ *
+ * The glyph IS the meaning — three bars showing where content sits inside its box — so these carry
+ * no labels. A `title` gives the word for anyone who wants it. */
+function Bars({ children }: { children: ReactNode }) {
+  return <span className="flex h-4 w-5 items-center gap-[2px]">{children}</span>;
+}
+
+const bar = (h: number, on: boolean, key: number) => (
+  <span key={key} className={`w-[3px] rounded-full ${on ? 'bg-[#3D8BD0]' : 'bg-[#94A3B8]'}`} style={{ height: h }} />
+);
+
+/** Horizontal distribution: where the group sits, and how the space between its members is shared. */
+const DISTRIBUTE = ['start', 'center', 'end', 'between', 'around'] as const;
+const DIST_TITLE: Record<string, string> = {
+  start: 'Left', center: 'Centre', end: 'Right', between: 'Space between', around: 'Space around',
+};
+const DIST_JUSTIFY: Record<string, string> = {
+  start: 'justify-start', center: 'justify-center', end: 'justify-end',
+  between: 'justify-between', around: 'justify-around',
+};
+
+/** Vertical alignment inside the band. `stretch` makes every column the same height. */
+const VALIGN = ['start', 'center', 'end', 'stretch'] as const;
+const VALIGN_TITLE: Record<string, string> = {
+  start: 'Top', center: 'Middle', end: 'Bottom', stretch: 'Equal height',
+};
+
+/* The shared alignment TRACK.
+ *
+ * A recessed grey pill; the chosen option is a raised white card sitting in it, and hairlines
+ * separate the ones that are not chosen. That is what makes a row of five wordless glyphs read as a
+ * single control with one answer rather than five buttons — the selection is the only thing with a
+ * surface, so it is the only thing the eye lands on.
+ *
+ * ⚠️ A divider is suppressed either side of the selected card. Drawing it there puts a line against
+ * the raised edge, which reads as a seam in the card rather than a break between two options. */
+function Track({ children }: { children: ReactNode }) {
+  return <div className="inline-flex items-center rounded-lg bg-[#F1F3F5] p-1">{children}</div>;
+}
+
+function Seg({ on, hideRule, title, onClick, children }: {
+  on: boolean; hideRule: boolean; title: string; onClick: () => void; children: ReactNode;
+}) {
+  return (
+    <>
+      <button
+        onClick={onClick}
+        title={title}
+        className={`flex h-8 w-10 items-center justify-center rounded-md transition-all ${
+          on ? 'bg-white shadow-[0_1px_2px_rgba(16,24,40,0.10),0_1px_3px_rgba(16,24,40,0.06)]' : 'hover:bg-white/60'
+        }`}
+      >{children}</button>
+      <span className={`h-4 w-px ${hideRule ? 'bg-transparent' : 'bg-[#DDE1E6]'}`} />
+    </>
+  );
+}
+
+export function DistributeRow({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const i = DISTRIBUTE.indexOf(value as never);
+  return (
+    <Track>
+      {DISTRIBUTE.map((v, n) => (
+        <Seg
+          key={v}
+          on={value === v}
+          /* No rule after the last one, and none touching the raised card on either side. */
+          hideRule={n === DISTRIBUTE.length - 1 || n === i || n === i - 1}
+          title={DIST_TITLE[v]}
+          onClick={() => onChange(v)}
+        >
+          <span className={`flex h-4 w-5 items-center gap-[2px] ${DIST_JUSTIFY[v]}`}>
+            {[12, 12].map((h, k) => bar(h, value === v, k))}
+          </span>
+        </Seg>
+      ))}
+    </Track>
+  );
+}
+
+export function ValignRow({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const i = VALIGN.indexOf(value as never);
+  return (
+    <Track>
+      {VALIGN.map((v, n) => {
+        const on = value === v;
+        const place = v === 'start' ? 'items-start' : v === 'center' ? 'items-center' : v === 'end' ? 'items-end' : 'items-stretch';
+        return (
+          <Seg
+            key={v}
+            on={on}
+            hideRule={n === VALIGN.length - 1 || n === i || n === i - 1}
+            title={VALIGN_TITLE[v]}
+            onClick={() => onChange(v)}
+          >
+            <Bars>
+              <span className={`flex h-full w-full justify-center gap-[2px] ${place}`}>
+                {bar(v === 'stretch' ? 16 : 9, on, 0)}
+                {bar(v === 'stretch' ? 16 : 9, on, 1)}
+              </span>
+            </Bars>
+          </Seg>
+        );
+      })}
+    </Track>
+  );
+}

@@ -12,8 +12,12 @@ import { SupportPortalAddPanel } from './SupportPortalAddPanel';
 import { PortalElementPanel } from './PortalElementPanel';
 import { CanvasProvider } from './PortalCanvas';
 import {
-  DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, addColumn, moveIn, nodeById, registerPlaced,
+  DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, addColumn, moveIn, nodeById, parseItemId,
+  placedType, registerPlaced,
 } from './portalPageModel';
+import { PortalWidgetDrawer } from './PortalWidgetDrawer';
+import { WIDGET_FOR_NODE, WIDGET_FOR_TYPE, specById, structureSpecId } from './portalWidgetSpec';
+import type { Cfg, WidgetSpec } from './portalWidgetSpec';
 import type { CustomSection, NodeStyle, PlacedElement, PortalPageContent, PortalStyles } from './portalPageModel';
 import { PORTAL_ELEMENTS } from './supportPortalData';
 import type { IconChoice } from './PortalIconPicker';
@@ -26,10 +30,10 @@ import type { PortalPage } from './supportPortalData';
  * back arrow, which is why the trail can be dropped.
  *
  * Layout is canvas → design panel → icon rail. The panel is dragged from its LEFT edge and clamped
- * to 400-600px: 400 is the floor because a design panel narrower than that reflows its own controls,
- * and 600 the ceiling because past it the canvas stops representing the page a requester sees. */
+ * to 340-600px: 340 is the floor, and 600 the ceiling because past it the canvas stops representing
+ * the page a requester sees. */
 
-const MIN_W = 400;
+const MIN_W = 340;
 const MAX_W = 600;
 
 interface SupportPortalBuilderProps {
@@ -143,6 +147,70 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     setStyles((prev) => ({ ...prev, [id]: { ...prev[id], ...p } }));
   }, []);
 
+  /* Replaces a node's whole style object — how Revert DELETES a key. A patch cannot express
+     "unset", and writing the parent's current value instead would be a copy, not a link. */
+  const replaceStyle = useCallback((id: string, next: NodeStyle) => {
+    setStyles((prev) => ({ ...prev, [id]: next }));
+  }, []);
+
+  /* ── widget config (spec §9) ──────────────────────────────────────────────
+   *
+   * One store for every widget instance, fixed page block and dropped element alike, keyed by node
+   * id. Defaults live on the spec, so a node that has never been edited holds nothing at all and
+   * `cfgFor` composes it — which is what makes Reset to default a one-line delete. */
+  const [widgetCfg, setWidgetCfg] = useState<Record<string, Cfg>>({});
+
+  /** The widget spec behind a node, whether it is a fixed block or something an admin dropped.
+   *  ⚠️ Both routes must land on the SAME spec, or one widget would edit two different ways. */
+  /* ⚠️ An ITEM belongs to its widget's config, not its own. `el-3~i2` resolves to el-3's spec and
+     el-3's cfg; the drawer slices the item out of the collection. Keying config by the item id would
+     scatter one widget's content across N stores and break Reset, duplicate and reorder. */
+  /* A card's Title/Subtext node edits the CARD's config — the words live on the card, not on a
+     store of their own, or the canvas and the panel would hold two copies of one sentence. */
+  const ownerOf = (id: string) => parseItemId(id)?.widget ?? id.replace(/-(title|sub)$/, '');
+
+  const specForNode = useCallback((id: string | null): WidgetSpec | undefined => {
+    if (!id) return undefined;
+    /* ⚠️ The ORIGINAL id first. A card's Title node shares its CONFIG with the card — that is what
+       `ownerOf` is for — but it must not share its PANEL, or clicking the title opens the card and
+       the one thing you aimed at is the one thing you cannot edit. Config and panel resolve
+       differently here on purpose. */
+    const own = structureSpecId(id);
+    if (own === 'card_title' || own === 'card_sub') return specById(own);
+
+    const owner = ownerOf(id);
+    const direct = WIDGET_FOR_NODE[owner];
+    if (direct) return specById(direct);
+    const t = placedType(owner);
+    if (t && WIDGET_FOR_TYPE[t]) return specById(WIDGET_FOR_TYPE[t]);
+    /* Structure and chrome last: a widget that happens to live in a section must resolve to the
+       widget, not to the section it sits in. */
+    const structure = structureSpecId(owner);
+    return structure ? specById(structure) : undefined;
+  }, []);
+
+  /* Per-NODE seeds, for values a shared spec default cannot express. The page's bands each have
+     their own column count, so the Section spec deliberately carries none — it would have to be
+     wrong for two of the three. */
+  const NODE_CFG_SEED: Record<string, Cfg> = {
+    quick: { cols: '3' },
+    work: { cols: '3' },
+    records: { cols: '2' },
+  };
+
+  const cfgFor = useCallback((id: string): Cfg => {
+    const owner = ownerOf(id);
+    return {
+      ...(specForNode(owner)?.defaults ?? {}),
+      ...(NODE_CFG_SEED[owner] ?? {}),
+      ...(widgetCfg[owner] ?? {}),
+    };
+  }, [specForNode, widgetCfg]);
+
+  const patchCfg = useCallback((id: string, patch: Cfg) => {
+    setWidgetCfg((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  }, []);
+
   /** Selecting an element takes over the panel — the design panel IS the element editor. */
   const select = useCallback((id: string | null) => {
     setSelectedId(id);
@@ -155,7 +223,16 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
   const addSection = useCallback((afterId: string, rows: number[][]) => {
     const section: CustomSection = { id: `sec-${nextSectionId.current++}`, rows, items: {} };
-    setSections((prev) => [...prev, { afterId, section }]);
+    setSections((prev) => {
+      /* ⚠️ When the seam belongs to an ADDED section, the new one goes directly after it and
+         inherits its anchor. Pushing to the end of the array put it at the foot of the page
+         instead — you clicked between two bands and it appeared somewhere else entirely. */
+      const at = prev.findIndex((x) => x.section.id === afterId);
+      if (at < 0) return [...prev, { afterId, section }];
+      const next = [...prev];
+      next.splice(at + 1, 0, { afterId: prev[at].afterId, section });
+      return next;
+    });
     select(section.id);
     toast.success('Section added');
   }, [select]);
@@ -221,6 +298,68 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
   const sectionOfColumn = (id: string) => id.replace(/-c\d+$/, '');
   const placedParent = (id: string) => nodeById(id)?.parent;
+
+  /** Every column id in a section, in render order — ids run across rows, not per row. */
+  const columnIds = (s: CustomSection) => {
+    const ids: string[] = [];
+    let i = 0;
+    s.rows.forEach((row) => row.forEach(() => ids.push(`${s.id}-c${i++}`)));
+    return ids;
+  };
+
+  /** Catalogue types the page is already carrying — what makes a single-instance block read "added". */
+  const placedTypes = [
+    ...sections.flatMap((s) => Object.values(s.section.items).map((el) => el.type)),
+    ...Object.values(rowExtras).flatMap((list) => list.map((el) => el.type)),
+    /* ⚠️ The AD card is a member of the Quick Actions row, not a placed element, so it is invisible
+       to both lists above. Without this the palette kept offering a card the page already had. */
+    ...(content.quick.some((q) => q.id === 'quick-ad') ? ['act-ad'] : []),
+  ];
+
+  /* Click-to-add. The library is not a catalogue you can only drag out of.
+   *
+   * ⚠️ Clicking a row used to mark it "added" and place nothing — the worst of both, because the
+   * one signal saying it worked was the signal that lied. An add now always lands somewhere real:
+   * the column whose "+" aimed it, else a free column in the section you are in, else the row you
+   * are in, else its own new section at the foot of the page. Selecting the result is the proof. */
+  const addElement = useCallback((type: string) => {
+    /* ⚠️ An action card is not a generic placed element — it is a member of the Quick Actions row,
+       and the row is what gives it its shape, its share of the width and its editor. So adding one
+       appends to the row's CONTENT rather than dropping a stand-in element somewhere; that is the
+       only way the fourth card comes out identical to the three beside it instead of merely
+       similar. */
+    if (type === 'act-ad') {
+      if (content.quick.some((q) => q.id === 'quick-ad')) { toast.error('AD Self Service is already on the page'); return; }
+      setContent((c) => ({ ...c, quick: [...c.quick, { id: 'quick-ad', title: 'AD Self Service', desc: 'Reset your domain password' }] }));
+      setRowOrder((o) => ({ ...o, quick: [...(o.quick ?? DEFAULT_ROW_ORDER.quick), 'quick-ad'] }));
+      /* ⚠️ Widen the row to four. The section is three columns, so a fourth card would wrap to a
+         full-width row of its own — which is not 'a fourth action card', it is a different block
+         that happens to look like one. The Columns control still overrides this afterwards. */
+      patchCfg('quick', { cols: '4' });
+      select('quick-ad');
+      toast.success('AD Self Service added');
+      return;
+    }
+
+    // A placed element stands in for the column it sits in, so "add another" means "add beside me".
+    const sel = selectedId;
+    const anchor = sel && /^el-\d+$/.test(sel) ? placedParent(sel) ?? sel : sel;
+
+    const secId = anchor ? /^sec-\d+/.exec(anchor)?.[0] : undefined;
+    const sec = secId ? sections.find((s) => s.section.id === secId)?.section : undefined;
+    if (sec) {
+      const aimed = anchor && /^sec-\d+-c\d+$/.test(anchor) && !sec.items[anchor] ? anchor : undefined;
+      const target = aimed ?? columnIds(sec).find((c) => !sec.items[c]);
+      // Every column full falls through: a new section beats silently replacing someone's element.
+      if (target) { dropInColumn(target, type); return; }
+    }
+
+    const row = anchor && (rowOrder[anchor] ? anchor : Object.keys(rowOrder).find((r) => rowOrder[r].includes(anchor)));
+    if (row) { dropInRow(row, type); return; }
+
+    const last = blockOrder.filter((b) => !removed.includes(b)).slice(-1)[0] ?? 'hero';
+    dropAtSeam(last, type);
+  }, [content.quick, selectedId, sections, rowOrder, blockOrder, removed, dropInColumn, dropInRow, dropAtSeam, select, patchCfg]);
 
   const moveNode = useCallback((id: string, dir: 'prev' | 'next') => {
     const step = dir === 'prev' ? -1 : 1;
@@ -347,13 +486,14 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   }, [rowOrder, select]);
 
   /* "+" opens the element library — the one place elements come from.
-     It also SELECTS the target, so the canvas still shows where the next drop is aimed while the
-     panel is showing the list. Not via select(), which would clear the panel it just opened. */
+     It also SELECTS the target, so the canvas still shows where the next add is aimed while the
+     panel is showing the list, and `addElement` knows where a click should land. Not via select(),
+     which would clear the panel it just opened. */
   const addInside = useCallback((id: string) => {
     setSelectedId(id);
     setActive('add');
     setCollapsed(false);
-    toast.success('Drag an element from the list onto the page');
+    toast.success('Pick an element to add here — click it, or drag it onto the page');
   }, []);
 
   const canvasCtx = {
@@ -418,6 +558,9 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
   const openPanel = (key: RailKey) => {
     setCollapsed(false);
+    /* §7.22 — Theme IS the Page layer: typeface, text scale and the palette all live on it. Opening
+       a placeholder panel beside a real drawer for the same thing would be two doors to one room. */
+    if (key === 'theme') { setActive(null); setSelectedId('page'); return; }
     // Clicking the lit icon again returns to the design panel rather than doing nothing.
     setActive((prev) => (prev === key && !collapsed ? null : key));
   };
@@ -442,7 +585,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
         <div className="min-h-0 flex-1 overflow-y-auto">
           {/* Preview must behave like the real portal — selection off. */}
           <CanvasProvider value={{ ...canvasCtx, enabled: false, selectedId: null, hoverId: null, select: () => {}, setHover: () => {} }}>
-            <SupportPortalPreview accent={accent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} />
+            <SupportPortalPreview accent={accent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} />
           </CanvasProvider>
         </div>
       </div>
@@ -450,8 +593,11 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   }
 
   return (
-    <div className="fixed inset-0 z-[9000] flex flex-col bg-[#EEF1F5]">
-      {/* ── Top bar ── the builder's only chrome; the admin nav is deliberately gone. */}
+    /* ⚠️ Starts BELOW the 56px product header rather than at inset-0. The header is still on the
+       page while the builder is open, so covering it would leave the logo and global search
+       painted over by a canvas that has no use for that strip. */
+    <div className="fixed inset-x-0 bottom-0 top-[56px] z-[9000] flex flex-col bg-[#EEF1F5]">
+      {/* ── Top bar ── the builder's own chrome; the admin sidebar is deliberately gone. */}
       <div className="flex h-12 flex-shrink-0 items-center gap-3 border-b border-[#e5e7eb] bg-white pl-2 pr-3">
         <button onClick={onExit} title="Back to Support Portal Customization" className={iconBtn}>
           <ArrowLeft size={18} />
@@ -536,7 +682,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
         <div className="relative min-w-0 flex-1 overflow-y-auto p-5">
           <div className="mx-auto max-w-[1600px] overflow-hidden rounded-lg border border-[#E1E6ED] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_rgba(16,24,40,0.06)]">
             <CanvasProvider value={{ ...canvasCtx, enabled: true }}>
-              <SupportPortalPreview accent={accent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} />
+              <SupportPortalPreview accent={accent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} />
             </CanvasProvider>
           </div>
 
@@ -587,9 +733,32 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
             {/* A rail panel wins while one is open; otherwise the panel is the element editor,
                 falling back to the "select something" empty state. */}
             {active === 'add' ? (
-              <div className="min-h-0 flex-1"><SupportPortalAddPanel /></div>
+              <div className="min-h-0 flex-1"><SupportPortalAddPanel onAdd={addElement} placedTypes={placedTypes} /></div>
             ) : active ? (
               <div className="min-h-0 flex-1 overflow-y-auto"><PanelEmptyState active={active} /></div>
+            ) : selectedId && specForNode(selectedId) ? (
+              /* A widget the specification covers gets the spec-driven drawer. Everything else in
+                 the 65-element palette keeps the editor it already had — this adds, it does not
+                 take away. */
+              <div className="min-h-0 flex-1">
+                <PortalWidgetDrawer
+                  nodeId={selectedId}
+                  spec={specForNode(selectedId)!}
+                  cfg={cfgFor(selectedId)}
+                  setCfg={(patch) => patchCfg(ownerOf(selectedId), patch)}
+                  styles={styles}
+                  setStyle={setStyle}
+                  replaceStyle={replaceStyle}
+                  onSelect={select}
+                  icon={icons[selectedId]}
+                  setIcon={(c) => setIcons((p) => ({ ...p, [selectedId]: c }))}
+                  canDuplicate={canDuplicate(selectedId)}
+                  onDuplicate={() => duplicateNode(selectedId)}
+                  onDelete={() => deleteNode(selectedId)}
+                  onOpenSetting={(section, card) =>
+                    toast.success(`This lives in Admin › ${section}${card ? ` › ${card}` : ''}`)}
+                />
+              </div>
             ) : selectedId ? (
               <div className="min-h-0 flex-1">
                 <PortalElementPanel

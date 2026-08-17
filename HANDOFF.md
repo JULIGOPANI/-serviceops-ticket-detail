@@ -1,109 +1,107 @@
-# Handoff — 2026-08-13 19:36
+# Handoff — 2026-08-17 16:30
 
 ## Read first
-CLAUDE.md `## Key context` → the **four Support Portal builder bullets** (they run consecutively,
-starting at "Support Portal Customization (Admin › Organization)"). Read them in order: the module
-and builder shell, then the Add panel + canvas selection, then the spacing matrix + added sections,
-then placement + toolbar actions + the pickers. Also **`## Structure`** → the Support Portal
-Customization line for the file map.
+`CLAUDE.md` → the **Support Portal Customization** bullets under *Key context*, especially the
+two new ones at the end of that run:
 
-Two research/spec docs sit at the repo root and are the source for design decisions here:
-- **[DUDA-ADD-AND-THEME-RESEARCH.md](DUDA-ADD-AND-THEME-RESEARCH.md)** — Duda's Add and Theme panels, read from a live editor.
-- **[DUDA-ELEMENT-DESIGN-AND-QUICK-ACTIONS.md](DUDA-ELEMENT-DESIGN-AND-QUICK-ACTIONS.md)** — per-element design panel, selection quick-actions, breakpoints.
-- **[PORTAL-ELEMENT-STYLING-SPEC.md](PORTAL-ELEMENT-STYLING-SPEC.md)** — all 41 elements × 12 reusable style blocks, plus a build order.
+- *"Support Portal — the palette, and the widgets that own a real panel"* — what the element
+  library looks like now and which widgets got a real settings panel this session.
+- *"Support Portal — selection-model and layout bugs fixed"* — **read this before touching
+  `Sel`, `PortalItemList` or the table renderer.** Three of the bugs fixed this session were
+  caused by assumptions those files quietly made.
+
+Everything else in `CLAUDE.md` is unchanged.
 
 ## What we worked on this session
-Built **Support Portal Customization** end to end — a new admin module with a page listing, a
-template gallery, and a full-screen page builder with canvas selection, an element library, and a
-per-element content + style editor. Along the way, researched Duda's builder (created a trial
-account and read the real editor) and wrote the element/styling spec that the next phase works from.
+Content and styling panels for the Support Portal page builder — giving List, Accordion, Table,
+Text with Image, Button and Card real, spec-driven settings panels — plus consolidating the
+element palette and fixing several bugs the new panels exposed.
 
 ## Completed
-**Admin module**
-- `AdminSupportPortalModule` — empty state → standard admin listing (`SPP-#` pages, scope tabs,
-  duplicate/delete with confirm). A page is created as a **Draft the moment a New-page route is
-  chosen**, so leaving the builder is lossless; Publish is the only thing that goes live.
-- `SupportPortalTemplateGallery` — 7 templates, wireframe thumbnails drawn from layout data,
-  right rail listing exactly which blocks land.
-- Reached from both the Organization **card** and the level-2 **nav row**, via `CARD_MODULES`.
 
-**Builder shell** (`SupportPortalBuilder`)
-- Full-screen; admin sidebar + product header stand down. Inline-editable title, save indicator,
-  Preview (real, selection off), Publish.
-- Resizable design panel clamped 400–600px; right rail **Add · Theme · Branding · Templates · AI**
-  with AI pinned bottom in a gradient pill.
+**Palette**
+- Groups are now **Live data · Actions · Basic · Visual · Business · Custom**. *Components* split
+  into Live data (backend-fed) and Actions (fixed destinations); **Layout** folded into Basic once
+  it held only Divider + Advanced Tabs.
+- **Advanced Accordion deleted** — it was a second palette name for the same widget.
+- **FAQ** shown as already placed; **My CIs** and the four action cards added as real entries.
+- **AD Self Service** adds a genuine 4th action card (and widens the row to 4 columns).
 
-**Add panel** (`SupportPortalAddPanel`)
-- 41 elements in 6 groups, Components first. Drag-scrollable group tabs with a scroll-spy.
-- Added components show a green tick and are not draggable (one instance each).
+**Widget panels** (all data-driven, in `portalCollectionSpecs.ts` + `PortalCollectionRender.tsx`)
+- **List** — items with title + description; Item Style set once on the widget; Divider group.
+- **Accordion** — its own spec (no longer a FAQ alias): Display rules, Collapsed Style,
+  Expansion icon, Expanded Style.
+- **Table** — Header · Rows · Table · Frame. Columns editor, Style pack and Even-column-width
+  toggle removed; columns are always an equal share.
+- **Text with Image** — image position, upload, alt text, rich paragraph; Image style + Text style.
+  The image floats so text genuinely wraps.
+- **Button** — DESIGN is two tabs, *Button style* and *Button text*.
+- **Card** — Layout + Shape moved to DESIGN; padding/border/radius read from the shared pack;
+  Media section removed.
+- **Spacer** and **Divider** rebuilt to the reference (Divider gets a 6-shape layout picker).
 
-**Canvas** (`PortalCanvas`, `SupportPortalPreview`, `portalPageModel`)
-- Explicit selection model; blocks + key children; parent step-up via chip chevron and breadcrumb.
-- Kind-aware floating toolbars — sections `↓↑`, cards/columns `←→`, text gets the dark rich-text bar.
-- **Functional**: resize handles (min-height floor, sibling shares redistribute so a row always
-  fills), spacing drag with magenta guides + live badge, seam drag to stretch the band above.
-- Add Section seam → 10-layout picker (tiles drawn from the same data the section is built from).
-- Columns: split left/right at equal width; drag-to-place from the Add panel; auto-section on seam drop.
-- All toolbar actions real (move / delete / clear padding / align / `+`); duplicate correctly
-  disabled on fixed blocks.
+**Bugs fixed**
+- Hiding one list item hid **every** item — `PortalItemList` matched by `item.id`, which is
+  `undefined` on seeded items. Everything is index-keyed now.
+- Table columns never lined up — each `<tr>` was wrapped in a `<div>` by `Sel`, which breaks the
+  table box model entirely.
+- Card templates, section Height and Content alignment were inert — the controls wrote config
+  nothing read.
+- Column `+` adders vanished when a child element was selected.
 
-**Element editor** (`PortalElementPanel`)
-- One scroll: CONTENT (per element) → STYLE (Layout / Style / Spacing).
-- Content is **wired to the canvas** — My Requests' statuses/scope/show, hero text, nav links,
-  action-card title/description/icon all render live.
-- `SpacingMatrix` (nested margin/padding rings), `PortalColorPicker`, `PortalIconPicker`
-  (43 ITSM icons + SVG upload), per-corner radius, border.
+**Panel chrome**
+- Right drawer opens at **340px**; alignment rows use the recessed-track component; toggle spacing
+  standardised; per-field Reset and the "Overridden" badge removed; breadcrumb replaced by a back
+  arrow on the title row; product header kept visible above the builder.
 
 ## In progress
-Nothing half-written — but **the last four rounds of changes are unverified in the browser**. See
-Gotchas. The files to re-check first are `SupportPortalPreview.tsx` (seam `slot()` ordering,
-column adders) and `PortalCanvas.tsx` (toolbar action handlers).
+Nothing mid-flight — the build is clean and every change above was verified in the browser except
+where noted under *Gotchas*.
 
 ## Next steps
-1. **Verify in the browser** — drag-to-place, the toolbar actions, the action-card icon picker, and
-   the Add Section seams under the lower bands. Three of the last four rounds surfaced bugs only
-   visible on screen.
-2. **Build the style blocks** in the order set out in PORTAL-ELEMENT-STYLING-SPEC.md §8:
-   Box → Typography → Rows + Pills → States → Icon → Layout → Media.
-3. **Restore deleted blocks** — a removed built-in band cannot be added back. Needs undo or a
-   hidden-blocks list.
-4. Confirm whether Components stay **single-instance** (the "Added" tick assumes they do).
-5. Decide whether status-pill colours live in **Theme** rather than per element — five components
-   render them and will otherwise disagree.
+1. **CSV upload popup for Table** — the spreadsheet-style dialog with *Upload CSV* / *Clear All*
+   from the reference. The spec fields are done; the modal and a `csv` control kind are not. This
+   is the largest outstanding piece.
+2. **Accordion + List parent selection.** Items are individually selectable but the widget itself
+   has almost no hit area, so clicking always lands on an item and the blue chip always shows the
+   item's name. Fix in `AccordionRender` / `ListRender`: give the widget a real parent surface with
+   items nested inside it. ⚠️ Do **not** just wrap the output in `<Sel id={nodeId}>` — `ColumnBody`
+   already wraps placed elements with that id, and two nested `data-node="el-N"` nodes break
+   toolbar positioning and every `document.querySelector('[data-node=…]')` lookup.
+3. **Text direction** is omitted from List, Accordion, Button and Table, per an earlier standing
+   instruction — but several recent reference images include it. One decision, then one line per
+   widget.
+4. **Per-row table selection**, if wanted — needs `Sel` able to render as a `<tr>` rather than a
+   `<div>`.
+5. Carried over from before: an added section's Columns control still doesn't restructure its
+   `rows` array; the rail/top-bar styling writes config the chrome doesn't read back.
 
 ## Decisions made
-- **Theme panel follows Squarespace "Site Styles"** (rows that preview what they control) rather
-  than Duda's flat accordions. Confirmed later when the live Duda editor turned out to use the same
-  pattern.
-- **Rail keeps five items** (Add · Theme · Branding · Templates · AI) rather than mirroring Duda —
-  Branding is already its own admin card, so a rail item keeps the builder consistent with the
-  admin IA.
-- **Statuses on My Requests is a display toggle, not a row filter** — otherwise "Show 5" and the
-  status list fight over how many rows appear.
-- **Size on the selection wrapper, as `minHeight` not `height`** — a dragged height is a floor, so
-  resizing never clips content, and the outline always matches the painted box.
-- **A row member takes a share, not a width** — every sibling carries one, so a row always adds up.
-- **Duplicate disabled on fixed page blocks** rather than faking success — they have no instance
-  identity to clone.
-- **Elements land blank** (no data, no styling) but shaped like what they will become.
+- **Live data vs Actions is a real split, not labelling.** Live-data widgets fetch from the
+  backend, so their rows carry no per-row content controls; action cards are fixed destinations
+  and do. The palette groups reflect that.
+- **One widget, one panel.** Advanced Accordion was removed and both accordion routes now resolve
+  to one spec, for the same reason `l-accordion` and `b-accordion` couldn't both stay.
+- **Item styling lives on the widget, not the item.** Every point in a list, and every row of an
+  accordion, has to look like its neighbours — that's what makes it a list. Words are per item;
+  look is per widget.
+- **Removed rather than duplicated:** header emphasis presets, striped-rows toggle, the card's own
+  padding slider and border preset, the table's Style pack. Each was a second control answering a
+  question a shared component already answers properly.
+- **Even column width is the default** for tables, and the per-column width editor is gone with it.
+- **Warn, never block** kept for alt text; **hide, don't blank** for item descriptions, so nothing
+  written is lost.
 
 ## Gotchas & notes
-- ⚠️ **`npm run build` is NOT a typecheck.** TypeScript isn't installed; Vite/esbuild only. A
-  removed variable still referenced in JSX passes the build and blanks the page at runtime. The
-  browser is the only real gate.
-- ⚠️ **The MCP automation Chrome has been stuck** in a relaunch loop for the last several rounds —
-  it refuses connections and respawns when killed. Everything since the sibling-resize round is
-  built and compiling but **not visually verified**. Clearing it: kill every `chrome.exe` whose
-  command line contains `chrome-devtools-mcp`, then retry; sometimes it recovers on its own.
-- ⚠️ **Popovers inside the design panel must be portalled.** It is `overflow-y-auto`, so an
-  absolutely-positioned popover is clipped once it is taller than the space below its field. Both
-  pickers use `createPortal` + fixed positioning.
-- ⚠️ **Flex `order` needs every sibling to have one.** Bands take even slots, seams the odd slot
-  after them. A seam without one collapses to 0 and the lower seams vanish.
-- ⚠️ **`overflow-hidden` on a selection wrapper hides the chip and toolbar** — they sit at `-top-4`
-  and `-top-11`, outside the box. This cost a round to find.
-- Duda trial account exists (`zeni.chakalasiya@motadata.com`, site `4fa39e6e`, Beauty Salon
-  template) — valid ~14 days from 12 Aug 2026 if more of the real editor needs checking. Google
-  OAuth cannot be driven from an automated browser; the Duda password form can.
-- `image.png`, `04-personas-jtbd.md` and `14-case-study.md` are untracked at the repo root and are
-  not part of this feature.
+- ⚠️ **Vite hot-swaps a spec without its renderer.** This bit four times: the panel updates and the
+  canvas still shows the old element. Hard-refresh (or restart the dev server) before deciding a
+  new widget is broken.
+- ⚠️ **`npm run build` is esbuild only — it does not typecheck.** A module const referenced before
+  its declaration builds green and blanks the page at runtime. That happened once with the shared
+  `FONTS` list; it's fixed, but the class of bug is live.
+- ⚠️ **Don't edit JSX through `node -e` / bash heredocs** — `${...}` in template literals gets
+  mangled by the shell. Broke the build once this session. Use the editor tools.
+- The dev server for this project runs on **port 5199** (5173 is served by a different folder).
+- A blank page mid-session turned out to be `ERR_NETWORK_CHANGED`, not a code fault — check the
+  console before debugging.
+- Nothing was committed during the session; this handoff accompanies the first commit of all of it.

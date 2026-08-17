@@ -175,7 +175,9 @@ export const PORTAL_ARTICLES: PortalArticle[] = [
  * portal is actually made of are what an admin reaches for, and burying them under generic layout
  * primitives would make the common case the hard one. Everything below Components is the generic
  * toolkit, in the order Duda uses (layout → basic → visual → business → custom). */
-export const PORTAL_ELEMENT_GROUPS = ['Components', 'Layout', 'Basic', 'Visual', 'Business', 'Custom'] as const;
+/* ⚠️ No 'Layout' group. It held two elements — a Divider and Advanced Tabs — which are as basic as
+   anything in Basic; a tab of two rows is a category that costs more to scan than it saves. */
+export const PORTAL_ELEMENT_GROUPS = ['Live data', 'Actions', 'Basic', 'Visual', 'Business', 'Custom'] as const;
 export type PortalElementGroup = (typeof PORTAL_ELEMENT_GROUPS)[number];
 
 export interface PortalElement {
@@ -193,37 +195,62 @@ export interface PortalElement {
 /* ⚠️ `onPage` mirrors what SupportPortalPreview actually renders. Keep the two in step — a row
  *    claiming "Added" for a block the canvas doesn't show is worse than no badge at all. */
 export const PORTAL_ELEMENTS: PortalElement[] = [
-  // ── Components — the ServiceOps portal's own blocks ──
-  { id: 'c-search', name: 'Search', icon: 'search', group: 'Components', onPage: true, keywords: 'knowledge base hero find' },
-  { id: 'c-services', name: 'Services', icon: 'services', group: 'Components', onPage: true, keywords: 'catalog request service' },
-  { id: 'c-categories', name: 'Categories', icon: 'categories', group: 'Components', keywords: 'service categories browse' },
-  { id: 'c-requests', name: 'My Requests', icon: 'requests', group: 'Components', onPage: true, keywords: 'tickets incidents open' },
-  { id: 'c-approvals', name: 'Approvals', icon: 'approvals', group: 'Components', onPage: true, keywords: 'pending approve' },
-  { id: 'c-assets', name: 'My Assets', icon: 'assets', group: 'Components', onPage: true, keywords: 'hardware devices' },
-  { id: 'c-tasks', name: 'My Tasks', icon: 'tasks', group: 'Components', keywords: 'todo work' },
-  { id: 'c-announcements', name: 'Announcements', icon: 'announcements', group: 'Components', keywords: 'news broadcast banner' },
-  { id: 'c-knowledge', name: 'Knowledge', icon: 'knowledge', group: 'Components', onPage: true, keywords: 'articles kb most read' },
-  { id: 'c-faq', name: 'FAQ', icon: 'faq', group: 'Components', keywords: 'questions help' },
-  { id: 'c-contact', name: 'Contact / Escalation', icon: 'contact', group: 'Components', keywords: 'support escalate raise' },
+  /* ── The ServiceOps portal's own blocks, in the two groups they actually divide into ──
+   *
+   * LIVE DATA fetches from the backend and shows whatever the requester's account returns; ACTIONS
+   * are fixed destinations that never vary by user. That split is not decoration — it is why the
+   * live-data widgets have no per-row content controls and the action cards do.
+   *
+   * ⚠️ Search, Categories, My Tasks and FAQ were removed from this section. Search and FAQ still
+   * exist as elements elsewhere in the palette; My Tasks and Categories are not portal blocks this
+   * product ships. */
+  { id: 'c-requests', name: 'My Open Requests', icon: 'requests', group: 'Live data', onPage: true, keywords: 'tickets incidents open' },
+  { id: 'c-approvals', name: 'Pending Approvals', icon: 'approvals', group: 'Live data', onPage: true, keywords: 'pending approve' },
+  { id: 'c-assets', name: 'My Assets', icon: 'assets', group: 'Live data', onPage: true, keywords: 'hardware devices' },
+  { id: 'c-cis', name: 'My CIs', icon: 'cis', group: 'Live data', onPage: true, keywords: 'configuration items cmdb' },
+  { id: 'c-announcements', name: 'Announcements', icon: 'announcements', group: 'Live data', keywords: 'news broadcast banner' },
+  { id: 'c-knowledge', name: 'Most Read Knowledge', icon: 'knowledge', group: 'Live data', onPage: true, keywords: 'articles kb most read' },
+  { id: 'c-contact', name: 'Contact Us', icon: 'contact', group: 'Live data', keywords: 'support escalate raise' },
+  /* ⚠️ NOT onPage. This is spec §7.8 Featured Services — a requester's favourites list. The page
+     carries the "Request Service" ACTION CARD, which is a different widget with a fixed
+     destination. Flagging this one as placed made Featured Services unreachable. */
+  { id: 'c-services', name: 'Featured Services', icon: 'services', group: 'Live data', keywords: 'catalog request service favourites' },
+  { id: 'c-feedback', name: 'Feedback', icon: 'feedback', group: 'Live data', keywords: 'rating csat survey stars' },
+  /* Placed: the FAQ block already sits in the banner area of this portal, so the palette shows it
+     as added rather than offering a second one. */
+  { id: 'c-faq', name: 'FAQ', icon: 'faq', group: 'Live data', onPage: true, keywords: 'questions help answers' },
 
-  // ── Layout ──
-  { id: 'l-tabs', name: 'Advanced Tabs', icon: 'tabs', group: 'Layout' },
-  { id: 'l-accordion', name: 'Advanced Accordion', icon: 'accordionAdv', group: 'Layout', keywords: 'collapse expand' },
-  { id: 'l-divider', name: 'Divider', icon: 'divider', group: 'Layout', keywords: 'vertical horizontal v/h separator rule' },
+  // ── Actions — fixed destinations, the same for every requester ──
+  { id: 'act-incident', name: 'New Incident', icon: 'incident', group: 'Actions', onPage: true, keywords: 'report issue raise ticket' },
+  { id: 'act-service', name: 'Request Service', icon: 'services', group: 'Actions', onPage: true, keywords: 'catalog order' },
+  /* ⚠️ NOT onPage — this page carries three action cards, and marking a fourth as placed would grey
+     out the one entry that can still add it. Drop it on the page and it becomes reachable. */
+  { id: 'act-ad', name: 'AD Self Service', icon: 'adself', group: 'Actions', keywords: 'password reset domain unlock' },
+  { id: 'act-knowledge', name: 'Knowledge', icon: 'knowledge', group: 'Actions', onPage: true, keywords: 'articles help search' },
 
+  { id: 'l-tabs', name: 'Advanced Tabs', icon: 'tabs', group: 'Basic' },
+  { id: 'l-divider', name: 'Divider', icon: 'divider', group: 'Basic', keywords: 'vertical horizontal v/h separator rule' },
+
+  /* ⚠️ File Download, Click to Call, Click to Mail and Share are NOT here. They are Button
+     ACTIONS (§7.11's 'Opens' list), not elements — one button with a different destination. A
+     separate palette entry for each was two ways to make the same link.
+     x-search was a DUPLICATE of c-search under Custom; two identically named entries is a coin
+     flip for whoever uses it. */
   // ── Basic ──
   { id: 'b-text', name: 'Text', icon: 'text', group: 'Basic', keywords: 'paragraph body copy' },
   { id: 'b-button', name: 'Button', icon: 'button', group: 'Basic', keywords: 'cta link action' },
   { id: 'b-spacer', name: 'Spacer', icon: 'spacer', group: 'Basic', keywords: 'gap whitespace' },
   { id: 'b-large-title', name: 'Large Title', icon: 'largeTitle', group: 'Basic', keywords: 'heading h1 h2' },
   { id: 'b-small-title', name: 'Small Title', icon: 'smallTitle', group: 'Basic', keywords: 'heading h3 h4 subtitle' },
-  { id: 'b-file', name: 'File Download', icon: 'file', group: 'Basic', keywords: 'attachment cta button download' },
   { id: 'b-list', name: 'List', icon: 'list', group: 'Basic', keywords: 'bullets items' },
   { id: 'b-countdown', name: 'Countdown', icon: 'countdown', group: 'Basic', keywords: 'timer deadline' },
   { id: 'b-table', name: 'Table', icon: 'table', group: 'Basic', keywords: 'grid rows columns data' },
   { id: 'b-accordion', name: 'Accordion', icon: 'accordion', group: 'Basic', keywords: 'collapse faq expand' },
   { id: 'b-text-image', name: 'Text with Image', icon: 'textImage', group: 'Basic', keywords: 'media split' },
   { id: 'b-card', name: 'Card', icon: 'card', group: 'Basic', keywords: 'tile panel' },
+  /* Navigation Links is its OWN element, not a Button action: a button has one destination, a nav
+     has a set of them. Moved out of Business into Basic, where a link list belongs. */
+  { id: 'b-nav', name: 'Navigation Links', icon: 'nav', group: 'Basic', keywords: 'menu links nav' },
 
   // ── Visual ──
   { id: 'v-image', name: 'Image', icon: 'image', group: 'Visual', keywords: 'picture photo' },
@@ -233,18 +260,12 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
   { id: 'v-shape', name: 'Shape', icon: 'shape', group: 'Visual', keywords: 'divider decoration' },
 
   // ── Business ──
-  { id: 'z-call', name: 'Click to Call', icon: 'call', group: 'Business', keywords: 'phone dial support' },
-  { id: 'z-mail', name: 'Click to Mail', icon: 'mail', group: 'Business', keywords: 'email contact' },
   { id: 'z-form', name: 'Contact Form', icon: 'form', group: 'Business', keywords: 'enquiry submit' },
-  { id: 'z-share', name: 'Share', icon: 'share', group: 'Business', keywords: 'social send' },
-  { id: 'z-nav', name: 'Navigation Links', icon: 'nav', group: 'Business', keywords: 'menu links' },
 
   // ── Custom ──
   { id: 'x-action-card', name: 'Action Card', icon: 'actionCard', group: 'Custom', keywords: 'quick action tile' },
   { id: 'x-action-icon', name: 'Action Icon', icon: 'actionIcon', group: 'Custom', keywords: 'quick action shortcut' },
   { id: 'x-kpi', name: 'KPI', icon: 'kpi', group: 'Custom', keywords: 'metric stat number' },
-  { id: 'x-search', name: 'Search', icon: 'searchCustom', group: 'Custom', keywords: 'find input' },
-  { id: 'x-predefined', name: 'Predefined Cards', icon: 'predefined', group: 'Custom', keywords: 'all cards library presets' },
 ];
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */

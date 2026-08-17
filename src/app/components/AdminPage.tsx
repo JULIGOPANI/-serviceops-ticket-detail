@@ -97,7 +97,11 @@ export function AdminPage({ onNavigate }: { onNavigate: (page: string) => void }
 
   return (
     <div className="flex h-screen flex-col bg-[#F7F9FC]">
-      {!builderOpen && <Header selectedCount={0} />}
+      {/* The product header STAYS while the builder is open — the logo, global search and the
+          account menu are the app, not the admin section, and losing them made the builder feel
+          like a different product. Only the admin sidebar gives way: a canvas competing with a
+          second navigation has nowhere to be. */}
+      <Header selectedCount={0} />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {!builderOpen && (
           <AdminSidebar active={active} activeCard={activeCard} onSelect={select} onBackToApp={() => onNavigate('request')} />

@@ -23,7 +23,8 @@ export type NodeKind =
 /** Which content editor the panel renders for a node. */
 export type ContentKind =
   | 'hero' | 'quickActions' | 'actionCard' | 'requests' | 'approvals'
-  | 'knowledge' | 'assets' | 'cis' | 'text' | 'nav' | 'search' | 'row' | 'placed' | 'none';
+  | 'knowledge' | 'assets' | 'cis' | 'text' | 'nav' | 'search' | 'row' | 'placed'
+  | 'item' | 'subelement' | 'none';
 
 export interface PortalNodeDef {
   id: string;
@@ -38,9 +39,14 @@ export interface PortalNodeDef {
 /* ⚠️ Every id here must be rendered by SupportPortalPreview with the same id, or the chip will name
  *    something the panel cannot edit. Keep the two in step. */
 export const PORTAL_NODES: PortalNodeDef[] = [
+  /* L0 — the page itself. Not drawn on the canvas, but it OWNS the theme, so it needs a node or
+     its drawer has nothing to describe. */
+  { id: 'page', name: 'Page', kind: 'section', content: 'none' },
+
   // ── chrome ──
   { id: 'header', name: 'Header', kind: 'section', content: 'none' },
-  { id: 'header-nav', name: 'Navigation Links', kind: 'nav', parent: 'header', content: 'nav' },
+  { id: 'header-logo', name: 'Logo', kind: 'card', parent: 'header', content: 'none' },
+  { id: 'header-actions', name: 'Actions', kind: 'card', parent: 'header', content: 'none' },
   { id: 'rail', name: 'Sidebar', kind: 'rail', content: 'none' },
 
   // ── hero ──
@@ -57,6 +63,9 @@ export const PORTAL_NODES: PortalNodeDef[] = [
   { id: 'quick-incident', name: 'New Incident', kind: 'card', parent: 'quick', content: 'actionCard' },
   { id: 'quick-service', name: 'Request Service', kind: 'card', parent: 'quick', content: 'actionCard' },
   { id: 'quick-knowledge', name: 'Knowledge', kind: 'card', parent: 'quick', content: 'actionCard' },
+  /* ⚠️ Declared but NOT in DEFAULT_CONTENT.quick — the node has to exist for selection and for the
+     drawer to describe it, while the page stays three cards until an admin adds the fourth. */
+  { id: 'quick-ad', name: 'AD Self Service', kind: 'card', parent: 'quick', content: 'actionCard' },
 
   // ── the work row — one section, three cards ──
   { id: 'work', name: 'Cards Row', kind: 'section', content: 'row' },
@@ -87,12 +96,51 @@ export const registerPlaced = (id: string, name: string, type: string, parent: s
   PLACED[id] = { name, type, parent };
 };
 
+/* Collection items and their sub-elements (spec §4).
+ *
+ * An item's id carries its whole lineage — `el-3~i2` is item 2 of widget el-3, `el-3~i2~answer` is
+ * that item's Answer sub-element — so a node can be described without threading the collection
+ * through the canvas, exactly the way added sections already work.
+ *
+ * ⚠️ Names are REGISTERED rather than derived. §2.1 says an item is titled by its own text ("How do
+ * I reset my password?"), which lives in the widget's config; a registry keeps `nodeById` a pure
+ * lookup instead of giving it a dependency on the config store. */
+const ITEM_NAMES: Record<string, string> = {};
+export const registerItemName = (id: string, name: string) => { ITEM_NAMES[id] = name; };
+
+export const itemNodeId = (widgetId: string, itemId: string) => `${widgetId}~i${itemId}`;
+export const subNodeId = (itemNode: string, part: string) => `${itemNode}~${part}`;
+/** `el-3~i2` → `{ widget: 'el-3', item: '2' }`, or null when the id is not an item. */
+export function parseItemId(id: string): { widget: string; item: string; part?: string } | null {
+  const m = /^(.+?)~i([^~]+)(?:~(.+))?$/.exec(id);
+  return m ? { widget: m[1], item: m[2], part: m[3] } : null;
+}
+
 export function nodeById(id: string): PortalNodeDef | undefined {
   const found = PORTAL_NODES.find((n) => n.id === id);
   if (found) return found;
   const placed = PLACED[id];
   if (placed) {
     return { id, name: placed.name, kind: renderSpec(placed.type).kind, parent: placed.parent, content: 'placed' };
+  }
+  const item = parseItemId(id);
+  if (item) {
+    return item.part
+      ? { id, name: ITEM_NAMES[id] ?? item.part, kind: 'text', parent: itemNodeId(item.widget, item.item), content: 'subelement' }
+      : { id, name: ITEM_NAMES[id] ?? 'Item', kind: 'card', parent: item.widget, content: 'item' };
+  }
+  /* A quick-action card carries its own text nodes, so the words are edited by clicking them.
+     ⚠️ Only CONFIGURED copy gets a node. A live-data row — a request, an approval, an article —
+     comes from the backend and is not the admin's to rewrite, so it is never selectable. */
+  const txt = /^(quick-[a-z]+)-(title|sub)$/.exec(id);
+  if (txt) {
+    return {
+      id,
+      name: txt[2] === 'title' ? 'Title' : 'Subtext',
+      kind: 'text',
+      parent: txt[1],
+      content: 'text',
+    };
   }
   const col = /^(sec-\d+)-c\d+$/.exec(id);
   if (col) return { id, name: 'Column', kind: 'column', parent: col[1], content: 'none' };
@@ -124,7 +172,6 @@ export interface PortalPageContent {
   /** Columns each full-width row is laid out in — the section's own layout. */
   cols: { quick: number; work: number; records: number };
   hero: { title: string; subtitle: string; placeholder: string; showSearch: boolean };
-  nav: { items: string[] };
   quick: { id: string; title: string; desc: string }[];
   requests: { title: string; statuses: string[]; scope: string; show: number };
   approvals: { title: string; show: number };
@@ -168,7 +215,6 @@ export const DEFAULT_CONTENT: PortalPageContent = {
     placeholder: 'How can we help you?',
     showSearch: true,
   },
-  nav: { items: ['Requests', 'Service Catalog', 'Knowledge', 'My Assets'] },
   quick: [
     { id: 'quick-incident', title: 'New Incident', desc: 'Report an incident' },
     { id: 'quick-service', title: 'Request Service', desc: 'Browse the services offered' },
@@ -187,8 +233,81 @@ export const DEFAULT_CONTENT: PortalPageContent = {
 export interface SpacingBox { top: number; right: number; bottom: number; left: number }
 export const ZERO_BOX: SpacingBox = { top: 0, right: 0, bottom: 0, left: 0 };
 
+/* The five typography ROLES (spec P3). Exposed per role rather than per element, so a widget shows
+   only the roles it actually has — a Count tile has a `title` and a `meta` and nothing else. */
+export type TypeRole = 'title' | 'subtitle' | 'body' | 'meta' | 'link';
+
+export interface RoleType {
+  /** 'inherit' or a theme font key. Defaults to inherit and must STAY there — a per-widget
+   *  typeface is an escape hatch for one pull-quote, not a way to build a page in six fonts. */
+  font?: string;
+  /** % of the role's base size, 80–200. */
+  size?: number;
+  weight?: 'regular' | 'medium' | 'bold';
+  color?: string;
+  align?: 'left' | 'center' | 'right';
+  lineHeight?: 'tight' | 'normal' | 'relaxed';
+  /** 0 = no clamp. */
+  maxLines?: number;
+}
+
 export interface NodeStyle {
   align?: 'left' | 'center' | 'right';
+  /* ── P1 Container ── */
+  bgFill?: 'none' | 'color' | 'image';
+  bgImage?: string;
+  /** 0–80 %. Exists only for image fills — its job is keeping text readable over artwork. */
+  bgOverlay?: number;
+  /** Sections only. 'page' MOVES the background behind every section (see §7.21). */
+  bgScope?: 'section' | 'page';
+  borderMode?: 'none' | 'line' | 'shadow';
+  elevation?: 'none' | 'subtle' | 'raised';
+  /* ── P2 Size & position ── */
+  /** % of its column, 10–100. Distinct from `width`, which is the px a resize drag produced. */
+  widthPct?: number;
+  spaceTop?: number;
+  spaceBottom?: number;
+  /** Per-side border strokes, set from the Border gear. */
+  borderSides?: { top: number; right: number; bottom: number; left: number };
+  shadowOn?: boolean;
+  shadowColor?: string;
+  shadowType?: string;
+  shadowPos?: string;
+  /** Size: height follows width while this is on. */
+  keepRatio?: boolean;
+  /* ── P3 Typography, per role ── */
+  type?: Partial<Record<TypeRole, RoleType>>;
+  /* ── P4 List & grid ── */
+  arrangement?: 'list' | 'grid';
+  columns?: number;
+  gap?: number;
+  density?: 'compact' | 'comfortable';
+  dividers?: boolean;
+  itemAlign?: 'left' | 'center';
+  equalHeight?: boolean;
+  /* ── P5 Media ── */
+  ratio?: string;
+  fit?: 'cover' | 'contain';
+  focal?: string;
+  shape?: 'rectangle' | 'rounded' | 'circle';
+  mediaRadius?: number;
+  mediaOverlay?: number;
+  captionPos?: 'below' | 'overlay' | 'hidden';
+  /* ── P6 Icon ── */
+  iconSize?: number;
+  iconColor?: string;
+  iconShape?: 'none' | 'square' | 'circle';
+  iconFill?: string;
+  iconPos?: 'left' | 'top' | 'right';
+  /* ── P7 Interactive states ── */
+  hover?: 'none' | 'lift' | 'tint' | 'outline';
+  pressed?: 'none' | 'tint';
+  transition?: 'none' | 'fast' | 'normal';
+  /* ── P8 Empty, loading, error ── */
+  emptyMsg?: string;
+  emptyMode?: 'show' | 'hide';
+  loading?: 'skeleton' | 'spinner';
+  errorMsg?: string;
   /** Outer spacing. Vertical in px, horizontal in %. */
   margin?: SpacingBox;
   /** Inner spacing. Same units. */
@@ -277,7 +396,7 @@ const CARD_TYPES = new Set([
   'c-services', 'c-categories', 'c-requests', 'c-approvals', 'c-assets', 'c-tasks',
   'c-announcements', 'c-knowledge', 'c-faq', 'c-contact',
   'b-card', 'b-table', 'b-accordion', 'b-text-image',
-  'x-action-card', 'x-kpi', 'x-predefined', 'z-form',
+  'x-action-card', 'x-kpi', 'z-form',
 ]);
 
 const TEXT_TYPES = new Set(['b-text', 'b-large-title', 'b-small-title']);
@@ -285,8 +404,8 @@ const TEXT_TYPES = new Set(['b-text', 'b-large-title', 'b-small-title']);
 export function renderSpec(type: string): ElementRenderSpec {
   if (TEXT_TYPES.has(type)) return { kind: 'text', bare: true };
   if (CARD_TYPES.has(type)) return { kind: 'card', bare: false };
-  if (type === 'c-search' || type === 'x-search') return { kind: 'search', bare: true };
-  if (type === 'z-nav') return { kind: 'nav', bare: true };
+  if (type === 'c-search') return { kind: 'search', bare: true };
+  if (type === 'b-nav') return { kind: 'nav', bare: true };
   if (type === 'b-list') return { kind: 'list', bare: true };
   return { kind: 'card', bare: true };
 }
