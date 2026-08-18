@@ -32,9 +32,12 @@ import {
   SelectField, Segmented, SliderRow, TextField, ToggleRow, UploadZone,
 } from './PortalControls';
 import { PortalItemList } from './PortalItemList';
-import { DistributeRow, TemplatePicker, ValignRow } from './PortalSectionControls';
+import { TemplatePicker } from './PortalSectionControls';
 import { BorderRow, RadiusRow, ShadowBlock, SizeRow } from './PortalBoxControls';
+import { PortalTableContent } from './PortalTableContent';
 import { LineStylePicker } from './PortalLineStyles';
+import { IconFramePicker } from './PortalIconFrame';
+import type { IconFrame } from './PortalIconFrame';
 import type { LineStyle } from './PortalLineStyles';
 import { SpacingMatrix } from './SpacingMatrix';
 import { ColorField } from './PortalColorPicker';
@@ -74,6 +77,119 @@ function BulkAdd({ onFiles }: { onFiles: (srcs: string[]) => void }) {
           }))).then(onFiles);
         }}
       />
+    </>
+  );
+}
+
+/* ── Alignment, as joined icon buttons ────────────────────────────────────────
+ *
+ * One bordered group with shared edges — not five separate buttons, because it is one question with
+ * one answer. Icon-only: the glyph shows where the content lands, which the words "Left / Centre"
+ * describe more slowly. `stretch` and `justify` share a glyph family with the three placements so
+ * the row still reads as one set. */
+/* ⚠️ BOX-alignment glyphs, not text-align glyphs. `AlignLeft`/`AlignCenter` draw ragged lines of
+   type, which say "how the words are set" — but almost every alignment row in this builder positions
+   a BLOCK inside its container. A rule with bars against it reads as "put the thing here", which is
+   the actual question, and the four of them read as one family. */
+const AlignGlyph = ({ kind }: { kind: 'start' | 'center' | 'end' | 'stretch' | 'between' | 'around' }) => {
+  const rule = '#64748B';
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+      {kind === 'start' && (
+        <>
+          <path d="M2 2v12" stroke={rule} strokeWidth="1.6" strokeLinecap="round" />
+          <rect x="4.5" y="4" width="8" height="2.6" rx="1" fill={rule} />
+          <rect x="4.5" y="9.4" width="5" height="2.6" rx="1" fill={rule} />
+        </>
+      )}
+      {kind === 'center' && (
+        <>
+          <path d="M8 1.5v13" stroke={rule} strokeWidth="1.6" strokeLinecap="round" />
+          <rect x="2.5" y="4" width="11" height="2.6" rx="1" fill={rule} />
+          <rect x="4.5" y="9.4" width="7" height="2.6" rx="1" fill={rule} />
+        </>
+      )}
+      {kind === 'end' && (
+        <>
+          <path d="M14 2v12" stroke={rule} strokeWidth="1.6" strokeLinecap="round" />
+          <rect x="3.5" y="4" width="8" height="2.6" rx="1" fill={rule} />
+          <rect x="6.5" y="9.4" width="5" height="2.6" rx="1" fill={rule} />
+        </>
+      )}
+      {kind === 'between' && (
+        <>
+          <path d="M2 2v12M14 2v12" stroke={rule} strokeWidth="1.6" strokeLinecap="round" />
+          <rect x="4" y="4" width="2.6" height="8" rx="1" fill={rule} />
+          <rect x="9.4" y="4" width="2.6" height="8" rx="1" fill={rule} />
+        </>
+      )}
+      {kind === 'around' && (
+        <>
+          <path d="M2 2v12M14 2v12" stroke={rule} strokeWidth="1.6" strokeLinecap="round" />
+          <rect x="5.2" y="4" width="2.6" height="8" rx="1" fill={rule} />
+          <rect x="8.2" y="4" width="2.6" height="8" rx="1" fill={rule} />
+        </>
+      )}
+      {kind === 'stretch' && (
+        <>
+          <path d="M2 2v12M14 2v12" stroke={rule} strokeWidth="1.6" strokeLinecap="round" />
+          <rect x="4.5" y="4" width="7" height="2.6" rx="1" fill={rule} />
+          <rect x="4.5" y="9.4" width="7" height="2.6" rx="1" fill={rule} />
+        </>
+      )}
+    </svg>
+  );
+};
+
+const ALIGN_ICON: Record<string, ReactNode> = {
+  left: <AlignGlyph kind="start" />,
+  start: <AlignGlyph kind="start" />,
+  center: <AlignGlyph kind="center" />,
+  right: <AlignGlyph kind="end" />,
+  end: <AlignGlyph kind="end" />,
+  justify: <AlignGlyph kind="stretch" />,
+  between: <AlignGlyph kind="between" />,
+  around: <AlignGlyph kind="around" />,
+  stretch: <AlignGlyph kind="stretch" />,
+};
+
+function AlignRow({ value, options, onChange }: {
+  value: string; options: { value: string; label: string }[]; onChange: (v: string) => void;
+}) {
+  return (
+    <div className="inline-flex overflow-hidden rounded border border-[#DFE5ED]">
+      {options.map((o, i) => {
+        const on = value === o.value;
+        return (
+          <button
+            key={o.value}
+            onClick={() => onChange(o.value)}
+            title={o.label}
+            className={`flex h-8 w-9 items-center justify-center transition-colors ${
+              i > 0 ? 'border-l border-[#DFE5ED]' : ''
+            } ${on ? 'bg-[#EBF5FF] text-[#3D8BD0]' : 'bg-white text-[#64748B] hover:bg-[#F5F7FA]'}`}
+          >{ALIGN_ICON[o.value]}</button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* The Table's content CTA. The sheet is a MODAL rather than an inline grid: a spreadsheet inside a
+   340px panel is a spreadsheet nobody can read, and content this shape deserves the room. */
+function TableContentField({ rows, onChange }: { rows: string[][]; onChange: (g: string[][]) => void }) {
+  const [open, setOpen] = useState(false);
+  const filled = rows.filter((r) => r.some((c) => String(c ?? '').trim())).length;
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="flex h-9 w-full items-center justify-between rounded border border-[#d1d5db] bg-white px-3 text-left text-[13px] text-[#364658] transition-colors hover:border-[#3D8BD0]"
+      >
+        <span>Manage table content</span>
+        <span className="text-[12px] text-[#9CA3AF]">{filled ? `${filled} rows` : 'Empty'}</span>
+      </button>
+      {open && <PortalTableContent value={rows} onApply={onChange} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -302,13 +418,36 @@ function PanelBody({ spec, nodeId, cfg, renderField, openGroups, toggleGroup, st
 }
 
 /** The two headed sections of the one scroll — the only separation Content and Design need. */
-const SectionLabel = ({ children }: { children: ReactNode }) => (
+/* The label carries an optional ACTION on its right — Expand all / Collapse all for the accordions
+   under it. ⚠️ Per SECTION, not one control for the whole panel: Content and Design are separate
+   questions, and expanding everything to reach one styling group means scrolling back past every
+   content group to get there. */
+const SectionLabel = ({ children, action }: { children: ReactNode; action?: ReactNode }) => (
   /* ⚠️ The gap BELOW the label is deliberately much smaller than the one above it. A label sits
      with the fields it heads, so mt-6 separates one section from the next and mb-1 keeps CONTENT
      attached to the first thing it labels — equal margins made every eyebrow float between two
      sections without saying which one it belonged to. */
-  <div className="mb-1 mt-6 text-[11px] font-semibold uppercase tracking-wider text-[#7B8FA5] first:mt-2">{children}</div>
+  <div className="mb-1 mt-6 flex items-center justify-between gap-2 first:mt-2">
+    <span className="text-[11px] font-semibold uppercase tracking-wider text-[#7B8FA5]">{children}</span>
+    {action}
+  </div>
 );
+
+/** Expand all / Collapse all for one section's accordions. Says which it will do, not which it did. */
+function ExpandAll({ keys, openGroups, setOpen }: {
+  keys: string[]; openGroups: string[]; setOpen: (next: string[]) => void;
+}) {
+  if (keys.length < 2) return null;
+  const allOpen = keys.every((k) => openGroups.includes(k));
+  return (
+    <button
+      onClick={() => setOpen(allOpen
+        ? openGroups.filter((k) => !keys.includes(k))
+        : [...new Set([...openGroups, ...keys])])}
+      className="text-[11px] font-medium normal-case tracking-normal text-[#3D8BD0] hover:underline"
+    >{allOpen ? 'Collapse all' : 'Expand all'}</button>
+  );
+}
 
 const NODE_ICON: Record<string, ReactNode> = {
   section: <Rows3 size={16} />, card: <Square size={16} />, text: <TypeIcon size={16} />,
@@ -443,9 +582,19 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
         return <Chips value={(v as string[]) ?? []} options={(optionsOf(f) as string[]) ?? REQUEST_STATUSES} onChange={(x) => set(f.key, x)} />;
       case 'select':
         return <SelectField value={(v as string) ?? ''} options={optionsOf(f) as string[]} onChange={(x) => set(f.key, x)} />;
-      case 'segmented':
+      case 'segmented': {
+        const opts = optionsOf(f) as { value: string; label: string }[];
+        /* ⚠️ An ALIGNMENT segmented renders as joined icon buttons, everywhere, detected by its
+           option VALUES rather than by its label or its key. Alignment fields are declared in a
+           dozen specs under half a dozen key names (`align`, `textAlign`, `contentAlign`,
+           `cellAlign`…), so keying off the name would leave some of them as word buttons — and a
+           control that looks different in two panels reads as two different controls. */
+        if (opts.length && opts.every((o) => ALIGN_ICON[o.value])) {
+          return <AlignRow value={v === undefined ? '' : String(v)} options={opts} onChange={(x) => set(f.key, x)} />;
+        }
         // Compared as strings so a numeric style value still lights its option.
-        return <Segmented value={v === undefined ? '' : String(v)} options={optionsOf(f) as { value: string; label: string }[]} onChange={(x) => set(f.key, x)} />;
+        return <Segmented value={v === undefined ? '' : String(v)} options={opts} onChange={(x) => set(f.key, x)} />;
+      }
       case 'color':
         return <ColorField value={(v as string) ?? '#3D8BD0'} onChange={(x) => set(f.key, x)} />;
       case 'upload':
@@ -481,6 +630,41 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
             onColor={(x) => set('borderColor', x)}
           />
         );
+      case 'iconFrame':
+        return (
+          <IconFramePicker
+            value={(viewCfg.frame as IconFrame) ?? 'none'}
+            onChange={(v) => set('frame', v)}
+          />
+        );
+      /* ⚠️ The shapes are DRAWN, not named. 'Circle' and 'Square' are words for pictures, and the
+         picture is both faster to read and impossible to misread. Same rule as the divider's line
+         picker and the icon frames. */
+      case 'shape': {
+        const opts = optionsOf(f) as { value: string; label: string }[];
+        const mark = (v: string) => (
+          <span className={`inline-block bg-[#94A3B8] ${v === 'circle' ? 'size-4 rounded-full' : v === 'wide' ? 'h-2.5 w-6 rounded-[2px]' : 'size-4 rounded-[3px]'}`} />
+        );
+        return (
+          <span className="inline-flex overflow-hidden rounded border border-[#DFE5ED]">
+            {opts.map((o, i) => (
+              <button
+                key={o.value}
+                onClick={() => set(f.key, o.value)}
+                title={o.label}
+                className={`flex h-8 w-10 items-center justify-center transition-colors ${i > 0 ? 'border-l border-[#DFE5ED]' : ''} ${String(v) === o.value ? 'bg-[#EBF5FF]' : 'bg-white hover:bg-[#F5F7FA]'}`}
+              >{mark(o.value)}</button>
+            ))}
+          </span>
+        );
+      }
+      case 'tableContent': {
+        /* Stored as rows of CELLS. The old shape was  objects for the item list;
+           the sheet has no per-row identity to carry, so a plain string[][] is the honest form. */
+        const raw = (viewCfg.rows as unknown[]) ?? [];
+        const grid = raw.map((r) => (Array.isArray(r) ? (r as string[]) : ((r as Cfg)?.cells as string[]) ?? []));
+        return <TableContentField rows={grid} onChange={(g) => set('rows', g)} />;
+      }
       case 'lineStyle':
         return (
           <LineStylePicker
@@ -517,10 +701,34 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
         );
       case 'templates':
         return <TemplatePicker value={String(v ?? 'left')} onChange={(x) => set(f.key, x)} />;
+      /* ⚠️ Both render as the SAME joined icon group every other alignment row uses. They used to be
+         a recessed pill track, so "Alignment" looked like one control in a text element and a
+         different one in an action card — and the difference carried no meaning, since both answer
+         "where does this sit". Distribute keeps its five options and valign its four; only the
+         chrome is shared. */
       case 'distribute':
-        return <DistributeRow value={String(v ?? 'start')} onChange={(x) => set(f.key, x)} />;
+        return (
+          <AlignRow
+            value={String(v ?? 'start')}
+            options={[
+              { value: 'start', label: 'Left' }, { value: 'center', label: 'Centre' },
+              { value: 'end', label: 'Right' }, { value: 'between', label: 'Space between' },
+              { value: 'around', label: 'Space around' },
+            ]}
+            onChange={(x) => set(f.key, x)}
+          />
+        );
       case 'valign':
-        return <ValignRow value={String(v ?? 'start')} onChange={(x) => set(f.key, x)} />;
+        return (
+          <AlignRow
+            value={String(v ?? 'start')}
+            options={[
+              { value: 'start', label: 'Top' }, { value: 'center', label: 'Middle' },
+              { value: 'end', label: 'Bottom' }, { value: 'stretch', label: 'Equal height' },
+            ]}
+            onChange={(x) => set(f.key, x)}
+          />
+        );
       case 'pills':
         return (
           <div className="flex flex-wrap gap-1.5">
@@ -776,14 +984,11 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
         {/* ⚠️ No breadcrumb trail above the title. Stepping up to the parent survives as the back
             arrow ON the title row — one control instead of a row of ancestors that mostly repeated
             what the canvas already shows selected. */}
+        {/* ⚠️ No back arrow, at any depth. Stepping up is what clicking the parent on the CANVAS
+            already does, and the arrow only ever appeared on nested selections — so the header
+            shifted position depending on how deep you were, which is the one thing a header should
+            not do. Icon and title, left-aligned, always in the same place. */}
         <div className="mb-3 mt-0.5 flex items-center gap-2">
-          {path.length > 1 && (
-            <button
-              onClick={() => onSelect(path[path.length - 2].id)}
-              title={`Back to ${path[path.length - 2].name}`}
-              className="flex size-7 flex-shrink-0 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6]"
-            ><ChevronLeft size={16} /></button>
-          )}
           <span className="flex size-8 flex-shrink-0 items-center justify-center rounded bg-[#EBF5FF] text-[#3D8BD0]">
             {NODE_ICON[node.kind] ?? <Layers size={16} />}
           </span>
@@ -842,7 +1047,7 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
           />
         ) : (
         <>
-        <SectionLabel>Content</SectionLabel>
+        <SectionLabel action={<ExpandAll keys={groupsFor('content').map((g) => g.group)} openGroups={openGroups} setOpen={setOpenGroups} />}>Content</SectionLabel>
         {(
           <>
             {groupsFor('content').map(({ group, fields }) => (
@@ -851,28 +1056,10 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
               </Group>
             ))}
             {/* The §4 collection, when this widget has one and the state calls for it. */}
-            {/* L6 — the separately selectable parts of an item. Reached by clicking the part on the
-                canvas, and listed here too so it is discoverable without knowing to try. */}
-            {selItem && collection?.subElements?.length ? (
-              <Group title="Parts" open={openGroups.includes('Parts')} onToggle={() => toggleGroup('Parts')}>
-                <p className="mb-2 text-[11px] leading-[1.5] text-[#9CA3AF]">
-                  Each part has its own text and its own typography, inheriting from this item.
-                </p>
-                <div className="space-y-1.5">
-                  {collection.subElements.map((se) => (
-                    <button
-                      key={se.key}
-                      onClick={() => onSelect(subNodeId(nodeId, se.key))}
-                      className="flex w-full items-center justify-between rounded border border-[#E5E7EB] px-3 py-2 text-left transition-colors hover:border-[#3D8BD0]"
-                    >
-                      <span className="truncate text-[13px] text-[#364658]">{se.name}</span>
-                      <ChevronRight size={14} className="flex-shrink-0 text-[#9CA3AF]" />
-                    </button>
-                  ))}
-                </div>
-              </Group>
-            ) : null}
-
+            {/* ⚠️ No Parts list. Every part is already reachable by CLICKING it on the canvas —
+                that is what `subElements` wrap themselves in `<Sel>` for — so the list was a second
+                route to the same place, taking a whole section to say what pointing at the words
+                says faster. */}
             {/* Table rows edit their cells rather than a field list. */}
             {selItem && collection?.isTableRow && (
               <Group title="Cells" open={openGroups.includes('Cells')} onToggle={() => toggleGroup('Cells')}>
@@ -891,7 +1078,8 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
           </>
         )}
 
-        <SectionLabel>Design</SectionLabel>
+        {/* Design owns the spec groups AND every pack, plus the shared Spacing block. */}
+        <SectionLabel action={<ExpandAll keys={[...groupsFor('style').map((g) => g.group), ...(viewPacks ?? []), '__spacing']} openGroups={openGroups} setOpen={setOpenGroups} />}>Design</SectionLabel>
         {(
           <>
             {/* Widget-specific styling first — it is what this widget is, before the generic packs. */}
@@ -926,10 +1114,17 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
                 </Group>
               );
             })}
-            <button
-              onClick={() => { replaceStyle(nodeId, {}); toast.success('Design reset'); }}
-              className="mt-4 text-[13px] font-medium text-[#3D8BD0] hover:underline"
-            >Reset all design on this element</button>
+            {/* ⚠️ Every widget gets the SAME Spacing section, whichever styling model it uses. The
+                packs-model widgets had padding buried inside the Style pack as a lone slider, so
+                "spacing" meant two different controls depending on which element you had selected.
+                One nested-box matrix, one place, everywhere. */}
+            <Group
+              title="Spacing"
+              open={openGroups.includes('__spacing')}
+              onToggle={() => toggleGroup('__spacing')}
+            >
+              <SpacingMatrix style={styles[nodeId] ?? {}} onChange={(p) => setStyle(nodeId, p)} />
+            </Group>
           </>
         )}
         </>

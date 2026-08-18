@@ -370,3 +370,32 @@ button:not(:disabled),
 [data-sonner-toast][data-type='error'] [data-icon] svg {
   color: #dc2626;
 }
+
+/* The pairing's HEADING face applies to real headings only — a pairing is two faces with two jobs,
+   so painting the whole page in the display face would lose the pairing. */
+.portal-themed h1, .portal-themed h2, .portal-themed h3, .portal-themed h4 {
+  font-family: var(--portal-heading, inherit);
+}
+
+/* ── Support Portal dark theme ───────────────────────────────────────────────
+   The preview is built from Tailwind utilities, so dark mode repaints by ANSWERING
+   those utilities inside the themed wrapper rather than by threading a mode flag
+   through every block. A class selector beats a utility on specificity, which is
+   what makes this hold without !important. */
+.portal-dark { color-scheme: dark; }
+.portal-dark .bg-white { background-color: #16233A; }
+.portal-dark .bg-[#F7F9FC],
+.portal-dark .bg-[#F9FAFB],
+.portal-dark .bg-[#F1F5F9],
+.portal-dark .bg-[#F5F7FA] { background-color: #1C2B45; }
+.portal-dark .text-[#0F172A],
+.portal-dark .text-[#1E293B],
+.portal-dark .text-[#364658],
+.portal-dark .text-[#475467] { color: #E8EEF6; }
+.portal-dark .text-[#5B7A99],
+.portal-dark .text-[#64748B],
+.portal-dark .text-[#7B8FA5] { color: #9FB3C8; }
+.portal-dark .border-[#E5E7EB],
+.portal-dark .border-[#e5e7eb],
+.portal-dark .border-[#DFE5ED],
+.portal-dark .border-[#E1E6ED] { border-color: #2A3A55; }

@@ -118,8 +118,7 @@ export const CARD_SPEC: WidgetSpec = {
     {
       /* ⚠️ Layout and Shape moved to DESIGN. Where the image sits and what it is cropped to are
          how the card LOOKS, not what it says — Content is the picture and the words. */
-      key: 'template', label: 'Layout', control: 'segmented', tab: 'style', group: 'Card',
-      options: [{ value: 'left', label: 'Icon left' }, { value: 'top', label: 'Icon top' }, { value: 'right', label: 'Icon right' }, { value: 'none', label: 'Text only' }],
+      key: 'template', label: 'Layout', control: 'templates', tab: 'style', group: 'Card',
       help: 'Where the image sits is the real question, so pick it by looking rather than by reading.',
       /* ⚠️ Leaving Icon top while the shape is Banner would strand a full-width bar beside the
          title. The shape falls back to Circle and the drawer SAYS it did — a silent repair is how
@@ -130,7 +129,7 @@ export const CARD_SPEC: WidgetSpec = {
     },
     { key: 'image', label: 'Image', control: 'upload', group: 'Card properties', when: (c) => c.template !== 'none' },
     {
-      key: 'imageShape', label: 'Shape', control: 'segmented', tab: 'style', group: 'Card',
+      key: 'imageShape', label: 'Shape', control: 'shape', tab: 'style', group: 'Card',
       when: (c) => c.template !== 'none',
       // Banner is a full-width bar, so it is only OFFERED on Icon top — it has nowhere to go beside text.
       options: (c) => (c.template === 'top'
@@ -186,7 +185,9 @@ export const TABLE_SPEC: WidgetSpec = {
   fields: [
     /* Size leads: you decide the shape before you fill it, and the picker is the only control here
        that changes what the other fields are even editing. */
-    { key: 'size', label: 'Size', control: 'grid', group: 'Content', max: 10 },
+    /* ⚠️ One CTA, not a size sweeper plus a row list. The sheet decides its own size by what you
+       type into it, so asking for R × C first was asking a question the content already answers. */
+    { key: 'rows', label: 'Table content', control: 'tableContent', group: 'Content' },
     { key: 'title', label: 'Title', control: 'text', group: 'Content', help: 'Optional.' },
     { key: 'headerRow', label: 'First row is a header', control: 'toggle', group: 'Content' },
     /* §7.17's column list. Width and alignment live HERE rather than in a second Styling block —
@@ -199,27 +200,31 @@ export const TABLE_SPEC: WidgetSpec = {
      * ⚠️ Replaces the old "Header emphasis" preset. Bold / Filled / None was three canned answers
      * to a question that has a colour and a face in it — once the header has its own background and
      * typeface, the preset can only contradict them. */
-    { key: 'headBg', label: 'Background colour', control: 'color', tab: 'style', group: 'Header' },
-    { key: 'headFont', label: 'Font', control: 'select', tab: 'style', group: 'Header', options: FONTS, divider: true },
-    { key: 'headWeight', label: 'Font weight', control: 'select', tab: 'style', group: 'Header', options: WEIGHTS },
-    { key: 'headSize', label: 'Font size', control: 'sliderUnit', tab: 'style', group: 'Header', min: 10, max: 32, unit: 'px' },
-    { key: 'headColor', label: 'Font colour', control: 'color', tab: 'style', group: 'Header' },
-    { key: 'headFormat', label: 'Font format', control: 'chips', tab: 'style', group: 'Header', options: FORMATS },
+    {
+      key: 'styleTab', label: '', control: 'segmented', tab: 'style', group: 'Text style',
+      options: [{ value: 'header', label: 'Header' }, { value: 'rows', label: 'Rows' }],
+    },
+    { key: 'headBg', label: 'Background colour', control: 'color', tab: 'style', group: 'Text style', when: (c) => (c.styleTab ?? 'header') === 'header' },
+    { key: 'headFont', label: 'Font', control: 'select', tab: 'style', group: 'Text style', when: (c) => (c.styleTab ?? 'header') === 'header', options: FONTS, divider: true },
+    { key: 'headWeight', label: 'Font weight', control: 'select', tab: 'style', group: 'Text style', when: (c) => (c.styleTab ?? 'header') === 'header', options: WEIGHTS },
+    { key: 'headSize', label: 'Font size', control: 'sliderUnit', tab: 'style', group: 'Text style', when: (c) => (c.styleTab ?? 'header') === 'header', min: 10, max: 32, unit: 'px' },
+    { key: 'headColor', label: 'Font colour', control: 'color', tab: 'style', group: 'Text style', when: (c) => (c.styleTab ?? 'header') === 'header' },
+    { key: 'headFormat', label: 'Font format', control: 'chips', tab: 'style', group: 'Text style', when: (c) => (c.styleTab ?? 'header') === 'header', options: FORMATS },
 
     /* ── Rows ─────────────────────────────────────────────────────────────────
      * ⚠️ Two row colours replace the old "Striped rows" switch. Striping is what you get by giving
      * the two a different colour, so the switch was a second control for the same outcome — and it
      * could disagree with the colours the moment both were set. */
-    { key: 'evenBg', label: 'Even rows', control: 'color', tab: 'style', group: 'Rows' },
-    { key: 'oddBg', label: 'Odd rows', control: 'color', tab: 'style', group: 'Rows' },
-    { key: 'rowFont', label: 'Font', control: 'select', tab: 'style', group: 'Rows', options: FONTS, divider: true },
-    { key: 'rowWeight', label: 'Font weight', control: 'select', tab: 'style', group: 'Rows', options: WEIGHTS },
-    { key: 'rowSize', label: 'Font size', control: 'sliderUnit', tab: 'style', group: 'Rows', min: 10, max: 32, unit: 'px' },
-    { key: 'rowColor', label: 'Font colour', control: 'color', tab: 'style', group: 'Rows' },
-    { key: 'rowFormat', label: 'Font format', control: 'chips', tab: 'style', group: 'Rows', options: FORMATS },
+    { key: 'evenBg', label: 'Even rows', control: 'color', tab: 'style', group: 'Text style', when: (c) => c.styleTab === 'rows' },
+    { key: 'oddBg', label: 'Odd rows', control: 'color', tab: 'style', group: 'Text style', when: (c) => c.styleTab === 'rows' },
+    { key: 'rowFont', label: 'Font', control: 'select', tab: 'style', group: 'Text style', when: (c) => c.styleTab === 'rows', options: FONTS, divider: true },
+    { key: 'rowWeight', label: 'Font weight', control: 'select', tab: 'style', group: 'Text style', when: (c) => c.styleTab === 'rows', options: WEIGHTS },
+    { key: 'rowSize', label: 'Font size', control: 'sliderUnit', tab: 'style', group: 'Text style', when: (c) => c.styleTab === 'rows', min: 10, max: 32, unit: 'px' },
+    { key: 'rowColor', label: 'Font colour', control: 'color', tab: 'style', group: 'Text style', when: (c) => c.styleTab === 'rows' },
+    { key: 'rowFormat', label: 'Font format', control: 'chips', tab: 'style', group: 'Text style', when: (c) => c.styleTab === 'rows', options: FORMATS },
 
     // ── Table — what is left once the header and the rows own their own look ──
-    { key: 'firstColumn', label: 'First column', control: 'toggle', tab: 'style', group: 'Table', help: 'Style the first column like a header.' },
+    { key: 'firstColumn', label: 'First column', control: 'toggle', tab: 'style', group: 'Border and shadow', help: 'Style the first column like a header.' },
     { key: 'cellPad', label: 'Cell padding', control: 'sliderUnit', tab: 'style', group: 'Table', min: 4, max: 24, unit: 'px' },
     { key: 'cellAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Table', options: ALIGN_4 },
     { key: 'hScroll', label: 'Horizontal scroll on narrow screens', control: 'toggle', tab: 'style', group: 'Table' },
@@ -227,8 +232,8 @@ export const TABLE_SPEC: WidgetSpec = {
     /* ── Frame — the table's own box, using the shared components ──
        ⚠️ Its own group, not rows on Table: a border round the whole table and a border between its
        cells are different lines, and the old single "Bordered" switch answered for both. */
-    { key: 'frameBorderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Frame' },
-    { key: 'shadowOn', label: 'Shadow', control: 'shadow', tab: 'style', group: 'Frame' },
+    { key: 'frameBorderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Border and shadow' },
+    { key: 'shadowOn', label: 'Shadow', control: 'shadow', tab: 'style', group: 'Border and shadow' },
   ],
   /* ⚠️ No P1. The table's fill, border and radius are answered by Frame and by the Header/Rows
      backgrounds — a Style section on top of those is a third place to set the same box. */
@@ -239,18 +244,12 @@ export const TABLE_SPEC: WidgetSpec = {
     tone: 'info',
     text: 'This binds to nothing, which is exactly when it is right: short, stable content that is not already a record. Past about ten rows it wants search and sorting — which means it wants to be a knowledge article.',
   }],
-  collection: {
-    key: 'rows', group: 'Rows', addLabel: 'Add row',
-    emptyHint: 'No rows yet.',
-    label: (it, i) => (Array.isArray(it.cells) ? (it.cells as string[])[0] : '') || `Row ${i + 1}`,
-    meta: (it) => (Array.isArray(it.cells) ? (it.cells as string[]).slice(1).join(' · ') : ''),
-    seed: () => ({ cells: ['New row', '', ''] }),
-    fields: [],
-    isTableRow: true,
-  },
+  /* ⚠️ No row COLLECTION. Rows are edited in the sheet, so a second list of them in the panel
+     would be two editors for one grid — and the one that could only add a row at a time was the
+     worse of the two. */
   defaults: {
     title: '', headerRow: true,
-    headBg: '#F9FAFB', headFont: 'Inherit from theme', headWeight: 'Semibold', headSize: 13, headColor: '#364658', headFormat: [],
+    styleTab: 'header', headBg: '#F9FAFB', headFont: 'Inherit from theme', headWeight: 'Semibold', headSize: 13, headColor: '#364658', headFormat: [],
     evenBg: '#FFFFFF', oddBg: '#FFFFFF', rowFont: 'Inherit from theme', rowWeight: 'Normal', rowSize: 13, rowColor: '#364658', rowFormat: [],
     /* ⚠️ Even widths are the DEFAULT. Off, the table falls back to the per-column widths from the
        columns editor, which is a deliberate choice rather than the resting state — a fresh table
@@ -324,8 +323,8 @@ export const SLIDER_SPEC: WidgetSpec = {
         warnWhenBlank: 'No alt text yet — screen-reader users will hear nothing where this slide’s image is.',
       },
       { key: 'poster', label: 'Poster image', control: 'upload', group: 'Media', when: (c) => c.kind === 'video' },
-      { key: 'heading', label: 'Heading', control: 'text', group: 'Text' },
-      { key: 'caption', label: 'Caption', control: 'textarea', group: 'Text' },
+      { key: 'heading', label: 'Heading', control: 'text', group: 'Text style' },
+      { key: 'caption', label: 'Caption', control: 'textarea', group: 'Text style' },
       { key: 'ctaEnabled', label: 'Call to action', control: 'toggle', group: 'Action' },
       { key: 'ctaLabel', label: 'CTA label', control: 'text', group: 'Action', when: (c) => c.ctaEnabled === true },
       {
@@ -500,7 +499,7 @@ export const LIST_SPEC: WidgetSpec = {
        second one, and an empty title renders nothing rather than an empty line. */
     { key: 'title', label: 'List title', control: 'text', group: 'Content', help: 'Optional — leave blank for a bare list.' },
     {
-      key: 'marker', label: 'Bullet', control: 'segmented', tab: 'style', group: 'Item Style',
+      key: 'marker', label: 'Bullet', control: 'segmented', tab: 'style', group: 'Text style',
       options: [{ value: 'disc', label: 'Dot' }, { value: 'number', label: 'Number' }, { value: 'none', label: 'None' }],
     },
     ...typeFields('title', 'Item Title', 23),
@@ -567,14 +566,14 @@ export const ACCORDION_SPEC: WidgetSpec = {
     { key: 'firstOpen', label: 'Show first item expanded', control: 'toggle', group: 'Display rules' },
 
     // ── Collapsed style ──
-    { key: 'titleType', label: 'Theme text', control: 'select', tab: 'style', group: 'Collapsed Style', options: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'Paragraph'] },
-    { key: 'titleFont', label: 'Font', control: 'select', tab: 'style', group: 'Collapsed Style', options: FONTS, divider: true },
-    { key: 'titleSize', label: 'Size', control: 'sliderUnit', tab: 'style', group: 'Collapsed Style', min: 10, max: 48, unit: 'px' },
-    { key: 'titleColor', label: 'Colour', control: 'color', tab: 'style', group: 'Collapsed Style' },
-    { key: 'titleFormat', label: 'Format', control: 'chips', tab: 'style', group: 'Collapsed Style', options: ['Bold', 'Underline', 'Italic'] },
-    { key: 'titleAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Collapsed Style', options: ALIGN_4 },
-    { key: 'headBg', label: 'Background colour', control: 'color', tab: 'style', group: 'Collapsed Style', divider: true },
-    { key: 'headBorderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Collapsed Style' },
+    { key: 'titleType', label: 'Theme text', control: 'select', tab: 'style', group: 'Text style', options: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'Paragraph'] },
+    { key: 'titleFont', label: 'Font', control: 'select', tab: 'style', group: 'Text style', options: FONTS, divider: true },
+    { key: 'titleSize', label: 'Size', control: 'sliderUnit', tab: 'style', group: 'Text style', min: 10, max: 48, unit: 'px' },
+    { key: 'titleColor', label: 'Colour', control: 'color', tab: 'style', group: 'Text style' },
+    { key: 'titleFormat', label: 'Format', control: 'chips', tab: 'style', group: 'Text style', options: ['Bold', 'Underline', 'Italic'] },
+    { key: 'titleAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Text style', options: ALIGN_4 },
+    { key: 'headBg', label: 'Background colour', control: 'color', tab: 'style', group: 'Text style', divider: true },
+    { key: 'headBorderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Text style' },
 
     // ── Expansion icon — part of the collapsed row, so it sits with it ──
     { key: 'iconColor', label: 'Icon colour', control: 'color', tab: 'style', group: 'Expansion icon' },
@@ -584,13 +583,13 @@ export const ACCORDION_SPEC: WidgetSpec = {
     { key: 'iconRadius', label: 'Corner radius', control: 'sliderUnit', tab: 'style', group: 'Expansion icon', min: 0, max: 50, unit: '%' },
 
     // ── Expanded style ──
-    { key: 'bodyFont', label: 'Font', control: 'select', tab: 'style', group: 'Expanded Style', options: FONTS },
-    { key: 'bodySize', label: 'Size', control: 'sliderUnit', tab: 'style', group: 'Expanded Style', min: 10, max: 32, unit: 'px' },
-    { key: 'bodyColor', label: 'Colour', control: 'color', tab: 'style', group: 'Expanded Style' },
-    { key: 'bodyFormat', label: 'Format', control: 'chips', tab: 'style', group: 'Expanded Style', options: ['Bold', 'Underline', 'Italic'] },
-    { key: 'bodyAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Expanded Style', options: ALIGN_4 },
-    { key: 'bodyBg', label: 'Background colour', control: 'color', tab: 'style', group: 'Expanded Style', divider: true },
-    { key: 'bodyBorderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Expanded Style' },
+    { key: 'bodyFont', label: 'Font', control: 'select', tab: 'style', group: 'Text style — expanded', options: FONTS },
+    { key: 'bodySize', label: 'Size', control: 'sliderUnit', tab: 'style', group: 'Text style — expanded', min: 10, max: 32, unit: 'px' },
+    { key: 'bodyColor', label: 'Colour', control: 'color', tab: 'style', group: 'Text style — expanded' },
+    { key: 'bodyFormat', label: 'Format', control: 'chips', tab: 'style', group: 'Text style — expanded', options: ['Bold', 'Underline', 'Italic'] },
+    { key: 'bodyAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Text style — expanded', options: ALIGN_4 },
+    { key: 'bodyBg', label: 'Background colour', control: 'color', tab: 'style', group: 'Text style — expanded', divider: true },
+    { key: 'bodyBorderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Text style — expanded' },
 
     { key: 'contentAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Alignment', options: ALIGN_4 },
   ],

@@ -147,13 +147,14 @@ export const ICON_SPEC: WidgetSpec = {
   id: 'icon_el', name: 'Icon', group: 'Visual', reuse: 'many', family: 'flat',
   panel: {
     content: [
+      // The picker IS the Change-icon action — it shows what is chosen and opens the library.
       { key: 'icon', label: 'Icon', control: 'icon' },
       {
-        key: 'a11yLabel', label: 'Accessible label', control: 'text',
+        key: 'a11yLabel', label: 'Alt text', control: 'text',
         /* ⚠️ Said out loud. Blank marks the mark decorative and hides it from screen readers, which
            is the right default for an ornament and the wrong one for a meaningful icon — so it is
            never a silent behaviour. */
-        help: 'Leave blank and this mark is treated as decorative and hidden from screen readers.',
+        help: 'Shown if the icon does not load, and read out by screen readers. Leave blank only for decoration.',
       },
       {
         key: 'link', label: 'Link', control: 'select',
@@ -167,37 +168,40 @@ export const ICON_SPEC: WidgetSpec = {
       { key: 'caption', label: 'Caption', control: 'text', help: 'Optional.' },
     ],
     accordions: [
+      /* ⚠️ Layout is ONE choice from five drawn frames, not four independent switches. Shape, fill,
+         border and ring offered separately let you build things that are not frames at all — a ring
+         with no fill, a border on nothing — and then the panel has to explain itself. */
+      { id: 'layout', open: true, fields: [{ key: 'frame', label: 'Layout', control: 'iconFrame' }] },
       {
-        id: 'style', open: true,
+        id: 'style',
         fields: [
           { key: 'iconColor', label: 'Icon colour', control: 'color' },
-          {
-            key: 'containerShape', label: 'Container shape', control: 'segmented',
-            options: [{ value: 'none', label: 'None' }, { value: 'circle', label: 'Circle' }, { value: 'rounded', label: 'Rounded' }],
-          },
-          { key: 'containerFill', label: 'Container fill', control: 'color', when: (c) => c.containerShape !== 'none' },
-          { key: 'borderWidth', label: 'Border', control: 'sliderUnit', min: 0, max: 8, unit: 'px' },
-          { key: 'borderColor', label: 'Border colour', control: 'color', when: (c) => Number(c.borderWidth ?? 0) > 0 },
-          { key: 'radius', label: 'Corner radius', control: 'sliderUnit', min: 0, max: 32, unit: 'px', when: (c) => c.containerShape === 'rounded' },
-          { key: 'shadow', label: 'Shadow', control: 'toggle' },
-          {
-            key: 'hover', label: 'Hover effect', control: 'pills',
-            options: [{ value: 'none', label: 'None' }, { value: 'grow', label: 'Grow' }, { value: 'tint', label: 'Tint' }],
-          },
+          // Absent on the bare frame: there is no box to fill or outline.
+          { key: 'containerFill', label: 'Background colour', control: 'color', when: (c) => c.frame !== 'none' },
+          { key: 'borderWidth', label: 'Border', control: 'borderRow', when: (c) => c.frame !== 'none' },
+          { key: 'radius', label: 'Corner radius', control: 'radius', when: (c) => c.frame === 'rounded-fill' },
         ],
-        groups: ['G3'], roles: ['meta'],
       },
-      { id: 'spacing', spacing: 'both' },
-      { id: 'size', fields: [{ key: 'iconSize', label: 'Icon size', control: 'sliderUnit', min: 12, max: 64, unit: 'px' }] },
       { id: 'alignment', fields: alignmentFields },
+      { id: 'spacing', spacing: 'both' },
+      {
+        id: 'size',
+        fields: [
+          { key: 'iconSize', label: 'Width', control: 'sliderUnit', min: 12, max: 96, unit: 'px' },
+          /* ⚠️ Height follows width unless it is set. An icon is square by nature, so a height that
+             silently diverged would distort every glyph in the library. */
+          { key: 'iconHeight', label: 'Height', control: 'sliderUnit', min: 12, max: 96, unit: 'px' },
+        ],
+      },
     ],
   },
   fields: [], packs: [],
   defaults: {
     a11yLabel: '', link: 'none', url: '', caption: '',
-    iconColor: '#3D8BD0', containerShape: 'none', containerFill: '#EBF5FF',
-    borderWidth: 0, borderColor: '#E5E7EB', radius: 8, shadow: false, hover: 'none',
-    iconSize: 24, align: 'left',
+    frame: 'none',
+    iconColor: '#3D8BD0', containerFill: '#EBF5FF',
+    borderWidth: 0, borderColor: '#E5E7EB', radius: 8,
+    iconSize: 24, iconHeight: 24, align: 'left',
   },
 };
 
@@ -255,96 +259,20 @@ export const SHAPE_SPEC: WidgetSpec = {
  * ordered, and the set is the thing being authored. Folding it into Button would have meant
  * dropping five buttons in a row and calling that a menu. */
 
-const NAV_SEEDS = [
-  { label: 'Report an issue', action: 'page', page: 'Report an issue' },
-  { label: 'Service catalog', action: 'page', page: 'Service Catalog' },
-  { label: 'Knowledge', action: 'page', page: 'Knowledge' },
-];
-
-export const NAV_SPEC: WidgetSpec = {
-  id: 'nav_links', name: 'Navigation Links', group: 'Basic', reuse: 'many', family: 'collection',
-  panel: {
-    content: [{ key: 'title', label: 'Title', control: 'text', help: 'Optional heading above the links.' }],
-    accordions: [
-      {
-        id: 'layout', open: true,
-        fields: [
-          {
-            key: 'direction', label: 'Direction', control: 'segmented',
-            options: [{ value: 'row', label: 'Horizontal' }, { value: 'col', label: 'Vertical' }],
-          },
-          { key: 'gap', label: 'Gap', control: 'sliderUnit', min: 0, max: 40, unit: 'px' },
-          { key: 'wrap', label: 'Wrap onto more lines', control: 'toggle', when: (c) => c.direction !== 'col' },
-          {
-            key: 'separator', label: 'Separator', control: 'segmented',
-            options: [{ value: 'none', label: 'None' }, { value: 'dot', label: 'Dot' }, { value: 'line', label: 'Line' }],
-            when: (c) => c.direction !== 'col',
-          },
-        ],
-      },
-      {
-        id: 'style',
-        groups: ['G1', 'G3'], roles: ['title', 'link'],
-        fields: [
-          {
-            key: 'hover', label: 'Hover effect', control: 'pills',
-            options: [{ value: 'none', label: 'None' }, { value: 'underline', label: 'Underline' }, { value: 'tint', label: 'Tint' }],
-          },
-        ],
-      },
-      { id: 'spacing', spacing: 'both' },
-      { id: 'alignment', fields: alignmentFields },
-    ],
-  },
-  collection: {
-    key: 'items', group: 'Links', addLabel: 'Add link', max: 12, hideable: true,
-    emptyHint: 'No links yet. A navigation block with nothing in it is invisible on the portal.',
-    label: (it) => String(it.label ?? ''),
-    meta: (it) => String(it.page ?? it.url ?? ''),
-    seed: (i) => ({ label: `Link ${i + 1}`, action: 'page', page: 'My Requests' }),
-    fields: [
-      { key: 'label', label: 'Label', control: 'text', group: 'Content' },
-      {
-        key: 'action', label: 'Opens', control: 'select', group: 'Content',
-        options: [
-          { value: 'page', label: 'A page in this portal' }, { value: 'url', label: 'External link' },
-          { value: 'email', label: 'Compose an email' }, { value: 'phone', label: 'Call a number' },
-        ],
-      },
-      {
-        key: 'page', label: 'Page', control: 'select', group: 'Content', when: (c) => c.action === 'page',
-        options: ['My Requests', 'Service Catalog', 'Knowledge', 'My Approvals', 'My Assets', 'Report an issue'],
-      },
-      { key: 'url', label: 'URL', control: 'text', group: 'Content', when: (c) => c.action === 'url' },
-      { key: 'email', label: 'Send to', control: 'text', group: 'Content', when: (c) => c.action === 'email' },
-      { key: 'phone', label: 'Number', control: 'text', group: 'Content', when: (c) => c.action === 'phone' },
-      { key: 'icon', label: 'Icon', control: 'icon', group: 'Content' },
-    ],
-    roles: ['link'],
-  },
-  fields: [], packs: [],
-  defaults: {
-    title: '', direction: 'row', gap: 20, wrap: true, separator: 'none', hover: 'underline', align: 'left',
-    items: NAV_SEEDS.map((s, i) => ({ id: `n${i}`, ...s })),
-  },
-};
-
 /* ── A card's own words ─────────────────────────────────────────────────────
  *
  * Two tiny panels so a title and a subtext can be selected and rewritten IN PLACE. ⚠️ The text
  * key writes to the CARD's config, not a store of its own — the words live on the card, and two
- * copies of one sentence is how a canvas and a panel start disagreeing. */
+ * copies of one sentence is how a canvas and a panel start disagreeing.
+ *
+ * ⚠️ NO Style accordion. Typeface, size, weight and colour are on the floating text toolbar over
+ * the selected words; a second set in the sidebar is two places to change one thing. */
 const textSpec = (id: string, name: string, key: string): WidgetSpec => ({
   id, name, group: 'Basic', reuse: 'many', family: 'flat',
   panel: {
     content: [{ key, label: name, control: 'text' }],
-    /* ⚠️ NO Style accordion. Typeface, size, weight and colour are all on the floating text toolbar
-       that appears over the selected words, and a second set of the same controls in the sidebar is
-       two places to change one thing — the pair drift, and neither reads as the real one. Alignment
-       and Spacing stay: they position the text BLOCK, which is not what the toolbar edits. */
     accordions: [
-      { id: 'alignment', open: true, fields: [{ key: 'align', label: 'Alignment', control: 'segmented',
-        options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Right' }] }] },
+      { id: 'alignment', open: true, fields: alignmentFields },
       { id: 'spacing', spacing: 'both' },
     ],
   },
@@ -356,7 +284,7 @@ export const CARD_TITLE_SPEC = textSpec('card_title', 'Title', 'title');
 export const CARD_SUB_SPEC = textSpec('card_sub', 'Subtext', 'sub');
 
 export const PANEL_SPECS: WidgetSpec[] = [
-  DIVIDER_SPEC, SPACER_SPEC, TITLE_LG_SPEC, TITLE_SM_SPEC, ICON_SPEC, SHAPE_SPEC, NAV_SPEC,
+  DIVIDER_SPEC, SPACER_SPEC, TITLE_LG_SPEC, TITLE_SM_SPEC, ICON_SPEC, SHAPE_SPEC,
   CARD_TITLE_SPEC, CARD_SUB_SPEC,
 ];
 
@@ -368,5 +296,4 @@ export const PANEL_FOR_TYPE: Record<string, string> = {
   'b-small-title': 'title_sm',
   'v-icon': 'icon_el',
   'v-shape': 'shape_el',
-  'b-nav': 'nav_links',
 };

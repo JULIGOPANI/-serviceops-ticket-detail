@@ -79,7 +79,10 @@ const ICONS: Record<string, ReactNode> = {
   predefined: <Boxes size={16} />,
 };
 
-const icon = (key: string) => ICONS[key] ?? <Square size={16} />;
+/* ⚠️ Exported: the canvas's own element picker draws from this same registry. Two icon maps for one
+   catalogue would disagree the first time either gained an element. */
+export const elementIcon = (key: string) => ICONS[key] ?? <Square size={16} />;
+const icon = elementIcon;
 
 const searchText = (e: PortalElement) => `${e.name} ${e.group} ${e.keywords ?? ''}`.toLowerCase();
 

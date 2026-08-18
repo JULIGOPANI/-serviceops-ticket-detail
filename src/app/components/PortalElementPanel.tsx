@@ -330,17 +330,10 @@ export function PortalElementPanel({ nodeId, content, setContent, styles, setSty
   return (
     <div className="flex h-full flex-col">
       {/* Element header — icon, name, and what this panel edits.
-          ⚠️ No breadcrumb trail: the step up to the parent is the back arrow on this row, matching
-          the widget drawer so the two panels don't head themselves differently. */}
+          ⚠️ No breadcrumb and no back arrow — matching the widget drawer, so the two panels do not
+          head themselves differently. Stepping up is clicking the parent on the canvas. */}
       <div className="flex-shrink-0 border-b border-[#F0F2F5] px-4 pb-3 pt-4">
         <div className="flex items-center gap-2">
-          {path.length > 1 && (
-            <button
-              onClick={() => onSelect(path[path.length - 2].id)}
-              title={`Back to ${path[path.length - 2].name}`}
-              className="flex size-7 flex-shrink-0 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6]"
-            ><ChevronLeft size={16} /></button>
-          )}
           <span className="flex size-8 flex-shrink-0 items-center justify-center rounded bg-[#EBF5FF] text-[#3D8BD0]">
             {NODE_ICON[node.kind] ?? <Layers size={16} />}
           </span>

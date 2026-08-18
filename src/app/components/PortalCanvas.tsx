@@ -1,15 +1,18 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-  AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Baseline, Bold,
-  ChevronRight, Copy, GripHorizontal, GripVertical, Italic, Link2, Plus, SquareDashed,
-  StretchHorizontal, Trash2, Underline,
+  AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical,
+  AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, ArrowDown, ArrowLeft, ArrowRight,
+  ArrowUp, Baseline, Bold, ChevronRight, Copy, GripHorizontal, GripVertical, Italic, Link2, Plus,
+  SquareDashed, Trash2, Underline,
 } from 'lucide-react';
 // ArrowLeft stays in use by the card toolbar's "Move left".
 import { toast } from 'sonner';
 import { AiSparkle } from './AiSparkle';
 import { HEADING_SIZE, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, nodeById, nodePath } from './portalPageModel';
 import { boxCss, containerCss } from './portalStyleResolver';
+import { PORTAL_ELEMENTS, PORTAL_ELEMENT_GROUPS } from './supportPortalData';
+import { elementIcon } from './SupportPortalAddPanel';
 import type { NodeStyle, PortalStyles, SpacingBox } from './portalPageModel';
 
 /* Canvas selection layer.
@@ -47,19 +50,23 @@ interface CanvasCtx {
   deleteNode: (id: string) => void;
   /** True when this node has an identity that can be cloned. */
   canDuplicate: (id: string) => boolean;
-  addInside: (id: string) => void;
+  addInside: (id: string, elementType?: string) => void;
+  /** Swaps a placed element for a different kind, in the same spot. */
+  replaceElement: (id: string, elementType: string) => void;
   /** Drops `sourceId` at `targetId`'s position — the grip's drag-to-reorder. */
   moveTo: (sourceId: string, targetId: string) => void;
   /** True when the two ids sit in the same list, so a drop between them is meaningful. */
   areSiblings: (a: string, b: string) => boolean;
+  /** Writes a text node's words back to whichever store owns them — the inline-edit path. */
+  setText: (id: string, text: string) => void;
 }
 
 const Ctx = createContext<CanvasCtx>({
   enabled: false, selectedId: null, hoverId: null,
-  select: () => {}, setHover: () => {}, styles: {}, setStyle: () => {},
+  select: () => {}, setHover: () => {}, styles: {}, setStyle: () => {}, setText: () => {},
   addSection: () => {}, addColumnBeside: () => {}, dropInColumn: () => {}, dropAtSeam: () => {}, dropInRow: () => {},
   moveNode: () => {}, duplicateNode: () => {}, deleteNode: () => {}, canDuplicate: () => false, addInside: () => {},
-  moveTo: () => {}, areSiblings: () => false,
+  moveTo: () => {}, areSiblings: () => false, replaceElement: () => {},
 });
 
 /** Reads a dragged catalogue element off a drop event, or null when it isn't one of ours. */
@@ -115,12 +122,68 @@ export function sizeOf(styles: PortalStyles, id: string): React.CSSProperties {
 
 const btn = 'flex size-7 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]';
 const btnOff = 'flex size-7 items-center justify-center rounded text-[#CBD5E1] cursor-not-allowed';
+const btnOn = 'flex size-7 items-center justify-center rounded bg-[#EBF5FF] text-[#3D8BD0]';
+
+/* The element library, on the canvas.
+ *
+ * ⚠️ Same catalogue as the Add panel, deliberately — two lists of "everything you can put on a page"
+ * would drift the first time one gained an element. Components already on the page are disabled
+ * here for the same reason they are there: no portal has two "My Requests".  */
+function ElementPicker({ mode, onPick, onClose }: { mode: 'add' | 'replace'; onPick: (type: string) => void; onClose: () => void }) {
+  const [q, setQ] = useState('');
+  const groups = PORTAL_ELEMENT_GROUPS.map((g) => ({
+    group: g,
+    items: PORTAL_ELEMENTS.filter((e) => e.group === g && !e.onPage
+      && (!q || `${e.name} ${e.keywords ?? ''}`.toLowerCase().includes(q.toLowerCase()))),
+  })).filter((g) => g.items.length);
+
+  return (
+    <>
+      {/* Clicking anywhere else closes it — a popover that only closes from its own ✕ is a modal
+          pretending not to be one. */}
+      <span className="fixed inset-0 z-[60]" onClick={onClose} />
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="absolute left-1/2 top-[calc(100%+8px)] z-[61] max-h-[340px] w-[260px] -translate-x-1/2 overflow-y-auto rounded-lg border border-[#E5E7EB] bg-white py-1 shadow-[0_12px_16px_-4px_rgba(16,24,40,0.10),0_4px_6px_-2px_rgba(16,24,40,0.06)]"
+      >
+        <div className="sticky top-0 z-10 bg-white px-2 pb-1.5 pt-1">
+          <input
+            autoFocus
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={mode === 'replace' ? 'Replace with…' : 'Search elements'}
+            className="h-8 w-full rounded border border-[#DFE5ED] px-2.5 text-[12px] outline-none focus:border-[#3D8BD0]"
+          />
+        </div>
+        {groups.map(({ group, items }) => (
+          <div key={group}>
+            <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-[#9CA3AF]">{group}</p>
+            {items.map((el) => (
+              <button
+                key={el.id}
+                onClick={() => onPick(el.id)}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-[#364658] transition-colors hover:bg-[#F5F9FD]"
+              >
+                <span className="flex size-6 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#64748B]">
+                  {elementIcon(el.icon)}
+                </span>
+                <span className="truncate">{el.name}</span>
+              </button>
+            ))}
+          </div>
+        ))}
+        {!groups.length && <p className="px-3 py-4 text-center text-[12px] text-[#9CA3AF]">Nothing matches “{q}”.</p>}
+      </div>
+    </>
+  );
+}
 
 /* Light toolbar for everything that isn't text. Icons only: Content and Style both live in the
    right panel, so a "Design" pill here would be a second door to a room you are already in.
    Every button does the thing it says — nothing here is a placeholder. */
 function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: string }) {
-  const { styles, setStyle, moveNode, duplicateNode, deleteNode, canDuplicate, addInside } = useCanvas();
+  const { styles, setStyle, moveNode, duplicateNode, deleteNode, canDuplicate, addInside, replaceElement } = useCanvas();
+  const [picking, setPicking] = useState(false);
 
   /** Side-by-side things move on the horizontal axis; stacked bands move on the vertical one. */
   const horizontal = kind === 'card' || kind === 'column';
@@ -130,14 +193,23 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
 
   /** A container can take a child; a leaf cannot. */
   const canAdd = kind === 'section' || kind === 'card' || kind === 'column' || kind === 'nav';
+  /** A dropped element — for these, "+" means swap this for another kind, in place. */
+  const placed = /^el-[0-9]+$/.test(id);
   const dupOk = canDuplicate(id);
 
-  /** Alignment cycles — one button, three states, rather than three buttons in a 7-slot bar. */
-  const cycleAlign = () => {
-    const order = ['left', 'center', 'right'] as const;
-    const cur = styles[id]?.align ?? 'left';
-    setStyle(id, { align: order[(order.indexOf(cur) + 1) % order.length] });
-  };
+  /* ⚠️ THREE buttons, not one that cycles. A cycling control makes you read the tooltip to find out
+     what state you are in and click up to twice to reach the one you want — for three mutually
+     exclusive options that are each one glyph wide, showing all three costs two slots and removes
+     both problems. The lit one is also the answer to "how is this aligned?", which the single
+     button could only tell you in a tooltip. */
+  const align = String(styles[id]?.align ?? 'left');
+  const ALIGNS: [string, string, ReactNode][] = horizontal
+    ? [['left', 'Align left', <AlignStartVertical key="l" size={15} />],
+       ['center', 'Align centre', <AlignCenterVertical key="c" size={15} />],
+       ['right', 'Align right', <AlignEndVertical key="r" size={15} />]]
+    : [['left', 'Align top', <AlignStartHorizontal key="t" size={15} />],
+       ['center', 'Align middle', <AlignCenterHorizontal key="m" size={15} />],
+       ['right', 'Align bottom', <AlignEndHorizontal key="b" size={15} />]];
 
   return (
     <div
@@ -154,8 +226,28 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
       {moves.map(([label, ic, dir]) => (
         <button key={label} className={btn} title={label} onClick={() => moveNode(id, dir)}>{ic}</button>
       ))}
-      {canAdd && (
-        <button className={btn} title="Add an element inside" onClick={() => addInside(id)}><Plus size={15} /></button>
+      {/* ⚠️ "+" opens the list HERE rather than swapping the side panel to it. Sending you to
+          another surface to pick, then back to the canvas to see the result, is three steps for one
+          decision — and on a FILLED element the same gesture means swap, which is a change you want
+          to make while looking at what you are replacing. */}
+      {(canAdd || placed) && (
+        <div className="relative">
+          <button
+            className={btn}
+            title={placed ? 'Replace with another element' : 'Add an element inside'}
+            onClick={() => setPicking((v) => !v)}
+          ><Plus size={15} /></button>
+          {picking && (
+            <ElementPicker
+              mode={placed ? 'replace' : 'add'}
+              onPick={(type) => {
+                setPicking(false);
+                if (placed) replaceElement(id, type); else addInside(id, type);
+              }}
+              onClose={() => setPicking(false)}
+            />
+          )}
+        </div>
       )}
       <button
         className={dupOk ? btn : btnOff}
@@ -169,11 +261,14 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
           onClick={() => { setStyle(id, { padding: ZERO_BOX }); toast.success(`Padding cleared on ${name}`); }}
         ><SquareDashed size={15} /></button>
       )}
-      {horizontal && (
-        <button className={btn} title={`Align — ${styles[id]?.align ?? 'left'}`} onClick={cycleAlign}>
-          <StretchHorizontal size={15} />
-        </button>
-      )}
+      {ALIGNS.map(([val, label, ic]) => (
+        <button
+          key={val}
+          className={align === val ? btnOn : btn}
+          title={label}
+          onClick={() => setStyle(id, { align: val as 'left' | 'center' | 'right' })}
+        >{ic}</button>
+      ))}
       <button
         className="flex size-7 items-center justify-center rounded text-[#EF4444] transition-colors hover:bg-[#FEF3F2]"
         title="Delete"
@@ -595,7 +690,7 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
   /** Layout defaults from the page (a row member's default share). sizeOf overrides these. */
   style?: React.CSSProperties;
 }) {
-  const { enabled, selectedId, hoverId, select, setHover, styles, moveTo } = useCanvas();
+  const { enabled, selectedId, hoverId, select, setHover, styles, moveTo, setText } = useCanvas();
   const ref = useRef<HTMLDivElement>(null);
   const [moveOver, setMoveOver] = useState(false);
   const node = nodeById(id);
@@ -667,7 +762,32 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
         </div>
       )}
 
-      {children}
+      {/* ── Inline editing ──────────────────────────────────────────────────────
+          A selected TEXT node becomes editable in place, so the words can be changed where you are
+          looking at them rather than only in the panel.
+
+          ⚠️ It writes on BLUR, not on every keystroke. React re-rendering a contentEditable while
+          you type puts the caret back at the start — the bug this codebase already hit twice, in
+          the approval-comment editor and the rich composer. Blur-sync means the sidebar catches up
+          the moment you click away, and the caret never moves under you.
+          ⚠️ `suppressContentEditableWarning` is required because the children ARE React nodes; the
+          alternative is rendering the text as a bare string and losing its styling. */}
+      {on && node.kind === 'text' ? (
+        <div
+          contentEditable
+          suppressContentEditableWarning
+          onBlur={(e) => {
+            const next = (e.currentTarget.textContent ?? '').trim();
+            setText(id, next);
+          }}
+          onKeyDown={(e) => {
+            // Enter commits rather than inserting a line break — these are labels, not paragraphs.
+            if (e.key === 'Enter') { e.preventDefault(); (e.currentTarget as HTMLElement).blur(); }
+            if (e.key === 'Escape') (e.currentTarget as HTMLElement).blur();
+          }}
+          className="outline-none"
+        >{children}</div>
+      ) : children}
     </div>
   );
 }

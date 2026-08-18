@@ -12,10 +12,14 @@ import type { ReactNode } from 'react';
  * ⚠️ Chosen on the PARENT section, not on each card. A row of cards that don't share a layout is a
  * row that reads as an accident — so the section owns the shape and every card in it follows. This
  * is why the card's own panel has no Layout accordion at all. */
-const CARD_TEMPLATES: { value: string; dir: string; title: string }[] = [
+const CARD_TEMPLATES: { value: string; dir: string; title: string; noIcon?: boolean }[] = [
   { value: 'left', dir: 'flex-row', title: 'Icon left' },
   { value: 'top', dir: 'flex-col', title: 'Icon top' },
   { value: 'right', dir: 'flex-row-reverse', title: 'Icon right' },
+  /* ⚠️ "Text only" belongs in this row, not in a separate switch. Where the icon sits and whether
+     there IS an icon are one question with four answers — split into a picker plus a toggle, the
+     two can contradict (an icon position chosen for a card with no icon). */
+  { value: 'none', dir: 'flex-row', title: 'Text only', noIcon: true },
 ];
 
 export function TemplatePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -35,7 +39,7 @@ export function TemplatePicker({ value, onChange }: { value: string; onChange: (
             {/* The tile is drawn from the same shape the section produces, so it can never promise
                 a layout you don't get. */}
             <span className={`flex items-center gap-1.5 ${t.dir}`}>
-              <span className={`flex-shrink-0 rounded ${on ? 'bg-[#3D8BD0]/30' : 'bg-[#DFE5ED]'} size-4`} />
+              {!t.noIcon && <span className={`flex-shrink-0 rounded ${on ? 'bg-[#3D8BD0]/30' : 'bg-[#DFE5ED]'} size-4`} />}
               <span className="flex flex-col gap-[3px]">
                 <span className={`h-[3px] w-8 rounded-full ${on ? 'bg-[#3D8BD0]/30' : 'bg-[#DFE5ED]'}`} />
                 <span className="h-[3px] w-6 rounded-full bg-[#EEF2F6]" />

@@ -32,17 +32,10 @@ export const HERO_SPEC: WidgetSpec = {
   /* §7.20 — nothing in the palette can put a banner back, so Duplicate and Delete would be a
      one-way door. The overflow carries Move up / Move down / Reset to default only. */
   noDelete: true,
-  collection: {
-    key: 'parts', group: 'Parts', addLabel: '', emptyHint: '',
-    fixed: [
-      { key: 'heading', name: 'Heading' },
-      { key: 'sub', name: 'Sub-heading' },
-      { key: 'search', name: 'Search bar' },
-    ],
-    label: (it) => String(it.name ?? ''),
-    seed: () => ({}),
-    fields: [],
-  },
+  /* ⚠️ No Parts collection. The heading, sub-heading and search bar are each wrapped in <Sel> on
+     the canvas, so they are reached by clicking the words themselves — a list of them here was a
+     second route to the same three places, and it was the only "collection" in the file with
+     nothing to add, reorder or delete. */
   defaults: {
     heading: 'Welcome to Support Portal',
     sub: 'Search our support center knowledge base',
@@ -80,7 +73,7 @@ export const SECTION_SPEC: WidgetSpec = {
       { key: 'name', label: 'Name', control: 'text', help: 'Only you see this — it labels the section in the editor.' },
       /* Chosen HERE, on the parent, so every card in the row shares a shape. A row of cards that
          do not agree reads as an accident, which is why the card has no Layout accordion. */
-      { key: 'cardTemplate', label: 'Card templates', control: 'templates' },
+      { key: 'cardTemplate', label: 'Card templates', control: 'templates', when: (c) => c.hasCards === true },
     ],
     accordions: [
       {
@@ -140,34 +133,14 @@ export const COLUMN_SPEC: WidgetSpec = {
 export const PAGE_SPEC: WidgetSpec = {
   id: 'page', name: 'Page', group: 'Structure', reuse: 'single', family: 'container',
   fields: [
-    {
-      key: 'typeface', label: 'Typeface', control: 'select', group: 'Typography',
-      options: ['Inter', 'Roboto', 'Source Sans 3', 'Merriweather', 'IBM Plex Mono'],
-      help: 'The portal-wide font. Every widget’s typeface field inherits from here.',
-    },
-    {
-      key: 'fontScale', label: 'Text size', control: 'slider', group: 'Typography', min: 90, max: 115, unit: '%',
-      help: 'Scales every size together. Past this range the layout breaks, which is why it stops here.',
-    },
-    { key: 'primary', label: 'Primary', control: 'color', group: 'Theme' },
-    { key: 'secondary', label: 'Secondary', control: 'color', group: 'Theme' },
-    { key: 'neutral', label: 'Neutral', control: 'color', group: 'Theme' },
-    {
-      key: 'mode', label: 'Editing', control: 'segmented', group: 'Theme',
-      options: [{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }],
-    },
-    { key: 'preset', label: 'Preset', control: 'preset', group: 'Theme' },
   ],
   packs: ['P1'],
   noDelete: true,
-  notes: [{
-    tone: 'info',
-    text: 'A preset replaces every colour but KEEPS the typeface you chose, so trying palettes never silently loses your font.',
-  }],
-  defaults: {
-    typeface: 'Inter', fontScale: 100,
-    primary: '#3D8BD0', secondary: '#0F172A', neutral: '#64748B', mode: 'light',
-  },
+  /* ⚠️ Typeface, text scale and the palette USED to live here as three colour fields. They moved to
+     the Theme panel in the rail when a theme became mode + palette + type + button shape — a page is
+     one of the things a theme paints, not the place the theme is kept. */
+  notes: [{ tone: 'info', text: 'Typeface and colours are set once for the whole portal in Theme, in the right-hand rail. This page keeps its own background and spacing.' }],
+  defaults: {},
 };
 
 /* ── §7.23 Left rail ─────────────────────────────────────────────────────── */

@@ -4,6 +4,7 @@ import { PORTAL_ELEMENTS } from './supportPortalData';
 import { renderSpec } from './portalPageModel';
 import type { PlacedElement } from './portalPageModel';
 import { COLLECTION_RENDERERS } from './PortalCollectionRender';
+import { shadowCss } from './PortalBoxControls';
 import { LineMark } from './PortalLineStyles';
 import type { LineStyle } from './PortalLineStyles';
 import { iconNode } from './PortalIconPicker';
@@ -36,8 +37,18 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
     if (!html) return null;
     return (
       <div
-        style={{ textAlign: cfg.textAlign as never, columnCount: cfg.textCols === '2' ? 2 : undefined }}
-        className="text-[15px] leading-[1.6] text-[#364658]"
+        style={{
+          textAlign: cfg.textAlign as never,
+          columnCount: cfg.textCols === '2' ? 2 : undefined,
+          fontFamily: cfg.font === 'Inherit from theme' ? undefined : (cfg.font as string),
+          fontWeight: ({ Light: 300, Normal: 400, Medium: 500, Semibold: 600, Bold: 700 } as Record<string, number>)[String(cfg.weight ?? 'Normal')],
+          fontSize: Number(cfg.size ?? 15),
+          color: String(cfg.color ?? '#364658'),
+          /* Stored as a PERCENT so the slider reads in whole numbers; a 1.6 on a slider is a
+             number nobody can aim at. */
+          lineHeight: Number(cfg.lineHeight ?? 160) / 100,
+          letterSpacing: Number(cfg.letterSpacing ?? 0) ? `${Number(cfg.letterSpacing)}px` : undefined,
+        }}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     );
@@ -75,16 +86,50 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
     return <span className="block" style={{ width: `${Number(cfg.width ?? 100)}%`, height: Number(cfg.height ?? 200) }} />;
   }
 
+  /* ⚠️ Drawn to match the page's OWN action cards, not merely similar to them. A dropped Action
+     Card that looked different from New Incident sitting three inches above it would read as a
+     second, worse kind of card — so this is the same surface, the same icon badge and the same
+     title/subtitle pair the quick row renders. */
+  if (type === 'x-action-card') {
+    const top = cfg.iconPos === 'top';
+    const centre = cfg.contentAlign === 'center' || (top && (cfg.contentAlign ?? 'start') === 'start');
+    const bw = Number(cfg.borderWidth ?? 0);
+    return (
+      <div
+        style={{
+          background: cfg.fill === 'color' ? String(cfg.bg ?? '#FFFFFF') : '#FFFFFF',
+          borderRadius: Number(cfg.radius ?? 8),
+          ...(bw > 0 ? { border: `${bw}px solid ${String(cfg.borderColor ?? '#E5E7EB')}` } : { border: '1px solid #E5E7EB' }),
+          minHeight: Number(cfg.minHeight) || undefined,
+        }}
+        className={`flex h-full gap-3 p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_12px_rgba(16,24,40,0.06)] ${
+          top ? 'flex-col' : 'items-center'
+        } ${centre ? 'items-center text-center' : ''}`}
+      >
+        <span className="flex size-11 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#475467]">
+          {glyph ?? <Star size={22} />}
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-[16px] font-semibold text-[#364658]">{String(cfg.title ?? 'Action card')}</span>
+          <span className="block truncate text-[13px] text-[#7B8FA5]">{String(cfg.sub ?? '')}</span>
+        </span>
+      </div>
+    );
+  }
+
   if (type === 'b-button') {
     const style = String(cfg.style ?? 'primary');
     const label = String(cfg.label ?? 'Button');
     const common = `inline-flex items-center justify-center gap-2 font-medium ${BTN_SIZE[String(cfg.size ?? 'md')]} ${cfg.fullWidth ? 'w-full' : ''}`;
-    const radius = { borderRadius: `${Number(cfg.radius ?? 6)}px` };
+    /* ⚠️ The fallback is the THEME's variable, not a literal: an untouched button has to follow the
+       theme's button style, while one that set its own radius keeps it. A hard 6 made every button
+       opt out of the theme by default. */
+    const radius = { borderRadius: cfg.radius != null ? `${Number(cfg.radius)}px` : 'var(--portal-btn-radius, 6px)' };
     /* Each style has its OWN inherited text colour — white reads on a filled button and is
        invisible on an outline one. Falling back per style is what "inherit from theme per style"
        means; a single stored default cannot express it. */
     const text = (cfg.textColor as string) ?? (style === 'primary' || style === 'icon' ? '#FFFFFF' : '#3D8BD0');
-    const fill = (cfg.fillColor as string) ?? '#3D8BD0';
+    const fill = (cfg.fillColor as string) ?? 'var(--portal-accent, #3D8BD0)';
     /* The Button text tab. Every row of it lands on the label — a typography control that changes
        nothing is the exact thing §8.4 rule 1 forbids. */
     const on = Array.isArray(cfg.fontFormat) ? (cfg.fontFormat as string[]) : [];
@@ -115,9 +160,28 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
   if (type === 'v-image') {
     const src = String(cfg.src ?? '');
     if (!src) return null;
+    const bw = Number(cfg.borderWidth ?? 0);
     return (
-      <figure className="m-0">
-        <img src={src} alt={String(cfg.alt ?? '')} className="w-full rounded object-cover" />
+      /* Alignment sits on the FIGURE, not the image: a full-width picture has nothing to align, so
+         what actually moves is the figure once a width has been set on it. */
+      <figure className="m-0" style={{ textAlign: (cfg.align as never) ?? 'left' }}>
+        <img
+          src={src}
+          /* ⚠️ The alt text IS what the browser shows when the file will not load, so it is the
+             same value doing both jobs — not a caption and not a tooltip. */
+          alt={String(cfg.alt ?? '')}
+          style={{
+            borderRadius: Number(cfg.radius ?? 8),
+            ...(bw > 0 ? { border: `${bw}px solid ${String(cfg.borderColor ?? '#E5E7EB')}` } : {}),
+            boxShadow: shadowCss({
+              on: cfg.shadowOn === true,
+              color: String(cfg.shadowColor ?? '#0F172A'),
+              type: (cfg.shadowType as 'outer' | 'inner') ?? 'outer',
+              pos: String(cfg.shadowPos ?? 'bottom'),
+            }),
+          }}
+          className="inline-block w-full object-cover"
+        />
         {!!cfg.caption && <figcaption className="mt-1.5 text-[12px] text-[#7B8FA5]">{String(cfg.caption)}</figcaption>}
       </figure>
     );

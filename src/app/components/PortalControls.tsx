@@ -12,8 +12,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-  AlignCenter, AlignLeft, AlignRight, Bold, ChevronDown, Info, Italic, Link2, List,
-  TriangleAlert, Underline, Upload, X, Eraser,
+  AlignCenter, AlignLeft, AlignRight, Bold, ChevronDown, Eraser,
+  IndentDecrease, IndentIncrease, Info, Italic, Link2, List, ListOrdered, Quote, Redo2, Strikethrough,
+  TriangleAlert, Underline, Undo2, Upload, X,
 } from 'lucide-react';
 
 /* ── shared chrome ───────────────────────────────────────────────────────── */
@@ -57,14 +58,25 @@ export function Field({ label, help, children, action, divider, tight }: {
 export function Group({ title, open, onToggle, badge, children }: {
   title: string; open: boolean; onToggle: () => void; badge?: ReactNode; children: ReactNode;
 }) {
+  /* ⚠️ The HEADER is the detail-page properties-panel recipe, byte for byte: `px-4 py-2.5`, the
+     `#F9FAFB` hover, an `#E5E7EB` rule between rows. Those panels' components themselves cannot be
+     imported — `TicketFieldsAccordion` takes fourteen mode flags and renders a FIXED field set
+     rather than children, so it is a ticket-fields component, not a container — but the chrome is
+     the part that has to match, and matching it is what makes the builder read as the same product
+     as the drawers rather than a tool bolted onto them.
+     `-mx-4` bleeds the row to the panel's edge; a hover that stops short of the edge reads as a
+     floating strip rather than a row. */
   return (
-    <div className="border-t border-[#F0F2F5] first:border-t-0">
-      <button onClick={onToggle} className="flex w-full items-center gap-2 py-3 text-left">
+    <div className="-mx-4 border-b border-[#E5E7EB] last:border-b-0">
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[#F9FAFB]"
+      >
         <span className="text-[13px] font-medium text-[#364658]">{title}</span>
         {badge}
         <ChevronDown size={15} className={`ml-auto flex-shrink-0 text-[#9CA3AF] transition-transform ${open ? '' : '-rotate-90'}`} />
       </button>
-      {open && <div className="pb-4">{children}</div>}
+      {open && <div className="px-4 pb-4 pt-1">{children}</div>}
     </div>
   );
 }
@@ -162,6 +174,82 @@ export const TextArea = ({ value, onChange, placeholder, rows = 3 }: {
  * ⚠️ The editable area is UNCONTROLLED and only mirrors an external value while unfocused. Writing
  * innerHTML on every keystroke resets the caret to the start, which types text backwards — the same
  * trap the approval-comment editor hit. */
+/* The block-format menu.
+ *
+ * ⚠️ A real dropdown, not a native `<select>`. The select had to reset itself to a placeholder after
+ * every use, so it could never say what the caret is standing IN — a format control that cannot
+ * report the current format is only half a control. This one reads the block live and shows it as
+ * its own label.
+ *
+ * ⚠️ The shortcuts are LISTED, not just bound. A menu that teaches its own accelerators is how
+ * anyone stops opening the menu. */
+const BLOCKS: { tag: string; label: string; keys: string; cls: string }[] = [
+  { tag: '<h1>', label: 'Heading 1', keys: '⌥1', cls: 'text-[19px] font-semibold' },
+  { tag: '<h2>', label: 'Heading 2', keys: '⌥2', cls: 'text-[17px] font-semibold' },
+  { tag: '<h3>', label: 'Heading 3', keys: '⌥3', cls: 'text-[15px] font-semibold' },
+  { tag: '<h4>', label: 'Heading 4', keys: '⌥4', cls: 'text-[14px] font-medium' },
+  { tag: '<p>', label: 'Paragraph', keys: '⌥0', cls: 'text-[13px]' },
+  { tag: '<blockquote>', label: 'Quote', keys: '⌥Q', cls: 'text-[13px] italic' },
+  { tag: '<pre>', label: 'Monospace', keys: '⌥M', cls: 'text-[13px] font-mono' },
+];
+
+function BlockFormat({ onPick, wide }: { onPick: (tag: string) => void; wide?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [, setTick] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const on = () => setTick((n) => n + 1);
+    document.addEventListener('selectionchange', on);
+    return () => document.removeEventListener('selectionchange', on);
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', away);
+    return () => document.removeEventListener('mousedown', away);
+  }, [open]);
+
+  /* `formatBlock` reports the tag the caret sits in — `div` when nothing has been applied, which
+     reads as Paragraph because that is what an unformatted line is. */
+  let current = 'Paragraph';
+  try {
+    const v = document.queryCommandValue('formatBlock')?.toLowerCase();
+    current = BLOCKS.find((b) => b.tag === `<${v}>`)?.label ?? 'Paragraph';
+  } catch { /* unsupported */ }
+
+  return (
+    <div ref={ref} className={`relative ${wide ? 'w-full' : ''}`}>
+      <button
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setOpen((o) => !o)}
+        className={`flex h-7 items-center gap-1 rounded px-2 text-[12px] font-medium text-[#364658] transition-colors hover:bg-[#F1F5F9] ${wide ? 'w-full justify-between' : ''}`}
+      >
+        {current}
+        <ChevronDown size={13} className="text-[#9CA3AF]" />
+      </button>
+      {open && (
+        <div className={`absolute left-0 top-full z-50 mt-1 rounded-lg border border-[#E5E7EB] bg-white py-1 shadow-[0_12px_24px_-6px_rgba(16,24,40,0.18)] ${wide ? 'w-full' : 'w-[210px]'}`}>
+          {BLOCKS.map((b) => (
+            <button
+              key={b.tag}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onPick(b.tag); setOpen(false); }}
+              className={`flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left transition-colors ${
+                current === b.label ? 'bg-[#EBF5FF]' : 'hover:bg-[#F5F7FA]'
+              }`}
+            >
+              {/* Each row is SET in the style it applies — the preview is the label. */}
+              <span className={`${b.cls} truncate text-[#364658]`}>{b.label}</span>
+              <span className="flex-shrink-0 rounded bg-[#F1F5F9] px-1.5 py-0.5 text-[10px] font-medium text-[#7B8FA5]">{b.keys}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function RichText({ value, onChange, placeholder }: {
   value: string; onChange: (html: string) => void; placeholder?: string;
 }) {
@@ -178,34 +266,98 @@ export function RichText({ value, onChange, placeholder }: {
     onChange(ref.current?.innerHTML ?? '');
   };
 
+  /* ⚠️ Buttons light up when the CARET is inside that formatting, read live from
+     `queryCommandState`. Without it the bar is write-only — you can turn bold on but the toolbar
+     never tells you the word you are standing in is already bold, so you toggle it off by accident.
+     `tick` re-reads on every selection change and keystroke. */
+  const [, setTick] = useState(0);
+  const active = (c: string) => {
+    try { return document.queryCommandState(c); } catch { return false; }
+  };
+  useEffect(() => {
+    const on = () => setTick((n) => n + 1);
+    document.addEventListener('selectionchange', on);
+    return () => document.removeEventListener('selectionchange', on);
+  }, []);
+
   const btn = 'flex size-7 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F1F5F9] hover:text-[#364658]';
+  const btnOn = 'flex size-7 items-center justify-center rounded bg-[#EBF5FF] text-[#3D8BD0]';
+  const tool = (c: string) => (active(c) ? btnOn : btn);
+
+  /* The rail's contents, in the order the eye should meet them.
+   *
+   * ⚠️ The hierarchy is the point: the three CHARACTER toggles first, then the three alignments and
+   * the two lists — the paragraph-shaping group — then everything else. That is the order people
+   * reach for these, and grouping by what a control ACTS ON (a word, a paragraph, the document)
+   * beats grouping by how often it is used, because the first is a rule a new user can infer and
+   * the second is a ranking only we can see. Separators mark the three tiers. */
+  const RAIL: ({ sep: true } | { cmd: string; arg?: string; title: string; ic: ReactNode; toggles?: boolean; run?: () => void })[] = [
+    { cmd: 'bold', title: 'Bold', ic: <Bold size={15} />, toggles: true },
+    { cmd: 'underline', title: 'Underline', ic: <Underline size={15} />, toggles: true },
+    { cmd: 'italic', title: 'Italic', ic: <Italic size={15} />, toggles: true },
+    { sep: true },
+    { cmd: 'justifyLeft', title: 'Align left', ic: <AlignLeft size={15} />, toggles: true },
+    { cmd: 'justifyCenter', title: 'Align centre', ic: <AlignCenter size={15} />, toggles: true },
+    { cmd: 'justifyRight', title: 'Align right', ic: <AlignRight size={15} />, toggles: true },
+    { cmd: 'insertUnorderedList', title: 'Bulleted list', ic: <List size={15} />, toggles: true },
+    { cmd: 'insertOrderedList', title: 'Numbered list', ic: <ListOrdered size={15} />, toggles: true },
+    { sep: true },
+    { cmd: 'strikeThrough', title: 'Strikethrough', ic: <Strikethrough size={15} />, toggles: true },
+    { cmd: 'formatBlock', arg: '<blockquote>', title: 'Quote', ic: <Quote size={15} /> },
+    { cmd: 'indent', title: 'Indent', ic: <IndentIncrease size={15} /> },
+    { cmd: 'outdent', title: 'Outdent', ic: <IndentDecrease size={15} /> },
+    { cmd: 'createLink', title: 'Link', ic: <Link2 size={15} />, run: () => { const u = window.prompt('Link to'); if (u) cmd('createLink', u); } },
+    { cmd: 'undo', title: 'Undo', ic: <Undo2 size={15} /> },
+    { cmd: 'redo', title: 'Redo', ic: <Redo2 size={15} /> },
+    { cmd: 'removeFormat', title: 'Clear formatting', ic: <Eraser size={15} /> },
+  ];
 
   return (
     <div className="rounded border border-[#d1d5db] focus-within:border-[#3D8BD0] focus-within:ring-1 focus-within:ring-[#3D8BD0]">
-      <div className="flex items-center gap-0.5 border-b border-[#F0F2F5] px-1.5 py-1">
-        <button onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('bold')} title="Bold" className={btn}><Bold size={14} /></button>
-        <button onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('italic')} title="Italic" className={btn}><Italic size={14} /></button>
-        <button onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('underline')} title="Underline" className={btn}><Underline size={14} /></button>
-        <span className="mx-1 h-4 w-px bg-[#E5E7EB]" />
-        <button onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('insertUnorderedList')} title="Bulleted list" className={btn}><List size={14} /></button>
-        <button
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => { const u = window.prompt('Link to'); if (u) cmd('createLink', u); }}
-          title="Link"
-          className={btn}
-        ><Link2 size={14} /></button>
-        <button onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('removeFormat')} title="Clear formatting" className={`${btn} ml-auto`}><Eraser size={14} /></button>
+      {/* ── Font style, full width, on top ──────────────────────────────────────
+          It is the only control here that changes what a line IS rather than how it looks, and the
+          only one that needs to show its current value in words — so it gets the width to say
+          "Heading 2" and a row of its own, instead of competing for space with sixteen glyphs. */}
+      <div className="border-b border-[#F0F2F5] px-1.5 py-1">
+        <BlockFormat onPick={(tag) => cmd('formatBlock', tag)} wide />
       </div>
-      <div
-        ref={ref}
-        contentEditable
-        suppressContentEditableWarning
-        data-placeholder={placeholder}
-        onFocus={() => setFocused(true)}
-        onBlur={() => { setFocused(false); onChange(ref.current?.innerHTML ?? ''); }}
-        onInput={() => onChange(ref.current?.innerHTML ?? '')}
-        className="min-h-[76px] px-3 py-2 text-[13px] leading-[1.6] text-[#364658] focus:outline-none empty:before:text-[#9ca3af] empty:before:content-[attr(data-placeholder)]"
-      />
+
+      {/* ── Writing surface, with the actions standing beside it ────────────────
+          ⚠️ A VERTICAL rail, not a wrapping bar. Sixteen controls across a 340px panel wrapped to
+          three rows that reflowed every time the panel was resized, so a button was never twice in
+          the same place; stacked in a fixed-width column they hold their positions, the editor gets
+          the height back, and the overflow scrolls in the one direction that costs the text nothing.
+          ⚠️ Image and video are gone. A portal element is authored, not composed — an image belongs
+          on the page as an Image element the builder can place, select and style, and one pasted
+          inside a paragraph is invisible to every one of those tools. */}
+      <div className="flex items-stretch">
+        <div
+          ref={ref}
+          contentEditable
+          suppressContentEditableWarning
+          data-placeholder={placeholder}
+          onFocus={() => setFocused(true)}
+          onBlur={() => { setFocused(false); onChange(ref.current?.innerHTML ?? ''); }}
+          onInput={() => onChange(ref.current?.innerHTML ?? '')}
+          className="min-h-[200px] flex-1 overflow-y-auto px-3 py-2 text-[13px] leading-[1.6] text-[#364658] focus:outline-none empty:before:text-[#9ca3af] empty:before:content-[attr(data-placeholder)]"
+        />
+        <div className="flex max-h-[200px] w-[38px] flex-shrink-0 flex-col items-center gap-0.5 overflow-y-auto border-l border-[#F0F2F5] py-1">
+          {RAIL.map((r, i) => ('sep' in r ? (
+            <span key={`s${i}`} className="my-1 h-px w-4 flex-shrink-0 bg-[#E5E7EB]" />
+          ) : (
+            <button
+              key={r.title}
+              /* ⚠️ `onMouseDown → preventDefault` on EVERY button. Without it, pressing one blurs the
+                 editor, the browser throws the selection away, and the command lands on nothing —
+                 the single most important line in this component. */
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => (r.run ? r.run() : cmd(r.cmd, r.arg))}
+              title={r.title}
+              className={`flex-shrink-0 ${r.toggles ? tool(r.cmd) : btn}`}
+            >{r.ic}</button>
+          )))}
+        </div>
+      </div>
     </div>
   );
 }

@@ -119,8 +119,8 @@ function ColumnBody({ id, item, live, icons, placedText, cfg }: { id: string; it
         dropInColumn(id, type);
       }}
       style={styleOf(styles, id)}
-      className={`relative flex h-full min-h-[120px] flex-col justify-center rounded transition-colors ${
-        item ? '' : 'items-center border border-dashed'
+      className={`relative flex h-full flex-col justify-center rounded transition-colors ${
+        item ? '' : 'min-h-[120px] items-center border border-dashed'
       } ${over ? 'border-[#3D8BD0] bg-[#EBF5FF]' : item ? '' : 'border-[#C3CBD6]'}`}
     >
       {/* ⚠️ The element gets its OWN Sel. Without one the column was the innermost selectable thing,
@@ -157,8 +157,17 @@ function AddedSection({ section, icons, placedText, cfg }: { section: CustomSect
   let index = -1;
   return (
     <Sel id={section.id} className="mt-4">
-      {/* White: a new section is a blank surface, not a tinted band. */}
-      <div style={styleOf(styles, section.id)} className="rounded-lg border border-[#E5E7EB] bg-white p-6">
+      {/* ⚠️ A section paints NOTHING by default — no white card, no border, no radius.
+          A divider, a line of text or a button dropped on the page should sit on the page, the way
+          it does in every website editor. The card chrome made every drop look like it had landed
+          inside a panel it never asked for, and a page built from six elements came out as six
+          stacked boxes.
+          A surface is now something you ADD: Style → Fill → Colour or Image paints one, and the
+          Border and shadow section draws its edges. Both already write through `styleOf`, so the
+          only change here is that the default is bare rather than a card.
+          ⚠️ Padding stays. Without it a dropped element would touch the page edge, and the page's
+          own gutter is not the section's to borrow. */}
+      <div style={styleOf(styles, section.id)} className="px-6 py-4">
         <div className="flex flex-col gap-4">
           {section.rows.map((row, r) => (
             <div key={r} className="flex gap-4">
@@ -177,7 +186,7 @@ function AddedSection({ section, icons, placedText, cfg }: { section: CustomSect
                   || (!!hoverId && nodePath(hoverId).some((n) => n.id === id));
                 const item = section.items[id];
                 return (
-                  <Sel key={c} id={id} className="min-h-[120px] flex-1" style={{ flex: weight }}>
+                  <Sel key={c} id={id} className="flex-1" style={{ flex: weight }}>
                     <ColumnBody id={id} item={item} live={live} icons={icons} placedText={placedText} cfg={cfg} />
                   </Sel>
                 );
@@ -603,7 +612,13 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                   const tpl = String(wc('quick').cardTemplate ?? c.iconPos ?? 'left');
                   const top = tpl === 'top';
                   const iconRight = tpl === 'right';
-                  const centre = c.contentAlign === 'center';
+                  /* ⚠️ Icon top CENTRES. Stacked-and-left-aligned is not a layout anyone picks that
+                     tile for — it reads as the icon having fallen out of the row rather than as a
+                     deliberate arrangement, which is exactly what it looked like.
+                     ⚠️ `start` is the card's own DEFAULT, so it cannot be told apart from "nobody
+                     chose" — the template supplies the answer there. A card set to anything else
+                     was a real decision and keeps it. */
+                  const centre = c.contentAlign === 'center' || (top && (c.contentAlign ?? 'start') === 'start');
                   // P6: the icon's size, colour and container are style; WHICH icon is content.
                   const iconSize = chosen(styles, a.id, 'iconSize') ?? 22;
                   const iconColor = chosen(styles, a.id, 'iconColor');

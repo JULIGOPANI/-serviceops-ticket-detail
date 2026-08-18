@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-  ArrowLeft, Check, ChevronLeft, Eye, House, HelpCircle, LayoutTemplate, Loader2, MessageCircle,
-  Palette, PanelRight, Paintbrush, Pencil, Plus, Redo2, Share, Undo2, X,
+  ArrowLeft, ChevronLeft, Eye, House, LayoutTemplate, RotateCcw,
+  Palette, PanelRight, Paintbrush, Pencil, Plus, Redo2, Undo2, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { AiSparkle } from './AiSparkle';
 import { SupportPortalPreview } from './SupportPortalPreview';
 import { SupportPortalAddPanel } from './SupportPortalAddPanel';
+import { PortalBrandingPanel } from './PortalBrandingPanel';
+import { PortalThemePanel, DEFAULT_THEME, buttonOf, packOf, paletteOf, swatchesOf } from './PortalThemePanel';
+import type { PortalTheme } from './PortalThemePanel';
 import { PortalElementPanel } from './PortalElementPanel';
 import { CanvasProvider } from './PortalCanvas';
 import {
@@ -64,8 +67,10 @@ const PANEL_COPY: Record<RailKey, { title: string; body: string }> = {
     body: '',
   },
   theme: {
-    title: 'Theme this page',
-    body: 'Typography, color and spacing scales for the portal will be set here, then applied to every block at once.',
+    /* ⚠️ "Site styles", not "this page": one theme paints every page of the portal, so a title that
+       scopes it to the page you happen to be on promises an override that does not exist. */
+    title: 'Site styles',
+    body: 'Mode, colours, type and button shape for the whole portal.',
   },
   branding: {
     title: 'Brand this page',
@@ -136,6 +141,9 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   const [collapsed, setCollapsed] = useState(false);
   const [active, setActive] = useState<RailKey | null>(null);
   const [preview, setPreview] = useState(false);
+  /* The portal's own style system. It lives HERE rather than in the panel because the canvas has to
+     paint with it — a theme panel that only changed itself would be a colour picker with no page. */
+  const [theme, setTheme] = useState<PortalTheme>(DEFAULT_THEME);
 
   // ── canvas state ──────────────────────────────────────────────────────────
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -193,7 +201,11 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      their own column count, so the Section spec deliberately carries none — it would have to be
      wrong for two of the three. */
   const NODE_CFG_SEED: Record<string, Cfg> = {
-    quick: { cols: '3' },
+    /* ⚠️ `hasCards` is what gates the Card-templates control. Only the Quick Actions band holds
+       action cards, so only it gets the picker — offering a card layout on a section with no cards
+       is a control that cannot do anything. Seeded per NODE because the section SPEC is shared by
+       every band and every added section. */
+    quick: { cols: '3', hasCards: true },
     work: { cols: '3' },
     records: { cols: '2' },
   };
@@ -296,6 +308,25 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   const [rowOrder, setRowOrder] = useState<Record<string, string[]>>(DEFAULT_ROW_ORDER);
   const [removed, setRemoved] = useState<string[]>([]);
 
+  /* Reset to default — every store the canvas reads, back to its seed.
+     ⚠️ It must clear ALL of them. Missing one leaves the page in a state that is neither the
+     default nor what you built: an added section whose widget config was wiped, or a block still
+     hidden by `removed` after its content came back. The list is the state list, in order. */
+  const resetPage = useCallback(() => {
+    setContent(DEFAULT_CONTENT);
+    setStyles({});
+    setWidgetCfg({});
+    setSections([]);
+    setIcons({});
+    setPlacedText({});
+    setRowExtras({});
+    setBlockOrder(DEFAULT_BLOCK_ORDER);
+    setRowOrder(DEFAULT_ROW_ORDER);
+    setRemoved([]);
+    setSelectedId(null);
+    toast.success('Page reset to default');
+  }, []);
+
   const sectionOfColumn = (id: string) => id.replace(/-c\d+$/, '');
   const placedParent = (id: string) => nodeById(id)?.parent;
 
@@ -322,7 +353,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
    * one signal saying it worked was the signal that lied. An add now always lands somewhere real:
    * the column whose "+" aimed it, else a free column in the section you are in, else the row you
    * are in, else its own new section at the foot of the page. Selecting the result is the proof. */
-  const addElement = useCallback((type: string) => {
+  const addElement = useCallback((type: string, anchorOverride?: string) => {
     /* ⚠️ An action card is not a generic placed element — it is a member of the Quick Actions row,
        and the row is what gives it its shape, its share of the width and its editor. So adding one
        appends to the row's CONTENT rather than dropping a stand-in element somewhere; that is the
@@ -342,7 +373,10 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     }
 
     // A placed element stands in for the column it sits in, so "add another" means "add beside me".
-    const sel = selectedId;
+    /* ⚠️ The anchor can be passed IN. The canvas picker adds from the toolbar of the thing you
+       clicked "+" on, and `selectedId` has not re-rendered yet at that point — reading state here
+       would aim the add at whatever was selected before. */
+    const sel = anchorOverride ?? selectedId;
     const anchor = sel && /^el-\d+$/.test(sel) ? placedParent(sel) ?? sel : sel;
 
     const secId = anchor ? /^sec-\d+/.exec(anchor)?.[0] : undefined;
@@ -396,11 +430,80 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     return !!la && la === listOf(b);
   }, [listOf]);
 
+  /* Lift a placed element out of whichever home holds it, and hand it back.
+     ⚠️ Detach must clear BOTH homes for the same reason delete does — a column and a built-in row
+     are two different stores, and an element that half-moves is an element that gets duplicated. */
+  const detachElement = useCallback((id: string): PlacedElement | null => {
+    let taken: PlacedElement | null = null;
+    setSections((prev) => prev.map((sec) => {
+      const col = Object.keys(sec.section.items).find((c) => sec.section.items[c].id === id);
+      if (!col) return sec;
+      taken = sec.section.items[col];
+      const items = { ...sec.section.items };
+      delete items[col];
+      return { ...sec, section: { ...sec.section, items } };
+    }));
+    setRowExtras((prev) => {
+      const hit = Object.keys(prev).find((r) => prev[r].some((e) => e.id === id));
+      if (!hit) return prev;
+      taken = taken ?? prev[hit].find((e) => e.id === id) ?? null;
+      return { ...prev, [hit]: prev[hit].filter((e) => e.id !== id) };
+    });
+    return taken;
+  }, []);
+
+  /* Move a placed element into a column, anywhere on the page.
+     ⚠️ A column holds ONE element, so landing on an occupied one SWAPS the two rather than
+     overwriting — dropping onto a filled column used to be the one gesture that could destroy work,
+     and a swap is what you meant by dragging one thing onto another anyway. */
+  const relocateElement = useCallback((id: string, destCol: string) => {
+    const destSec = destCol.replace(/-c[0-9]+$/, '');
+    let occupant: PlacedElement | null = null;
+    let sourceCol: string | null = null;
+    setSections((prev) => {
+      prev.forEach((sec) => {
+        const col = Object.keys(sec.section.items).find((c) => sec.section.items[c].id === id);
+        if (col) sourceCol = col;
+        if (sec.section.id === destSec && sec.section.items[destCol]) occupant = sec.section.items[destCol];
+      });
+      return prev;
+    });
+    const moving = detachElement(id);
+    if (!moving) return;
+    setSections((prev) => prev.map((sec) => {
+      if (sec.section.id !== destSec) return sec;
+      const items = { ...sec.section.items, [destCol]: moving };
+      return { ...sec, section: { ...sec.section, items } };
+    }));
+    registerPlaced(moving.id, moving.name, moving.type, destCol);
+    if (occupant && sourceCol) {
+      setSections((prev) => prev.map((sec) => {
+        if (!sourceCol!.startsWith(sec.section.id)) return sec;
+        return { ...sec, section: { ...sec.section, items: { ...sec.section.items, [sourceCol!]: occupant! } } };
+      }));
+      registerPlaced(occupant.id, occupant.name, occupant.type, sourceCol);
+    }
+    select(id);
+    toast.success(occupant ? 'Swapped places' : `${moving.name} moved`);
+  }, [detachElement, select]);
+
   /** Drag-to-reorder: lift `source` out of its list and drop it at `target`'s index. */
   const moveTo = useCallback((source: string, target: string) => {
+    /* ⚠️ A placed element is not confined to the list it started in. Reordering handles siblings;
+       everything else is a RELOCATION, which is what dragging across sections has to mean — the
+       old code refused it with "drop it on something in the same row", so the only way to move an
+       element between sections was to delete it and build it again. */
+    if (/^el-[0-9]+$/.test(source)) {
+      const destCol = /^sec-[0-9]+-c[0-9]+$/.test(target)
+        ? target
+        : /^el-[0-9]+$/.test(target)
+          ? (nodeById(target)?.parent ?? null)
+          : null;
+      if (destCol && /^sec-[0-9]+-c[0-9]+$/.test(destCol)) { relocateElement(source, destCol); return; }
+    }
     const list = listOf(source);
     if (!list || list !== listOf(target)) {
-      toast.error('Drop it on something in the same row or section');
+      toast.error('Drop it on a column, or on something in the same row');
       return;
     }
     const reorder = (arr: string[]) => {
@@ -421,7 +524,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
       });
     } else setRowOrder((o) => ({ ...o, [list]: reorder(o[list]) }));
     toast.success('Moved');
-  }, [listOf]);
+  }, [listOf, relocateElement]);
 
   /** Only things with their own identity can be cloned; a fixed page band has none. */
   const canDuplicate = useCallback((id: string) => /^sec-\d+$/.test(id) || /^el-\d+$/.test(id), []);
@@ -449,6 +552,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     if (!col) return;
     const secId = sectionOfColumn(col);
     const index = Number(/-c(\d+)$/.exec(col)?.[1] ?? 0);
+    let cloneId: string | null = null;
     setSections((prev) => prev.map((s) => {
       if (s.section.id !== secId) return s;
       const grown = addColumn(s.section, index, 'right');
@@ -459,23 +563,67 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
         const clone = { ...src, id: `el-${nextElementId.current++}` };
         registerPlaced(clone.id, clone.name, clone.type, newCol);
         items[newCol] = clone;
+        cloneId = clone.id;
       }
       return { ...s, section: { ...grown, items } };
     }));
+    /* ⚠️ A copy has to arrive as a COPY — same content, same design, and open for editing. Cloning
+       the placement alone produced a blank element wearing the original's name, and left the panel
+       pointing at what you copied FROM, so the next edit landed on the wrong element. Config and
+       style are both keyed by node id, so each is copied across explicitly. */
+    if (cloneId) {
+      setWidgetCfg((m) => (m[id] ? { ...m, [cloneId!]: { ...m[id] } } : m));
+      setStyles((m) => (m[id] ? { ...m, [cloneId!]: { ...m[id] } } : m));
+      select(cloneId);
+    }
     toast.success('Element duplicated');
-  }, []);
+  }, [select]);
 
   const deleteNode = useCallback((id: string) => {
     if (/^sec-\d+$/.test(id)) {
       setSections((prev) => prev.filter((s) => s.section.id !== id));
-    } else if (/^el-\d+$/.test(id)) {
-      const col = placedParent(id);
-      setSections((prev) => prev.map((s) => {
-        if (!col || !s.section.items[col]) return s;
+    } else if (/^sec-\d+-c\d+$/.test(id)) {
+      /* ⚠️ A COLUMN, which is what you actually have selected when you click an empty section —
+         the column is the innermost selectable thing inside it. Delete used to fall through to the
+         `removed` branch here and silently do nothing, which is why deleting an empty section
+         appeared broken. Removing the last column removes the section: a section with no columns
+         is not an empty section, it is nothing. */
+      const secId = /^sec-\d+/.exec(id)?.[0];
+      setSections((prev) => prev.flatMap((s) => {
+        if (s.section.id !== secId) return [s];
+        const ids = columnIds(s.section);
+        if (ids.length <= 1) return [];
+        const at = ids.indexOf(id);
+        let seen = 0;
+        const rows = s.section.rows
+          .map((row) => {
+            const start = seen;
+            seen += row.length;
+            return at >= start && at < seen ? row.filter((_, i) => start + i !== at) : row;
+          })
+          .filter((row) => row.length > 0);
         const items = { ...s.section.items };
-        delete items[col];
-        return { ...s, section: { ...s.section, items } };
+        delete items[id];
+        return [{ ...s, section: { ...s.section, rows, items } }];
       }));
+    } else if (/^el-\d+$/.test(id)) {
+      /* ⚠️ A placed element has TWO possible homes — a section column, or a built-in row via
+         `rowExtras`. Delete only ever looked in the columns, so anything dropped into Quick Actions
+         or a cards row reported "Removed" and stayed on the page. Both homes are cleared; an element
+         lives in one of them, so the other pass is a no-op. */
+      const col = placedParent(id);
+      if (col) {
+        setSections((prev) => prev.map((s) => {
+          if (s.section.items[col]?.id !== id) return s;
+          const items = { ...s.section.items };
+          delete items[col];
+          return { ...s, section: { ...s.section, items } };
+        }));
+      }
+      setRowExtras((prev) => {
+        const hit = Object.keys(prev).find((r) => prev[r].some((e) => e.id === id));
+        return hit ? { ...prev, [hit]: prev[hit].filter((e) => e.id !== id) } : prev;
+      });
     } else {
       const row = Object.keys(rowOrder).find((r) => rowOrder[r].includes(id));
       if (row) setRowOrder((o) => ({ ...o, [row]: o[row].filter((x) => x !== id) }));
@@ -489,17 +637,91 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      It also SELECTS the target, so the canvas still shows where the next add is aimed while the
      panel is showing the list, and `addElement` knows where a click should land. Not via select(),
      which would clear the panel it just opened. */
-  const addInside = useCallback((id: string) => {
+  /* ⚠️ A ref, not a direct call: `addElement` is declared after this and closes over state that
+     changes every render, so capturing it in this callback's deps would either be a use-before-
+     declaration or a stale copy. */
+  const addElementRef = useRef<((type: string, anchor?: string) => void) | null>(null);
+
+  const addInside = useCallback((id: string, type?: string) => {
     setSelectedId(id);
+    /* The canvas toolbar picks a type itself, so there is nothing left to choose — placing it and
+       swapping the panel to the library would send you somewhere you no longer needed to go. */
+    if (type) { addElementRef.current?.(type, id); return; }
     setActive('add');
     setCollapsed(false);
     toast.success('Pick an element to add here — click it, or drag it onto the page');
   }, []);
 
+  /* Inline text edits, routed to whichever store actually owns the words.
+   *
+   * ⚠️ There is no single text store, and that is deliberate — a card's title belongs to the card's
+   * CONFIG, the hero's heading to page CONTENT, a dropped Text element to its own config. Writing
+   * to one place would give the canvas and the panel two copies of the same sentence, which is the
+   * thing this builder has kept avoiding. So the router mirrors exactly how the panel reads them,
+   * and both surfaces stay views of one value.
+   *
+   * ⚠️ `-title` / `-sub` suffixes are card text nodes; `ownerOf` already strips them for config, so
+   * the same rule decides the KEY here. */
+  const setText = useCallback((id: string, text: string) => {
+    const card = /^(.*)-(title|sub)$/.exec(id);
+    if (card) { patchCfg(card[1], { [card[2] === 'title' ? 'title' : 'sub']: text }); return; }
+
+    if (id === 'hero-title') { patchCfg('hero', { heading: text }); return; }
+    if (id === 'hero-subtitle') { patchCfg('hero', { sub: text }); return; }
+
+    // The three list-card headings each own a `title` on their own widget.
+    if (/^(requests|approvals|knowledge|assets|cis)-title$/.test(id)) {
+      patchCfg(id.replace(/-title$/, ''), { title: text });
+      return;
+    }
+
+    // A dropped Text element keeps its words as HTML on its own config.
+    if (/^el-\d+$/.test(id)) { patchCfg(id, { html: text }); return; }
+
+    // An item's sub-element — the words live on the item, inside its widget's config.
+    const item = parseItemId(id);
+    if (item) {
+      const owner = item.widget;
+      setWidgetCfg((prev) => {
+        const cfg = prev[owner] ?? {};
+        const list = (cfg[item.key ?? 'items'] as Cfg[]) ?? [];
+        return {
+          ...prev,
+          [owner]: { ...cfg, [item.key ?? 'items']: list.map((it, i) => (String(it.id ?? i) === item.item ? { ...it, [item.part ?? 'title']: text } : it)) },
+        };
+      });
+    }
+  }, [patchCfg]);
+
+  /* Replace a placed element with a different kind, in the same spot.
+     ⚠️ It takes a NEW id rather than mutating the old one's type: config and style are keyed by id,
+     so reusing it would leave a Divider wearing a Button's stored padding and font. A replacement is
+     a different element in the same place, and its settings should start clean. */
+  const replaceElement = useCallback((id: string, type: string) => {
+    const home = nodeById(id)?.parent ?? null;
+    if (!home) return;
+    const made = makeElement(type, home);
+    if (/^sec-[0-9]+-c[0-9]+$/.test(home)) {
+      setSections((prev) => prev.map((sec) => (
+        sec.section.items[home]?.id === id
+          ? { ...sec, section: { ...sec.section, items: { ...sec.section.items, [home]: made } } }
+          : sec
+      )));
+    } else {
+      setRowExtras((prev) => (
+        prev[home] ? { ...prev, [home]: prev[home].map((e) => (e.id === id ? made : e)) } : prev
+      ));
+    }
+    select(made.id);
+    toast.success(`Replaced with ${made.name}`);
+  }, [makeElement, select]);
+
+  addElementRef.current = addElement;
+
   const canvasCtx = {
-    selectedId, hoverId, select, setHover: setHoverId, styles, setStyle,
+    selectedId, hoverId, select, setHover: setHoverId, styles, setStyle, setText,
     addSection, addColumnBeside, dropInColumn, dropAtSeam, dropInRow,
-    moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, areSiblings,
+    moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, areSiblings, replaceElement,
   };
 
   // Title — inline edit, committed on Enter or blur, abandoned on Escape.
@@ -558,12 +780,30 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
   const openPanel = (key: RailKey) => {
     setCollapsed(false);
-    /* §7.22 — Theme IS the Page layer: typeface, text scale and the palette all live on it. Opening
-       a placeholder panel beside a real drawer for the same thing would be two doors to one room. */
-    if (key === 'theme') { setActive(null); setSelectedId('page'); return; }
+    /* ⚠️ Theme is its OWN panel, not the Page drawer. It was routed there while it was three colour
+       fields; a theme is now mode + palette + type + button shape, which is a surface of its own —
+       and the Page layer's own theme fields were removed with this change so there is still one door. */
     // Clicking the lit icon again returns to the design panel rather than doing nothing.
     setActive((prev) => (prev === key && !collapsed ? null : key));
   };
+
+  /* ⚠️ The theme paints through ONE wrapper, not by rewriting every block: font + page colour are
+     inline, and dark mode is a class the stylesheet answers, so a widget that never asked about the
+     theme still obeys it. */
+  const themeSw = swatchesOf(theme);
+  /* ⚠️ The accent is the PALETTE's accent slot, full stop. Deferring to the page's own `accent` prop
+     for one palette meant picking ServiceOps-light silently produced a different colour from the one
+     shown in its swatch strip — a palette you cannot trust to be the palette. */
+  const themeAccent = themeSw[3];
+  const themeWrap = {
+    fontFamily: packOf(theme).body,
+    background: themeSw[0],
+    color: themeSw[4],
+    '--portal-heading': packOf(theme).heading,
+    '--portal-accent': themeAccent,
+    '--portal-btn-radius': `${buttonOf(theme).radius}px`,
+  } as React.CSSProperties;
+  const themeClass = `portal-themed ${theme.mode === 'dark' ? 'portal-dark' : ''}`;
 
   const iconBtn = 'flex size-8 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]';
   const divider = <span className="mx-1 h-5 w-px bg-[#E5E7EB]" />;
@@ -582,10 +822,10 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
             className="inline-flex h-8 items-center gap-1.5 rounded border border-[#DFE5ED] bg-white px-3.5 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
           ><X size={14} /> Exit preview</button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className={`min-h-0 flex-1 overflow-y-auto ${themeClass}`} style={themeWrap}>
           {/* Preview must behave like the real portal — selection off. */}
           <CanvasProvider value={{ ...canvasCtx, enabled: false, selectedId: null, hoverId: null, select: () => {}, setHover: () => {} }}>
-            <SupportPortalPreview accent={accent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} />
+            <SupportPortalPreview accent={themeAccent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} />
           </CanvasProvider>
         </div>
       </div>
@@ -644,24 +884,17 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
           {divider}
 
-          <Tooltip><TooltipTrigger asChild>
-            <span className="flex size-8 items-center justify-center rounded text-[#22A06B]">
-              {saveState === 'saving' ? <Loader2 size={16} className="animate-spin text-[#7B8FA5]" /> : <Check size={17} />}
-            </span>
-          </TooltipTrigger><TooltipContent>{saveState === 'saving' ? 'Saving…' : 'All changes saved'}</TooltipContent></Tooltip>
-
-          {divider}
-
-          <Tooltip><TooltipTrigger asChild>
-            <button onClick={() => toast.success('Comments are on for this page')} className={iconBtn}><MessageCircle size={17} /></button>
-          </TooltipTrigger><TooltipContent>Comments</TooltipContent></Tooltip>
-          <Tooltip><TooltipTrigger asChild>
-            <button onClick={() => toast.success('Share link copied')} className={iconBtn}><Share size={16} /></button>
-          </TooltipTrigger><TooltipContent>Share</TooltipContent></Tooltip>
-
+          {/* ⚠️ Bordered secondary, not a third plain text button. Reset throws away every edit on
+              the page, so it must not sit in the same visual class as Preview, which throws away
+              nothing — the weight is the warning. */}
+          <button
+            onClick={resetPage}
+            title="Put every block, style and setting back to the page's default"
+            className="ml-1 inline-flex h-8 items-center rounded border border-[#DFE5ED] bg-white px-3 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
+          >Reset to default</button>
           <button
             onClick={() => setPreview(true)}
-            className="ml-1 inline-flex h-8 items-center rounded px-3 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F3F4F6]"
+            className="inline-flex h-8 items-center rounded px-3 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F3F4F6]"
           >Preview</button>
           <button
             onClick={onPublish}
@@ -680,9 +913,12 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
       <div className="flex min-h-0 flex-1">
         {/* Canvas */}
         <div className="relative min-w-0 flex-1 overflow-y-auto p-5">
-          <div className="mx-auto max-w-[1600px] overflow-hidden rounded-lg border border-[#E1E6ED] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_rgba(16,24,40,0.06)]">
+          <div
+            className={`mx-auto max-w-[1600px] overflow-hidden rounded-lg border border-[#E1E6ED] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_rgba(16,24,40,0.06)] ${themeClass}`}
+            style={themeWrap}
+          >
             <CanvasProvider value={{ ...canvasCtx, enabled: true }}>
-              <SupportPortalPreview accent={accent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} />
+              <SupportPortalPreview accent={themeAccent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} />
             </CanvasProvider>
           </div>
 
@@ -719,8 +955,16 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
               <div className="ml-auto flex items-center gap-0.5">
                 <Tooltip><TooltipTrigger asChild>
-                  <button onClick={() => toast.success('Opening builder help')} className={iconBtn}><HelpCircle size={17} /></button>
-                </TooltipTrigger><TooltipContent>Help</TooltipContent></Tooltip>
+                  {/* ⚠️ Reset, not Help. It replaces the "Reset all design on this element" link that
+                      used to sit at the FOOT of the panel — below every control, so you scrolled past
+                      everything to reach the one thing that undoes it. Same action, at the top, where
+                      the panel's other controls are. */}
+                  <button
+                    onClick={() => { if (selectedId) { replaceStyle(selectedId, {}); setWidgetCfg((m) => { const n = { ...m }; delete n[ownerOf(selectedId)]; return n; }); toast.success('Element reset'); } }}
+                    disabled={!selectedId}
+                    className={`${iconBtn} disabled:opacity-40`}
+                  ><RotateCcw size={16} /></button>
+                </TooltipTrigger><TooltipContent>{selectedId ? 'Reset this element to default' : 'Select an element to reset it'}</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild>
                   <button
                     onClick={() => (active ? setActive(null) : setCollapsed(true))}
@@ -734,6 +978,10 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
                 falling back to the "select something" empty state. */}
             {active === 'add' ? (
               <div className="min-h-0 flex-1"><SupportPortalAddPanel onAdd={addElement} placedTypes={placedTypes} /></div>
+            ) : active === 'theme' ? (
+              <div className="flex min-h-0 flex-1 flex-col"><PortalThemePanel theme={theme} onChange={(patch) => setTheme((t) => ({ ...t, ...patch }))} /></div>
+            ) : active === 'branding' ? (
+              <div className="min-h-0 flex-1"><PortalBrandingPanel /></div>
             ) : active ? (
               <div className="min-h-0 flex-1 overflow-y-auto"><PanelEmptyState active={active} /></div>
             ) : selectedId && specForNode(selectedId) ? (

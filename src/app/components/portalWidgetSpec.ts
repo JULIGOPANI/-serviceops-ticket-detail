@@ -48,7 +48,13 @@ export type ControlKind =
      keep-proportions size. Built once, reused by every element with a box. */
   | 'radius' | 'borderRow' | 'shadow' | 'size'
   /** The six divider shapes, picked from a popup of drawn lines rather than named in a list. */
-  | 'lineStyle';
+  | 'lineStyle'
+  /** The five icon frames, picked the same way — by looking, not by reading. */
+  | 'iconFrame'
+  /** Opens the table's content as a SHEET — a grid is edited in a grid. */
+  | 'tableContent'
+  /** Circle / square / banner, shown as the shapes themselves. */
+  | 'shape';
 
 export type Cfg = Record<string, unknown>;
 
@@ -216,7 +222,7 @@ const listCardStyleFields = (opts: { count?: boolean; viewAll?: boolean; statusP
     } as WidgetField,
   ]),
   {
-    key: 'rowLayout', label: 'Row layout', control: 'segmented', tab: 'style', group: 'Arrangement',
+    key: 'rowLayout', label: 'Row layout', control: 'segmented', tab: 'style', group: 'Layout',
     options: [{ value: 'single', label: 'Single line' }, { value: 'stacked', label: 'Stacked' }],
   },
 ];
@@ -387,8 +393,13 @@ export const WIDGET_SPECS: WidgetSpec[] = [
     ['act_incident', 'New Incident', 'Report an issue you are facing', 'Allow Requester to create Incident', 'incident'],
     ['act_service', 'Request Service', 'Browse the service catalog', 'Access Service Catalog', 'cart'],
     ['act_knowledge', 'Knowledge', 'Search help articles', 'Access Knowledge', 'book'],
+    /* ⚠️ The palette's own Action Card, built from the SAME factory rather than a lookalike. It is
+       the only one that is  — the four above are the page's fixed destinations, this one is a
+       card an admin adds and points wherever they like. Sharing the factory is what guarantees its
+       Style, Alignment, Size and Spacing sections are the ones Quick Actions uses. */
+    ['act_custom', 'Action Card', 'Describe what this card does', '', 'incident'],
   ] as const).map<WidgetSpec>(([id, title, sub, perm, icon]) => ({
-    id, name: title, group: 'Actions', reuse: 'single', family: 'flat',
+    id, name: title, group: 'Actions', reuse: id === 'act_custom' ? 'many' : 'single', family: 'flat',
     ...(perm ? { gate: { kind: 'permission' as const, setting: perm, section: 'Organization' } } : {}),
     fields: [
       { key: 'title', label: 'Title', control: 'text', group: 'Content' },
@@ -457,7 +468,8 @@ export const WIDGET_SPECS: WidgetSpec[] = [
        change it, but the default is the destination the card was already for. */
     defaults: {
       title, sub, icon, iconPos: 'left', contentAlign: 'start',
-      destination: id.replace('act_', ''), page: 'My Requests', url: '', newTab: true,
+      destination: id === 'act_custom' ? 'incident' : id.replace('act_', ''),
+      page: 'My Requests', url: '', newTab: true,
       fill: 'none', borderWidth: 0, borderColor: '#E5E7EB', radius: 8,
     },
   })),
@@ -611,43 +623,83 @@ export const WIDGET_SPECS: WidgetSpec[] = [
   {
     id: 'text', name: 'Text', group: 'Content', reuse: 'many', family: 'flat',
     fields: [
+      /* The editor is the content. Bold/italic/underline, lists, links and headings are applied to
+         a SELECTION, so they belong in the writing surface — a panel control can only ever style
+         the whole block. */
       { key: 'html', label: 'Text', control: 'rich', group: 'Content' },
+
+      /* ⚠️ These style the WHOLE block, and that is the division of labour: the toolbar styles what
+         you selected, these style everything. Both are needed — the toolbar cannot express "this
+         paragraph is 18px Poppins" without you selecting all of it first, every time you edit. */
+      { key: 'font', label: 'Font', control: 'select', tab: 'style', group: 'Text style',
+        options: ['Inherit from theme', 'Inter', 'Poppins', 'Roboto', 'Source Sans 3', 'Merriweather', 'IBM Plex Mono'] },
+      { key: 'weight', label: 'Font weight', control: 'select', tab: 'style', group: 'Text style',
+        options: ['Light', 'Normal', 'Medium', 'Semibold', 'Bold'] },
+      { key: 'size', label: 'Font size', control: 'sliderUnit', tab: 'style', group: 'Text style', min: 10, max: 48, unit: 'px' },
+      { key: 'color', label: 'Font colour', control: 'color', tab: 'style', group: 'Text style' },
+      { key: 'lineHeight', label: 'Line height', control: 'slider', tab: 'style', group: 'Text style', min: 100, max: 220 },
+      { key: 'letterSpacing', label: 'Letter spacing', control: 'slider', tab: 'style', group: 'Text style', min: -2, max: 8 },
       {
-        key: 'textAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Text',
-        options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Right' }, { value: 'justify', label: 'Justify' }],
+        key: 'textCols', label: 'Column count', control: 'segmented', tab: 'style', group: 'Text style',
+        options: [{ value: '1', label: '1' }, { value: '2', label: '2' }],
       },
       {
-        key: 'textCols', label: 'Column count', control: 'segmented', tab: 'style', group: 'Text',
-        options: [{ value: '1', label: '1' }, { value: '2', label: '2' }],
+        key: 'textAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Alignment',
+        options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Right' }, { value: 'justify', label: 'Justify' }],
       },
     ],
     packs: ['P2'], roles: ['body'],
-    notes: [{
-      tone: 'info', tab: 'style',
-      text: 'Typeface and size live under Typography → Body, and default to the portal theme. Set the portal-wide face in Theme; override here only for a line that has to differ.',
-    }],
-    defaults: { html: 'Double-click to edit this text.', textAlign: 'left', textCols: '1' },
+    defaults: {
+      html: 'Double-click to edit this text.', textAlign: 'left', textCols: '1',
+      font: 'Inherit from theme', weight: 'Normal', size: 15, color: '#364658',
+      lineHeight: 160, letterSpacing: 0,
+    },
   },
 
   /* ─────────── §7.14 Image ─────────── */
   {
     id: 'image', name: 'Image', group: 'Content', reuse: 'many', family: 'flat',
     fields: [
+      /* The upload zone IS the replace action once something is in it — it shows the current image
+         with its own change and remove controls, so a separate Replace button would be a second
+         door to one room. */
       { key: 'src', label: 'Image', control: 'upload', group: 'Content' },
       /* §8.5 — alt text is prompted and WARNED about when blank, never blocked. A hard stop would
-         teach people to type a space; a standing warning is what actually gets it filled in. */
+         teach people to type a space; a standing warning is what actually gets it filled in.
+         ⚠️ Only asked once there IS an image: alt text for nothing is a question with no answer. */
       {
         key: 'alt', label: 'Alt text', control: 'text', group: 'Content',
-        help: 'Read aloud by screen readers.',
+        help: 'Shown if the image does not load, and read aloud by screen readers.',
         warnWhenBlank: 'No alt text yet — screen-reader users will hear nothing where this image is.',
         when: (c) => !!c.src,
       },
       { key: 'caption', label: 'Caption', control: 'text', group: 'Content' },
-      { key: 'link', label: 'Link', control: 'text', group: 'Content' },
-      { key: 'newTab', label: 'Open in a new tab', control: 'toggle', group: 'Content', when: (c) => !!c.link },
+      /* ⚠️ Link is the image's ACTION, not its content. Where a click goes is neither what the
+         element shows nor how it looks — the same reason the action cards keep their destination in
+         a section of its own rather than buried among titles. */
+      { key: 'link', label: 'On click, go to', control: 'text', tab: 'style', group: 'Action', help: 'Leave blank to make the image decorative.' },
+      { key: 'newTab', label: 'Open in a new tab', control: 'toggle', tab: 'style', group: 'Action', when: (c) => !!c.link },
+
+      // ── Style — the image's own box, using the shared components ──
+      { key: 'borderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Style' },
+      { key: 'radius', label: 'Corner radius', control: 'radius', tab: 'style', group: 'Style' },
+      { key: 'shadowOn', label: 'Shadow', control: 'shadow', tab: 'style', group: 'Style' },
+
+      {
+        key: 'align', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Alignment',
+        options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Right' }],
+      },
     ],
-    packs: ['P2', 'P5'], roles: ['meta'],
-    defaults: { src: '', alt: '', caption: '', link: '', newTab: true },
+    /* ⚠️ No P5 Media. Ratio, fit and focal point crop the picture — that is a decision about the
+       IMAGE FILE, and it belongs with the file rather than beside a border slider. P2 stays: Size
+       and Spacing are the same rows every other element gets. */
+    packs: ['P2'], roles: ['meta'],
+    defaults: {
+      src: '', alt: '', caption: '', link: '', newTab: true,
+      borderWidth: 0, borderColor: '#E5E7EB', radius: 8,
+      shadowOn: false, shadowColor: '#0F172A', shadowType: 'outer', shadowPos: 'bottom',
+      align: 'left',
+    },
   },
 ];
 
@@ -715,6 +767,7 @@ export const WIDGET_FOR_TYPE: Record<string, string> = {
   'act-incident': 'act_incident',
   'act-service': 'act_service',
   'act-knowledge': 'act_knowledge',
+  'x-action-card': 'act_custom',
   'act-ad': 'act_ad',
   'b-text': 'text',
   'v-image': 'image',

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Ban, ChevronDown, Info, Pencil, Pipette, Plus } from 'lucide-react';
+import { Ban, ChevronDown, Info, Pipette } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 /* Colour picker.
@@ -14,7 +14,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
  * survives closing and reopening on a different element. */
 
 const THEME_COLORS = ['#3D8BD0', '#364658', '#7B8FA5', '#F7F9FC', '#FFFFFF', '#22A06B', '#B45309', '#DC2626'];
-const DEFAULT_SAVED = ['#0F172A', '#1E293B', '#475467', '#94A3B8', '#E5E7EB', '#EBF5FF', '#ECFDF3', '#FEF3F2'];
 
 let RECENT: string[] = [];
 const remember = (hex: string) => {
@@ -85,8 +84,10 @@ export function PortalColorPicker({ value, onChange, onClose, anchor }: {
   /** Viewport rect of the trigger — the popover is portalled, so it positions itself. */
   anchor: DOMRect;
 }) {
-  const [tab, setTab] = useState<'Saved' | 'Recent'>('Saved');
-  const [saved, setSaved] = useState<string[]>(DEFAULT_SAVED);
+  /* ⚠️ No Saved list. A portal is built from its THEME palette, and a per-browser set of saved
+     swatches is a second palette that nobody else on the team can see — it quietly competes with
+     the one place colour is supposed to be defined. Recent stays because it is a shortcut back to
+     what you just used, not an alternative source of truth. */
   const [hsv, setHsv] = useState(() => hexToHsv(value || '#000000'));
   const [hex, setHex] = useState((value || '#000000').toUpperCase());
   const [opacity, setOpacity] = useState(100);
@@ -144,7 +145,7 @@ export function PortalColorPicker({ value, onChange, onClose, anchor }: {
   };
   const hasEyedropper = typeof (window as unknown as { EyeDropper?: unknown }).EyeDropper !== 'undefined';
 
-  const grid = tab === 'Saved' ? saved : RECENT;
+  const grid = RECENT;
 
   /* Portalled and fixed. The design panel is an overflow-y-auto column, so an absolutely
      positioned popover inside it gets clipped the moment it is taller than the space below the
@@ -168,30 +169,9 @@ export function PortalColorPicker({ value, onChange, onClose, anchor }: {
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
         {THEME_COLORS.map((c) => <Swatch key={c} color={c} on={c.toLowerCase() === hex.toLowerCase()} onPick={() => commit(c)} />)}
-        <button
-          onClick={() => setSaved((p) => (p.includes(hex) ? p : [hex, ...p]))}
-          title="Save this colour"
-          className="flex size-6 items-center justify-center rounded-full border border-dashed border-[#C3CBD6] text-[#7B8FA5] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
-        ><Plus size={13} /></button>
-        <button
-          onClick={() => setTab('Saved')}
-          title="Manage saved colours"
-          className="flex size-6 items-center justify-center rounded-full text-[#7B8FA5] transition-colors hover:text-[#364658]"
-        ><Pencil size={12} /></button>
       </div>
 
-      {/* Saved / Recent */}
-      <div className="mt-4 flex gap-6 border-b border-[#F0F2F5]">
-        {(['Saved', 'Recent'] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`-mb-px border-b-2 pb-2 text-[13px] font-medium transition-colors ${
-              tab === t ? 'border-[#3D8BD0] text-[#3D8BD0]' : 'border-transparent text-[#64748B] hover:text-[#364658]'
-            }`}
-          >{t}</button>
-        ))}
-      </div>
+      <div className="mt-4 border-b border-[#F0F2F5] pb-2 text-[11px] font-semibold uppercase tracking-wider text-[#7B8FA5]">Recent</div>
       <div className="mt-3 flex flex-wrap gap-2">
         <Swatch color="transparent" none onPick={() => { onChange('transparent'); setHex('TRANSPARENT'); }} />
         {grid.map((c) => <Swatch key={c} color={c} on={c.toLowerCase() === hex.toLowerCase()} onPick={() => commit(c)} />)}
@@ -199,7 +179,7 @@ export function PortalColorPicker({ value, onChange, onClose, anchor }: {
       </div>
       <div className="mt-2 flex justify-end">
         <button
-          onClick={() => { if (tab === 'Saved') setSaved(DEFAULT_SAVED); else { RECENT = []; setTab('Recent'); } }}
+          onClick={() => { RECENT = []; setHex((h) => h); }}
           className="text-[12px] font-medium text-[#3D8BD0] hover:underline"
         >Reset</button>
       </div>

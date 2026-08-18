@@ -8,7 +8,7 @@ import { Pagination } from './Pagination';
 import { SupportPortalBuilder } from './SupportPortalBuilder';
 import { SupportPortalTemplateGallery } from './SupportPortalTemplateGallery';
 import {
-  PORTAL_TEMPLATES, formatPortalStamp, nextPageId, uniquePageName,
+  DEFAULT_PORTAL_PAGE, PORTAL_TEMPLATES, formatPortalStamp, nextPageId, uniquePageName,
 } from './supportPortalData';
 import type { PortalPage, PortalTemplate } from './supportPortalData';
 
@@ -130,7 +130,12 @@ function ConfirmDelete({ page, onCancel, onConfirm }: { page: PortalPage; onCanc
 type Scope = 'All' | 'Published' | 'Draft';
 
 export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boolean) => void }) {
-  const [pages, setPages] = useState<PortalPage[]>([]);
+  /* ⚠️ Starts with ONE page, not empty. Every tenant already has a support portal — the requester
+     is landing somewhere today — so an empty state here would claim the portal does not exist and
+     invite the admin to "create" the thing they are actually editing. The default page is a System
+     page: it can be customised and duplicated, and the delete action refuses it (see `canDelete`),
+     because a portal with no landing page is not a state the product can be in. */
+  const [pages, setPages] = useState<PortalPage[]>([DEFAULT_PORTAL_PAGE]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [gallery, setGallery] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -367,10 +372,20 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
                     <div className="flex items-center gap-1">
                       <button onClick={() => setEditingId(p.id)} title="Edit page" className={actionBtn}><SquarePen size={16} /></button>
                       <button onClick={() => duplicate(p)} title="Duplicate page" className={actionBtn}><Copy size={16} /></button>
+                      {/* ⚠️ Disabled WITH a reason on the default page, not hidden. A portal with no
+                          landing page is not a state the product can be in, and an action that
+                          silently vanishes reads as a bug rather than a rule. */}
                       <button
                         onClick={() => setConfirmId(p.id)}
-                        title="Delete page"
-                        className="flex size-8 items-center justify-center rounded text-[#EF4444] transition-colors hover:bg-[#FEF3F2]"
+                        disabled={p.id === DEFAULT_PORTAL_PAGE.id}
+                        title={p.id === DEFAULT_PORTAL_PAGE.id
+                          ? 'The default portal page cannot be deleted — requesters have to land somewhere'
+                          : 'Delete page'}
+                        className={`flex size-8 items-center justify-center rounded transition-colors ${
+                          p.id === DEFAULT_PORTAL_PAGE.id
+                            ? 'cursor-not-allowed text-[#C3CBD6]'
+                            : 'text-[#EF4444] hover:bg-[#FEF3F2]'
+                        }`}
                       ><Trash2 size={16} /></button>
                     </div>
                   </td>

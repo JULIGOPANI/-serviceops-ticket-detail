@@ -396,7 +396,7 @@ const CARD_TYPES = new Set([
   'c-services', 'c-categories', 'c-requests', 'c-approvals', 'c-assets', 'c-tasks',
   'c-announcements', 'c-knowledge', 'c-faq', 'c-contact',
   'b-card', 'b-table', 'b-accordion', 'b-text-image',
-  'x-action-card', 'x-kpi', 'z-form',
+  'x-action-card', 'x-kpi',
 ]);
 
 const TEXT_TYPES = new Set(['b-text', 'b-large-title', 'b-small-title']);
@@ -405,7 +405,6 @@ export function renderSpec(type: string): ElementRenderSpec {
   if (TEXT_TYPES.has(type)) return { kind: 'text', bare: true };
   if (CARD_TYPES.has(type)) return { kind: 'card', bare: false };
   if (type === 'c-search') return { kind: 'search', bare: true };
-  if (type === 'b-nav') return { kind: 'nav', bare: true };
   if (type === 'b-list') return { kind: 'list', bare: true };
   return { kind: 'card', bare: true };
 }

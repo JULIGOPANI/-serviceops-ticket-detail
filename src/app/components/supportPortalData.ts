@@ -109,6 +109,20 @@ export const PORTAL_TEMPLATES: PortalTemplate[] = [
   },
 ];
 
+/* The portal every tenant already has. It is a SYSTEM page: shipped with the product, always
+   present, and the one a requester lands on today — which is why the listing opens with it rather
+   than an empty state, and why it is the one page the delete action refuses. */
+export const DEFAULT_PORTAL_PAGE: PortalPage = {
+  id: 'SPP-1',
+  name: 'Support Portal',
+  type: 'System',
+  status: 'Published',
+  source: 'Classic Service Desk',
+  audience: 'All requesters',
+  modifiedAt: 'Mon, Aug 17, 2026 09:14 AM',
+  modifiedBy: 'System',
+};
+
 export const TEMPLATE_CATEGORIES = ['All', 'IT Support', 'HR', 'Facilities', 'General'] as const;
 
 /* ── The default layout the canvas renders ───────────────────────────────── */
@@ -177,7 +191,7 @@ export const PORTAL_ARTICLES: PortalArticle[] = [
  * toolkit, in the order Duda uses (layout → basic → visual → business → custom). */
 /* ⚠️ No 'Layout' group. It held two elements — a Divider and Advanced Tabs — which are as basic as
    anything in Basic; a tab of two rows is a category that costs more to scan than it saves. */
-export const PORTAL_ELEMENT_GROUPS = ['Live data', 'Actions', 'Basic', 'Visual', 'Business', 'Custom'] as const;
+export const PORTAL_ELEMENT_GROUPS = ['Live data', 'Actions', 'Basic', 'Visual', 'Custom'] as const;
 export type PortalElementGroup = (typeof PORTAL_ELEMENT_GROUPS)[number];
 
 export interface PortalElement {
@@ -236,35 +250,27 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
      separate palette entry for each was two ways to make the same link.
      x-search was a DUPLICATE of c-search under Custom; two identically named entries is a coin
      flip for whoever uses it. */
+  /* ⚠️ Large Title, Small Title and List are HIDDEN, not deleted — their specs and renderers are
+     still here because the Text element is absorbing those features into its own content. Deleting
+     them would take the working code with them; hiding them stops the palette offering two ways to
+     write a heading while that move is in flight.
+     Countdown, Photo Gallery, Icon and Shape were REMOVED from the palette outright. */
   // ── Basic ──
   { id: 'b-text', name: 'Text', icon: 'text', group: 'Basic', keywords: 'paragraph body copy' },
   { id: 'b-button', name: 'Button', icon: 'button', group: 'Basic', keywords: 'cta link action' },
   { id: 'b-spacer', name: 'Spacer', icon: 'spacer', group: 'Basic', keywords: 'gap whitespace' },
-  { id: 'b-large-title', name: 'Large Title', icon: 'largeTitle', group: 'Basic', keywords: 'heading h1 h2' },
-  { id: 'b-small-title', name: 'Small Title', icon: 'smallTitle', group: 'Basic', keywords: 'heading h3 h4 subtitle' },
-  { id: 'b-list', name: 'List', icon: 'list', group: 'Basic', keywords: 'bullets items' },
-  { id: 'b-countdown', name: 'Countdown', icon: 'countdown', group: 'Basic', keywords: 'timer deadline' },
   { id: 'b-table', name: 'Table', icon: 'table', group: 'Basic', keywords: 'grid rows columns data' },
   { id: 'b-accordion', name: 'Accordion', icon: 'accordion', group: 'Basic', keywords: 'collapse faq expand' },
   { id: 'b-text-image', name: 'Text with Image', icon: 'textImage', group: 'Basic', keywords: 'media split' },
   { id: 'b-card', name: 'Card', icon: 'card', group: 'Basic', keywords: 'tile panel' },
-  /* Navigation Links is its OWN element, not a Button action: a button has one destination, a nav
-     has a set of them. Moved out of Business into Basic, where a link list belongs. */
-  { id: 'b-nav', name: 'Navigation Links', icon: 'nav', group: 'Basic', keywords: 'menu links nav' },
 
   // ── Visual ──
   { id: 'v-image', name: 'Image', icon: 'image', group: 'Visual', keywords: 'picture photo' },
   { id: 'v-slider', name: 'Media Slider', icon: 'slider', group: 'Visual', keywords: 'carousel gallery' },
-  { id: 'v-gallery', name: 'Photo Gallery', icon: 'gallery', group: 'Visual', keywords: 'grid images' },
-  { id: 'v-icon', name: 'Icon', icon: 'icon', group: 'Visual', keywords: 'glyph symbol' },
-  { id: 'v-shape', name: 'Shape', icon: 'shape', group: 'Visual', keywords: 'divider decoration' },
 
-  // ── Business ──
-  { id: 'z-form', name: 'Contact Form', icon: 'form', group: 'Business', keywords: 'enquiry submit' },
 
   // ── Custom ──
   { id: 'x-action-card', name: 'Action Card', icon: 'actionCard', group: 'Custom', keywords: 'quick action tile' },
-  { id: 'x-action-icon', name: 'Action Icon', icon: 'actionIcon', group: 'Custom', keywords: 'quick action shortcut' },
   { id: 'x-kpi', name: 'KPI', icon: 'kpi', group: 'Custom', keywords: 'metric stat number' },
 ];
 

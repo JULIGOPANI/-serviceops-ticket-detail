@@ -14,6 +14,8 @@ import { ChevronDown, ChevronLeft, ChevronRight, ImageOff, ShoppingCart, Star } 
 import { Sel, useCanvas } from './PortalCanvas';
 import { itemNodeId, subNodeId } from './portalPageModel';
 import { chosen, roleStyle } from './portalStyleResolver';
+import { IconFrameBox } from './PortalIconFrame';
+import type { IconFrame } from './PortalIconFrame';
 import type { Cfg } from './portalWidgetSpec';
 
 type Item = Cfg & { id: string; hidden?: boolean };
@@ -192,7 +194,11 @@ function ChildBlock({ item }: { item: Item }) {
 
 export function TableRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
   const { styles } = useCanvas();
-  const rows = (cfg.rows as Item[]) ?? [];
+  /* ⚠️ Rows arrive as plain string[][] from the sheet, but older config may still hold the
+     { id, cells } item shape. Normalising here means one renderer serves both rather than a
+     migration nobody would remember to run. */
+  const rows: string[][] = ((cfg.rows as unknown[]) ?? []).map((r) =>
+    (Array.isArray(r) ? (r as string[]) : ((r as Cfg)?.cells as string[]) ?? []));
   const pad = Number(cfg.cellPad ?? 10);
   const header = cfg.headerRow !== false;
   /* The Header / Rows / Frame groups the drawer now offers. ⚠️ This renderer used to read
@@ -224,7 +230,7 @@ export function TableRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
      auto-sizing from content and ignores the percentages entirely. */
   const widths = (cfg.widths as number[]) ?? [];
   const aligns = (cfg.aligns as string[]) ?? [];
-  const colCount = Number(cfg.cols ?? (rows[0]?.cells as string[])?.length ?? 0);
+  const colCount = Math.max(0, ...rows.map((r) => r.length));
 
   return (
     <div>
@@ -249,7 +255,7 @@ export function TableRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
               const isHead = header && ri === 0;
               return (
                   <tr
-                    key={r.id}
+                    key={ri}
                     /* ⚠️ NOT wrapped in <Sel>. Sel renders a DIV, and a <div> between <tbody> and
                        <tr> takes the row out of the table box model entirely — each row became its
                        own anonymous table, which is why the columns did not line up and every cell
@@ -264,7 +270,7 @@ export function TableRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
                         : String(((header ? ri - 1 : ri) % 2 === 0 ? cfg.evenBg : cfg.oddBg) ?? '#FFFFFF'),
                     }}
                   >
-                    {((r.cells as string[]) ?? []).map((cell, ci) => {
+                    {r.map((cell, ci) => {
                       // "First column" styles column 0 like a header — a row label, not data.
                       const asHead = isHead || (cfg.firstColumn === true && ci === 0);
                       return (
@@ -699,27 +705,28 @@ export function TitleRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
 export function IconRender({ nodeId, cfg, glyph }: { nodeId: string; cfg: Cfg; glyph?: ReactNode }) {
   const { styles } = useCanvas();
   const size = Number(cfg.iconSize ?? 24);
-  const shape = String(cfg.containerShape ?? 'none');
-  const boxed = shape !== 'none';
+  /* ⚠️ Height falls back to WIDTH, not to a constant. An icon is square by nature, so an unset
+     height that defaulted to something else would distort every glyph in the library. */
+  const height = Number(cfg.iconHeight ?? size);
   const justify = cfg.align === 'center' ? 'center' : cfg.align === 'right' ? 'flex-end' : 'flex-start';
+  /* The frame is drawn by the SAME component the picker's swatches use, so what you chose in the
+     popup is literally what lands on the page. */
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: justify }}>
-      <span
-        style={{
-          color: String(cfg.iconColor ?? '#3D8BD0'),
-          background: boxed ? String(cfg.containerFill ?? '#EBF5FF') : undefined,
-          borderRadius: shape === 'circle' ? 999 : shape === 'rounded' ? Number(cfg.radius ?? 8) : undefined,
-          width: boxed ? size + 20 : undefined,
-          height: boxed ? size + 20 : undefined,
-          borderWidth: Number(cfg.borderWidth ?? 0) || undefined,
-          borderStyle: Number(cfg.borderWidth ?? 0) ? 'solid' : undefined,
-          borderColor: String(cfg.borderColor ?? '#E5E7EB'),
-          boxShadow: cfg.shadow === true ? '0 2px 6px rgba(16,24,40,0.12)' : undefined,
-        }}
-        className="inline-flex items-center justify-center"
+      <IconFrameBox
+        frame={(cfg.frame as IconFrame) ?? 'none'}
+        size={size}
+        color={String(cfg.iconColor ?? '#3D8BD0')}
+        fill={String(cfg.containerFill ?? '#EBF5FF')}
+        border={Number(cfg.borderWidth ?? 0)}
+        borderColor={String(cfg.borderColor ?? '#E5E7EB')}
+        radius={Number(cfg.radius ?? 8)}
       >
-        {glyph ?? <Star size={size} />}
-      </span>
+        {/* Alt text is the fallback when the glyph will not draw, and the screen-reader name. */}
+        <span title={String(cfg.a11yLabel ?? '') || undefined} style={{ width: size, height, lineHeight: 0 }} className="inline-flex items-center justify-center">
+          {glyph ?? <Star size={Math.min(size, height)} />}
+        </span>
+      </IconFrameBox>
       {!!cfg.caption && (
         <span style={roleStyle(styles, nodeId, 'meta')} className="mt-1.5 text-[12px] text-[#7B8FA5]">{String(cfg.caption)}</span>
       )}
