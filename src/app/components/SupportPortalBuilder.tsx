@@ -198,7 +198,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   /* ⚠️ `-viewall` strips too. The link's label is a key on the WIDGET's config, so its own node has
      to resolve to the widget for reading and writing — the panel it opens is separate (see
      `specForNode`), which is the whole point: same value, different editor. */
-  const ownerOf = (id: string) => parseItemId(id)?.widget ?? id.replace(/-(title|sub|viewall|icon)$/, '');
+  const ownerOf = (id: string) => parseItemId(id)?.widget ?? id.replace(/-(title|sub|label|viewall|icon)$/, '');
 
   const specForNode = useCallback((id: string | null): WidgetSpec | undefined => {
     if (!id) return undefined;
@@ -207,7 +207,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
        the one thing you aimed at is the one thing you cannot edit. Config and panel resolve
        differently here on purpose. */
     const own = structureSpecId(id);
-    if (own === 'card_title' || own === 'card_sub' || own === 'card_icon' || own === 'list_title' || own === 'list_link') return specById(own);
+    if (['card_title', 'card_sub', 'card_icon', 'list_title', 'list_label', 'list_link'].includes(own ?? '')) return specById(own);
 
     const owner = ownerOf(id);
     const direct = WIDGET_FOR_NODE[owner];
@@ -777,6 +777,11 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     // A dropped Text element keeps its words as HTML on its own config.
     if (/^el-\d+$/.test(id)) { patchCfg(id, { html: text }); return; }
 
+    /* A placed element's own words — a KPI's label, a custom card's title or subtext. The suffix IS
+       the config key, which is why these need no per-type branch. */
+    const placedTxt = /^(el-\d+)-(title|sub|label)$/.exec(id);
+    if (placedTxt) { patchCfg(placedTxt[1], { [placedTxt[2]]: text }); return; }
+
     // An item's sub-element — the words live on the item, inside its widget's config.
     const item = parseItemId(id);
     if (item) {
@@ -1036,7 +1041,9 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
         {/* Canvas */}
         <div className="relative min-w-0 flex-1 overflow-y-auto p-5">
           <div
-            className={`mx-auto max-w-[1600px] overflow-hidden rounded-lg border border-[#E1E6ED] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_rgba(16,24,40,0.06)] ${themeClass}`}
+            /* The box a floating toolbar must stay inside — the design panel owns the space to its right. */
+            data-portal-canvas
+            className={`mx-auto max-w-[1600px] rounded-lg border border-[#E1E6ED] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_rgba(16,24,40,0.06)] ${themeClass}`}
             style={themeWrap}
           >
             <CanvasProvider value={{ ...canvasCtx, enabled: true }}>

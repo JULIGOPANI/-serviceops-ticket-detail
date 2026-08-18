@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-  AlignCenter, AlignLeft, AlignRight, Bold, ChevronDown, Eraser,
+  AlignCenter, AlignLeft, AlignRight, Bold, Check, ChevronDown, Eraser,
   IndentDecrease, IndentIncrease, Info, Italic, Link2, List, ListOrdered, Quote, Redo2, Strikethrough,
   TriangleAlert, Underline, Undo2, Upload, X,
 } from 'lucide-react';
@@ -492,6 +492,72 @@ export function ToggleRow({ label, on, onChange, help, locked, lockNote }: {
 }
 
 /* ── Chips — multi-select, toggling is immediate (spec §3) ───────────────── */
+
+/* A multi-select that reads as a FIELD, not a row of buttons.
+ *
+ * ⚠️ Chips said "these are the statuses" without ever saying "and these are the ones you left out" —
+ * an unpicked chip and a picked one differ only by fill, so at a glance a list of five reads as one
+ * thing whether four are on or none are. A closed field states the answer in words ("3 of 5") and
+ * the full set only appears when you are choosing from it.
+ * ⚠️ It carries Select all / Clear, because "every status" and "none" are the two answers people
+ * actually reach for and neither should cost five clicks. */
+export function MultiSelect<T extends string>({ value, options, onChange, placeholder = 'None selected' }: {
+  value: T[]; options: readonly T[]; onChange: (v: T[]) => void; placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', away);
+    return () => document.removeEventListener('mousedown', away);
+  }, [open]);
+
+  const all = value.length === options.length;
+  const label = value.length === 0 ? placeholder
+    : all ? `All ${options.length}`
+      : value.length === 1 ? value[0]
+        : `${value.length} of ${options.length}`;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`flex h-9 w-full items-center gap-2 rounded border bg-white px-2.5 text-left transition-colors ${
+          open ? 'border-[#3D8BD0] ring-1 ring-[#3D8BD0]' : 'border-[#d1d5db] hover:border-[#3D8BD0]'
+        }`}
+      >
+        <span className={`min-w-0 flex-1 truncate text-[13px] ${value.length ? 'text-[#364658]' : 'text-[#9ca3af]'}`}>{label}</span>
+        <ChevronDown size={14} className={`flex-shrink-0 text-[#9CA3AF] transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[71] rounded-lg border border-[#E5E7EB] bg-white py-1 shadow-[0_12px_24px_-6px_rgba(16,24,40,0.18)]">
+          <button
+            onClick={() => onChange(all ? [] : [...options])}
+            className="flex w-full items-center gap-2 border-b border-[#F0F2F5] px-3 py-1.5 text-left text-[12px] font-medium text-[#3D8BD0] transition-colors hover:bg-[#F5F9FD]"
+          >{all ? 'Clear all' : 'Select all'}</button>
+          {options.map((o) => {
+            const on = value.includes(o);
+            return (
+              <button
+                key={o}
+                onClick={() => onChange(on ? value.filter((x) => x !== o) : [...value, o])}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-[#F5F9FD]"
+              >
+                {/* A real checkbox shape: the one control everyone already reads as "many of these". */}
+                <span className={`flex size-4 flex-shrink-0 items-center justify-center rounded-[3px] border ${
+                  on ? 'border-[#3D8BD0] bg-[#3D8BD0] text-white' : 'border-[#CBD5E1] bg-white'
+                }`}>{on && <Check size={11} strokeWidth={3} />}</span>
+                <span className="min-w-0 flex-1 truncate text-[13px] text-[#364658]">{o}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Chips<T extends string>({ value, options, onChange }: {
   value: T[]; options: readonly T[]; onChange: (v: T[]) => void;

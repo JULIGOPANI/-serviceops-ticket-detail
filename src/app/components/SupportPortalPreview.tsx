@@ -529,6 +529,25 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
   /* ⚠️ Padding is applied only when it has actually been SET. A spec default here would silently
      add space to every band the day the control shipped — the same reason `containerCss` skips
      theme-sourced values. */
+  /* A hero text node's own placement.
+     ⚠️ Its `align` comes from the floating toolbar and beats the band's `contentAlign`, because it
+     is the more specific decision — you selected THAT heading and pressed left. Falling back to the
+     band keeps an untouched hero behaving exactly as before.
+     ⚠️ The max-width is applied HERE, with margins keyed to the same alignment: a capped line that
+     kept auto margins would centre itself no matter which button you pressed, which is precisely
+     the bug this replaces. */
+  const heroLine = (nodeId: string): React.CSSProperties => {
+    const own = styles[nodeId]?.align;
+    const a = String(own ?? heroAlignX(String(wc('hero').contentAlign ?? 'center')));
+    const cap = `${Number(wc('hero').contentMaxWidth ?? 70)}%`;
+    return {
+      textAlign: a as React.CSSProperties['textAlign'],
+      maxWidth: cap,
+      marginLeft: a === 'right' ? 'auto' : a === 'center' ? 'auto' : 0,
+      marginRight: a === 'left' ? 'auto' : a === 'center' ? 'auto' : 0,
+    };
+  };
+
   const secBox = (id: string): React.CSSProperties => ({
     paddingTop: wc(id).padTop === undefined ? undefined : Number(wc(id).padTop) || undefined,
     paddingBottom: wc(id).padBottom === undefined ? undefined : Number(wc(id).padBottom) || undefined,
@@ -658,20 +677,20 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
               }}
             >
               <HeroArtwork />
+              {/* ⚠️ FULL WIDTH. The block used to be capped at 70% and centred with auto margins,
+                  which meant a heading aligned left landed at the left edge of that centred column —
+                  15% in from the banner — and no setting could reach the banner's own edges. The cap
+                  now limits the LINE (see `heroLine`), not the column, so alignment moves text
+                  across the whole band and the 9-point picker still places the group. */}
               <div
-                className="relative px-6 py-6"
-                style={{
-                  textAlign: heroAlignX(String(wc('hero').contentAlign ?? 'center')),
-                  maxWidth: `${Number(wc('hero').contentMaxWidth ?? 70)}%`,
-                  marginLeft: heroML(String(wc('hero').contentAlign ?? 'center')),
-                  marginRight: heroMR(String(wc('hero').contentAlign ?? 'center')),
-                }}
+                className="relative w-full px-6 py-6"
+                style={{ textAlign: heroAlignX(String(wc('hero').contentAlign ?? 'center')) }}
               >
                 {/* ⚠️ BLOCK, not inline-block. Both were inline-block, so the subtitle sat on the
                     same line as the heading and the band read as one run-on sentence — "Welcome to
                     Support Portal Search our support center knowledge base". A heading and its
                     subtext are two lines; the wrapper has to say so. */}
-                <Sel id="hero-title" className="block px-1 text-center">
+                <Sel id="hero-title" className="block w-full px-1" style={heroLine('hero-title')}>
                   <h2
                     style={{ color: String(wc('hero').headingColor ?? '#4C7BA8'), ...roleStyle(styles, 'hero', 'title'), ...st('hero-title') }}
                     className="text-[30px] font-semibold leading-tight"
@@ -679,7 +698,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                     {String(wc('hero').heading ?? content.hero.title)}
                   </h2>
                 </Sel>
-                <Sel id="hero-subtitle" className="mt-2 block px-1 text-center">
+                <Sel id="hero-subtitle" className="mt-2 block w-full px-1" style={heroLine('hero-subtitle')}>
                   <p style={{ ...roleStyle(styles, 'hero', 'subtitle'), ...st('hero-subtitle') }} className="text-[15px] text-white/85">
                     {String(wc('hero').sub ?? content.hero.subtitle)}
                   </p>
@@ -712,7 +731,11 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
           {/* No horizontal padding here: a SECTION runs from the page's left edge to its right
               edge, so each one carries its own inset instead of sitting inside a padded column. */}
           <div className="flex flex-col pb-8">
-            {after('hero')}
+            {/* ⚠️ NO seam under the hero. The action cards ride up into the banner by 62px, so a
+                section inserted between them would land inside an overlap and split a join that is
+                deliberately one unit — visually the banner and its cards are a single band, and the
+                CTA offered to break it in the one place it cannot be broken. Every other join keeps
+                its seam. */}
 
             {/* ── Quick actions ── */}
             {/* ⚠️ The hero overlap is the ONE margin that survives: it is a relationship with the
@@ -909,20 +932,38 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                       const c = wc('knowledge');
                       const below = c.idPlacement === 'below';
                       return (
+                        /* ⚠️ The row answers to the WIDGET's width, not the window's — `@container`,
+                            the same mechanism the software card grid uses. Dragging this card narrow
+                            used to squeeze the icon and truncate the title to two characters while
+                            the date and the tag sat on one long line, because every breakpoint here
+                            was either absent or keyed to a viewport that had not changed.
+                            Below ~230px the icon goes (it repeats for every row and carries no
+                            information the title does not) and the meta line stacks; above it, the
+                            row is exactly what it was. */
                         <Row key={k.id} nodeId="knowledge">
-                          <div className="flex gap-3">
-                            <span className="flex size-9 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#7B8FA5]"><IconKnowledge size={18} /></span>
-                            <span className="min-w-0 flex-1">
-                              <span className={c.rowLayout === 'single' ? 'flex items-center gap-2' : 'block'}>
-                                {c.showId !== false && !below && <IdPill>{k.id}</IdPill>}
-                                <span style={roleStyle(styles, 'knowledge', 'body')} className="min-w-0 truncate text-[13px] text-[#364658]">{k.title}</span>
+                          <div className="@container min-w-0">
+                            <div className="flex min-w-0 gap-2 @[230px]:gap-3">
+                              <span className="hidden size-9 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#7B8FA5] @[230px]:flex"><IconKnowledge size={18} /></span>
+                              <span className="min-w-0 flex-1">
+                                {/* ⚠️ NOT flex-wrap. A wrapping row lets an item move to a new line instead of
+                                    shrinking, so the title kept its natural width and pushed the card into
+                                    horizontal overflow — the exact opposite of responsive. No wrap plus
+                                    min-w-0 is what makes truncation the pressure valve. */}
+                                <span className={c.rowLayout === 'single' ? 'flex min-w-0 items-center gap-2' : 'block'}>
+                                  {c.showId !== false && !below && <IdPill>{k.id}</IdPill>}
+                                  {/* ⚠️ `w-0` with `flex-1`, not `min-w-0` alone. A flex item's basis is its CONTENT by
+                                      default, so it refuses to go below its natural width and pushes the card
+                                      into overflow instead of truncating. Zeroing the basis is what makes the
+                                      ellipsis the thing that gives way. */}
+                                  <span style={roleStyle(styles, 'knowledge', 'body')} className="w-0 min-w-0 flex-1 truncate text-[13px] text-[#364658]">{k.title}</span>
+                                </span>
+                                <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                  {c.showId !== false && below && <IdPill>{k.id}</IdPill>}
+                                  {c.showDate !== false && <span style={roleStyle(styles, 'knowledge', 'meta')} className="truncate text-[12px] text-[#7B8FA5]">{k.at}</span>}
+                                  {c.showCategory !== false && <span className="max-w-full truncate rounded-sm bg-[#F1F5F9] px-1.5 py-0.5 text-[11px] text-[#64748B]">{k.tag}</span>}
+                                </span>
                               </span>
-                              <span className="mt-1 flex flex-wrap items-center gap-2">
-                                {c.showId !== false && below && <IdPill>{k.id}</IdPill>}
-                                {c.showDate !== false && <span style={roleStyle(styles, 'knowledge', 'meta')} className="text-[12px] text-[#7B8FA5]">{k.at}</span>}
-                                {c.showCategory !== false && <span className="rounded-sm bg-[#F1F5F9] px-1.5 py-0.5 text-[11px] text-[#64748B]">{k.tag}</span>}
-                              </span>
-                            </span>
+                            </div>
                           </div>
                         </Row>
                       );

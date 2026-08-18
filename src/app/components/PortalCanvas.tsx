@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical,
@@ -717,6 +717,44 @@ function TextToolbar({ id }: { id: string }) {
   );
 }
 
+/* Keeps the floating toolbar on screen.
+ *
+ * ⚠️ It is anchored `left-0` to the element, which is right for everything except an element near
+ * the right edge — a card in the last column put its toolbar half outside the canvas, and the buttons
+ * that fell off were the ones at the end (delete, align) rather than the ones nobody minds losing.
+ * ⚠️ Measured, not guessed: the toolbar's width depends on which kind it is (the text bar is far
+ * wider than the element bar) and the canvas width changes as the design panel is dragged, so a
+ * fixed offset would be wrong for most of the cases it exists to fix. A layout effect reads both
+ * after render and shifts by exactly the overhang, which is why it never overcorrects into the
+ * element's own left edge. */
+function ToolbarSlot({ toolbarBelow, children }: { toolbarBelow?: boolean | 'under'; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [dx, setDx] = useState(0);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    /* The canvas, not the window: the design panel occupies the right of the screen, so a toolbar
+       that merely fits the viewport can still sit underneath the panel. */
+    const canvas = el.closest('[data-portal-canvas]') ?? document.body;
+    const bar = el.getBoundingClientRect();
+    const box = canvas.getBoundingClientRect();
+    const over = bar.right - (box.right - 8);
+    const under = (box.left + 8) - bar.left;
+    setDx(over > 0 ? -over : under > 0 ? Math.min(under, 0) : 0);
+  }, [children]);
+
+  return (
+    <div
+      ref={ref}
+      style={{ transform: dx ? `translateX(${dx}px)` : undefined }}
+      className={`absolute left-0 z-40 ${
+        toolbarBelow === 'under' ? 'top-full mt-1' : toolbarBelow ? 'top-5' : '-top-11'
+      }`}
+    >{children}</div>
+  );
+}
+
 /* ── add-section seam ────────────────────────────────────────────────────── */
 
 /** Wireframe tile drawn FROM the layout data, so it can't promise a shape you don't get. */
@@ -988,11 +1026,9 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
       {on && <SelectionHandles id={id} elRef={ref} />}
 
       {on && (
-        <div className={`absolute left-0 z-40 ${
-          toolbarBelow === 'under' ? 'top-full mt-1' : toolbarBelow ? 'top-5' : '-top-11'
-        }`}>
+        <ToolbarSlot toolbarBelow={toolbarBelow}>
           {node.kind === 'text' ? <TextToolbar id={id} /> : <ElementToolbar id={id} kind={node.kind} name={node.name} />}
-        </div>
+        </ToolbarSlot>
       )}
 
       {/* ── Inline editing ──────────────────────────────────────────────────────

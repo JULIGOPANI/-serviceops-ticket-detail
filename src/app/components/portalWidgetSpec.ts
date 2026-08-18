@@ -740,6 +740,8 @@ export function structureSpecId(nodeId: string): string | undefined {
   /* A list widget's heading and its "View all" link are their own panels, matched before the widget
      itself so clicking the words opens the WORDS. */
   if (/-title$/.test(nodeId)) return 'list_title';
+  if (/-label$/.test(nodeId)) return 'list_label';
+  if (/-sub$/.test(nodeId)) return 'card_sub';
   if (/-viewall$/.test(nodeId)) return 'list_link';
   if (/^sec-\d+-c\d+$/.test(nodeId)) return 'column';
   if (/^sec-\d+$/.test(nodeId)) return 'section';

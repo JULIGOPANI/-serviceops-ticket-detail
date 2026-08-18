@@ -136,11 +136,14 @@ export function nodeById(id: string): PortalNodeDef | undefined {
      comes from the backend and is not the admin's to rewrite, so it is never selectable. */
   /* A list widget's heading and "View all" link — selectable in their own right so the drawer can
      answer about them rather than about the widget they sit in. */
-  const listTxt = /^(.+)-(title|viewall)$/.exec(id);
+  /* ⚠️ `label` and `sub` belong here too. A KPI's caption and a card's subtext are the same kind
+     of thing as a widget heading — words the admin wrote — and leaving them out of this list is why
+     they could be seen on the canvas but never edited there. */
+  const listTxt = /^(.+)-(title|sub|label|viewall)$/.exec(id);
   if (listTxt && !/^quick-/.test(id)) {
     return {
       id,
-      name: listTxt[2] === 'title' ? 'Heading' : 'Link',
+      name: ({ title: 'Heading', sub: 'Subtext', label: 'Label', viewall: 'Link' } as Record<string, string>)[listTxt[2]],
       kind: 'text',
       parent: listTxt[1],
       content: 'text',

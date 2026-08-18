@@ -30,6 +30,7 @@ import { ALL_PACKS, packBadge } from './PortalStylePacks';
 import {
   ALIGN_OPTIONS, Badge, ChipEditor, Chips, Field, GridPicker, Group, Note, NumberField, RichText,
   SelectField, Segmented, SliderRow, TextField, ToggleRow, UploadZone,
+  MultiSelect,
 } from './PortalControls';
 import { PortalItemList } from './PortalItemList';
 import { TemplatePicker } from './PortalSectionControls';
@@ -525,9 +526,12 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
         : spec.fields;
   /* A child takes the CARD's width — its geometry is the card's job — so P2 is removed rather than
      shown doing nothing. */
-  const viewPacks = childSpec ? childSpec.packs.filter((p) => p !== 'P2')
+  const viewPacks0 = childSpec ? childSpec.packs.filter((p) => p !== 'P2')
     : selItem ? (collection?.packs ?? [])
       : spec.packs;
+  /* ⚠️ P2 IS the Size accordion in pack form — dropping the group without dropping the pack would
+     leave the same fields on screen under a different title. */
+  const viewPacks = (viewPacks0 ?? []).filter((id) => id !== 'P2');
   const viewRoles = childSpec ? childSpec.roles : subField
     ? (collection?.subElements?.find((s) => s.key === subField.key)?.role
       ? [collection!.subElements!.find((s) => s.key === subField.key)!.role!] : ['body' as const])
@@ -581,7 +585,9 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
       case 'toggle':
         return null; // toggles render as their own row, below
       case 'chips':
-        return <Chips value={(v as string[]) ?? []} options={(optionsOf(f) as string[]) ?? REQUEST_STATUSES} onChange={(x) => set(f.key, x)} />;
+        /* ⚠️ A dropdown, not chips. Five statuses laid out as buttons take four lines of the panel
+           and still cannot say how many are on without you counting fills. */
+        return <MultiSelect value={(v as string[]) ?? []} options={(optionsOf(f) as string[]) ?? REQUEST_STATUSES} onChange={(x) => set(f.key, x)} placeholder="No statuses — the list will be empty" />;
       case 'select':
         return <SelectField value={(v as string) ?? ''} options={optionsOf(f) as string[]} onChange={(x) => set(f.key, x)} />;
       case 'segmented': {
@@ -869,8 +875,18 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
 
   /* Fields for a tab, already filtered by their `when` predicate, then grouped. ⚠️ A group whose
      every field was filtered out is dropped here rather than rendering an empty accordion. */
+  /* ⚠️ Layout and Size are dropped from EVERY widget, filtered here rather than deleted from thirty
+     specs one at a time. Both had become questions the canvas answers better: layout is the template
+     picker and the column adders you can see acting on the page, and size is the eight drag handles
+     on the element itself. A panel field for either meant two controls for one value, and whichever
+     you were not looking at won the last write.
+     ⚠️ This is the WIDGET drawer's filter. Structure keeps its own — a section's Columns and a
+     spacer's height have no handle to drag — which is why it lives here and not in the accordion
+     renderer that structure specs share. */
+  const DROP_GROUPS = new Set(['Layout', 'Size']);
+
   const groupsFor = (which: 'content' | 'style') => {
-    const visible = viewFields.filter((f) => (f.tab ?? 'content') === which && (!f.when || f.when(viewCfg)));
+    const visible = viewFields.filter((f) => (f.tab ?? 'content') === which && !DROP_GROUPS.has(f.group ?? '') && (!f.when || f.when(viewCfg)));
     const order: string[] = [];
     const byGroup: Record<string, WidgetField[]> = {};
     visible.forEach((f) => {

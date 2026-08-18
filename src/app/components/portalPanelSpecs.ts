@@ -271,8 +271,11 @@ const textSpec = (id: string, name: string, key: string): WidgetSpec => ({
   id, name, group: 'Basic', reuse: 'many', family: 'flat',
   panel: {
     content: [{ key, label: name, control: 'text' }],
+    /* ⚠️ No Alignment accordion. The floating toolbar over the selected words already carries
+       left / centre / right, and it is the copy you can see acting on the text as you press it — a
+       second set in the panel meant two controls for one value, and whichever you were not looking
+       at silently won the last write. */
     accordions: [
-      { id: 'alignment', open: true, fields: alignmentFields },
       { id: 'spacing', spacing: 'both' },
     ],
   },
@@ -309,11 +312,12 @@ export const CARD_ICON_SPEC: WidgetSpec = {
 };
 
 export const LIST_TITLE_SPEC = textSpec('list_title', 'Heading', 'title');
+export const LIST_LABEL_SPEC = textSpec('list_label', 'Label', 'label');
 export const LIST_LINK_SPEC = textSpec('list_link', 'Link label', 'viewAllLabel');
 
 export const PANEL_SPECS: WidgetSpec[] = [
   DIVIDER_SPEC, SPACER_SPEC, TITLE_LG_SPEC, TITLE_SM_SPEC, ICON_SPEC, SHAPE_SPEC,
-  CARD_TITLE_SPEC, CARD_SUB_SPEC, CARD_ICON_SPEC, LIST_TITLE_SPEC, LIST_LINK_SPEC,
+  CARD_TITLE_SPEC, CARD_SUB_SPEC, CARD_ICON_SPEC, LIST_TITLE_SPEC, LIST_LABEL_SPEC, LIST_LINK_SPEC,
 ];
 
 /** Palette element → panel spec. Separate from WIDGET_FOR_TYPE only for readability. */

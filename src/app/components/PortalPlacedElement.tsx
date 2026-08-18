@@ -6,6 +6,7 @@ import type { PlacedElement } from './portalPageModel';
 import { COLLECTION_RENDERERS } from './PortalCollectionRender';
 import { shadowCss } from './PortalBoxControls';
 import { LineMark } from './PortalLineStyles';
+import { Sel } from './PortalCanvas';
 import type { LineStyle } from './PortalLineStyles';
 import { iconNode } from './PortalIconPicker';
 import type { IconChoice } from './PortalIconPicker';
@@ -29,8 +30,14 @@ function Surface({ children }: { children: React.ReactNode }) {
    blank states below. */
 const BTN_SIZE: Record<string, string> = { sm: 'h-7 px-3 text-[12px]', md: 'h-9 px-4 text-[13px]', lg: 'h-11 px-5 text-[14px]' };
 
-function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, glyph: React.ReactNode) {
+/* ⚠️ `nodeId` is threaded in so the words inside an element can be their OWN nodes. Without it the
+   whole element was the smallest selectable thing, so a KPI's label or a custom card's title could
+   be read on the canvas and changed only from the panel — which is exactly the knowledge a canvas
+   exists to make unnecessary. The suffix matches the config key it writes. */
+function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, glyph: React.ReactNode, nodeId: string) {
   if (!cfg) return null;
+  const T = ({ part, children, ...rest }: { part: string; children: React.ReactNode } & React.ComponentProps<typeof Sel>) =>
+    <Sel id={`${nodeId}-${part}`} {...rest}>{children}</Sel>;
 
   if (type === 'b-text') {
     const html = String(cfg.html ?? '');
@@ -109,9 +116,13 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
         <span className="flex size-11 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#475467]">
           {glyph ?? <Star size={22} />}
         </span>
-        <span className="min-w-0">
-          <span className="block truncate text-[16px] font-semibold text-[#364658]">{String(cfg.title ?? 'Action card')}</span>
-          <span className="block truncate text-[13px] text-[#7B8FA5]">{String(cfg.sub ?? '')}</span>
+        <span className="min-w-0 flex-1">
+          <T part="title" className="block">
+            <span className="block truncate text-[16px] font-semibold text-[#364658]">{String(cfg.title ?? 'Action card')}</span>
+          </T>
+          <T part="sub" className="block">
+            <span className="block truncate text-[13px] text-[#7B8FA5]">{String(cfg.sub ?? 'Add a subtext')}</span>
+          </T>
         </span>
       </div>
     );
@@ -197,7 +208,9 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
         )}
         <span className="min-w-0">
           <span style={{ fontSize: `${Math.round((16 * Number(cfg.numberSize ?? 180)) / 100)}px`, color: String(cfg.numberColor ?? '#364658') }} className="block font-semibold leading-none">12</span>
-          <span style={{ color: String(cfg.labelColor ?? '#7B8FA5') }} className="mt-1 block truncate text-[13px]">{String(cfg.label ?? 'Open requests')}</span>
+          <T part="label" className="mt-1 block">
+            <span style={{ color: String(cfg.labelColor ?? '#7B8FA5') }} className="block truncate text-[13px]">{String(cfg.label ?? 'Open requests')}</span>
+          </T>
         </span>
       </div>
     );
@@ -226,7 +239,7 @@ export function PortalPlacedElement({ item, icon, text, cfg }: {
   const Collection = COLLECTION_RENDERERS[item.type];
   if (Collection && cfg) return <Collection nodeId={item.id} cfg={cfg} glyph={glyph} />;
 
-  const configured = specDrivenBody(item.type, cfg, glyph);
+  const configured = specDrivenBody(item.type, cfg, glyph, item.id);
   if (configured) return spec.bare ? configured : <Surface>{configured}</Surface>;
 
   /* Once an icon or a title is set, the element stops being a placeholder and renders what it was
