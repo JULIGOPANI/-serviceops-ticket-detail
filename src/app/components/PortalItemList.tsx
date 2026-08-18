@@ -34,6 +34,8 @@ interface Props {
   /** A media thumbnail or the widget's glyph, instead of the index. */
   thumb?: (item: CollectionItem, index: number) => ReactNode;
   onOpen: (item: CollectionItem) => void;
+  /** The items carry no settings of their own — no chevron, no inline editor. */
+  noOpen?: boolean;
   onChange: (next: CollectionItem[]) => void;
   addLabel: string;
   onAdd: () => void;
@@ -55,7 +57,7 @@ interface Props {
 const inputCls = 'h-9 w-full rounded border border-[#d1d5db] bg-white px-3 text-[13px] text-[#364658] placeholder:text-[#9ca3af] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]';
 
 export function PortalItemList({
-  items, label, meta, thumb, onOpen, onChange, addLabel, onAdd, max, hideable, emptyHint,
+  items, label, meta, thumb, onOpen, onChange, addLabel, onAdd, max, hideable, emptyHint, noOpen,
   noAdd, lockedHide, inlineKeys,
 }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
@@ -184,7 +186,10 @@ export function PortalItemList({
                         not the admin's to invent. */}
                     {!noAdd && <button onClick={(e) => { e.stopPropagation(); duplicateAt(i); }} title="Duplicate" className={iconBtn}><Copy size={13} /></button>}
                     {!noAdd && <button onClick={(e) => { e.stopPropagation(); removeAt(i); }} title="Delete" className={`${iconBtn} hover:bg-[#FEF3F2] hover:text-[#EF4444]`}><Trash2 size={13} /></button>}
-                    <button onClick={(e) => { e.stopPropagation(); onOpen(item); }} title="Open all settings for this item" className={iconBtn}><ChevronRight size={14} /></button>
+                    {/* ⚠️ Hidden when the item has no settings of its own. A chevron that opens an
+                        empty drawer is a promise of depth that is not there — the rail's
+                        destinations are the product's, so reorder and hide is all there is. */}
+                    {!noOpen && <button onClick={(e) => { e.stopPropagation(); onOpen(item); }} title="Open all settings for this item" className={iconBtn}><ChevronRight size={14} /></button>}
                   </span>
                 </div>
 

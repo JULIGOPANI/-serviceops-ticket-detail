@@ -277,8 +277,12 @@ export function containerCss(styles: PortalStyles, id: string): React.CSSPropert
 
   const align = g('align');
   if (align) css.textAlign = align;
-  const h = g('height');
-  if (h !== undefined) css.minHeight = `${h}px`;
+  /* ⚠️ HEIGHT IS OWN-ONLY, never resolved through the chain, and it is applied in `sizeOf` — not
+     here. Resolving it meant a height dragged on a widget was INHERITED by everything inside it:
+     the card's title node came out 386px tall, which pushed the count and "View all" to the bottom
+     of the card and squeezed the list of approvals out of sight entirely. A height is a statement
+     about one box, the way width and flex already are; the two are listed together in `sizeOf` for
+     exactly this reason. */
 
   // Legacy text keys, still written by the canvas's dark rich-text toolbar.
   const color = g('color'); if (color) css.color = color as string;

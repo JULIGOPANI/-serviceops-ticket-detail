@@ -15,6 +15,17 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 const THEME_COLORS = ['#3D8BD0', '#364658', '#7B8FA5', '#F7F9FC', '#FFFFFF', '#22A06B', '#B45309', '#DC2626'];
 
+/* ⚠️ A FIXED preset grid, not a remembered one. A recently-used strip is per-browser, so the
+   shortcut two admins see is different and neither matches the palette — and on a themed portal it
+   is the exact move the theme exists to make unnecessary. These two rows are the same for everyone,
+   so a colour is where it was last time. */
+const PRESETS = [
+  '#C00000', '#F0A030', '#F2E23C', '#8B5A2B', '#7CC63E', '#2E6B14', '#D924D9', '#8B2FF0',
+  '#4A90E2', '#3FE0C0', '#B5E86A', '#000000', '#3F3F46', '#8E8E93', '#FFFFFF',
+];
+
+const CHECKER = 'linear-gradient(45deg, #E5E7EB 25%, transparent 25%), linear-gradient(-45deg, #E5E7EB 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #E5E7EB 75%), linear-gradient(-45deg, transparent 75%, #E5E7EB 75%)';
+
 let RECENT: string[] = [];
 const remember = (hex: string) => {
   RECENT = [hex, ...RECENT.filter((c) => c.toLowerCase() !== hex.toLowerCase())].slice(0, 14);
@@ -94,6 +105,27 @@ export function PortalColorPicker({ value, onChange, onClose, anchor }: {
   const ref = useRef<HTMLDivElement>(null);
   const svRef = useRef<HTMLDivElement>(null);
   const hueRef = useRef<HTMLDivElement>(null);
+  const alphaRef = useRef<HTMLDivElement>(null);
+  /* What the popover opened with, so Cancel has something to go back TO. A ref, not state: every
+     drag re-renders, and a state copy would track the exploration it exists to undo. */
+  const opened = useRef(value);
+  const rgb = hexToRgb(/^#[0-9A-Fa-f]{6}$/.test(hex) ? hex : '#000000');
+
+  /** Emits a hex, or an rgba() once the alpha rail has been moved off full. */
+  const emit = (h: string, o: number) => {
+    if (o >= 100) { onChange(h); return; }
+    const c = hexToRgb(/^#[0-9A-Fa-f]{6}$/.test(h) ? h : '#000000');
+    onChange(`rgba(${c.r}, ${c.g}, ${c.b}, ${(o / 100).toFixed(2)})`);
+  };
+
+  const setChannel = (k: 'r' | 'g' | 'b', raw: string) => {
+    const n = Math.max(0, Math.min(255, Number(raw.replace(/[^0-9]/g, '')) || 0));
+    const next = { ...rgb, [k]: n };
+    const h = '#' + [next.r, next.g, next.b].map((x) => x.toString(16).padStart(2, '0')).join('').toUpperCase();
+    setHex(h);
+    setHsv(hexToHsv(h));
+    emit(h, opacity);
+  };
 
   useEffect(() => {
     const away = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
@@ -132,10 +164,19 @@ export function PortalColorPicker({ value, onChange, onClose, anchor }: {
     commit(hsvToHex(hsv.h, s, v));
   });
 
-  const pickHue = (e: React.MouseEvent) => dragOn(hueRef.current, e, (_x, y, r) => {
-    const h = clamp((y - r.top) / r.height) * 360;
+  /* ⚠️ HORIZONTAL. The rail runs under the spectrum rather than beside it, so the reading is x, not
+     y — the old vertical maths would have set the hue from wherever the pointer happened to sit
+     vertically, which is not a dimension this control has any more. */
+  const pickHueX = (e: React.MouseEvent) => dragOn(hueRef.current, e, (x, _y, r) => {
+    const h = clamp((x - r.left) / r.width) * 360;
     setHsv((p) => ({ ...p, h }));
     commit(hsvToHex(h, hsv.s, hsv.v));
+  });
+
+  const pickAlpha = (e: React.MouseEvent) => dragOn(alphaRef.current, e, (x, _y, r) => {
+    const o = Math.round(clamp((x - r.left) / r.width) * 100);
+    setOpacity(o);
+    emit(hex, o);
   });
 
   const eyedropper = async () => {
@@ -145,7 +186,6 @@ export function PortalColorPicker({ value, onChange, onClose, anchor }: {
   };
   const hasEyedropper = typeof (window as unknown as { EyeDropper?: unknown }).EyeDropper !== 'undefined';
 
-  const grid = RECENT;
 
   /* Portalled and fixed. The design panel is an overflow-y-auto column, so an absolutely
      positioned popover inside it gets clipped the moment it is taller than the space below the
@@ -154,110 +194,153 @@ export function PortalColorPicker({ value, onChange, onClose, anchor }: {
   const top = Math.max(8, Math.min(anchor.bottom + 8, window.innerHeight - H - 8));
   const left = Math.max(8, Math.min(anchor.right - 286, window.innerWidth - 294));
 
+  /* ── the popover ──────────────────────────────────────────────────────────
+   *
+   * ⚠️ NO Recent list. A recently-used strip is a shortcut back to a colour you already chose, which
+   * on a themed portal is precisely the move the theme exists to make unnecessary — and it is
+   * per-browser, so the shortcut two admins see is different, and neither matches the palette. The
+   * theme swatches and a fixed preset grid answer the same question without inventing a state.
+   *
+   * ⚠️ Done and Cancel, not close-and-keep. The spectrum is dragged, so every intermediate colour
+   * lands on the page as you move — without a Cancel the only way out of an exploration is to
+   * remember what you started from and find it again. Cancel restores the value the popover opened
+   * with. */
   return createPortal(
     <div
       ref={ref}
       style={{ top, left }}
-      className="fixed z-[10000] w-[286px] rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-[0_12px_24px_-6px_rgba(16,24,40,0.18)]"
+      className="fixed z-[10000] w-[286px] rounded-lg border border-[#E5E7EB] bg-white p-3.5 shadow-[0_12px_24px_-6px_rgba(16,24,40,0.18)]"
     >
-      {/* Theme first — the palette is the default answer. */}
-      <div className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-[#7B8FA5]">
-        Theme colors
-        <Tooltip><TooltipTrigger asChild><span className="cursor-help"><Info size={12} /></span></TooltipTrigger>
-          <TooltipContent>Colours from this portal's theme. Changing one there updates every element using it.</TooltipContent>
-        </Tooltip>
-      </div>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {THEME_COLORS.map((c) => <Swatch key={c} color={c} on={c.toLowerCase() === hex.toLowerCase()} onPick={() => commit(c)} />)}
-      </div>
-
-      <div className="mt-4 border-b border-[#F0F2F5] pb-2 text-[11px] font-semibold uppercase tracking-wider text-[#7B8FA5]">Recent</div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Swatch color="transparent" none onPick={() => { onChange('transparent'); setHex('TRANSPARENT'); }} />
-        {grid.map((c) => <Swatch key={c} color={c} on={c.toLowerCase() === hex.toLowerCase()} onPick={() => commit(c)} />)}
-        {grid.length === 0 && <span className="py-1 text-[12px] text-[#9CA3AF]">Nothing yet.</span>}
-      </div>
-      <div className="mt-2 flex justify-end">
-        <button
-          onClick={() => { RECENT = []; setHex((h) => h); }}
-          className="text-[12px] font-medium text-[#3D8BD0] hover:underline"
-        >Reset</button>
-      </div>
-
-      <div className="-mx-4 my-3 h-px bg-[#F0F2F5]" />
-
       {/* Spectrum */}
-      <div className="relative">
-        <select disabled className="app-select h-9 w-full rounded border border-[#d1d5db] bg-white px-3 text-[13px] text-[#364658]">
-          <option>Color</option>
-        </select>
-      </div>
-
-      <div className="mt-3 flex gap-2">
-        <div
-          ref={svRef}
-          onMouseDown={pickSv}
-          className="relative h-[112px] flex-1 cursor-crosshair rounded"
-          style={{ background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${hsvToHex(hsv.h, 1, 1)})` }}
-        >
-          <span
-            className="pointer-events-none absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
-            style={{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%`, background: hex }}
-          />
-        </div>
-        <div
-          ref={hueRef}
-          onMouseDown={pickHue}
-          className="relative w-[14px] cursor-pointer rounded-full"
-          style={{ background: 'linear-gradient(to bottom, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)' }}
-        >
-          <span
-            className="pointer-events-none absolute left-1/2 size-[14px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
-            style={{ top: `${(hsv.h / 360) * 100}%`, background: hsvToHex(hsv.h, 1, 1) }}
-          />
-        </div>
-      </div>
-
-      {/* Hex + eyedropper */}
-      <div className="mt-3 flex items-center gap-2">
-        <span className="flex h-8 items-center rounded border border-[#d1d5db] px-2 text-[12px] font-medium text-[#64748B]">HEX</span>
-        <input
-          value={hex}
-          onChange={(e) => {
-            const v = e.target.value.toUpperCase();
-            setHex(v);
-            if (/^#([0-9A-F]{3}|[0-9A-F]{6})$/.test(v)) { setHsv(hexToHsv(v)); remember(v); onChange(v); }
-          }}
-          className="h-8 min-w-0 flex-1 rounded border border-[#d1d5db] px-2 text-[13px] text-[#364658] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]"
+      <div
+        ref={svRef}
+        onMouseDown={pickSv}
+        className="relative h-[150px] w-full cursor-crosshair rounded"
+        style={{ background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${hsvToHex(hsv.h, 1, 1)})` }}
+      >
+        <span
+          className="pointer-events-none absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
+          style={{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%`, background: hex }}
         />
-        {hasEyedropper && (
-          <button onClick={eyedropper} title="Pick from screen" className="flex size-8 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]">
-            <Pipette size={15} />
-          </button>
-        )}
       </div>
 
-      {/* Opacity */}
-      <div className="mt-3 flex items-center gap-3">
-        <span className="text-[12px] text-[#364658]">Opacity</span>
-        <input
-          type="range" min={0} max={100} value={opacity}
-          onChange={(e) => {
-            const o = Number(e.target.value);
+      {/* Hue and alpha rails, with the live colour beside them. */}
+      <div className="mt-2.5 flex gap-2">
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div
+            ref={hueRef}
+            onMouseDown={pickHueX}
+            className="relative h-3.5 w-full cursor-pointer rounded-sm"
+            style={{ background: 'linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)' }}
+          >
+            <span
+              className="pointer-events-none absolute top-1/2 h-[18px] w-[7px] -translate-x-1/2 -translate-y-1/2 rounded-[2px] border border-[#CBD5E1] bg-white shadow"
+              style={{ left: `${(hsv.h / 360) * 100}%` }}
+            />
+          </div>
+          <div
+            ref={alphaRef}
+            onMouseDown={pickAlpha}
+            className="relative h-3.5 w-full cursor-pointer rounded-sm"
+            style={{
+              backgroundImage: `linear-gradient(to right, transparent, ${hex}), ${CHECKER}`,
+              backgroundSize: 'auto, 8px 8px',
+            }}
+          >
+            <span
+              className="pointer-events-none absolute top-1/2 h-[18px] w-[7px] -translate-x-1/2 -translate-y-1/2 rounded-[2px] border border-[#CBD5E1] bg-white shadow"
+              style={{ left: `${opacity}%` }}
+            />
+          </div>
+        </div>
+        <span
+          className="size-[38px] flex-shrink-0 rounded border border-black/10"
+          style={{ background: hex }}
+        />
+      </div>
+
+      {/* Hex · R · G · B · A — labels UNDER the fields, as in the reference: the value is what you
+          read, the label only says which channel it belongs to. */}
+      <div className="mt-2.5 flex gap-1.5">
+        {([
+          ['Hex', hex.replace('#', ''), (v: string) => {
+            const next = '#' + v.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+            setHex(next.toUpperCase());
+            if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(next)) { setHsv(hexToHsv(next)); onChange(next); }
+          }, 'flex-[1.6]'],
+          ['R', String(rgb.r), (v: string) => setChannel('r', v), 'flex-1'],
+          ['G', String(rgb.g), (v: string) => setChannel('g', v), 'flex-1'],
+          ['B', String(rgb.b), (v: string) => setChannel('b', v), 'flex-1'],
+          ['A', (opacity / 100).toFixed(2).replace(/0+$/, '').replace(/.$/, '') || '0', (v: string) => {
+            const o = Math.round(Math.max(0, Math.min(1, Number(v) || 0)) * 100);
             setOpacity(o);
-            const { r, g, b } = hexToRgb(hex.startsWith('#') ? hex : '#000000');
-            onChange(o === 100 ? hex : `rgba(${r}, ${g}, ${b}, ${(o / 100).toFixed(2)})`);
-          }}
-          className="min-w-0 flex-1 accent-[#3D8BD0]"
-        />
-        <span className="w-[46px] flex-shrink-0 rounded border border-[#d1d5db] py-0.5 text-center text-[12px] text-[#364658]">{opacity}%</span>
+            emit(hex, o);
+          }, 'flex-1'],
+        ] as [string, string, (v: string) => void, string][]).map(([label, val, on, flex]) => (
+          <span key={label} className={`${flex} min-w-0`}>
+            <input
+              value={val}
+              onChange={(e) => on(e.target.value)}
+              className="h-8 w-full rounded border border-[#d1d5db] px-1.5 text-center text-[12px] text-[#364658] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]"
+            />
+            <span className="mt-0.5 block text-center text-[11px] text-[#9CA3AF]">{label}</span>
+          </span>
+        ))}
       </div>
+
+      <div className="-mx-3.5 my-3 h-px bg-[#E5E7EB]" />
+
+      {/* Theme palette first, then the fixed presets — a portal should be built from its own
+          colours, and the presets are the escape hatch rather than the starting point. */}
+      <div className="grid grid-cols-8 gap-1.5">
+        {THEME_COLORS.map((c) => <Swatch key={c} color={c} on={c.toLowerCase() === hex.toLowerCase()} onPick={() => commit(c)} />)}
+        {PRESETS.map((c) => <Swatch key={c} color={c} on={c.toLowerCase() === hex.toLowerCase()} onPick={() => commit(c)} />)}
+        <Swatch color="transparent" none onPick={() => { onChange('transparent'); setHex('TRANSPARENT'); }} />
+      </div>
+
+      <div className="mt-3.5 flex items-center justify-center gap-2">
+        <button
+          onClick={onClose}
+          className="inline-flex h-8 flex-1 items-center justify-center rounded bg-[#0EA5E9] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#0284C7]"
+        >Done</button>
+        <button
+          onClick={() => { onChange(opened.current); onClose(); }}
+          className="inline-flex h-8 flex-1 items-center justify-center rounded border border-[#DFE5ED] bg-white px-4 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
+        >Cancel</button>
+      </div>
+
+      {hasEyedropper && (
+        <button
+          onClick={eyedropper}
+          className="mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded text-[12px] font-medium text-[#64748B] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]"
+        ><Pipette size={14} /> Pick from screen</button>
+      )}
     </div>,
     document.body,
   );
 }
 
 /* The row that opens it — swatch + hex, matching the panel's other fields. */
+/* ⚠️ Circle only, no hex. In a palette of seventeen rows the code beside every one turned the list
+   into a spreadsheet — and nobody recognises a colour by its code, so the text was noise sitting
+   where the colour should be. The value is what the picker is for. */
+export function ColorDot({ value, onChange, title }: { value: string; onChange: (v: string) => void; title?: string }) {
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  return (
+    <>
+      <button
+        ref={btnRef}
+        title={title}
+        onClick={() => setAnchor(anchor ? null : btnRef.current!.getBoundingClientRect())}
+        className="size-6 flex-shrink-0 rounded-full border border-black/15 shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] transition-transform hover:scale-110"
+        style={{ background: value }}
+      />
+      {anchor && <PortalColorPicker value={value} onChange={onChange} anchor={anchor} onClose={() => setAnchor(null)} />}
+    </>
+  );
+}
+
 export function ColorField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);

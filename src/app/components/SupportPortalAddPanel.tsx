@@ -10,6 +10,7 @@ import {
   IconAssets, IconKnowledge, IconMyApproval, IconRequest,
 } from './SidebarIcons';
 import { PORTAL_ELEMENT_GROUPS, PORTAL_ELEMENTS } from './supportPortalData';
+import { PortalElementPreview } from './PortalElementPreview';
 import { WIDGET_FOR_TYPE, specById } from './portalWidgetSpec';
 import type { PortalElement, PortalElementGroup } from './supportPortalData';
 
@@ -96,6 +97,11 @@ interface Props {
 
 export function SupportPortalAddPanel({ onAdd, placedTypes }: Props) {
   const [query, setQuery] = useState('');
+  /* ⚠️ The anchor is a MEASURED rect, not the element: the list scrolls under a fixed popover, so
+     the card has to be placed against where the row is NOW, not where React last thought it was.
+     Hover state lives on the PANEL, not the row — only one preview may be open at a time, and no
+     single row owns that fact. */
+  const [peek, setPeek] = useState<{ id: string; rect: DOMRect } | null>(null);
 
   const q = query.trim().toLowerCase();
 
@@ -284,6 +290,11 @@ export function SupportPortalAddPanel({ onAdd, placedTypes }: Props) {
                   return (
                     <div
                       key={e.id}
+                      /* ⚠️ An already-placed row still previews. You cannot add it again, but "what
+                         IS My CIs?" is a fair question whether or not the answer is addable — and a
+                         row that goes dead on hover reads as broken rather than as unavailable. */
+                      onMouseEnter={(ev) => setPeek({ id: e.id, rect: ev.currentTarget.getBoundingClientRect() })}
+                      onMouseLeave={() => setPeek((c) => (c?.id === e.id ? null : c))}
                       title={`${e.name} is already on this page`}
                       className="flex w-full cursor-not-allowed items-center gap-3 rounded border border-[#F0F2F5] bg-[#FAFBFC] px-3 py-2.5"
                     >
@@ -307,8 +318,12 @@ export function SupportPortalAddPanel({ onAdd, placedTypes }: Props) {
                       // The canvas reads this to know what was dropped.
                       ev.dataTransfer.setData('text/portal-element', e.id);
                       ev.dataTransfer.effectAllowed = 'copy';
+                      // A card floating beside the cursor while you aim a drop is in the way.
+                      setPeek(null);
                     }}
                     onClick={() => onAdd(e.id)}
+                    onMouseEnter={(ev) => setPeek({ id: e.id, rect: ev.currentTarget.getBoundingClientRect() })}
+                    onMouseLeave={() => setPeek((c) => (c?.id === e.id ? null : c))}
                     title={`Click to add “${e.name}”, or drag it where you want it`}
                     className="group/el flex w-full cursor-grab items-center gap-3 rounded border border-[#E5E7EB] bg-white px-3 py-2.5 text-left transition-all hover:border-[#3D8BD0] hover:shadow-[0_1px_2px_rgba(16,24,40,0.04),0_2px_8px_rgba(16,24,40,0.06)] active:cursor-grabbing"
                   >
@@ -324,6 +339,7 @@ export function SupportPortalAddPanel({ onAdd, placedTypes }: Props) {
           </div>
         ))}
       </div>
+      {peek && <PortalElementPreview elementId={peek.id} anchor={peek.rect} />}
     </div>
   );
 }

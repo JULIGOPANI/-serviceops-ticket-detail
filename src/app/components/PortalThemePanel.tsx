@@ -1,47 +1,89 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { Check, ChevronDown, Moon, Sun } from 'lucide-react';
 import { toast } from 'sonner';
-import { Field, Segmented } from './PortalControls';
+import { ColorDot } from './PortalColorPicker';
 
-/* Theme — the page's own style system, in the builder rail.
+/* Theme — the portal's own style system.
  *
- * ⚠️ Four cards, each a PREVIEW of what it edits, and each opening its own screen. That shape is
- * deliberate: a theme is four independent decisions (mode, palette, type, buttons) and flattening
- * them into one scrolling list means every change costs you your place in the other three. The card
- * shows the current answer, so the panel is readable without opening anything.
+ * ⚠️ ONE scrolling panel, not a menu of screens. It was four cards that each opened a sub-screen,
+ * which meant comparing a font against a palette cost two navigations and you never saw them
+ * together — and they only make sense together. Everything is on one surface now: the two choices
+ * that reshape the page (style, font) collapse into dropdowns, and the palette, which is the thing
+ * an admin actually returns to, stays open underneath them.
  *
- * ⚠️ Mode is LIGHT or DARK, not a third "auto". A portal is a thing an admin designs and looks at;
- * a mode that changes with the visitor's OS is a page the designer cannot see. The palettes carry
- * both sets, so switching mode re-tints rather than re-picking. */
+ * ⚠️ Mode is LIGHT or DARK, no "auto". A portal is designed and looked at; a mode that follows the
+ * visitor's OS is a page its designer never sees. Every colour below carries both values, so the
+ * switch re-tints rather than asking anyone to pick twice. */
 
 export interface PortalTheme {
   mode: 'light' | 'dark';
   paletteId: string;
   packId: string;
   buttonId: string;
+  /** Overrides on top of the palette — the Custom section and any hand-edited swatch. */
+  custom?: Record<string, string>;
 }
 
-export const DEFAULT_THEME: PortalTheme = { mode: 'light', paletteId: 'service', packId: 'inter', buttonId: 'solid' };
+export const DEFAULT_THEME: PortalTheme = { mode: 'light', paletteId: 'blue', packId: 'inter', buttonId: 'solid' };
+
+/* ── Colour ──────────────────────────────────────────────────────────────────
+ *
+ * ⚠️ Only PRIMARY varies by theme. Secondary is the status language — green means healthy, red
+ * means broken — and a theme that re-tinted it would be changing what a colour MEANS, not how the
+ * page looks. Neutral is the greyscale every surface and border is built from; re-tinting that per
+ * theme is how a design system loses its floor. So a theme owns four colours and the product owns
+ * the other thirteen. That is also why the three sit behind tabs rather than in one long list: they
+ * answer to different owners, and mixing them invites edits to the two that are not yours. */
+export interface Swatch { key: string; label: string; light: string; dark: string }
 
 export interface Palette {
   id: string; name: string;
-  /** page · surface · muted · accent · ink — light first, dark second. */
-  light: [string, string, string, string, string];
-  dark: [string, string, string, string, string];
+  primary: Swatch[];
 }
 
+const prim = (
+  color: string, alt: string, text: string, bg: string,
+  dColor: string, dAlt: string, dText: string, dBg: string,
+): Swatch[] => [
+  { key: 'primary', label: 'Primary', light: color, dark: dColor },
+  { key: 'primaryAlt', label: 'Primary alt', light: alt, dark: dAlt },
+  { key: 'pageText', label: 'Page text', light: text, dark: dText },
+  { key: 'pageBg', label: 'Page background', light: bg, dark: dBg },
+];
+
 export const PALETTES: Palette[] = [
-  { id: 'stone', name: 'Stone', light: ['#FFFFFF', '#E7D9CC', '#C2CBCC', '#3D4436', '#000000'], dark: ['#14140F', '#2A251F', '#3A4240', '#C9D3C4', '#FFFFFF'] },
-  { id: 'service', name: 'ServiceOps', light: ['#FFFFFF', '#EBF5FF', '#DFE5ED', '#3D8BD0', '#0F172A'], dark: ['#0F172A', '#16233A', '#2A3A55', '#5AA7E5', '#FFFFFF'] },
-  { id: 'forest', name: 'Forest', light: ['#FFFFFF', '#E8F3EC', '#CBDCD2', '#22A06B', '#14342A'], dark: ['#101F19', '#17301F', '#2A4436', '#4FD39B', '#F2FBF6'] },
-  { id: 'ember', name: 'Ember', light: ['#FFFFFF', '#FDF1E5', '#E8D8C8', '#F58518', '#3A2410'], dark: ['#1C1208', '#2C1D0E', '#48331B', '#FFA94D', '#FFF6EC'] },
-  { id: 'violet', name: 'Violet', light: ['#FFFFFF', '#F2EEFC', '#DDD5F0', '#7C3AED', '#241548'], dark: ['#150E24', '#211539', '#382657', '#A987F7', '#F5F1FE'] },
-  { id: 'slate', name: 'Slate', light: ['#FFFFFF', '#F1F5F9', '#CBD5E1', '#475467', '#0F172A'], dark: ['#0B1220', '#151E2E', '#2C384B', '#94A3B8', '#F8FAFC'] },
+  { id: 'blueMagenta', name: 'Blue Magenta', primary: prim('#69568C', '#3E5277', '#2F4858', '#FFFFFF', '#A48FD1', '#6E86B8', '#E8EEF6', '#141021') },
+  { id: 'green', name: 'Green', primary: prim('#4C9A5B', '#2F6B45', '#1B3A28', '#FFFFFF', '#68C77C', '#3E8F5C', '#EAF6EE', '#0E1A13') },
+  { id: 'red', name: 'Red', primary: prim('#D6274B', '#96162F', '#3A0E18', '#FFFFFF', '#FF5C7A', '#C23050', '#FDECEF', '#1A0A0E') },
+  { id: 'orange', name: 'Orange', primary: prim('#F0842A', '#B85C12', '#40230A', '#FFFFFF', '#FFA35A', '#D97A28', '#FFF3E8', '#1C1108') },
+  { id: 'blue', name: 'Blue', primary: prim('#3D8BD0', '#2D6CA0', '#0F172A', '#FFFFFF', '#5AA7E5', '#3D8BD0', '#E8EEF6', '#0F172A') },
+  { id: 'slate', name: 'Slate', primary: prim('#475467', '#334155', '#0F172A', '#FFFFFF', '#94A3B8', '#64748B', '#F8FAFC', '#0B1220') },
+  { id: 'stone', name: 'Stone', primary: prim('#6B5B4A', '#4A3E32', '#2A211A', '#FFFFFF', '#C4A98C', '#8A7460', '#F5EFE8', '#1A1512') },
+  { id: 'teal', name: 'Teal', primary: prim('#0E7C86', '#0A5A61', '#0B2E31', '#FFFFFF', '#3FBFC9', '#12909B', '#E6F6F7', '#08191B') },
+];
+
+/* Shared across every theme — see the note above. */
+export const SECONDARY: Swatch[] = [
+  { key: 'green', label: 'Green', light: '#14B053', dark: '#3ED27A' },
+  { key: 'yellow', label: 'Yellow', light: '#E8B407', dark: '#F5C93B' },
+  { key: 'orange', label: 'Orange', light: '#F47C22', dark: '#FF9A4D' },
+  { key: 'red', label: 'Red', light: '#EC5B5B', dark: '#FF7B7B' },
+  { key: 'redDark', label: 'Red dark', light: '#C84235', dark: '#E05C4E' },
+  { key: 'redLight', label: 'Red light', light: '#F17A73', dark: '#FF9A93' },
+];
+
+export const NEUTRAL: Swatch[] = [
+  { key: 'darkest', label: 'Darkest', light: '#05122C', dark: '#F8FAFC' },
+  { key: 'darker', label: 'Darker', light: '#374256', dark: '#E2E8F0' },
+  { key: 'dark', label: 'Dark', light: '#677387', dark: '#CBD5E1' },
+  { key: 'regular', label: 'Regular', light: '#94A3BE', dark: '#94A3B8' },
+  { key: 'light', label: 'Light', light: '#B6C2D5', dark: '#475569' },
+  { key: 'lighter', label: 'Lighter', light: '#D1DBEC', dark: '#2C384B' },
+  { key: 'lightest', label: 'Lightest', light: '#E6EDFB', dark: '#151E2E' },
 ];
 
 /* Heading + body PAIRINGS, not a flat font list. ⚠️ Choosing two faces that work together is the
-   hard part of typography and the part an admin should not have to do — so the unit of choice is a
-   pairing with a name, and the loose "pick any two" version is what produces the ransom notes. */
+   hard part of typography and the part an admin should not have to do. */
 export const FONT_PACKS = [
   { id: 'inter', name: 'Inter', heading: 'Inter, sans-serif', body: 'Inter, sans-serif', note: 'The product default. Neutral and highly legible.' },
   { id: 'poppins', name: 'Poppins & Inter', heading: 'Poppins, sans-serif', body: 'Inter, sans-serif', note: 'Geometric headings over a neutral body.' },
@@ -51,231 +93,261 @@ export const FONT_PACKS = [
   { id: 'plex', name: 'IBM Plex', heading: '"IBM Plex Sans", sans-serif', body: '"IBM Plex Sans", sans-serif', note: 'Technical, with a strong mono companion.' },
 ];
 
-/* ⚠️ Button STYLE is shape and weight, not colour — colour comes from the palette's accent. The
-   three names an admin already has (primary, secondary, tertiary) say WHICH button; these say what
-   all of them look like. Two different questions, which is why this is its own screen. */
 export const BUTTON_STYLES = [
   { id: 'solid', name: 'Solid', radius: 6, cls: 'text-white' },
   { id: 'rounded', name: 'Rounded', radius: 999, cls: 'text-white' },
   { id: 'square', name: 'Square', radius: 0, cls: 'text-white' },
   { id: 'outline', name: 'Outline', radius: 6, cls: 'bg-transparent border-2' },
   { id: 'soft', name: 'Soft', radius: 8, cls: '' },
-  { id: 'underline', name: 'Text only', radius: 0, cls: 'bg-transparent underline' },
 ];
 
-type Screen = null | 'palette' | 'fonts' | 'buttons';
+/* ⚠️ A theme style carries a palette, a font pairing and a button shape — and shows NO swatches of
+   its own in its card. The palette section below is the colour authority; a style card that also
+   painted a swatch strip would give two answers to "what colour is this portal", and the one you
+   edited would be the one silently overruled the next time you tried a style. */
+export const THEME_STYLES = [
+  { id: 'clarity', name: 'Clarity', paletteId: 'blue', packId: 'inter', buttonId: 'solid', note: 'The product default — neutral type and lightly rounded buttons.' },
+  { id: 'editorial', name: 'Editorial', paletteId: 'stone', packId: 'merri', buttonId: 'outline', note: 'Serif headings and outlined buttons. Reads like a written page.' },
+  { id: 'friendly', name: 'Friendly', paletteId: 'green', packId: 'poppins', buttonId: 'rounded', note: 'Geometric type and fully rounded buttons. Approachable.' },
+  { id: 'technical', name: 'Technical', paletteId: 'slate', packId: 'plex', buttonId: 'square', note: 'Flat greys and hard corners. Utilitarian by design.' },
+  { id: 'warmth', name: 'Warmth', paletteId: 'orange', packId: 'source', buttonId: 'soft', note: 'Amber accents on soft-filled buttons. Inviting without shouting.' },
+  { id: 'focus', name: 'Focus', paletteId: 'blueMagenta', packId: 'roboto', buttonId: 'solid', note: 'Compact type and a muted violet accent. The page carries the emphasis.' },
+  { id: 'alert', name: 'Alert', paletteId: 'red', packId: 'inter', buttonId: 'solid', note: 'For a status or incident portal, where urgency is the point.' },
+  { id: 'calm', name: 'Calm', paletteId: 'teal', packId: 'source', buttonId: 'soft', note: 'Cool teal and humanist type. Quiet under heavy use.' },
+];
 
-/** A card whose body IS the preview of what it opens. */
-function StyleCard({ title, onOpen, children }: { title: string; onOpen: () => void; children: React.ReactNode }) {
+export const paletteOf = (t: PortalTheme) => PALETTES.find((p) => p.id === t.paletteId) ?? PALETTES[4];
+export const packOf = (t: PortalTheme) => FONT_PACKS.find((f) => f.id === t.packId) ?? FONT_PACKS[0];
+export const buttonOf = (t: PortalTheme) => BUTTON_STYLES.find((b) => b.id === t.buttonId) ?? BUTTON_STYLES[0];
+export const styleOfTheme = (t: PortalTheme) =>
+  THEME_STYLES.find((s) => s.paletteId === t.paletteId && s.packId === t.packId && s.buttonId === t.buttonId) ?? null;
+
+/** One swatch's value for the mode that is on, with any override applied. */
+export const colorOf = (t: PortalTheme, s: Swatch) => t.custom?.[s.key] ?? (t.mode === 'dark' ? s.dark : s.light);
+
+/** page · surface · muted · accent · ink — what the canvas paints with. */
+export const swatchesOf = (t: PortalTheme): [string, string, string, string, string] => {
+  const p = paletteOf(t).primary;
+  const pick = (k: string) => colorOf(t, p.find((x) => x.key === k)!);
+  const n = (k: string) => colorOf(t, NEUTRAL.find((x) => x.key === k)!);
+  return [pick('pageBg'), n('lightest'), n('lighter'), pick('primary'), pick('pageText')];
+};
+
+/* ── panel chrome ─────────────────────────────────────────────────────────── */
+
+/** A closed row that opens its list beneath it. Used for both of the big choices. */
+/* ⚠️ The product's own field chrome — a labelled row over a 36px control with the light chevron,
+   the same shape every select in the ticket detail page and the BOM tab uses. It was a bordered
+   pill with the label inside it, which is a control this product does not otherwise have.
+   ⚠️ And it opens as an INSTANT POPUP layered over the panel, not as an inline expansion. Expanding
+   in place pushed the colour section 330px down the panel, so choosing a font moved the thing you
+   were comparing it against off screen — and closing it moved everything back, which is the sort of
+   jump that makes a panel feel unstable. */
+function Dropdown({ label, value, children, open, onToggle }: {
+  label: string; value: string; children: React.ReactNode; open: boolean; onToggle: () => void;
+}) {
   return (
-    <button
-      onClick={onOpen}
-      className="mt-2 flex w-full items-center gap-2 rounded-lg bg-[#F7F9FC] p-3 text-left transition-colors hover:bg-[#F1F5F9]"
-    >
-      <span className="min-w-0 flex-1">
-        <span className="mb-2 block text-[12px] font-medium text-[#7B8FA5]">{title}</span>
-        {children}
-      </span>
-      <ChevronRight size={16} className="flex-shrink-0 text-[#9CA3AF]" />
-    </button>
+    <div className="mb-3">
+      <p className="mb-1 text-[12px] text-[#7B8FA5]">{label}</p>
+      <div className="relative">
+        <button
+          onClick={onToggle}
+          className={`flex h-9 w-full items-center gap-2 rounded border bg-white px-2.5 text-left transition-colors ${
+            open ? 'border-[#3D8BD0] ring-1 ring-[#3D8BD0]' : 'border-[#d1d5db] hover:border-[#3D8BD0]'
+          }`}
+        >
+          <span className="min-w-0 flex-1 truncate text-[13px] text-[#364658]">{value}</span>
+          <ChevronDown size={14} className={`flex-shrink-0 text-[#9CA3AF] transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {open && (
+          <>
+            {/* Click anywhere else to dismiss — a popover that only closes from its own trigger is
+                a modal pretending not to be one. */}
+            <span className="fixed inset-0 z-[70]" onClick={onToggle} />
+            <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[71] max-h-[330px] overflow-y-auto rounded-lg border border-[#E5E7EB] bg-white p-1.5 shadow-[0_12px_24px_-6px_rgba(16,24,40,0.18)]">
+              {children}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
-const Strip = ({ colors }: { colors: string[] }) => (
-  <span className="flex h-9 w-full overflow-hidden rounded border border-[#E5E7EB]">
-    {colors.map((c) => <span key={c} className="flex-1" style={{ background: c }} />)}
-  </span>
+const Row = ({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) => (
+  <button
+    onClick={onClick}
+    className={`mb-1 block w-full rounded-md border-2 p-2.5 text-left transition-colors last:mb-0 ${
+      on ? 'border-[#3D8BD0] bg-[#F5F9FD]' : 'border-transparent bg-[#F7F9FC] hover:bg-[#F1F5F9]'
+    }`}
+  >{children}</button>
 );
 
-export const paletteOf = (t: PortalTheme) => PALETTES.find((p) => p.id === t.paletteId) ?? PALETTES[1];
-export const packOf = (t: PortalTheme) => FONT_PACKS.find((f) => f.id === t.packId) ?? FONT_PACKS[0];
-export const buttonOf = (t: PortalTheme) => BUTTON_STYLES.find((b) => b.id === t.buttonId) ?? BUTTON_STYLES[0];
-/** page - surface - muted - accent - ink, for whichever mode is on. */
-export const swatchesOf = (t: PortalTheme) => (t.mode === 'dark' ? paletteOf(t).dark : paletteOf(t).light);
+/** The two things a style actually decides — the type and the button. No colour. */
+function StylePreview({ packId, buttonId, accent }: { packId: string; buttonId: string; accent: string }) {
+  const f = FONT_PACKS.find((x) => x.id === packId)!;
+  const b = BUTTON_STYLES.find((x) => x.id === buttonId)!;
+  const bare = b.id === 'outline';
+  const soft = b.id === 'soft';
+  return (
+    <span className="flex items-center gap-2.5 rounded-md bg-[#EAF2FB] px-3 py-2.5">
+      <span className="min-w-0 flex-1">
+        <span style={{ fontFamily: f.heading }} className="block truncate text-[15px] font-bold text-[#0F172A]">Heading</span>
+        <span style={{ fontFamily: f.body }} className="block truncate text-[12px] text-[#7B8FA5]">Paragraph text</span>
+      </span>
+      <span
+        style={{
+          borderRadius: b.radius,
+          background: bare ? 'transparent' : soft ? `${accent}26` : accent,
+          borderColor: accent,
+          color: bare || soft ? accent : '#FFFFFF',
+        }}
+        className={`inline-flex h-7 flex-shrink-0 items-center px-3 text-[12px] font-medium ${b.cls}`}
+      >Button</span>
+    </span>
+  );
+}
+
+/* ── the panel ────────────────────────────────────────────────────────────── */
+
+type Tab = 'primary' | 'secondary' | 'neutral';
 
 export function PortalThemePanel({ theme, onChange }: { theme: PortalTheme; onChange: (patch: Partial<PortalTheme>) => void }) {
-  const [screen, setScreen] = useState<Screen>(null);
-  const mode = theme.mode;
-  const setMode = (m: 'light' | 'dark') => onChange({ mode: m });
-  const palette = paletteOf(theme);
-  const setPalette = (p: Palette) => onChange({ paletteId: p.id });
+  const [openList, setOpenList] = useState<'style' | 'font' | null>(null);
+  const [tab, setTab] = useState<Tab>('primary');
+  const style = styleOfTheme(theme);
   const pack = packOf(theme);
-  const setPack = (f: (typeof FONT_PACKS)[number]) => onChange({ packId: f.id });
-  const btn = buttonOf(theme);
-  const setBtn = (b: (typeof BUTTON_STYLES)[number]) => onChange({ buttonId: b.id });
+  const palette = paletteOf(theme);
 
-  const swatches = mode === 'dark' ? palette.dark : palette.light;
-  const accent = swatches[3];
+  const swatches: Record<Tab, Swatch[]> = { primary: palette.primary, secondary: SECONDARY, neutral: NEUTRAL };
 
-  const back = (title: string) => (
-    <div className="flex items-center gap-2 border-b border-[#E5E7EB] px-4 py-2.5">
-      <button
-        onClick={() => setScreen(null)}
-        className="flex size-7 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6]"
-      ><ChevronLeft size={16} /></button>
-      <span className="text-[13px] font-medium text-[#364658]">{title}</span>
-    </div>
-  );
+  /* One write, several values. ⚠️ Applying a style's parts one at a time would render impossible
+     intermediate themes on the way — a green palette briefly wearing Merriweather — which reads as
+     a glitch rather than a change. Overrides clear with it: picking a style means "give me this
+     one", not "this one, still wearing the four colours I hand-edited an hour ago". */
+  const applyStyle = (st: (typeof THEME_STYLES)[number]) => {
+    onChange({ paletteId: st.paletteId, packId: st.packId, buttonId: st.buttonId, custom: {} });
+    setOpenList(null);
+    toast.success(`${st.name} applied`);
+  };
 
-  /* ── sub-screens ── */
-  if (screen === 'palette') {
-    return (
-      <div className="flex h-full flex-col">
-        {back('Colours')}
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          <p className="mb-3 text-[12px] leading-[1.55] text-[#7B8FA5]">
-            Each palette carries a light and a dark set, so switching mode re-tints the page rather
-            than asking you to choose again.
-          </p>
-          {PALETTES.map((p) => {
-            const on = p.id === palette.id;
-            return (
-              <button
-                key={p.id}
-                onClick={() => { setPalette(p); toast.success(`${p.name} applied`); }}
-                className={`mb-2 flex w-full items-center gap-3 rounded-lg border-2 p-2.5 text-left transition-colors ${
-                  on ? 'border-[#3D8BD0] bg-[#F5F9FD]' : 'border-transparent bg-[#F7F9FC] hover:bg-[#F1F5F9]'
-                }`}
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="mb-1.5 flex items-center gap-1.5">
-                    <span className="text-[13px] font-medium text-[#364658]">{p.name}</span>
-                    {on && <Check size={13} className="text-[#3D8BD0]" />}
-                  </span>
-                  <Strip colors={mode === 'dark' ? p.dark : p.light} />
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
+  const setCustom = (key: string, value: string) => onChange({ custom: { ...(theme.custom ?? {}), [key]: value } });
 
-  if (screen === 'fonts') {
-    return (
-      <div className="flex h-full flex-col">
-        {back('Fonts')}
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          {FONT_PACKS.map((f) => {
-            const on = f.id === pack.id;
-            return (
-              <button
-                key={f.id}
-                onClick={() => { setPack(f); toast.success(`${f.name} applied`); }}
-                className={`mb-2 w-full rounded-lg border-2 p-3 text-left transition-colors ${
-                  on ? 'border-[#3D8BD0] bg-[#F5F9FD]' : 'border-transparent bg-[#F7F9FC] hover:bg-[#F1F5F9]'
-                }`}
-              >
-                {/* ⚠️ Set IN the faces it applies. A font list rendered in the UI's own font is a
-                    list of words, not a list of fonts. */}
-                <span style={{ fontFamily: f.heading }} className="block text-[19px] font-semibold text-[#364658]">Heading</span>
-                <span style={{ fontFamily: f.body }} className="mt-0.5 block text-[13px] text-[#5B7A99]">This is your paragraph text.</span>
-                <span className="mt-2 flex items-center gap-1.5">
-                  <span className="text-[12px] font-medium text-[#7B8FA5]">{f.name}</span>
-                  {on && <Check size={13} className="text-[#3D8BD0]" />}
-                </span>
-                <span className="mt-0.5 block text-[11px] leading-[1.5] text-[#9CA3AF]">{f.note}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
-  if (screen === 'buttons') {
-    return (
-      <div className="flex h-full flex-col">
-        {back('Buttons')}
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          <p className="mb-3 text-[12px] leading-[1.55] text-[#7B8FA5]">
-            The shape every button takes. Which button is primary or secondary stays on the button
-            itself — this is how all of them look.
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {BUTTON_STYLES.map((b) => {
-              const on = b.id === btn.id;
-              const outline = b.id === 'outline';
-              const soft = b.id === 'soft';
-              const text = b.id === 'underline';
-              return (
-                <button
-                  key={b.id}
-                  onClick={() => { setBtn(b); toast.success(`${b.name} buttons applied`); }}
-                  className={`flex flex-col items-center gap-2 rounded-lg border-2 p-3 transition-colors ${
-                    on ? 'border-[#3D8BD0] bg-[#F5F9FD]' : 'border-transparent bg-[#F7F9FC] hover:bg-[#F1F5F9]'
-                  }`}
-                >
-                  <span
-                    style={{
-                      borderRadius: b.radius,
-                      background: outline || text ? 'transparent' : soft ? `${accent}22` : accent,
-                      borderColor: accent,
-                      color: outline || soft || text ? accent : '#FFFFFF',
-                    }}
-                    className={`inline-flex h-8 items-center px-4 text-[12px] font-medium ${b.cls}`}
-                  >Button</span>
-                  <span className="text-[11px] font-medium text-[#64748B]">{b.name}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /* ── the four cards ── */
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-      <Field label="Mode">
-        {/* ⚠️ Two modes, no "auto". A portal is designed and looked at; a mode that follows the
-            visitor's OS is a page its designer never sees. */}
-        <Segmented
-          value={mode}
-          onChange={(m) => setMode(m as 'light' | 'dark')}
-          options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]}
-        />
-      </Field>
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
+            <Dropdown
+        label="Theme style"
+        value={style?.name ?? 'Custom'}
+        open={openList === 'style'}
+        onToggle={() => setOpenList((o) => (o === 'style' ? null : 'style'))}
+      >
+        {THEME_STYLES.map((st) => {
+          const p = PALETTES.find((x) => x.id === st.paletteId)!;
+          const acc = theme.mode === 'dark' ? p.primary[0].dark : p.primary[0].light;
+          return (
+            <Row key={st.id} on={style?.id === st.id} onClick={() => applyStyle(st)}>
+              {/* Name, then what it looks like, then why you would pick it — the order the question
+                  is actually asked in. */}
+              <span className="mb-1.5 flex items-center gap-1.5">
+                <span className="text-[13px] font-semibold text-[#364658]">{st.name}</span>
+                {style?.id === st.id && <Check size={13} className="text-[#3D8BD0]" />}
+              </span>
+              <StylePreview packId={st.packId} buttonId={st.buttonId} accent={acc} />
+              <span className="mt-1.5 block text-[11px] leading-[1.5] text-[#9CA3AF]">{st.note}</span>
+            </Row>
+          );
+        })}
+      </Dropdown>
 
-      <StyleCard title="Theme" onOpen={() => setScreen('palette')}>
-        <span
-          className="flex items-center gap-2 rounded p-2"
-          style={{ background: swatches[1] }}
-        >
-          <span style={{ fontFamily: pack.heading, color: swatches[4] }} className="text-[17px] font-semibold">AA</span>
-          <Strip colors={swatches} />
-          <span
-            style={{ background: accent, borderRadius: btn.radius === 999 ? 999 : btn.radius }}
-            className="inline-flex h-6 flex-shrink-0 items-center px-2.5 text-[10px] font-medium text-white"
-          >Button</span>
+      <Dropdown
+        label="Fonts"
+        value={pack.name}
+        open={openList === 'font'}
+        onToggle={() => setOpenList((o) => (o === 'font' ? null : 'font'))}
+      >
+        {FONT_PACKS.map((f) => (
+          <Row key={f.id} on={f.id === pack.id} onClick={() => { onChange({ packId: f.id }); setOpenList(null); toast.success(`${f.name} applied`); }}>
+            {/* ⚠️ Set IN the faces it applies. A font list rendered in the UI's own font is a list of
+                words, not a list of fonts. */}
+            <span style={{ fontFamily: f.heading }} className="block text-[17px] font-semibold text-[#364658]">HEADING</span>
+            <span style={{ fontFamily: f.body }} className="mt-0.5 block text-[12px] text-[#5B7A99]">This is your paragraph.</span>
+            <span className="mt-1.5 flex items-center gap-1.5">
+              <span className="text-[11px] font-medium text-[#7B8FA5]">{f.name}</span>
+              {f.id === pack.id && <Check size={12} className="text-[#3D8BD0]" />}
+            </span>
+          </Row>
+        ))}
+      </Dropdown>
+
+      {/* ── Colours ── */}
+      <div className="mt-5 flex items-center gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-[#7B8FA5]">Colours</span>
+        {/* ⚠️ Mode sits ON the palette, because mode is a fact ABOUT the palette — every swatch below
+            carries a light and a dark value, and this switch says which of the two you are looking
+            at. Higher up the panel it read as "preview the page in dark", which is a different
+            promise from "edit the dark colours". */}
+        <span className="ml-auto flex items-center gap-0.5 rounded bg-[#F1F5F9] p-0.5">
+          {([['light', Sun], ['dark', Moon]] as const).map(([m, Ic]) => (
+            <button
+              key={m}
+              onClick={() => onChange({ mode: m })}
+              title={m === 'light' ? 'Light mode' : 'Dark mode'}
+              className={`flex size-6 items-center justify-center rounded transition-colors ${
+                theme.mode === m ? 'bg-white text-[#364658] shadow-[0_1px_2px_rgba(16,24,40,0.06)]' : 'text-[#9CA3AF] hover:text-[#364658]'
+              }`}
+            ><Ic size={13} /></button>
+          ))}
         </span>
-      </StyleCard>
+      </div>
 
-      <StyleCard title="Fonts" onOpen={() => setScreen('fonts')}>
-        <span style={{ fontFamily: pack.heading }} className="block text-[17px] font-semibold text-[#364658]">HEADING</span>
-        <span style={{ fontFamily: pack.body }} className="block text-[12px] text-[#5B7A99]">This is your paragraph.</span>
-      </StyleCard>
+      {/* ⚠️ mt-3.5, not mt-2. The tabs sat almost on the heading, so the two read as one control and
+          "COLOURS" looked like a label for the tab strip rather than the section head above it. */}
+      <div className="mt-3.5 flex gap-1 rounded bg-[#F1F5F9] p-0.5">
+        {(['primary', 'secondary', 'neutral'] as Tab[]).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`flex-1 rounded py-1 text-[12px] font-medium capitalize transition-colors ${
+              tab === t ? 'bg-white text-[#364658] shadow-[0_1px_2px_rgba(16,24,40,0.06)]' : 'text-[#7B8FA5] hover:text-[#364658]'
+            }`}
+          >{t}</button>
+        ))}
+      </div>
 
-      <StyleCard title="Colours" onOpen={() => setScreen('palette')}>
-        <Strip colors={swatches} />
-      </StyleCard>
+      <p className="mt-2 text-[11px] leading-[1.5] text-[#9CA3AF]">
+        {tab === 'primary' ? 'Set by the theme style. Change one to depart from it.'
+          : tab === 'secondary' ? 'Status colours — green means healthy, red means broken. Shared by every theme.'
+            : 'The greyscale every surface and border is built from. Shared by every theme.'}
+      </p>
 
-      <StyleCard title="Buttons" onOpen={() => setScreen('buttons')}>
-        <span
-          style={{
-            background: btn.id === 'outline' || btn.id === 'underline' ? 'transparent' : btn.id === 'soft' ? `${accent}22` : accent,
-            borderRadius: btn.radius,
-            borderColor: accent,
-            color: btn.id === 'outline' || btn.id === 'soft' || btn.id === 'underline' ? accent : '#FFFFFF',
-          }}
-          className={`inline-flex h-8 items-center px-4 text-[12px] font-medium ${btn.cls}`}
-        >Button</span>
-      </StyleCard>
+      <div className="mt-1.5">
+        {swatches[tab].map((sw) => (
+          /* ⚠️ A name and a circle, no hex. The value is what the picker is for; printing it beside
+             every row turns a palette into a spreadsheet, and nobody recognises a colour by its code. */
+          <div key={sw.key} className="flex items-center gap-3 border-b border-dashed border-[#E5E7EB] py-2 last:border-b-0">
+            <span className="flex-1 truncate text-[13px] text-[#364658]">{sw.label}</span>
+            <ColorDot value={colorOf(theme, sw)} onChange={(v) => setCustom(sw.key, v)} title={sw.label} />
+          </div>
+        ))}
+      </div>
 
-      {/* ⚠️ No Forms card. The portal's only form is the hero search, which the Banner already owns —
-          a Forms section here would style something this page does not have. */}
+      {/* ── Custom ── */}
+      <p className="mt-6 text-[11px] font-semibold uppercase tracking-wider text-[#7B8FA5]">Custom</p>
+      <p className="mt-1.5 text-[11px] leading-[1.5] text-[#9CA3AF]">
+        Three overrides that sit on top of whichever style is chosen.
+      </p>
+      <div className="mt-1.5">
+        {[
+          { key: 'pageBg', label: 'Page background', from: palette.primary.find((x) => x.key === 'pageBg')! },
+          { key: 'pageText', label: 'Heading text', from: palette.primary.find((x) => x.key === 'pageText')! },
+          { key: 'bodyText', label: 'Body text', from: NEUTRAL.find((x) => x.key === 'dark')! },
+        ].map((f) => (
+          <div key={f.key} className="flex items-center gap-3 border-b border-dashed border-[#E5E7EB] py-2 last:border-b-0">
+            <span className="flex-1 truncate text-[13px] text-[#364658]">{f.label}</span>
+            <ColorDot value={theme.custom?.[f.key] ?? colorOf(theme, f.from)} onChange={(v) => setCustom(f.key, v)} title={f.label} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

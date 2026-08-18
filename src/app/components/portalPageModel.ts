@@ -95,6 +95,8 @@ const PLACED: Record<string, { name: string; type: string; parent: string }> = {
 export const registerPlaced = (id: string, name: string, type: string, parent: string) => {
   PLACED[id] = { name, type, parent };
 };
+/** The element sitting inside this container, if one is. A column holds at most one. */
+export const placedIn = (parentId: string) => Object.keys(PLACED).find((k) => PLACED[k].parent === parentId) ?? null;
 
 /* Collection items and their sub-elements (spec §4).
  *
@@ -132,6 +134,20 @@ export function nodeById(id: string): PortalNodeDef | undefined {
   /* A quick-action card carries its own text nodes, so the words are edited by clicking them.
      ⚠️ Only CONFIGURED copy gets a node. A live-data row — a request, an approval, an article —
      comes from the backend and is not the admin's to rewrite, so it is never selectable. */
+  /* A list widget's heading and "View all" link — selectable in their own right so the drawer can
+     answer about them rather than about the widget they sit in. */
+  const listTxt = /^(.+)-(title|viewall)$/.exec(id);
+  if (listTxt && !/^quick-/.test(id)) {
+    return {
+      id,
+      name: listTxt[2] === 'title' ? 'Heading' : 'Link',
+      kind: 'text',
+      parent: listTxt[1],
+      content: 'text',
+    };
+  }
+  const ico = /^(.+)-icon$/.exec(id);
+  if (ico) return { id, name: 'Icon', kind: 'icon', parent: ico[1], content: 'none' };
   const txt = /^(quick-[a-z]+)-(title|sub)$/.exec(id);
   if (txt) {
     return {
@@ -252,7 +268,12 @@ export interface RoleType {
 }
 
 export interface NodeStyle {
-  align?: 'left' | 'center' | 'right';
+  align?: 'left' | 'center' | 'right' | 'stretch';
+  /** Dragged width as a PERCENTAGE of the parent, 5–100. See the note in `sizeOf`. */
+  widthPct?: number;
+  /** The second axis. `stretch` fills the row's height, which is what makes short cards match tall
+      ones without anybody typing a number. */
+  alignY?: 'start' | 'center' | 'end' | 'stretch';
   /* ── P1 Container ── */
   bgFill?: 'none' | 'color' | 'image';
   bgImage?: string;

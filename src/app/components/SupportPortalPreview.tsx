@@ -18,7 +18,7 @@ import { shadowCss } from './PortalBoxControls';
 import { PortalPlacedElement } from './PortalPlacedElement';
 import { DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, colId, nodePath } from './portalPageModel';
 import type { CustomSection, PlacedElement, PortalPageContent } from './portalPageModel';
-import { iconNode } from './PortalIconPicker';
+import { iconNode, isImageChoice } from './PortalIconPicker';
 import type { IconChoice } from './PortalIconPicker';
 
 /* The Support Portal page — what an end user sees, rendered inside the builder canvas.
@@ -249,8 +249,14 @@ function PortalRail({ cfg = EMPTY_CFG }: { cfg?: Record<string, unknown> }) {
   );
 }
 
+/** Reordering payload, kept off the element MIME so a nav drag can never land on the canvas. */
+const NAV_MIME = 'text/portal-nav';
+
 function PortalHeader({ cfg = EMPTY_CFG }: { content?: PortalPageContent; cfg?: Record<string, unknown> }) {
-  const { styles } = useCanvas();
+  const { styles, enabled } = useCanvas();
+  const [order, setOrder] = useState(['type', 'chat', 'bell', 'keys', 'home', 'info']);
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [overKey, setOverKey] = useState<string | null>(null);
   const barHeight = Number(cfg.barHeight ?? 56);
   const iconBtn = 'flex size-8 items-center justify-center rounded text-[#6b7280]';
   const pos = String(cfg.logoPos ?? 'left');
@@ -264,16 +270,56 @@ function PortalHeader({ cfg = EMPTY_CFG }: { content?: PortalPageContent; cfg?: 
     </Sel>
   );
 
+  /* ⚠️ The bar's icons are NOT selectable and carry NO styling of their own. They are the product's
+     own controls — an admin who could restyle the notification bell one shade off the help icon
+     would produce a header that looks broken, and the settings would have to exist on nine nodes to
+     do it. The one thing worth changing is ORDER, so that is the only thing offered.
+     ⚠️ And order only WITHIN the cluster: dragging Bell to sit before the logo is not a rearranged
+     header, it is a different header. The drop is refused outside the group rather than silently
+     doing nothing, so the constraint is visible while you drag. */
+  const ICONS: { key: string; el: ReactNode }[] = [
+    { key: 'type', el: <Type size={17} /> },
+    { key: 'chat', el: <MessagesSquare size={17} /> },
+    { key: 'bell', el: <Bell size={17} /> },
+    { key: 'keys', el: <Keyboard size={17} /> },
+    { key: 'home', el: <House size={17} /> },
+    { key: 'info', el: <Info size={17} /> },
+  ];
+  const ordered = order.map((k) => ICONS.find((i) => i.key === k)!).filter(Boolean);
+
   const actions = (
     <Sel id="header-actions" className="flex flex-shrink-0 items-center gap-1.5">
       <span className="inline-flex h-8 items-center gap-1.5 rounded border border-[#3D8BD0] px-2.5 text-[13px] font-medium text-[#364658]"><AiSparkle size={14} /> Ask AI</span>
       <span className="flex size-8 items-center justify-center rounded bg-[#1E293B] text-white"><Plus size={17} /></span>
-      <span className={iconBtn}><Type size={17} /></span>
-      <span className={iconBtn}><MessagesSquare size={17} /></span>
-      <span className={iconBtn}><Bell size={17} /></span>
-      <span className={iconBtn}><Keyboard size={17} /></span>
-      <span className={iconBtn}><House size={17} /></span>
-      <span className={iconBtn}><Info size={17} /></span>
+      {ordered.map((ic) => (
+        <span
+          key={ic.key}
+          draggable={enabled}
+          onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData(NAV_MIME, ic.key); e.dataTransfer.effectAllowed = 'move'; setDragKey(ic.key); }}
+          onDragEnd={() => { setDragKey(null); setOverKey(null); }}
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes(NAV_MIME)) return;
+            e.preventDefault(); e.stopPropagation(); setOverKey(ic.key);
+          }}
+          onDragLeave={() => setOverKey((k) => (k === ic.key ? null : k))}
+          onDrop={(e) => {
+            const src = e.dataTransfer.getData(NAV_MIME);
+            e.preventDefault(); e.stopPropagation();
+            setOverKey(null); setDragKey(null);
+            if (!src || src === ic.key) return;
+            setOrder((o) => {
+              const next = o.filter((k) => k !== src);
+              next.splice(next.indexOf(ic.key), 0, src);
+              return next;
+            });
+          }}
+          onClick={(e) => e.stopPropagation()}
+          title={enabled ? 'Drag to reorder — stays inside this group' : undefined}
+          className={`${iconBtn} ${enabled ? 'cursor-grab active:cursor-grabbing' : ''} ${
+            dragKey === ic.key ? 'opacity-35' : ''
+          } ${overKey === ic.key && dragKey !== ic.key ? 'ring-1 ring-[#3D8BD0]' : ''}`}
+        >{ic.el}</span>
+      ))}
       <span className="flex size-8 items-center justify-center rounded bg-[#3D8BD0] text-[11px] font-semibold text-white">YG</span>
     </Sel>
   );
@@ -288,7 +334,10 @@ function PortalHeader({ cfg = EMPTY_CFG }: { content?: PortalPageContent; cfg?: 
          edit. Below the bar it covers the page instead, which is empty at that moment anyway. */
       toolbarBelow="under"
       style={{
-        height: barHeight,
+        /* ⚠️ minHeight, not height. A fixed height is a ceiling, so the padding added by dragging
+           the bar's bottom edge had nowhere to go — the bar grew five pixels and stopped. The bar
+           still starts at its configured height and now grows when something inside asks it to. */
+        minHeight: barHeight,
         background: String(cfg.barBg ?? '#FFFFFF'),
         borderBottomWidth: cfg.barDivider === false ? 0 : 1,
         boxShadow: shadowCss({
@@ -382,7 +431,16 @@ function CardShell({ nodeId, titleNodeId, title, count, cfg = EMPTY_CFG, childre
           <span style={linkCss} className="flex flex-shrink-0 items-center gap-1 text-[#7B8FA5]">
             {/* ⚠️ Tailwind v4 arbitrary container queries are `@min-[…]`, not the v3 plugin's
                 `@[…]` — the old form compiles to nothing and the label never hides. */}
-            {cfg.viewAllLabel ? <span className="hidden text-[12px] font-medium @min-[240px]:inline">{String(cfg.viewAllLabel)}</span> : null}
+            {/* ⚠️ The LABEL is its own node, the chevron is not. The words are the admin's to rewrite;
+                the chevron is the affordance that says "this goes somewhere" and belongs to the
+                product. Wrapping both would offer to edit an arrow. */}
+            {cfg.viewAllLabel && rid ? (
+              <Sel id={`${rid}-viewall`} className="hidden px-0.5 @min-[240px]:inline-block">
+                <span className="text-[12px] font-medium">{String(cfg.viewAllLabel)}</span>
+              </Sel>
+            ) : cfg.viewAllLabel ? (
+              <span className="hidden text-[12px] font-medium @min-[240px]:inline">{String(cfg.viewAllLabel)}</span>
+            ) : null}
             <ChevronsRight size={16} />
           </span>
         )}
@@ -420,7 +478,7 @@ function Row({ nodeId, children }: { nodeId: string; children: ReactNode }) {
 /* ── The page ────────────────────────────────────────────────────────────── */
 
 export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CONTENT, sections = [], icons, placedText, blockOrder = DEFAULT_BLOCK_ORDER, rowOrder = DEFAULT_ROW_ORDER, removed = [], rowExtras, cfg }: SupportPortalPreviewProps) {
-  const { styles, enabled, select } = useCanvas();
+  const { styles, enabled, select, pickIcon } = useCanvas();
   const st = (id: string) => styleOf(styles, id);
   /** A widget's resolved config, or its rendering defaults when the builder passes none. */
   const wc = (id: string) => cfg?.(id) ?? EMPTY_CFG;
@@ -543,8 +601,13 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
           {/* Full bleed ignores the page's side inset (§7.20); the 9-point picker places the
               content block, and the heading colour is the one the contrast guard measures. */}
           <Sel id="hero" toolbarBelow className={wc('hero').fullBleed === true ? '-mx-0' : ''}>
+            {/* ⚠️ The band is a flex COLUMN centred on its cross axis, so the heading and subtext sit
+                in the middle of the banner however tall it is made. Fixed `pt-14` pinned them near
+                the top and left the growing half of the band empty underneath — a taller banner
+                pushed its own content further off centre, which is the opposite of what raising the
+                height is for. */}
             <div
-              className="relative overflow-hidden pb-[86px]"
+              className="relative flex flex-col justify-center overflow-hidden pb-[86px]"
               style={{
                 background: `linear-gradient(135deg, ${pageAccent} 0%, #050B18 100%)`,
                 minHeight: Number(wc('hero').height ?? 260),
@@ -553,7 +616,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
             >
               <HeroArtwork />
               <div
-                className="relative px-6 pb-6 pt-14"
+                className="relative px-6 py-6"
                 style={{
                   textAlign: heroAlignX(String(wc('hero').contentAlign ?? 'center')),
                   maxWidth: `${Number(wc('hero').contentMaxWidth ?? 70)}%`,
@@ -561,7 +624,11 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                   marginRight: heroMR(String(wc('hero').contentAlign ?? 'center')),
                 }}
               >
-                <Sel id="hero-title" className="inline-block px-1">
+                {/* ⚠️ BLOCK, not inline-block. Both were inline-block, so the subtitle sat on the
+                    same line as the heading and the band read as one run-on sentence — "Welcome to
+                    Support Portal Search our support center knowledge base". A heading and its
+                    subtext are two lines; the wrapper has to say so. */}
+                <Sel id="hero-title" className="block px-1 text-center">
                   <h2
                     style={{ color: String(wc('hero').headingColor ?? '#4C7BA8'), ...roleStyle(styles, 'hero', 'title'), ...st('hero-title') }}
                     className="text-[30px] font-semibold leading-tight"
@@ -569,7 +636,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                     {String(wc('hero').heading ?? content.hero.title)}
                   </h2>
                 </Sel>
-                <Sel id="hero-subtitle" className="mx-auto mt-2 inline-block px-1">
+                <Sel id="hero-subtitle" className="mt-2 block px-1 text-center">
                   <p style={{ ...roleStyle(styles, 'hero', 'subtitle'), ...st('hero-subtitle') }} className="text-[15px] text-white/85">
                     {String(wc('hero').sub ?? content.hero.subtitle)}
                   </p>
@@ -584,7 +651,11 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                       style={{ borderRadius: Number(wc('hero').searchRadius ?? 4), ...st('hero-search') }}
                       className="flex h-11 items-center gap-2 bg-white px-4"
                     >
-                      <span className="flex-1 text-left text-[14px] text-[#9CA3AF]">
+                      {/* ⚠️ Truncate, never wrap. Narrowed, the placeholder broke onto a second line
+                          and pushed the search box to double height — the one control on the page
+                          whose shape people recognise. Content inside a resized element has to give
+                          way to the element's size, not fight it. */}
+                      <span className="min-w-0 flex-1 truncate text-left text-[14px] text-[#9CA3AF]">
                         {String(wc('hero').searchPlaceholder ?? content.hero.placeholder)}
                       </span>
                       <Search size={18} className="text-[#64748B]" />
@@ -609,7 +680,8 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                      iconPos — that is the whole point of choosing it on the parent, so a row of
                      cards can't disagree. The card keeps iconPos as its fallback for a section that
                      has never had a template picked. */
-                  const tpl = String(wc('quick').cardTemplate ?? c.iconPos ?? 'left');
+                        const tpl = String(wc('quick').cardTemplate ?? c.iconPos ?? 'left');
+                  const cardImage = isImageChoice(icons?.[a.id]) ? icons![a.id]!.src : null;
                   const top = tpl === 'top';
                   const iconRight = tpl === 'right';
                   /* ⚠️ Icon top CENTRES. Stacked-and-left-aligned is not a layout anyone picks that
@@ -632,25 +704,53 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                           top ? 'flex-col' : iconRight ? 'flex-row-reverse items-center' : 'items-center'
                         } ${centre ? 'items-center text-center' : ''}`}
                       >
+                        {/* ⚠️ The icon is EDITABLE IN PLACE, like the title beside it. It was the one
+                            part of a card you could see but not touch — you had to know it lived in
+                            the panel, which is exactly the knowledge a canvas is supposed to make
+                            unnecessary. Clicking it opens the same grid the panel field opens. */}
+                        {/* ⚠️ Wrapped in `Sel`, so the icon is a LAYER — selecting it opens its own
+                            editor (with the Icon/Image tabs) instead of the whole card's. The click
+                            still opens the grid inline: selection and editing are one gesture here,
+                            because an icon has exactly one thing to change. */}
+                        <Sel id={`${a.id}-icon`} className="flex-shrink-0">
                         <span
+                          role={enabled ? 'button' : undefined}
+                          onClick={enabled ? (ev) => { ev.stopPropagation(); select(`${a.id}-icon`); pickIcon(a.id, (ev.currentTarget as HTMLElement).getBoundingClientRect()); } : undefined}
+                          title={enabled ? 'Click to change this icon' : undefined}
                           style={{
                             color: iconColor as string | undefined,
-                            background: iconShape === 'none' ? 'transparent' : (iconFill as string | undefined),
+                            /* ⚠️ An IMAGE replaces the badge rather than sitting in it: no fill, no
+                               icon colour, cropped to the slot. A picture rendered at glyph size
+                               inside a tinted square is a thumbnail, which is not what "use an image
+                               instead of an icon" means. */
+                            background: cardImage
+                              ? undefined
+                              : iconShape === 'none' ? 'transparent' : (iconFill as string | undefined),
+                            backgroundImage: cardImage ? `url(${cardImage})` : undefined,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
                             borderRadius: iconShape === 'circle' ? 999 : undefined,
                             width: Number(iconSize) + 22, height: Number(iconSize) + 22,
                           }}
-                          className="flex flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#475467]"
+                          className={`flex flex-shrink-0 items-center justify-center overflow-hidden rounded text-[#475467] ${
+                            cardImage ? '' : 'bg-[#F1F5F9]'
+                          } ${enabled ? 'cursor-pointer outline outline-1 outline-transparent transition-[outline-color] hover:outline-[#3D8BD0]' : ''}`}
                         >
                           {/* A picked icon wins; otherwise the card keeps the one it shipped with. */}
-                          {iconNode(icons?.[a.id], Number(iconSize))
+                          {cardImage ? null : iconNode(icons?.[a.id], Number(iconSize))
                             ?? (a.id === 'quick-incident' ? <IconRequest size={Number(iconSize)} />
                               : a.id === 'quick-service' ? <ShoppingCart size={Number(iconSize) - 1} strokeWidth={1.7} />
                               : a.id === 'quick-ad' ? <KeyRound size={Number(iconSize)} strokeWidth={1.7} />
                               : <IconKnowledge size={Number(iconSize)} />)}
                         </span>
+                        </Sel>
                         {/* The words are their own nodes, so clicking the title edits the title —
                             not the card it happens to sit in. */}
-                        <span className="min-w-0">
+                        {/* ⚠️ `flex-1`, so the text column fills the card. It shrink-wrapped to the words
+                            before, which made it a meaningless box to size against: the title was already
+                            100% of it, so dragging the title wider had nothing left to grow into. A % is
+                            only responsive if the box it is a % OF is the real available space. */}
+                        <span className="min-w-0 flex-1">
                           <Sel id={`${a.id}-title`}>
                             <span style={roleStyle(styles, `${a.id}-title`, 'title')} className="block truncate text-[16px] font-semibold text-[#364658]">{String(c.title ?? a.title)}</span>
                           </Sel>

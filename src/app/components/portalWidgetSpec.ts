@@ -117,6 +117,8 @@ export interface CollectionSpec {
   max?: number;
   /** Collections where an item can be kept without publishing it. */
   hideable?: boolean;
+  /** The items carry no settings of their own — no chevron into a per-item drawer. */
+  noOpen?: boolean;
   /** Multi-file add, appended in selection order (§7.19). */
   bulkAdd?: boolean;
   /** The list only exists in this state — e.g. Feedback's questions when follow-ups are off. */
@@ -734,6 +736,11 @@ export function structureSpecId(nodeId: string): string | undefined {
   /* A card's own words, matched before the card itself so clicking the title opens the TITLE. */
   if (/^quick-[a-z]+-title$/.test(nodeId)) return 'card_title';
   if (/^quick-[a-z]+-sub$/.test(nodeId)) return 'card_sub';
+  if (/-icon$/.test(nodeId)) return 'card_icon';
+  /* A list widget's heading and its "View all" link are their own panels, matched before the widget
+     itself so clicking the words opens the WORDS. */
+  if (/-title$/.test(nodeId)) return 'list_title';
+  if (/-viewall$/.test(nodeId)) return 'list_link';
   if (/^sec-\d+-c\d+$/.test(nodeId)) return 'column';
   if (/^sec-\d+$/.test(nodeId)) return 'section';
   return undefined;

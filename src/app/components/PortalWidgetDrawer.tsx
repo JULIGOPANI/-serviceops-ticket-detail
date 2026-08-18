@@ -463,6 +463,8 @@ export interface WidgetDrawerProps {
   setStyle: (id: string, patch: Partial<NodeStyle>) => void;
   replaceStyle: (id: string, next: NodeStyle) => void;
   onSelect: (id: string | null) => void;
+  /** Clears this element's own config and style. Rendered beside its name, not above the panel. */
+  onReset?: () => void;
   icon?: IconChoice;
   setIcon: (c?: IconChoice) => void;
   /** Layer-level structural actions — never in the tab body (§2.1). */
@@ -474,7 +476,7 @@ export interface WidgetDrawerProps {
 }
 
 export function PortalWidgetDrawer(props: WidgetDrawerProps) {
-  const { nodeId, spec, cfg, setCfg, styles, setStyle, replaceStyle, onSelect, icon, setIcon } = props;
+  const { nodeId, spec, cfg, setCfg, styles, setStyle, replaceStyle, onSelect, onReset, icon, setIcon } = props;
   const node = nodeById(nodeId);
   const path = nodePath(nodeId);
 
@@ -958,7 +960,8 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
                     meta={col.meta ? (it, i) => col.meta!(it as Cfg, i) : undefined}
                     /* Derived, not declared: the item's first two fields ARE its title and its
                        description, so a collection gets inline editing without restating them. */
-                    inlineKeys={col.fields.length >= 2 ? [col.fields[0].key, col.fields[1].key] : undefined}
+                    noOpen={col.noOpen}
+                    inlineKeys={col.noOpen || col.fields.length < 2 ? undefined : [col.fields[0].key, col.fields[1].key]}
                     hideable={col.hideable}
                     noAdd={col.noAdd}
                     /* §7.24 — the logo cannot be hidden, and the action is DISABLED with the reason
@@ -1000,6 +1003,17 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
             </span>
             <span className="block text-[12px] text-[#7B8FA5]">{spec.name}</span>
           </span>
+          {/* ⚠️ Reset sits with the NAME of what it resets. Above the header it read as a panel
+              control — "reset the sidebar" — when it has always been about this one element. */}
+          {/* ⚠️ Plain `title`, not the Radix Tooltip — this file never imported it, and a missing
+              component in JSX is a runtime ReferenceError that builds clean and blanks the page. */}
+          {onReset && (
+            <button
+              onClick={onReset}
+              title="Reset this element to default"
+              className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]"
+            ><RotateCcw size={15} /></button>
+          )}
         </div>
 
       </div>
@@ -1079,8 +1093,15 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
         )}
 
         {/* Design owns the spec groups AND every pack, plus the shared Spacing block. */}
-        <SectionLabel action={<ExpandAll keys={[...groupsFor('style').map((g) => g.group), ...(viewPacks ?? []), '__spacing']} openGroups={openGroups} setOpen={setOpenGroups} />}>Design</SectionLabel>
-        {(
+        {/* ⚠️ The whole Design section is DROPPED when a widget has nothing to put in it. An empty
+            heading over a Spacing block is a section that exists to hold a label. */}
+        {/* ⚠️ Design is dropped ENTIRELY — heading and body — when a widget has nothing to style.
+            Gating only the heading left the shared Spacing block floating under Content, which reads
+            as a content setting and is the one thing it is not. */}
+        {(groupsFor('style').length > 0 || (viewPacks ?? []).length > 0) && (
+          <SectionLabel action={<ExpandAll keys={[...groupsFor('style').map((g) => g.group), ...(viewPacks ?? []), '__spacing']} openGroups={openGroups} setOpen={setOpenGroups} />}>Design</SectionLabel>
+        )}
+        {(groupsFor('style').length > 0 || (viewPacks ?? []).length > 0) && (
           <>
             {/* Widget-specific styling first — it is what this widget is, before the generic packs. */}
             {/* ⚠️ A pack whose TITLE matches a spec group is rendered INSIDE that group rather than

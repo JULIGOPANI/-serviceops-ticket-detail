@@ -283,9 +283,37 @@ const textSpec = (id: string, name: string, key: string): WidgetSpec => ({
 export const CARD_TITLE_SPEC = textSpec('card_title', 'Title', 'title');
 export const CARD_SUB_SPEC = textSpec('card_sub', 'Subtext', 'sub');
 
+/* ── A LIST widget's own words ───────────────────────────────────────────────
+ *
+ * ⚠️ The same two-tiny-panels trick, extended to every widget that has a heading and a "View all"
+ * link. Before this, clicking either one selected the WIDGET, so the drawer answered with the
+ * widget's whole Content and Design — statuses, row counts, header toggles, layout — when all you
+ * had aimed at was four words. A panel that shows you thirty controls for the one you asked about
+ * is a panel you stop trusting to be about what you clicked.
+ *
+ * ⚠️ Both write to the OWNER's config (`title`, `viewAllLabel`), the same keys the widget drawer
+ * writes, so editing inline and editing in the widget panel are the same edit. Two stores for one
+ * sentence is how a canvas and a panel start disagreeing. */
+/* ⚠️ The icon gets the same treatment as the words beside it. Clicking it used to select the CARD,
+   so the drawer answered with the card's title, subtitle, action, fill, shadow, spacing, size and
+   alignment — nine groups deep for a picture. And because the card's panel was what opened, the
+   Icon/Image tabs never appeared where you were looking. One layer, one editor, one question. */
+export const CARD_ICON_SPEC: WidgetSpec = {
+  id: 'card_icon', name: 'Icon', group: 'Basic', reuse: 'many', family: 'flat',
+  panel: {
+    content: [{ key: 'icon', label: 'Icon', control: 'icon' }],
+    accordions: [{ id: 'spacing', spacing: 'both' }],
+  },
+  fields: [], packs: [],
+  defaults: {},
+};
+
+export const LIST_TITLE_SPEC = textSpec('list_title', 'Heading', 'title');
+export const LIST_LINK_SPEC = textSpec('list_link', 'Link label', 'viewAllLabel');
+
 export const PANEL_SPECS: WidgetSpec[] = [
   DIVIDER_SPEC, SPACER_SPEC, TITLE_LG_SPEC, TITLE_SM_SPEC, ICON_SPEC, SHAPE_SPEC,
-  CARD_TITLE_SPEC, CARD_SUB_SPEC,
+  CARD_TITLE_SPEC, CARD_SUB_SPEC, CARD_ICON_SPEC, LIST_TITLE_SPEC, LIST_LINK_SPEC,
 ];
 
 /** Palette element → panel spec. Separate from WIDGET_FOR_TYPE only for readability. */

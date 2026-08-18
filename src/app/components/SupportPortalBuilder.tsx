@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-  ArrowLeft, ChevronLeft, Eye, House, LayoutTemplate, RotateCcw,
+  ArrowLeft, ChevronLeft, Eye, RotateCcw,
   Palette, PanelRight, Paintbrush, Pencil, Plus, Redo2, Undo2, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,6 +23,7 @@ import { WIDGET_FOR_NODE, WIDGET_FOR_TYPE, specById, structureSpecId } from './p
 import type { Cfg, WidgetSpec } from './portalWidgetSpec';
 import type { CustomSection, NodeStyle, PlacedElement, PortalPageContent, PortalStyles } from './portalPageModel';
 import { PORTAL_ELEMENTS } from './supportPortalData';
+import { IconPopover } from './PortalIconPicker';
 import type { IconChoice } from './PortalIconPicker';
 import type { PortalPage } from './supportPortalData';
 
@@ -48,13 +49,14 @@ interface SupportPortalBuilderProps {
   onExit: () => void;
 }
 
-type RailKey = 'add' | 'theme' | 'branding' | 'templates' | 'ai';
+type RailKey = 'add' | 'theme' | 'branding' | 'ai';
 
 const RAIL: { key: RailKey; label: string; icon: (on: boolean) => ReactNode }[] = [
-  { key: 'add', label: 'Add', icon: () => <Plus size={18} /> },
+  /* ⚠️ "Widgets", not "Add". The rail names PLACES, not verbs — Theme, Branding, Templates are all
+     nouns, and "Add" made one item read as an action while its neighbours read as destinations. */
+  { key: 'add', label: 'Widgets', icon: () => <Plus size={18} /> },
   { key: 'theme', label: 'Theme', icon: () => <Paintbrush size={18} /> },
   { key: 'branding', label: 'Branding', icon: () => <Palette size={18} /> },
-  { key: 'templates', label: 'Templates', icon: () => <LayoutTemplate size={18} /> },
   { key: 'ai', label: 'AI', icon: (on) => <AiSparkle size={18} className={on ? '' : 'opacity-90'} /> },
 ];
 
@@ -63,22 +65,22 @@ const RAIL: { key: RailKey; label: string; icon: (on: boolean) => ReactNode }[] 
 const PANEL_COPY: Record<RailKey, { title: string; body: string }> = {
   add: {
     // Add is a real panel now — this entry only supplies the header title.
-    title: 'Elements',
-    body: '',
+    title: 'Widgets',
+    body: 'Everything you can put on the page.',
   },
+  /* ⚠️ Every rail panel is titled with the NAME OF ITS RAIL ITEM, and carries one line under it.
+     They had drifted into three different shapes — an imperative ("Brand this page"), a noun phrase
+     ("Site styles") and a bare label — so which panel you were in read as a different kind of place
+     each time, on a rail whose items are all the same kind of thing. */
   theme: {
-    /* ⚠️ "Site styles", not "this page": one theme paints every page of the portal, so a title that
-       scopes it to the page you happen to be on promises an override that does not exist. */
-    title: 'Site styles',
-    body: 'Mode, colours, type and button shape for the whole portal.',
+    title: 'Theme',
+    body: 'Style, type and colour for every page of this portal.',
   },
   branding: {
-    title: 'Brand this page',
-    body: 'Logo, favicon and brand colors inherited from Organization › Branding will appear here, with per-page overrides.',
-  },
-  templates: {
-    title: 'Templates',
-    body: 'Swap this page for another layout, or save the current one as a reusable template for your other portals.',
+    /* ⚠️ "Branding", not "Brand this page". The brand is org-wide — page-scoped wording promised a
+       per-page override that has never existed. */
+    title: 'Branding',
+    body: 'The organisation identity, shared by every portal.',
   },
   ai: {
     title: 'Build with AI',
@@ -145,6 +147,24 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      paint with it — a theme panel that only changed itself would be a colour picker with no page. */
   const [theme, setTheme] = useState<PortalTheme>(DEFAULT_THEME);
 
+  /* ── Undo / redo ───────────────────────────────────────────────────────────
+   *
+   * ⚠️ SNAPSHOTS of the whole page, not a log of commands. This builder has eleven independent state
+   * atoms and edits arrive from four surfaces — the canvas, the drawer, the rail panels and inline
+   * text — so a command log would need every one of them to remember to record itself, and the first
+   * one that forgot would make undo quietly skip a step. A snapshot cannot be forgotten: an effect
+   * watches the state and records whatever it finds.
+   *
+   * ⚠️ The effect must not record its OWN restore, or undo would push the state it just popped and
+   * you could never get further back than one step — `applying` is what stops that.
+   * ⚠️ It also compares against the top of the stack before pushing: React re-runs effects on
+   * unrelated renders, and an identical snapshot would fill the history with steps that change
+   * nothing, so undo would appear to do nothing several times in a row. */
+  const past = useRef<string[]>([]);
+  const future = useRef<string[]>([]);
+  const applying = useRef(false);
+  const [histTick, setHistTick] = useState(0);
+
   // ── canvas state ──────────────────────────────────────────────────────────
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
@@ -175,7 +195,10 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      scatter one widget's content across N stores and break Reset, duplicate and reorder. */
   /* A card's Title/Subtext node edits the CARD's config — the words live on the card, not on a
      store of their own, or the canvas and the panel would hold two copies of one sentence. */
-  const ownerOf = (id: string) => parseItemId(id)?.widget ?? id.replace(/-(title|sub)$/, '');
+  /* ⚠️ `-viewall` strips too. The link's label is a key on the WIDGET's config, so its own node has
+     to resolve to the widget for reading and writing — the panel it opens is separate (see
+     `specForNode`), which is the whole point: same value, different editor. */
+  const ownerOf = (id: string) => parseItemId(id)?.widget ?? id.replace(/-(title|sub|viewall|icon)$/, '');
 
   const specForNode = useCallback((id: string | null): WidgetSpec | undefined => {
     if (!id) return undefined;
@@ -184,7 +207,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
        the one thing you aimed at is the one thing you cannot edit. Config and panel resolve
        differently here on purpose. */
     const own = structureSpecId(id);
-    if (own === 'card_title' || own === 'card_sub') return specById(own);
+    if (own === 'card_title' || own === 'card_sub' || own === 'card_icon' || own === 'list_title' || own === 'list_link') return specById(own);
 
     const owner = ownerOf(id);
     const direct = WIDGET_FOR_NODE[owner];
@@ -251,6 +274,10 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
   /** Per-placed-element icon and text. Kept beside the sections so the canvas can render them. */
   const [icons, setIcons] = useState<Record<string, IconChoice | undefined>>({});
+  /* ⚠️ ONE icon store, written from two places. The canvas popover and the panel's icon field both
+     land here, so an icon changed inline is the same icon the panel then shows — the alternative is
+     two truths for one glyph. */
+  const [iconPick, setIconPick] = useState<{ id: string; rect: DOMRect } | null>(null);
   const [placedText, setPlacedText] = useState<Record<string, { title?: string; desc?: string }>>({});
 
   const nextElementId = useRef(1);
@@ -312,6 +339,75 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      ⚠️ It must clear ALL of them. Missing one leaves the page in a state that is neither the
      default nor what you built: an added section whose widget config was wiped, or a block still
      hidden by `removed` after its content came back. The list is the state list, in order. */
+  /* Everything an edit can touch, in one string. ⚠️ Order matters only in that it must be STABLE —
+     the recorder compares snapshots by value to decide whether anything actually changed. */
+  const snapshot = JSON.stringify({
+    content, styles, widgetCfg, sections, placedText, rowExtras, icons, blockOrder, rowOrder, removed, theme,
+  });
+
+  useEffect(() => {
+    /* ⚠️ The flag is CLEARED on a timeout, not here. Clearing it in the effect assumed the effect
+       always runs after a restore — but if the restored state happens to equal the current one,
+       React skips the re-render, the effect never fires, and the flag stays raised forever. From
+       that point every real edit is silently swallowed by this guard and undo appears to stop
+       working. The timeout always fires, whether or not anything re-rendered. */
+    if (applying.current) return;
+    if (past.current[past.current.length - 1] === snapshot) return;
+    past.current.push(snapshot);
+    /* A new edit ends the redo branch — you cannot redo into a future that no longer follows from
+       the present. Every editor works this way and quietly not doing it is how redo starts
+       reapplying changes from a page the user already abandoned. */
+    if (future.current.length) future.current = [];
+    setHistTick((n) => n + 1);
+  }, [snapshot]);
+
+  const restore = useCallback((raw: string) => {
+    const v = JSON.parse(raw);
+    applying.current = true;
+    // Effects flush before a 0 ms timeout, so the recorder has already seen the flag by now.
+    setTimeout(() => { applying.current = false; }, 0);
+    setContent(v.content); setStyles(v.styles); setWidgetCfg(v.widgetCfg);
+    setSections(v.sections); setPlacedText(v.placedText); setRowExtras(v.rowExtras);
+    setIcons(v.icons); setBlockOrder(v.blockOrder); setRowOrder(v.rowOrder);
+    setRemoved(v.removed); setTheme(v.theme);
+  }, []);
+
+  /* ⚠️ The stack holds states, not diffs, so the CURRENT state is its last entry — undo pops that,
+     keeps it for redo, and restores the one beneath. Treating the top as "the thing to go back to"
+     is the classic off-by-one that makes the first undo do nothing. */
+  const canUndo = past.current.length > 1;
+  const canRedo = future.current.length > 0;
+  const undo = useCallback(() => {
+    if (past.current.length < 2) return;
+    const cur = past.current.pop()!;
+    future.current.push(cur);
+    restore(past.current[past.current.length - 1]);
+    setHistTick((n) => n + 1);
+    select(null);
+  }, [restore]);
+  const redo = useCallback(() => {
+    const next = future.current.pop();
+    if (!next) return;
+    past.current.push(next);
+    restore(next);
+    setHistTick((n) => n + 1);
+    select(null);
+  }, [restore]);
+
+  /* Ctrl/⌘+Z and Ctrl/⌘+Shift+Z — ignored while typing, or the shortcut would fight the field's own
+     undo and win, throwing away a sentence to undo a layout change. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      e.preventDefault();
+      if (e.shiftKey) redo(); else undo();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undo, redo]);
+
   const resetPage = useCallback(() => {
     setContent(DEFAULT_CONTENT);
     setStyles({});
@@ -667,10 +763,13 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     if (card) { patchCfg(card[1], { [card[2] === 'title' ? 'title' : 'sub']: text }); return; }
 
     if (id === 'hero-title') { patchCfg('hero', { heading: text }); return; }
+    /* A "View all" label, edited on the canvas. Same key the panel writes. */
+    const link = /^(.+)-viewall$/.exec(id);
+    if (link) { patchCfg(link[1], { viewAllLabel: text }); return; }
     if (id === 'hero-subtitle') { patchCfg('hero', { sub: text }); return; }
 
-    // The three list-card headings each own a `title` on their own widget.
-    if (/^(requests|approvals|knowledge|assets|cis)-title$/.test(id)) {
+    // Every list widget's heading owns a `title` on its own widget.
+    if (/-title$/.test(id)) {
       patchCfg(id.replace(/-title$/, ''), { title: text });
       return;
     }
@@ -698,6 +797,16 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      so reusing it would leave a Divider wearing a Button's stored padding and font. A replacement is
      a different element in the same place, and its settings should start clean. */
   const replaceElement = useCallback((id: string, type: string) => {
+    /* ⚠️ A built-in widget can be replaced too. It has no `el-` identity to swap, so the swap is
+       expressed the only way the model can express it: hide the block and drop the replacement into
+       the row it occupied. Without this, a filled slot could only ever offer "add inside", which is
+       a promise a one-widget slot cannot keep. */
+    const row = Object.keys(rowOrder).find((r) => rowOrder[r].includes(id));
+    if (row) {
+      setRemoved((prev) => (prev.includes(id) ? prev : [...prev, id]));
+      dropInRow(row, type);
+      return;
+    }
     const home = nodeById(id)?.parent ?? null;
     if (!home) return;
     const made = makeElement(type, home);
@@ -714,14 +823,19 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     }
     select(made.id);
     toast.success(`Replaced with ${made.name}`);
-  }, [makeElement, select]);
+  }, [makeElement, select, rowOrder, dropInRow]);
 
   addElementRef.current = addElement;
+
+  const pickIcon = useCallback((id: string, anchor: DOMRect) => {
+    setSelectedId(id);
+    setIconPick({ id, rect: anchor });
+  }, []);
 
   const canvasCtx = {
     selectedId, hoverId, select, setHover: setHoverId, styles, setStyle, setText,
     addSection, addColumnBeside, dropInColumn, dropAtSeam, dropInRow,
-    moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, areSiblings, replaceElement,
+    moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, areSiblings, replaceElement, pickIcon,
   };
 
   // Title — inline edit, committed on Enter or blur, abandoned on Escape.
@@ -779,6 +893,11 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   }, []);
 
   const openPanel = (key: RailKey) => {
+    /* ⚠️ Clicking the LIT item closes the panel outright — the rail is the switch, so it has to
+       switch off as well as on. This has to run BEFORE `setCollapsed(false)`; putting the toggle
+       after it meant every click re-opened the panel first and the close never survived the same
+       tick. */
+    if (key === active && !collapsed) { setActive(null); setCollapsed(true); return; }
     setCollapsed(false);
     /* ⚠️ Theme is its OWN panel, not the Page drawer. It was routed there while it was three colour
        fields; a theme is now mode + palette + type + button shape, which is a surface of its own —
@@ -876,11 +995,19 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
         <div className="ml-auto flex items-center gap-1">
           {/* Nothing has been edited yet, so these say so rather than clicking into nowhere. */}
           <Tooltip><TooltipTrigger asChild>
-            <button disabled className={`${iconBtn} cursor-not-allowed opacity-40 hover:bg-transparent`}><Undo2 size={17} /></button>
-          </TooltipTrigger><TooltipContent>Nothing to undo</TooltipContent></Tooltip>
+            <button
+              onClick={undo}
+              disabled={!canUndo}
+              className={`${iconBtn} disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent`}
+            ><Undo2 size={17} /></button>
+          </TooltipTrigger><TooltipContent>{canUndo ? 'Undo (Ctrl+Z)' : 'Nothing to undo'}</TooltipContent></Tooltip>
           <Tooltip><TooltipTrigger asChild>
-            <button disabled className={`${iconBtn} cursor-not-allowed opacity-40 hover:bg-transparent`}><Redo2 size={17} /></button>
-          </TooltipTrigger><TooltipContent>Nothing to redo</TooltipContent></Tooltip>
+            <button
+              onClick={redo}
+              disabled={!canRedo}
+              className={`${iconBtn} disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent`}
+            ><Redo2 size={17} /></button>
+          </TooltipTrigger><TooltipContent>{canRedo ? 'Redo (Ctrl+Shift+Z)' : 'Nothing to redo'}</TooltipContent></Tooltip>
 
           {divider}
 
@@ -901,11 +1028,6 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
             className="inline-flex h-8 items-center rounded bg-[#1E293B] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#0F172A]"
           >Publish</button>
 
-          {divider}
-
-          <Tooltip><TooltipTrigger asChild>
-            <button onClick={() => toast.success('Opening the live support portal')} className={iconBtn}><House size={17} /></button>
-          </TooltipTrigger><TooltipContent>Open live portal</TooltipContent></Tooltip>
         </div>
       </div>
 
@@ -923,6 +1045,16 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
           </div>
 
           {/* With the panel hidden the rail is the only way back to it — this restores the last one. */}
+          {/* The inline half of the icon field. Anchored to the icon that was clicked, writing the
+              same store the panel writes. */}
+          {iconPick && (
+            <IconPopover
+              value={icons[iconPick.id]}
+              anchor={iconPick.rect}
+              onPick={(c) => { setIcons((m) => ({ ...m, [iconPick.id]: c })); setIconPick(null); }}
+              onClose={() => setIconPick(null)}
+            />
+          )}
           {collapsed && (
             <button
               onClick={() => setCollapsed(false)}
@@ -946,33 +1078,19 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
         {/* Design panel */}
         {!collapsed && (
           <aside style={{ width }} className="flex flex-shrink-0 flex-col border-l border-[#e5e7eb] bg-white">
-            <div className="flex h-12 flex-shrink-0 items-center justify-between border-b border-[#e5e7eb] px-2.5">
-              <Tooltip><TooltipTrigger asChild>
-                <button onClick={() => setCollapsed(true)} className={iconBtn}><PanelRight size={17} /></button>
-              </TooltipTrigger><TooltipContent>Hide panel</TooltipContent></Tooltip>
-
-              {active && <span className="truncate px-1 text-[13px] font-medium text-[#364658]">{PANEL_COPY[active].title}</span>}
-
-              <div className="ml-auto flex items-center gap-0.5">
-                <Tooltip><TooltipTrigger asChild>
-                  {/* ⚠️ Reset, not Help. It replaces the "Reset all design on this element" link that
-                      used to sit at the FOOT of the panel — below every control, so you scrolled past
-                      everything to reach the one thing that undoes it. Same action, at the top, where
-                      the panel's other controls are. */}
-                  <button
-                    onClick={() => { if (selectedId) { replaceStyle(selectedId, {}); setWidgetCfg((m) => { const n = { ...m }; delete n[ownerOf(selectedId)]; return n; }); toast.success('Element reset'); } }}
-                    disabled={!selectedId}
-                    className={`${iconBtn} disabled:opacity-40`}
-                  ><RotateCcw size={16} /></button>
-                </TooltipTrigger><TooltipContent>{selectedId ? 'Reset this element to default' : 'Select an element to reset it'}</TooltipContent></Tooltip>
-                <Tooltip><TooltipTrigger asChild>
-                  <button
-                    onClick={() => (active ? setActive(null) : setCollapsed(true))}
-                    className={iconBtn}
-                  ><X size={17} /></button>
-                </TooltipTrigger><TooltipContent>{active ? 'Back to design panel' : 'Close panel'}</TooltipContent></Tooltip>
+            {/* ⚠️ NO header bar. It carried a close button and a divider above every panel — a second
+                way to dismiss something the rail already dismisses, and a rule across the top that
+                separated the panel from the one thing naming what you had selected. Reset is the only
+                action that belonged here, and it belongs BESIDE the name of the thing it resets, not
+                floating above it. A rail panel still needs its own title, so it keeps one line. */}
+            {active && (
+              <div className="flex-shrink-0 px-4 pb-2.5 pt-3.5">
+                <p className="text-[13px] font-semibold text-[#364658]">{PANEL_COPY[active].title}</p>
+                {PANEL_COPY[active].body && (
+                  <p className="mt-0.5 text-[12px] leading-[1.5] text-[#7B8FA5]">{PANEL_COPY[active].body}</p>
+                )}
               </div>
-            </div>
+            )}
 
             {/* A rail panel wins while one is open; otherwise the panel is the element editor,
                 falling back to the "select something" empty state. */}
@@ -998,8 +1116,9 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
                   setStyle={setStyle}
                   replaceStyle={replaceStyle}
                   onSelect={select}
-                  icon={icons[selectedId]}
-                  setIcon={(c) => setIcons((p) => ({ ...p, [selectedId]: c }))}
+                  onReset={() => { replaceStyle(selectedId, {}); setWidgetCfg((m) => { const n = { ...m }; delete n[ownerOf(selectedId)]; return n; }); toast.success('Element reset'); }}
+                  icon={icons[ownerOf(selectedId)]}
+                  setIcon={(c) => setIcons((p) => ({ ...p, [ownerOf(selectedId)]: c }))}
                   canDuplicate={canDuplicate(selectedId)}
                   onDuplicate={() => duplicateNode(selectedId)}
                   onDelete={() => deleteNode(selectedId)}

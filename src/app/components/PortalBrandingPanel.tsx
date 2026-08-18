@@ -139,18 +139,15 @@ export function PortalBrandingPanel() {
   const [v, setV] = useState<Record<string, unknown>>({
     helpdesk: 'Helpdesk Portal',
     supportTitle: 'Support Portal',
-    techTitle: 'Technician Portal',
     email: 'support@motadata.com',
     phone: '+91 9974910704',
     linkback: '',
-    login: 'Single login screen',
     landing: 'login',
     greeting: '<b>Welcome to IT Service Portal</b>',
     /* ⚠️ Seeded, not empty. Every tenant already has a logo — an empty uploader would claim the
        product is unbranded and invite you to 'add' the mark it is already showing. */
     logo: { name: 'logo.png', src: 'data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20200%20100%22%3E%3Ccircle%20cx%3D%2240%22%20cy%3D%2234%22%20r%3D%227%22%20fill%3D%22%231E3A8A%22%2F%3E%3Ccircle%20cx%3D%2258%22%20cy%3D%2228%22%20r%3D%227%22%20fill%3D%22%232563EB%22%2F%3E%3Ccircle%20cx%3D%2276%22%20cy%3D%2226%22%20r%3D%227%22%20fill%3D%22%230EA5E9%22%2F%3E%3Ccircle%20cx%3D%2294%22%20cy%3D%2228%22%20r%3D%227%22%20fill%3D%22%2322C55E%22%2F%3E%3Ctext%20x%3D%2228%22%20y%3D%2274%22%20font-family%3D%22Inter%2Csans-serif%22%20font-size%3D%2230%22%20font-weight%3D%22700%22%20fill%3D%22%231E293B%22%3Emotadata%3C%2Ftext%3E%3C%2Fsvg%3E' },
     supportHelp: false, supportHelpMode: 'url', supportHelpUrl: '',
-    techHelp: false, techHelpMode: 'url', techHelpUrl: '',
   });
   const set = (k: string, x: unknown) => setV((p) => ({ ...p, [k]: x }));
   const str = (k: string) => String(v[k] ?? '');
@@ -159,14 +156,12 @@ export function PortalBrandingPanel() {
   return (
     <div className="flex h-full flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-        <p className="mb-1 mt-3 text-[12px] leading-[1.55] text-[#7B8FA5]">
-          The organization identity, across every portal. Changing it here changes it everywhere.
-        </p>
-
+        {/* ⚠️ No standfirst. The sentence explained what every field below already says by its own
+            label, and it pushed the first real control a paragraph down the panel — a cost paid on
+            every visit for a line read once. */}
         <Group title="Identity" open={open.includes('Identity')} onToggle={() => toggle('Identity')}>
           <Field label="Helpdesk name"><TextField value={str('helpdesk')} onChange={(x) => set('helpdesk', x)} /></Field>
           <Field label="Support portal title"><TextField value={str('supportTitle')} onChange={(x) => set('supportTitle', x)} /></Field>
-          <Field label="Technician portal title"><TextField value={str('techTitle')} onChange={(x) => set('techTitle', x)} /></Field>
         </Group>
 
         <Group title="Contact" open={open.includes('Contact')} onToggle={() => toggle('Contact')}>
@@ -181,13 +176,6 @@ export function PortalBrandingPanel() {
         </Group>
 
         <Group title="First impression" open={open.includes('First impression')} onToggle={() => toggle('First impression')}>
-          <Field label="Login screen">
-            <SelectField
-              value={str('login')}
-              onChange={(x) => set('login', x)}
-              options={['Single login screen', 'Separate requester and technician screens']}
-            />
-          </Field>
           <Field label="Guests land on">
             <Segmented
               value={str('landing')}
@@ -205,7 +193,6 @@ export function PortalBrandingPanel() {
           <AssetRow label="Dark-theme logo" hint="Used wherever the background is dark." value={asset('logoDark')} onChange={(a) => set('logoDark', a)} />
           <AssetRow label="Favicon" hint="16 × 16 px. The browser-tab icon." value={asset('favicon')} onChange={(a) => set('favicon', a)} />
           <AssetRow label="Support portal banner" hint="1920 × 550 px. Sits behind the portal's hero." value={asset('banner')} onChange={(a) => set('banner', a)} />
-          <AssetRow label="Product setup guide" hint="500 × 950 px. Shown to a new administrator." value={asset('setup')} onChange={(a) => set('setup', a)} />
         </Group>
 
         <Group title="Help" open={open.includes('Help')} onToggle={() => toggle('Help')}>
@@ -216,15 +203,6 @@ export function PortalBrandingPanel() {
             url={str('supportHelpUrl')} onUrl={(x) => set('supportHelpUrl', x)}
             icon={asset('supportHelpIcon')} onIcon={(a) => set('supportHelpIcon', a)}
           />
-          <div className="mt-5 border-t border-[#E5E7EB] pt-5">
-            <HelpBlock
-              who="technician portal"
-              on={v.techHelp === true} onToggle={(x) => set('techHelp', x)}
-              mode={str('techHelpMode')} onMode={(x) => set('techHelpMode', x)}
-              url={str('techHelpUrl')} onUrl={(x) => set('techHelpUrl', x)}
-              icon={asset('techHelpIcon')} onIcon={(a) => set('techHelpIcon', a)}
-            />
-          </div>
         </Group>
       </div>
 

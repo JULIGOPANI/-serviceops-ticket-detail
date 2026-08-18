@@ -158,20 +158,18 @@ const RAIL_ITEMS = [
 
 export const RAIL_SPEC: WidgetSpec = {
   id: 'rail', name: 'Left rail', group: 'Chrome', reuse: 'single', family: 'collection',
+  /* ⚠️ CONTENT only — no Design section at all. The rail is the product's own navigation: an admin
+     who could set its width, icon size, active-item treatment and spacing could make the one control
+     that appears on every screen of the portal look unlike the product it belongs to. The single
+     visual decision that is genuinely theirs is WHERE the icons sit, so that is the only one here,
+     and it lives with the destinations it arranges rather than in a styling section of its own. */
   fields: [
-    { key: 'railWidth', label: 'Rail width', control: 'slider', tab: 'style', group: 'Rail', min: 48, max: 96 },
-    { key: 'railIconSize', label: 'Icon size', control: 'slider', tab: 'style', group: 'Rail', min: 14, max: 28 },
     {
-      key: 'railLabels', label: 'Labels', control: 'segmented', tab: 'style', group: 'Rail',
-      options: [{ value: 'icon', label: 'Icon only' }, { value: 'both', label: 'Icon + label' }],
+      key: 'railIconPos', label: 'Icon position', control: 'segmented', group: 'Icons',
+      options: [{ value: 'top', label: 'Top' }, { value: 'middle', label: 'Middle' }, { value: 'bottom', label: 'Bottom' }],
     },
-    {
-      key: 'railActive', label: 'Active item', control: 'segmented', tab: 'style', group: 'Rail',
-      options: [{ value: 'tint', label: 'Tint' }, { value: 'bar', label: 'Side bar' }, { value: 'bold', label: 'Bold' }],
-    },
-    { key: 'railSpacing', label: 'Item spacing', control: 'slider', tab: 'style', group: 'Rail', min: 0, max: 24 },
   ],
-  packs: ['P1'],
+  packs: [],
   noDelete: true,
   /* §7.23 — order and visibility are the admin's; the destinations are the product's. So the list
      has no Add and no Delete, and a permission the requester lacks is not something to "enable"
@@ -182,16 +180,13 @@ export const RAIL_SPEC: WidgetSpec = {
   }],
   collection: {
     key: 'items', group: 'Destinations', addLabel: '', emptyHint: '',
-    noAdd: true, hideable: true,
+    noAdd: true, hideable: true, noOpen: true,
     label: (it) => String(it.name ?? ''),
     meta: (it) => String(it.route ?? ''),
     seed: () => ({}),
     fields: [],
   },
-  defaults: {
-    items: RAIL_ITEMS,
-    railWidth: 64, railIconSize: 18, railLabels: 'icon', railActive: 'tint', railSpacing: 8,
-  },
+  defaults: { items: RAIL_ITEMS, railIconPos: 'top' },
 };
 
 /* ── §7.24 Top bar ───────────────────────────────────────────────────────── */

@@ -95,7 +95,11 @@ export const P1_Container: StylePack = {
           <Segmented
             value={v}
             onChange={setV}
-            options={[{ value: 'none', label: 'None' }, { value: 'color', label: 'Colour' }, { value: 'image', label: 'Image' }]}
+            /* ⚠️ No Image fill. A background photograph behind a widget is not a fill, it is artwork —
+               it needs a crop, a focal point and a contrast guard to stay readable, none of which a
+               three-way segmented control can offer. Where a picture genuinely belongs (an action
+               card's icon slot, the banner) it has its own field that does all three. */
+            options={[{ value: 'none', label: 'None' }, { value: 'color', label: 'Colour' }]}
           />
         ))}
         {fill === 'color' && field('bg', 'Background colour', (v, setV) => <ColorField value={v} onChange={setV} />)}
@@ -397,17 +401,23 @@ export const P7_States: StylePack = {
   },
 };
 
-/* ── P8 — Empty, loading and error ───────────────────────────────────────── */
+/* ── P8 — Empty state ────────────────────────────────────────────────────── */
 
-const P8_KEYS: (keyof NodeStyle)[] = ['emptyMsg', 'emptyMode', 'loading', 'errorMsg'];
+/* ⚠️ ONE field, down from four. Loading treatment and the error message were settings nobody could
+   act on: a skeleton-versus-spinner choice is a decision about a state that lasts under a second and
+   looks the same in the builder either way, and the error copy already had a platform default that
+   was better than anything typed in a hurry. The empty state is different — for a widget like My CIs
+   it is the state MOST requesters will see, and the choice it presents (say something, or take the
+   widget off the page) genuinely changes the layout. So the pack keeps the question that has
+   consequences and drops the three that were only configuration. */
+const P8_KEYS: (keyof NodeStyle)[] = ['emptyMode', 'emptyMsg'];
 
 export const P8_States: StylePack = {
-  id: 'P8', title: 'Empty, loading & error', keys: P8_KEYS,
+  id: 'P8', title: 'Empty state', keys: P8_KEYS,
   Render: (p) => {
     const field = useField(p);
     return (
       <>
-        {field('emptyMsg', 'Empty-state message', (v, set) => <TextField value={v as string} onChange={set} />)}
         {field('emptyMode', 'When there is nothing to show', (v, set) => (
           <Segmented
             value={v}
@@ -415,11 +425,9 @@ export const P8_States: StylePack = {
             options={[{ value: 'show' as const, label: 'Show message' }, { value: 'hide' as const, label: 'Hide widget' }]}
           />
         ))}
-        {field('loading', 'Loading treatment', (v, set) => (
-          <Segmented value={v} onChange={set} options={[{ value: 'skeleton' as const, label: 'Skeleton' }, { value: 'spinner' as const, label: 'Spinner' }]} />
-        ))}
-        {field('errorMsg', 'Error message', (v, set) => (
-          <TextField value={(v as string) ?? ''} onChange={set} placeholder="Falls back to the platform default" />
+        {/* Only asked when it will be read — hiding the widget makes its message unreachable. */}
+        {resolve(p.styles, p.id, 'emptyMode').value !== 'hide' && field('emptyMsg', 'Message', (v, set) => (
+          <TextField value={v as string} onChange={set} placeholder="Nothing to show yet" />
         ))}
       </>
     );
