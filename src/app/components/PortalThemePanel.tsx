@@ -268,13 +268,19 @@ export function PortalThemePanel({ theme, onChange }: { theme: PortalTheme; onCh
         {FONT_PACKS.map((f) => (
           <Row key={f.id} on={f.id === pack.id} onClick={() => { onChange({ packId: f.id }); setOpenList(null); toast.success(`${f.name} applied`); }}>
             {/* ⚠️ Set IN the faces it applies. A font list rendered in the UI's own font is a list of
-                words, not a list of fonts. */}
-            <span style={{ fontFamily: f.heading }} className="block text-[17px] font-semibold text-[#364658]">HEADING</span>
-            <span style={{ fontFamily: f.body }} className="mt-0.5 block text-[12px] text-[#5B7A99]">This is your paragraph.</span>
-            <span className="mt-1.5 flex items-center gap-1.5">
-              <span className="text-[11px] font-medium text-[#7B8FA5]">{f.name}</span>
-              {f.id === pack.id && <Check size={12} className="text-[#3D8BD0]" />}
+                words, not a list of fonts.
+                ⚠️ The NAME rides on the heading's line, not under the sample. Below, it read as a
+                third line of the specimen — a caption competing with the two lines that are the
+                actual preview — and it pushed every row 18px taller, so fewer pairings fitted in the
+                popover at once, which is the one thing a comparison list must not cost you. */}
+            <span className="flex items-baseline gap-2">
+              <span style={{ fontFamily: f.heading }} className="min-w-0 flex-1 truncate text-[17px] font-semibold text-[#364658]">HEADING</span>
+              <span className="flex flex-shrink-0 items-center gap-1 text-[11px] font-medium text-[#7B8FA5]">
+                {f.name}
+                {f.id === pack.id && <Check size={12} className="text-[#3D8BD0]" />}
+              </span>
             </span>
+            <span style={{ fontFamily: f.body }} className="mt-0.5 block text-[12px] text-[#5B7A99]">This is your paragraph.</span>
           </Row>
         ))}
       </Dropdown>

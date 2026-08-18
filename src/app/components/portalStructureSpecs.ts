@@ -81,8 +81,11 @@ export const SECTION_SPEC: WidgetSpec = {
         fields: [
           { key: 'cols', label: 'Columns', control: 'segmented',
             options: [{ value: '1', label: '1' }, { value: '2', label: '2' }, { value: '3', label: '3' }, { value: '4', label: '4' }] },
-          { key: 'distribute', label: 'Content alignment', control: 'distribute' },
-          { key: 'valign', label: 'Columns alignment', control: 'valign', divider: true },
+          /* ⚠️ The two ALIGNMENT rows are gone. The floating toolbar carries both axes on the
+             element itself, where you can see what you are aligning — a second copy in the panel
+             meant two controls for one value, and the one you were not looking at silently won.
+             Columns and the gap stay: they are structure, not alignment, and the toolbar has no
+             equivalent for either. */
           { key: 'colGap', label: 'Gap between columns', control: 'sliderUnit', min: 0, max: 48, unit: 'px', divider: true },
         ],
       },
@@ -109,7 +112,10 @@ export const SECTION_SPEC: WidgetSpec = {
   fields: [], packs: [],
   /* ⚠️ NO cols/padTop/padBottom default — a spec default is shared by EVERY section, and the bands
      do not share a column count. Seeded per node in the builder instead. */
-  defaults: { name: 'New section', cardTemplate: 'left', distribute: 'start', valign: 'start', colGap: 16, fill: 'none', borderWidth: 0, borderColor: '#E5E7EB', radius: 8, minHeight: 0 },
+  /* ⚠️ `bg` needs a default of its own. Without one the panel's colour field fell back to its
+     control default while the canvas fell back to white — so the swatch said one colour and the
+     band painted another, and the fill looked broken when it was only unset. */
+  defaults: { name: 'New section', cardTemplate: 'left', distribute: 'start', valign: 'start', colGap: 16, fill: 'none', bg: '#FFFFFF', borderWidth: 0, borderColor: '#E5E7EB', radius: 8, minHeight: 0 },
 };
 
 /** L2 — a column owns its width and the alignment of the blocks inside it. Nothing else (§7.21). */

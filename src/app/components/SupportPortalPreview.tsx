@@ -163,6 +163,26 @@ function ColumnBody({ id, item, live, icons, placedText, cfg }: { id: string; it
    the vertical to it makes the page one rhythm rather than two. */
 export const SECTION_PAD = 'px-6 py-3';
 
+/* The Style accordion's four keys, as CSS. Shared by the built-in bands and added sections so a
+   section painted one way in one place cannot come out another way in the other. */
+export function fillCss(c: Record<string, unknown>): React.CSSProperties {
+  const fill = String(c.fill ?? 'none');
+  const width = Number(c.borderWidth ?? 0);
+  return {
+    background: fill === 'color' ? String(c.bg ?? '#FFFFFF') : undefined,
+    backgroundImage: fill === 'image' && c.bgImage ? `url(${String(c.bgImage)})` : undefined,
+    backgroundSize: fill === 'image' ? 'cover' : undefined,
+    backgroundPosition: fill === 'image' ? 'center' : undefined,
+    /* ⚠️ Border and radius only once there IS a fill — the panel gates its own fields the same way,
+       and a 1px rule around a transparent band is a box drawn round nothing. */
+    borderWidth: fill !== 'none' && width ? width : undefined,
+    borderStyle: fill !== 'none' && width ? 'solid' : undefined,
+    borderColor: fill !== 'none' && width ? String(c.borderColor ?? '#E5E7EB') : undefined,
+    borderRadius: fill !== 'none' ? Number(c.radius ?? 0) || undefined : undefined,
+    boxShadow: c.shadowOn === true ? '0 4px 12px rgba(16,24,40,0.10)' : undefined,
+  };
+}
+
 function AddedSection({ section, icons, placedText, cfg }: { section: CustomSection; icons?: Record<string, IconChoice | undefined>; placedText?: Record<string, { title?: string; desc?: string }>; cfg?: (id: string) => Record<string, unknown> }) {
   const { styles, selectedId, hoverId } = useCanvas();
   let index = -1;
@@ -178,7 +198,7 @@ function AddedSection({ section, icons, placedText, cfg }: { section: CustomSect
           only change here is that the default is bare rather than a card.
           ⚠️ Padding stays. Without it a dropped element would touch the page edge, and the page's
           own gutter is not the section's to borrow. */}
-      <div style={styleOf(styles, section.id)}>
+      <div style={{ ...styleOf(styles, section.id), ...fillCss(cfg?.(section.id) ?? {}) }}>
         <div className="flex flex-col gap-4">
           {section.rows.map((row, r) => (
             <div key={r} className="flex gap-4">
@@ -523,6 +543,12 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
     /* Size › Height. minHeight not height, so a band still grows when its content needs more room —
        a fixed height would clip the cards the moment someone raised the icon size. */
     minHeight: Number(wc(id).minHeight) || undefined,
+    /* ⚠️ Fill, border, radius and shadow were WRITE-ONLY. The Style accordion set every one of them
+       on the section's config and nothing on the page ever read it back, so picking a background
+       colour looked broken in the only place it could be judged. They are cfg, not `styles`, which
+       is why `styleOf` never picked them up — the panel and the canvas were reading two different
+       stores for one setting. */
+    ...fillCss(wc(id)),
   });
 
   /* Statuses is a DISPLAY toggle, not a row filter: unticking one hides that status badge from the
@@ -703,13 +729,19 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                   const cardImage = isImageChoice(icons?.[a.id]) ? icons![a.id]!.src : null;
                   const top = tpl === 'top';
                   const iconRight = tpl === 'right';
-                  /* ⚠️ Icon top CENTRES. Stacked-and-left-aligned is not a layout anyone picks that
-                     tile for — it reads as the icon having fallen out of the row rather than as a
-                     deliberate arrangement, which is exactly what it looked like.
-                     ⚠️ `start` is the card's own DEFAULT, so it cannot be told apart from "nobody
-                     chose" — the template supplies the answer there. A card set to anything else
-                     was a real decision and keeps it. */
-                  const centre = c.contentAlign === 'center' || (top && (c.contentAlign ?? 'start') === 'start');
+                  /* ⚠️ "Text only" is a real template, and the picker has always offered it — the
+                     card just never read it, so choosing the fourth tile changed the highlight and
+                     nothing else. Where the icon sits and whether there IS one are one question with
+                     four answers, which is exactly why they share a control. */
+                  const noIcon = tpl === 'none';
+                  /* ⚠️ Icon top ALWAYS centres — the words as well as the icon. Picking the stacked
+                     tile IS the decision to centre; there is no reading of it where the icon sits in
+                     the middle and the text hugs the left edge, which is what you got when this
+                     deferred to the card's own `contentAlign`. That check could not tell "nobody
+                     chose" from "chose start", so any card carrying a left-ish value quietly
+                     out-voted the template it was told to follow — and the result looked like the
+                     icon had fallen out of the row rather than like an arrangement anyone picked. */
+                  const centre = top || c.contentAlign === 'center';
                   // P6: the icon's size, colour and container are style; WHICH icon is content.
                   const iconSize = chosen(styles, a.id, 'iconSize') ?? 22;
                   const iconColor = chosen(styles, a.id, 'iconColor');
@@ -731,7 +763,9 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                             editor (with the Icon/Image tabs) instead of the whole card's. The click
                             still opens the grid inline: selection and editing are one gesture here,
                             because an icon has exactly one thing to change. */}
-                        <Sel id={`${a.id}-icon`} className="flex-shrink-0">
+                        {/* The whole slot goes, not just the glyph — a hidden icon that still holds
+                            its 44px of width is an indent nobody asked for. */}
+                        {!noIcon && <Sel id={`${a.id}-icon`} className="flex-shrink-0">
                         <span
                           role={enabled ? 'button' : undefined}
                           onClick={enabled ? (ev) => { ev.stopPropagation(); select(`${a.id}-icon`); pickIcon(a.id, (ev.currentTarget as HTMLElement).getBoundingClientRect()); } : undefined}
@@ -756,20 +790,25 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                           } ${enabled ? 'cursor-pointer outline outline-1 outline-transparent transition-[outline-color] hover:outline-[#3D8BD0]' : ''}`}
                         >
                           {/* A picked icon wins; otherwise the card keeps the one it shipped with. */}
-                          {cardImage ? null : iconNode(icons?.[a.id], Number(iconSize))
+                          {cardImage || noIcon ? null : iconNode(icons?.[a.id], Number(iconSize))
                             ?? (a.id === 'quick-incident' ? <IconRequest size={Number(iconSize)} />
                               : a.id === 'quick-service' ? <ShoppingCart size={Number(iconSize) - 1} strokeWidth={1.7} />
                               : a.id === 'quick-ad' ? <KeyRound size={Number(iconSize)} strokeWidth={1.7} />
                               : <IconKnowledge size={Number(iconSize)} />)}
                         </span>
-                        </Sel>
+                        </Sel>}
                         {/* The words are their own nodes, so clicking the title edits the title —
                             not the card it happens to sit in. */}
                         {/* ⚠️ `flex-1`, so the text column fills the card. It shrink-wrapped to the words
                             before, which made it a meaningless box to size against: the title was already
                             100% of it, so dragging the title wider had nothing left to grow into. A % is
                             only responsive if the box it is a % OF is the real available space. */}
-                        <span className="min-w-0 flex-1">
+                        {/* ⚠️ `w-full` when centred. `items-center` on a column makes every child
+                            shrink to its own content, so the text box hugged its longest line and
+                            `text-center` had nothing to centre WITHIN — the title came out flush
+                            against the subtitle's left edge while the subtitle looked centred,
+                            because it was the thing setting the width. */}
+                        <span className={`min-w-0 flex-1 ${centre ? 'w-full' : ''}`}>
                           <Sel id={`${a.id}-title`}>
                             <span style={roleStyle(styles, `${a.id}-title`, 'title')} className="block truncate text-[16px] font-semibold text-[#364658]">{String(c.title ?? a.title)}</span>
                           </Sel>

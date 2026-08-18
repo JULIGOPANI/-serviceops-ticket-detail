@@ -14,6 +14,7 @@ import { HEADING_SIZE, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, nodeById, nodePat
 import { boxCss, containerCss } from './portalStyleResolver';
 import { PORTAL_ELEMENTS, PORTAL_ELEMENT_GROUPS } from './supportPortalData';
 import { elementIcon } from './SupportPortalAddPanel';
+import { PortalColorPicker } from './PortalColorPicker';
 import type { NodeStyle, PortalStyles, SpacingBox } from './portalPageModel';
 
 /* Canvas selection layer.
@@ -562,6 +563,12 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
        changes the width, so "make this list taller" was not a gesture the canvas offered. */
     ['s', '-bottom-[3px] left-1/2 -translate-x-1/2 cursor-ns-resize'],
     ['e', '-right-[3px] top-1/2 -translate-y-1/2 cursor-ew-resize'],
+    /* ⚠️ A SQUARE, matching the right edge. The left edge carried a rounded pill that dragged
+        horizontal PADDING — so the two sides of one element looked like different controls and did
+        different things, and the side that looked like a resize handle was the only one that was.
+        Both edges resize now; padding is set in the panel's Spacing matrix, where it is numeric and
+        labelled rather than guessed from a 6px grip. */
+    ['w', '-left-[3px] top-1/2 -translate-y-1/2 cursor-ew-resize'],
   ];
 
   return (
@@ -614,11 +621,7 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
           taller. Two grips cannot share one edge, and on a list of data the edge means height.
           Vertical padding is still fully editable, in the panel's Spacing matrix, where it is
           labelled and numeric rather than guessed from a 6px pill. */}
-      <span
-        onMouseDown={(e) => begin(e, 'padX')}
-        title="Drag to change horizontal spacing"
-        className="pointer-events-auto absolute -left-[3px] top-1/2 h-[18px] w-[6px] -translate-y-1/2 cursor-ew-resize rounded-full border border-[#3D8BD0] bg-white"
-      />
+
 
       {live && (
         <span className="pointer-events-none absolute left-1/2 top-full z-30 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-[#1E293B] px-1.5 py-0.5 text-[11px] font-medium text-white">
@@ -630,58 +633,80 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
 }
 
 /** Dark rich-text toolbar — Duda's treatment, and every control here is real. */
+/* ⚠️ WHITE, like every other floating toolbar. It was dark — a deliberate "text gets its own bar"
+ * signal that stopped being worth its cost: two toolbars in two colour schemes made the canvas look
+ * like two products, and on a dark bar the colour control could not show the colour it sets, which
+ * is the one thing that control has to do. */
 function TextToolbar({ id }: { id: string }) {
   const { styles, setStyle } = useCanvas();
+  const [pickColor, setPickColor] = useState<DOMRect | null>(null);
+  const colorRef = useRef<HTMLButtonElement>(null);
   const s: NodeStyle = styles[id] ?? {};
-  const tBtn = (on?: boolean) =>
-    `flex size-7 items-center justify-center rounded transition-colors ${on ? 'bg-white/20 text-white' : 'text-white/80 hover:bg-white/10 hover:text-white'}`;
+  const tBtn = (on?: boolean) => (on ? btnOn : btn);
+  const sel = 'h-7 cursor-pointer rounded border border-[#E5E7EB] bg-white px-1.5 text-[12px] text-[#364658] outline-none hover:border-[#3D8BD0]';
+  const color = s.color ?? '#364658';
 
   return (
     <div
       onClick={(e) => e.stopPropagation()}
-      className="flex items-center gap-0.5 rounded bg-[#1E293B] px-1.5 py-1 shadow-lg"
+      className="flex items-center gap-0.5 rounded border border-[#E5E7EB] bg-white px-1 py-1 shadow-[0_4px_6px_-2px_rgba(16,24,40,0.06),0_12px_16px_-4px_rgba(16,24,40,0.10)]"
     >
-      <span className="flex size-7 cursor-grab items-center justify-center text-white/40"><GripVertical size={14} /></span>
+      <span className="flex size-7 cursor-grab items-center justify-center text-[#9CA3AF]"><GripVertical size={14} /></span>
       <span className="flex size-7 items-center justify-center"><AiSparkle size={14} /></span>
-      <span className="mx-0.5 h-4 w-px bg-white/20" />
+      <span className="mx-0.5 h-4 w-px bg-[#E5E7EB]" />
 
       <button className={tBtn(s.bold)} title="Bold" onClick={() => setStyle(id, { bold: !s.bold })}><Bold size={14} /></button>
       <button className={tBtn(s.italic)} title="Italic" onClick={() => setStyle(id, { italic: !s.italic })}><Italic size={14} /></button>
       <button className={tBtn(s.underline)} title="Underline" onClick={() => setStyle(id, { underline: !s.underline })}><Underline size={14} /></button>
 
-      <span className="mx-0.5 h-4 w-px bg-white/20" />
+      <span className="mx-0.5 h-4 w-px bg-[#E5E7EB]" />
 
       {/* Theme style. The * is Duda's override marker — it means this text no longer follows the
           theme, which is the one thing that makes a theme panel trustworthy. */}
       <select
         value={s.heading ?? 'PAR'}
         onChange={(e) => setStyle(id, { heading: e.target.value, fontSize: undefined })}
-        className="h-7 cursor-pointer rounded bg-white/10 px-1.5 text-[12px] text-white outline-none"
+        className={sel}
       >
-        {TEXT_STYLES.map((t) => <option key={t} value={t} className="text-[#364658]">{t}{s.fontSize ? '*' : ''}</option>)}
+        {TEXT_STYLES.map((t) => <option key={t} value={t}>{t}{s.fontSize ? '*' : ''}</option>)}
       </select>
 
       <select
         value={s.fontSize ?? HEADING_SIZE[s.heading ?? 'PAR']}
         onChange={(e) => setStyle(id, { fontSize: Number(e.target.value) })}
-        className="h-7 w-[52px] cursor-pointer rounded bg-white/10 px-1 text-[12px] text-white outline-none"
+        className={`${sel} w-[52px]`}
       >
-        {[12, 13, 14, 15, 16, 18, 20, 24, 28, 32, 40, 48].map((n) => (
-          <option key={n} value={n} className="text-[#364658]">{n}</option>
-        ))}
+        {[12, 13, 14, 15, 16, 18, 20, 24, 28, 32, 40, 48].map((n) => <option key={n} value={n}>{n}</option>)}
       </select>
 
-      <span className="mx-0.5 h-4 w-px bg-white/20" />
+      <span className="mx-0.5 h-4 w-px bg-[#E5E7EB]" />
 
-      <label className={`${tBtn()} relative cursor-pointer`} title="Text color">
-        <Baseline size={14} />
-        <input
-          type="color"
-          value={s.color ?? '#364658'}
-          onChange={(e) => setStyle(id, { color: e.target.value })}
-          className="absolute inset-0 cursor-pointer opacity-0"
+      {/* ⚠️ A BUTTON opening the product's picker, not a native `<input type="color">` overlaid at
+          `absolute inset-0`. The UA stylesheet gives that input its own width, which beats the
+          left/right pair of `inset-0` — so it spilled out of its 28px label and sat on top of the
+          alignment buttons beside it. That is why clicking "align left" opened a colour picker.
+          ⚠️ And the glyph is Canva's: an A with a bar UNDER it painted in the colour it will apply.
+          A neutral icon makes you open the control to find out what it is currently set to. */}
+      <button
+        ref={colorRef}
+        className={tBtn()}
+        title="Text colour"
+        onClick={() => setPickColor(pickColor ? null : colorRef.current!.getBoundingClientRect())}
+      >
+        <span className="flex flex-col items-center gap-[2px] leading-none">
+          <Baseline size={13} />
+          <span className="h-[3px] w-[14px] rounded-[1px]" style={{ background: color }} />
+        </span>
+      </button>
+      {pickColor && (
+        <PortalColorPicker
+          value={color}
+          anchor={pickColor}
+          onChange={(v) => setStyle(id, { color: v })}
+          onClose={() => setPickColor(null)}
         />
-      </label>
+      )}
+
       {([['left', AlignLeft], ['center', AlignCenter], ['right', AlignRight]] as const).map(([a, Ic]) => (
         <button key={a} className={tBtn(s.align === a)} title={`Align ${a}`} onClick={() => setStyle(id, { align: a })}>
           <Ic size={14} />
