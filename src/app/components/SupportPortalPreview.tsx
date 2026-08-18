@@ -152,11 +152,22 @@ function ColumnBody({ id, item, live, icons, placedText, cfg }: { id: string; it
   );
 }
 
+/* ⚠️ ONE rhythm for every section, built in or added: 24px left and right, HALF that top and
+   bottom, and no margin between them. Three things were wrong before. The built-in bands each
+   carried their own margin (`mt-5`, `mt-4`, `mt-4`) on top of their padding, so the vertical gap
+   was inconsistent AND larger than the horizontal one — a page that breathed more between its
+   blocks than around them. And an added section put its padding on an INNER div while the built-ins
+   put theirs on the `Sel`, so a new section's selection outline ran the full width while every
+   other one was inset by 24px: it looked unaligned because it WAS, by exactly the padding.
+   Half-vertical is the whole point — the horizontal gutter is the page's widest measure, so tying
+   the vertical to it makes the page one rhythm rather than two. */
+export const SECTION_PAD = 'px-6 py-3';
+
 function AddedSection({ section, icons, placedText, cfg }: { section: CustomSection; icons?: Record<string, IconChoice | undefined>; placedText?: Record<string, { title?: string; desc?: string }>; cfg?: (id: string) => Record<string, unknown> }) {
   const { styles, selectedId, hoverId } = useCanvas();
   let index = -1;
   return (
-    <Sel id={section.id} className="mt-4">
+    <Sel id={section.id} className={SECTION_PAD}>
       {/* ⚠️ A section paints NOTHING by default — no white card, no border, no radius.
           A divider, a line of text or a button dropped on the page should sit on the page, the way
           it does in every website editor. The card chrome made every drop look like it had landed
@@ -167,7 +178,7 @@ function AddedSection({ section, icons, placedText, cfg }: { section: CustomSect
           only change here is that the default is bare rather than a card.
           ⚠️ Padding stays. Without it a dropped element would touch the page edge, and the page's
           own gutter is not the section's to borrow. */}
-      <div style={styleOf(styles, section.id)} className="px-6 py-4">
+      <div style={styleOf(styles, section.id)}>
         <div className="flex flex-col gap-4">
           {section.rows.map((row, r) => (
             <div key={r} className="flex gap-4">
@@ -526,9 +537,15 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
      and a child without one defaults to 0 — which silently collapsed every seam to the top of the
      page and made the lower ones disappear. Bands take even slots, seams the odd slot after them. */
   const slot = (id: string) => blockOrder.indexOf(id) * 2;
+  /* ⚠️ The gutter belongs to the SEAM, not to this wrapper. With `px-6` here, every added section
+     rendered inside it inherited a second 24px inset on top of its own — so a new section sat 24px
+     right of every built-in band and looked unaligned, because it was. The seam keeps the gutter so
+     its rule still lines up with the sections above and below it.
+     ⚠️ A JSX comment cannot be the first thing inside a parenthesised return — it is an expression
+     slot, not a child slot yet. */
   const after = (id: string) => (
-    <div className="px-6" style={{ order: slot(id) + 1 }}>
-      <AddSectionSeam afterId={id} />
+    <div style={{ order: slot(id) + 1 }}>
+      <div className="px-6"><AddSectionSeam afterId={id} /></div>
       {/* ⚠️ Every added section gets its OWN seam too, not just the four built-in bands. Without
           one, the page could only ever grow at the four original anchors: you could add a section
           under the hero but never under the section you had just added, and the CTA a section
@@ -537,7 +554,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
       {sections.filter((s) => s.afterId === id).map((s) => (
         <Fragment key={s.section.id}>
           <AddedSection section={s.section} icons={icons} placedText={placedText} cfg={cfg} />
-          <AddSectionSeam afterId={s.section.id} />
+          <div className="px-6"><AddSectionSeam afterId={s.section.id} /></div>
         </Fragment>
       ))}
     </div>
@@ -672,7 +689,9 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
             {after('hero')}
 
             {/* ── Quick actions ── */}
-            <Sel id="quick" className={`relative z-10 px-6 ${blockOrder.indexOf("quick") === 0 ? "-mt-[62px]" : "mt-5"}`} style={{ order: slot("quick") }}>
+            {/* ⚠️ The hero overlap is the ONE margin that survives: it is a relationship with the
+                banner above it, not spacing of its own, and it only applies while the row is first. */}
+            <Sel id="quick" className={`relative z-10 ${SECTION_PAD} ${blockOrder.indexOf("quick") === 0 ? "-mt-[62px]" : ""}`} style={{ order: slot("quick") }}>
               <RowDrop rowId="quick" className="flex flex-wrap" style={{ gap: secGap("quick"), ...secBox("quick") }}>
                 {quickCards.map((a) => {
                   const c = wc(a.id);
@@ -775,7 +794,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
 
             {/* ── Work row ── */}
             {/* ── Work row ── one section, three cards, full width. */}
-            <Sel id="work" className="mt-5 px-6" style={{ order: slot("work") }}>
+            <Sel id="work" className={SECTION_PAD} style={{ order: slot("work") }}>
               <RowDrop rowId="work" className="flex flex-wrap" style={{ gap: secGap("work"), ...secBox("work") }}>
               {card('requests', (
                 <CardShell nodeId="requests" titleNodeId="requests-title" title={String(wc('requests').title ?? content.requests.title)} count={visibleRequests.length} cfg={wc('requests')}>
@@ -884,7 +903,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
             {after('work')}
 
             {/* ── Records row ── Assets and CIs, in a parent section like every other card. */}
-            <Sel id="records" className="mt-4 px-6" style={{ order: slot("records") }}>
+            <Sel id="records" className={SECTION_PAD} style={{ order: slot("records") }}>
               <RowDrop rowId="records" className="flex flex-wrap" style={{ gap: secGap("records"), ...secBox("records") }}>
                 {card('assets', <RecordsCard nodeId="assets" titleFallback={content.assets.title} cfg={wc('assets')} rows={MY_ASSETS} />, secCols("records", content.cols.records), secGap("records"))}
                 {/* ⚠️ My CIs stays EMPTY on purpose (§7.4): it is empty on most real instances, so

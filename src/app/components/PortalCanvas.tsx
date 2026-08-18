@@ -159,6 +159,9 @@ export function sizeOf(styles: PortalStyles, id: string): React.CSSProperties {
 /* ── toolbars ────────────────────────────────────────────────────────────── */
 
 const btn = 'flex size-7 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]';
+/** How far an element may ride up over the one above it. */
+const MAX_OVERLAP = 120;
+
 const btnOff = 'flex size-7 items-center justify-center rounded text-[#CBD5E1] cursor-not-allowed';
 const btnOn = 'flex size-7 items-center justify-center rounded bg-[#EBF5FF] text-[#3D8BD0]';
 
@@ -399,10 +402,10 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
  * magenta guides + live badge appear only for spacing, where you need to see what you are setting. */
 function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HTMLDivElement | null> }) {
   const { styles, setStyle } = useCanvas();
-  const [live, setLive] = useState<{ kind: 'size' | 'padY' | 'padX'; label: string } | null>(null);
+  const [live, setLive] = useState<{ kind: 'size' | 'padY' | 'padX' | 'gap'; label: string } | null>(null);
   const drag = useRef<{
-    kind: 'size' | 'padY' | 'padX'; corner: string; x: number; y: number;
-    w: number; h: number; pad: SpacingBox; parentW: number;
+    kind: 'size' | 'padY' | 'padX' | 'gap'; corner: string; x: number; y: number;
+    w: number; h: number; pad: SpacingBox; gap: number; parentW: number;
     /** How tall this element may become before it outgrows the section holding it. */
     maxH: number;
     /** True when the parent lays its children out in a line, so widths are shares of it. */
@@ -473,6 +476,12 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
             setLive({ kind: 'size', label: `${patch.width ?? Math.round(d.w)} × ${patch.height ?? Math.round(d.h)}` });
           }
         }
+      } else if (d.kind === 'gap') {
+        /* One level of negative: far enough to sit an element over the band above it, not so far
+           that it can be dragged off the top of the page and lost. */
+        const v = Math.max(-MAX_OVERLAP, Math.min(240, Math.round(d.gap + dy)));
+        setStyle(id, { margin: { ...(styles[id]?.margin ?? ZERO_BOX), top: v } });
+        setLive({ kind: 'gap', label: `${v}px` });
       } else if (d.kind === 'padY') {
         const v = Math.max(0, Math.min(200, Math.round(d.pad.top + dy)));
         setStyle(id, { padding: { ...d.pad, top: v, bottom: v } });
@@ -495,7 +504,7 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
     return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
   }, [id, setStyle]);
 
-  const begin = (e: React.MouseEvent, kind: 'size' | 'padY' | 'padX', corner = '') => {
+  const begin = (e: React.MouseEvent, kind: 'size' | 'padY' | 'padX' | 'gap', corner = '') => {
     e.preventDefault();
     e.stopPropagation();
     const el = elRef.current;
@@ -513,6 +522,8 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
     drag.current = {
       kind, corner, x: e.clientX, y: e.clientY, w: r.width, h: r.height,
       pad: styles[id]?.padding ?? ZERO_BOX,
+      /* The gap it starts from: its own set margin, or the one the layout is already giving it. */
+      gap: styles[id]?.margin?.top ?? Math.round(parseFloat(getComputedStyle(el).marginTop) || 0),
       /* No band (a top-level block) means no ceiling but its own screen — a page can be any length,
          so an arbitrary cap there would be a rule invented rather than a rule enforced.
          ⚠️ The element's OWN content height is a floor under the ceiling. A band is as tall as its
@@ -532,7 +543,7 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
       index: row.indexOf(el),
     };
     document.body.style.userSelect = 'none';
-    document.body.style.cursor = kind === 'padY' ? 'ns-resize'
+    document.body.style.cursor = kind === 'padY' || kind === 'gap' ? 'ns-resize'
       : kind === 'padX' ? 'ew-resize'
       : corner === 'n' || corner === 's' ? 'ns-resize'
       : corner === 'e' || corner === 'w' ? 'ew-resize'
@@ -546,7 +557,7 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
     ['ne', '-right-[3px] -top-[3px] cursor-nesw-resize'],
     ['sw', '-bottom-[3px] -left-[3px] cursor-nesw-resize'],
     ['se', '-bottom-[3px] -right-[3px] cursor-nwse-resize'],
-    ['n', '-top-[3px] left-1/2 -translate-x-1/2 cursor-ns-resize'],
+
     /* ⚠️ The BOTTOM-centre grip was missing: height could only be dragged from a corner, which also
        changes the width, so "make this list taller" was not a gesture the canvas offered. */
     ['s', '-bottom-[3px] left-1/2 -translate-x-1/2 cursor-ns-resize'],
@@ -565,6 +576,14 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
           <span className="pointer-events-none absolute inset-x-0 h-[2px] bg-[#EC4899]" style={{ bottom: pad.bottom }} />
         </>
       )}
+      {live?.kind === 'gap' && (
+        /* Drawn ABOVE the element, in the space being set — a line inside the box would mark the
+           one edge this drag is not moving. */
+        <span
+          className="pointer-events-none absolute left-1/2 w-[3px] -translate-x-1/2 bg-[#EC4899]"
+          style={{ bottom: '100%', height: Math.max(0, parseInt(live.label, 10)) }}
+        />
+      )}
       {live?.kind === 'padX' && (
         <>
           <span className="pointer-events-none absolute inset-y-0 w-[2px] bg-[#EC4899]" style={{ left: `${pad.left}%` }} />
@@ -575,6 +594,19 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
       {corners.map(([c, cls]) => (
         <span key={c} onMouseDown={(e) => begin(e, 'size', c)} className={`${sq} ${cls} pointer-events-auto`} />
       ))}
+
+      {/* ⚠️ The TOP-centre grip drags the GAP above this element, not its height.
+          Height is what the bottom edge is for, and dragging the top to make something taller grows
+          it upward into the block above — which reads as moving, not resizing. The space between two
+          stacked things is the question people actually have at that edge, so that is what it asks.
+          ⚠️ It goes NEGATIVE by one step (down to -120px), which is what lets a card ride
+          up over the band above it — the overlap the hero's action cards already use, offered to
+          everything else rather than hard-coded in one place. */}
+      <span
+        onMouseDown={(e) => begin(e, 'gap')}
+        title="Drag to change the gap above"
+        className="pointer-events-auto absolute -top-[3px] left-1/2 h-[6px] w-[18px] -translate-x-1/2 cursor-ns-resize rounded-full border border-[#3D8BD0] bg-white"
+      />
 
       {/* ⚠️ There is NO bottom padding pill any more. It sat at exactly `-bottom-[3px] left-1/2` —
           the same point as the height grip — and being painted after it, it won every click: dragging
