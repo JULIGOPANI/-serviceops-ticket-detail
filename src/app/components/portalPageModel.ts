@@ -420,13 +420,20 @@ const CARD_TYPES = new Set([
   'c-services', 'c-categories', 'c-requests', 'c-approvals', 'c-assets', 'c-tasks',
   'c-announcements', 'c-knowledge', 'c-faq', 'c-contact',
   'b-card', 'b-table', 'b-accordion', 'b-text-image',
-  'x-action-card', 'x-kpi',
 ]);
+
+/* ⚠️ These two are NOT in CARD_TYPES, deliberately. `Surface` wraps a card-shaped element in a
+   white box with a border and 16px of padding — and both of these already render exactly that
+   themselves, from their own config, so they came out as a card inside a card: a hard white
+   boundary and a ring of padding nobody chose, with the outer one ignoring every fill and radius
+   the panel offered. An element that paints its own surface must be bare. */
+const SELF_SURFACED = new Set(['x-action-card', 'x-kpi']);
 
 const TEXT_TYPES = new Set(['b-text', 'b-large-title', 'b-small-title']);
 
 export function renderSpec(type: string): ElementRenderSpec {
   if (TEXT_TYPES.has(type)) return { kind: 'text', bare: true };
+  if (SELF_SURFACED.has(type)) return { kind: 'card', bare: true };
   if (CARD_TYPES.has(type)) return { kind: 'card', bare: false };
   if (type === 'c-search') return { kind: 'search', bare: true };
   if (type === 'b-list') return { kind: 'list', bare: true };

@@ -223,6 +223,8 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   /* Per-NODE seeds, for values a shared spec default cannot express. The page's bands each have
      their own column count, so the Section spec deliberately carries none — it would have to be
      wrong for two of the three. */
+  const sectionsRef = useRef<{ afterId: string; section: CustomSection }[]>([]);
+
   const NODE_CFG_SEED: Record<string, Cfg> = {
     /* ⚠️ `hasCards` is what gates the Card-templates control. Only the Quick Actions band holds
        action cards, so only it gets the picker — offering a card layout on a section with no cards
@@ -233,14 +235,30 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     records: { cols: '2' },
   };
 
+  /* ⚠️ `hasContent` is DERIVED, never stored. It gates the Alignment accordion, and a stored flag
+     would have to be updated by every path that adds or removes an element — drop, click-to-add,
+     replace, delete, undo — and the first one that forgot would leave a section claiming to be empty
+     while holding something, or the reverse. Reading the current shape each time cannot go stale. */
+  /* ⚠️ Read through a REF, not the state directly. `cfgFor` is declared above `sections`, so naming
+     the state here — even only in a dependency array — is a use-before-initialisation that throws at
+     module evaluation and blanks the page. The ref is assigned on every render just below the state,
+     so it is always current by the time anything calls this. */
+  const sectionHasContent = useCallback((id: string) => {
+    const sec = sectionsRef.current.find((s) => s.section.id === id)?.section;
+    if (sec) return Object.keys(sec.items).length > 0;
+    // A built-in band always holds its own widgets.
+    return true;
+  }, []);
+
   const cfgFor = useCallback((id: string): Cfg => {
     const owner = ownerOf(id);
     return {
       ...(specForNode(owner)?.defaults ?? {}),
       ...(NODE_CFG_SEED[owner] ?? {}),
+      ...(/^sec-\d+$/.test(owner) ? { hasContent: sectionHasContent(owner) } : { hasContent: true }),
       ...(widgetCfg[owner] ?? {}),
     };
-  }, [specForNode, widgetCfg]);
+  }, [specForNode, widgetCfg, sectionHasContent]);
 
   const patchCfg = useCallback((id: string, patch: Cfg) => {
     setWidgetCfg((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -254,6 +272,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
   /** Sections the admin has added, each pinned to the block it was inserted after. */
   const [sections, setSections] = useState<{ afterId: string; section: CustomSection }[]>([]);
+  sectionsRef.current = sections;
   const nextSectionId = useRef(1);
 
   const addSection = useCallback((afterId: string, rows: number[][]) => {
@@ -832,8 +851,13 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
   addElementRef.current = addElement;
 
+  /* ⚠️ It selects the ICON node, not the card that owns the icon. The canvas already called
+     `select('<card>-icon')` before this ran, and this overwrote it with the card's own id — so the
+     picker opened while the outline and the sidebar both showed the parent, which is the one thing
+     clicking an icon must not do. The VALUE still keys off the card (`icons[ownerOf(id)]`), because
+     that is where the glyph is stored; only the selection differs. */
   const pickIcon = useCallback((id: string, anchor: DOMRect) => {
-    setSelectedId(id);
+    setSelectedId(`${id}-icon`);
     setIconPick({ id, rect: anchor });
   }, []);
 

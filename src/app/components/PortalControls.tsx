@@ -662,6 +662,8 @@ export function GridPicker({ rows, cols, onChange, max = 10 }: {
 
 /* ── Upload / drop zone (spec §3) ────────────────────────────────────────── */
 
+const CHECKER = 'linear-gradient(45deg, #EEF2F6 25%, transparent 25%), linear-gradient(-45deg, #EEF2F6 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #EEF2F6 75%), linear-gradient(-45deg, transparent 75%, #EEF2F6 75%)';
+
 export function UploadZone({ value, onChange, accept = 'image/*', hint = 'PNG, JPG, SVG or WebP' }: {
   value?: string; onChange: (dataUrl?: string) => void; accept?: string; hint?: string;
 }) {
@@ -677,10 +679,33 @@ export function UploadZone({ value, onChange, accept = 'image/*', hint = 'PNG, J
 
   if (value) {
     return (
-      <div className="flex items-center gap-2.5 rounded border border-[#E5E7EB] p-2">
-        <img src={value} alt="" className="size-10 flex-shrink-0 rounded object-cover" />
-        <span className="min-w-0 flex-1 truncate text-[12px] text-[#7B8FA5]">Image selected</span>
-        <button onClick={() => onChange(undefined)} className="flex-shrink-0 text-[12px] font-medium text-[#EF4444] hover:underline">Remove</button>
+      <div className="rounded border border-[#E5E7EB] p-2">
+        {/* ⚠️ A REAL preview, on a chequerboard. A 40px thumbnail told you an image existed without
+            showing you which one, and a logo is exactly the kind of asset you are checking rather
+            than confirming — the chequer is there because most of them are transparent PNGs that
+            vanish against white. */}
+        <span
+          className="block h-[92px] w-full rounded bg-contain bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url(${value}), ${CHECKER}`,
+            backgroundSize: 'contain, 10px 10px',
+          }}
+        />
+        {/* ⚠️ REPLACE, not Remove. Every one of these slots is filled because something has to be
+            there — a logo, a banner, a favicon — so the move people make is swapping one for
+            another, and offering "remove" put the destructive verb on the common action. */}
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            onClick={() => ref.current?.click()}
+            className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded border border-[#DFE5ED] bg-white text-[12px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
+          ><Upload size={13} /> Replace image</button>
+          <button
+            onClick={() => onChange(undefined)}
+            title="Remove image"
+            className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#FEF3F2] hover:text-[#EF4444]"
+          ><X size={14} /></button>
+        </div>
+        <input ref={ref} type="file" accept={accept} onChange={(e) => read(e.target.files?.[0])} className="hidden" />
       </div>
     );
   }

@@ -224,7 +224,7 @@ export const TABLE_SPEC: WidgetSpec = {
     { key: 'rowFormat', label: 'Font format', control: 'chips', tab: 'style', group: 'Text style', when: (c) => c.styleTab === 'rows', options: FORMATS },
 
     // ── Table — what is left once the header and the rows own their own look ──
-    { key: 'firstColumn', label: 'First column', control: 'toggle', tab: 'style', group: 'Border and shadow', help: 'Style the first column like a header.' },
+    { key: 'firstColumn', label: 'First column', control: 'toggle', tab: 'style', group: 'Border', help: 'Style the first column like a header.' },
     { key: 'cellPad', label: 'Cell padding', control: 'sliderUnit', tab: 'style', group: 'Table', min: 4, max: 24, unit: 'px' },
     { key: 'cellAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Table', options: ALIGN_4 },
     { key: 'hScroll', label: 'Horizontal scroll on narrow screens', control: 'toggle', tab: 'style', group: 'Table' },
@@ -232,8 +232,7 @@ export const TABLE_SPEC: WidgetSpec = {
     /* ── Frame — the table's own box, using the shared components ──
        ⚠️ Its own group, not rows on Table: a border round the whole table and a border between its
        cells are different lines, and the old single "Bordered" switch answered for both. */
-    { key: 'frameBorderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Border and shadow' },
-    { key: 'shadowOn', label: 'Shadow', control: 'shadow', tab: 'style', group: 'Border and shadow' },
+    { key: 'frameBorderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Border' },
   ],
   /* ⚠️ No P1. The table's fill, border and radius are answered by Frame and by the Header/Rows
      backgrounds — a Style section on top of those is a third place to set the same box. */

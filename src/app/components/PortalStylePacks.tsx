@@ -123,15 +123,11 @@ export const P1_Container: StylePack = {
           corners={g('corners')}
           onCorners={(c) => set('corners', c)}
         />
-        <ShadowBlock
-          value={{
-            on: g('shadowOn') === true,
-            color: String(g('shadowColor') ?? '#0F172A'),
-            type: g('shadowType') ?? 'outer',
-            pos: String(g('shadowPos') ?? 'bottom'),
-          }}
-          onChange={(x) => p.setStyle(p.id, { shadowOn: x.on, shadowColor: x.color, shadowType: x.type, shadowPos: x.pos })}
-        />
+        {/* ⚠️ No ShadowBlock. It was four controls — on, colour, inner/outer, position — for an
+            effect almost nothing on a support portal wants, sitting in the same accordion as the
+            fill and the border that decide how a block actually reads. Removing it takes the whole
+            group from five questions to two. The keys stay on `NodeStyle`, so anything already
+            carrying a shadow keeps rendering it; there is simply no longer a control to add one. */}
       </>
     );
   },

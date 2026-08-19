@@ -167,6 +167,10 @@ export interface PanelAccordion {
   spacing?: 'padding' | 'margin' | 'both';
   /** The ⓘ note on the header, for rows whose behaviour is not obvious from the label. */
   info?: string;
+  /** ⚠️ Whole accordions can be conditional, not just fields — an Alignment section on an EMPTY
+      section is a heading over controls with nothing to act on, and hiding its fields one by one
+      would leave the heading behind. */
+  when?: (c: Cfg) => boolean;
   fields?: WidgetField[];
 }
 
@@ -724,6 +728,7 @@ export const STRUCTURE_FOR_NODE: Record<string, string> = {
   page: 'page',
   rail: 'rail',
   header: 'navbar',
+  'header-logo': 'logo',
   // The three built-in bands are sections like any other.
   quick: 'section',
   work: 'section',

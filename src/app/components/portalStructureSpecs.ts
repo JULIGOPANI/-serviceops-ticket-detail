@@ -75,36 +75,37 @@ export const SECTION_SPEC: WidgetSpec = {
          do not agree reads as an accident, which is why the card has no Layout accordion. */
       { key: 'cardTemplate', label: 'Card templates', control: 'templates', when: (c) => c.hasCards === true },
     ],
+    /* ⚠️ Layout and Size are gone from the SECTION as well, for the same reason they left the widget
+       drawer: the column adders on the canvas set the count, the drag handles set the height, and a
+       panel copy of either meant two controls for one value. The gap survives inside Layout nowhere
+       — it moved out with the accordion, because a row's gap is visible on the canvas the moment you
+       change a column and nobody reaches for a slider to find it.
+       ⚠️ Shadow is gone too. It was one toggle producing one fixed drop shadow on a band that spans
+       the page — an effect nobody was asking a full-width section for, sitting in the same list as
+       the fill that actually changes how the page reads. */
     accordions: [
       {
-        id: 'layout', open: true,
-        fields: [
-          { key: 'cols', label: 'Columns', control: 'segmented',
-            options: [{ value: '1', label: '1' }, { value: '2', label: '2' }, { value: '3', label: '3' }, { value: '4', label: '4' }] },
-          /* ⚠️ The two ALIGNMENT rows are gone. The floating toolbar carries both axes on the
-             element itself, where you can see what you are aligning — a second copy in the panel
-             meant two controls for one value, and the one you were not looking at silently won.
-             Columns and the gap stay: they are structure, not alignment, and the toolbar has no
-             equivalent for either. */
-          { key: 'colGap', label: 'Gap between columns', control: 'sliderUnit', min: 0, max: 48, unit: 'px', divider: true },
-        ],
-      },
-      {
-        id: 'style',
+        id: 'style', open: true,
         fields: [
           { key: 'fill', label: 'Fill', control: 'segmented',
             options: [{ value: 'none', label: 'None' }, { value: 'color', label: 'Colour' }, { value: 'image', label: 'Image' }] },
           { key: 'bg', label: 'Background colour', control: 'color', when: (c) => c.fill === 'color' },
           { key: 'bgImage', label: 'Image', control: 'upload', when: (c) => c.fill === 'image' },
           { key: 'borderWidth', label: 'Border', control: 'borderRow', when: (c) => c.fill !== 'none' },
-            { key: 'radius', label: 'Corner radius', control: 'radius', when: (c) => c.fill !== 'none' },
-            { key: 'shadowOn', label: 'Shadow', control: 'shadow' },
+          { key: 'radius', label: 'Corner radius', control: 'radius', when: (c) => c.fill !== 'none' },
         ],
       },
       { id: 'spacing', spacing: 'both' },
+      /* 4. ⚠️ Alignment appears only once the section HAS something to align. An empty band offering
+         "align the contents left" is a control with no referent — and which axis even applies is a
+         property of what you put in it, so the question cannot be answered before then. */
       {
-        id: 'size',
-        fields: [{ key: 'minHeight', label: 'Height', control: 'sliderUnit', min: 0, max: 800, unit: 'px' }],
+        id: 'alignment',
+        when: (c) => c.hasContent === true,
+        fields: [
+          { key: 'distribute', label: 'Content alignment', control: 'distribute' },
+          { key: 'valign', label: 'Columns alignment', control: 'valign', divider: true },
+        ],
       },
     ],
   },
@@ -213,6 +214,31 @@ const NAV_ITEMS = [
   { id: 'n9', name: 'Profile', kind: 'action' },
 ];
 
+/* ── The logo ────────────────────────────────────────────────────────────────
+ *
+ * ⚠️ Its own spec, so selecting the logo edits the LOGO. It used to resolve to the top bar, which
+ * meant clicking the one image on the page opened the bar's background colour, height and divider —
+ * and the upload you were aiming at sat third in a list about something else.
+ * ⚠️ NO Layout accordion. Where the logo sits is `logoPos` on the BAR, because it is a position
+ * relative to the actions beside it — a layout section here would be a second control for a value
+ * that is not even this node's to hold. */
+export const LOGO_SPEC: WidgetSpec = {
+  id: 'logo', name: 'Logo', group: 'Chrome', reuse: 'single', family: 'flat',
+  panel: {
+    content: [{ key: 'logoSrc', label: 'Logo image', control: 'upload' }],
+    /* The SHARED Style pack every other element uses — fill, border, radius — rather than a bespoke
+       pair of fields that made the logo the one node styled by a different vocabulary. */
+    accordions: [
+      { id: 'style', open: true, groups: ['G1'] },
+      { id: 'spacing', spacing: 'both' },
+    ],
+  },
+  noDelete: true,
+  notes: [{ tone: 'info', text: 'Where the logo sits against the actions is set on the top bar, since it is a position relative to them.' }],
+  fields: [], packs: [],
+  defaults: {},
+};
+
 export const NAVBAR_SPEC: WidgetSpec = {
   id: 'navbar', name: 'Top bar', group: 'Chrome', reuse: 'single', family: 'container',
   /* ⚠️ NO item list. The bar is two things, not ten: the logo, and the actions AS ONE BLOCK.
@@ -253,5 +279,5 @@ export const NAVBAR_SPEC: WidgetSpec = {
 };
 
 export const STRUCTURE_SPECS: WidgetSpec[] = [
-  HERO_SPEC, SECTION_SPEC, COLUMN_SPEC, PAGE_SPEC, RAIL_SPEC, NAVBAR_SPEC,
+  HERO_SPEC, SECTION_SPEC, COLUMN_SPEC, PAGE_SPEC, RAIL_SPEC, NAVBAR_SPEC, LOGO_SPEC,
 ];

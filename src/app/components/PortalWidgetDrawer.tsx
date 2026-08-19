@@ -382,7 +382,7 @@ function PanelBody({ spec, nodeId, cfg, renderField, openGroups, toggleGroup, st
 
       <SectionLabel>Design</SectionLabel>
       <div>
-        {panel.accordions.map((a) => {
+        {panel.accordions.filter((a) => !a.when || a.when(cfg)).map((a) => {
           const key = `acc:${a.id}`;
           const open = openGroups.includes(key) || (a.open && !openGroups.includes(`shut:${a.id}`));
           return (

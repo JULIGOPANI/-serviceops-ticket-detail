@@ -953,8 +953,16 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
   const ref = useRef<HTMLDivElement>(null);
   const [moveOver, setMoveOver] = useState(false);
   const node = nodeById(id);
-  // Size applies in preview too — a resized page must publish the way it was designed.
-  const size = { ...baseStyle, ...sizeOf(styles, id) };
+  /* ⚠️ A TEXT node also renders `containerCss`, which is where bold / italic / underline / size /
+     colour from the floating toolbar live. Every other node type has a call site that spreads
+     `st(id)` itself, but a text child of a placed element has none — so the toolbar wrote its
+     styles and nothing ever read them back, and pressing B on a selected card subtitle did exactly
+     nothing. Restricted to text so a container cannot pick up a second background here. */
+  const size = {
+    ...baseStyle,
+    ...sizeOf(styles, id),
+    ...(nodeById(id)?.kind === 'text' ? styleOf(styles, id) : {}),
+  };
   /* A dragged height crops its content — on an inner box, so the chrome above can overflow freely. */
   const clipped = styles[id]?.height !== undefined;
   const body = clipped

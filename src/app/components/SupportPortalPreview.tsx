@@ -165,6 +165,11 @@ export const SECTION_PAD = 'px-6 py-3';
 
 /* The Style accordion's four keys, as CSS. Shared by the built-in bands and added sections so a
    section painted one way in one place cannot come out another way in the other. */
+/* ⚠️ Applied to the SECTION WRAPPER, not to the content row inside it. On the inner box the colour
+   stopped at the section's own padding, so a filled band came out as a tinted rectangle floating in
+   a white gutter — which is not what "give this section a background" means to anyone. On the
+   wrapper it runs the full width of the band and the padding sits inside the colour, where it reads
+   as breathing room rather than a margin. */
 export function fillCss(c: Record<string, unknown>): React.CSSProperties {
   const fill = String(c.fill ?? 'none');
   const width = Number(c.borderWidth ?? 0);
@@ -179,7 +184,6 @@ export function fillCss(c: Record<string, unknown>): React.CSSProperties {
     borderStyle: fill !== 'none' && width ? 'solid' : undefined,
     borderColor: fill !== 'none' && width ? String(c.borderColor ?? '#E5E7EB') : undefined,
     borderRadius: fill !== 'none' ? Number(c.radius ?? 0) || undefined : undefined,
-    boxShadow: c.shadowOn === true ? '0 4px 12px rgba(16,24,40,0.10)' : undefined,
   };
 }
 
@@ -187,7 +191,7 @@ function AddedSection({ section, icons, placedText, cfg }: { section: CustomSect
   const { styles, selectedId, hoverId } = useCanvas();
   let index = -1;
   return (
-    <Sel id={section.id} className={SECTION_PAD}>
+    <Sel id={section.id} className={SECTION_PAD} style={fillCss(cfg?.(section.id) ?? {})}>
       {/* ⚠️ A section paints NOTHING by default — no white card, no border, no radius.
           A divider, a line of text or a button dropped on the page should sit on the page, the way
           it does in every website editor. The card chrome made every drop look like it had landed
@@ -198,7 +202,7 @@ function AddedSection({ section, icons, placedText, cfg }: { section: CustomSect
           only change here is that the default is bare rather than a card.
           ⚠️ Padding stays. Without it a dropped element would touch the page edge, and the page's
           own gutter is not the section's to borrow. */}
-      <div style={{ ...styleOf(styles, section.id), ...fillCss(cfg?.(section.id) ?? {}) }}>
+      <div style={styleOf(styles, section.id)}>
         <div className="flex flex-col gap-4">
           {section.rows.map((row, r) => (
             <div key={r} className="flex gap-4">
@@ -562,12 +566,6 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
     /* Size › Height. minHeight not height, so a band still grows when its content needs more room —
        a fixed height would clip the cards the moment someone raised the icon size. */
     minHeight: Number(wc(id).minHeight) || undefined,
-    /* ⚠️ Fill, border, radius and shadow were WRITE-ONLY. The Style accordion set every one of them
-       on the section's config and nothing on the page ever read it back, so picking a background
-       colour looked broken in the only place it could be judged. They are cfg, not `styles`, which
-       is why `styleOf` never picked them up — the panel and the canvas were reading two different
-       stores for one setting. */
-    ...fillCss(wc(id)),
   });
 
   /* Statuses is a DISPLAY toggle, not a row filter: unticking one hides that status badge from the
@@ -740,7 +738,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
             {/* ── Quick actions ── */}
             {/* ⚠️ The hero overlap is the ONE margin that survives: it is a relationship with the
                 banner above it, not spacing of its own, and it only applies while the row is first. */}
-            <Sel id="quick" className={`relative z-10 ${SECTION_PAD} ${blockOrder.indexOf("quick") === 0 ? "-mt-[62px]" : ""}`} style={{ order: slot("quick") }}>
+            <Sel id="quick" className={`relative z-10 ${SECTION_PAD} ${blockOrder.indexOf("quick") === 0 ? "-mt-[62px]" : ""}`} style={{ order: slot("quick"), ...fillCss(wc('quick')) }}>
               <RowDrop rowId="quick" className="flex flex-wrap" style={{ gap: secGap("quick"), ...secBox("quick") }}>
                 {quickCards.map((a) => {
                   const c = wc(a.id);
@@ -856,7 +854,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
 
             {/* ── Work row ── */}
             {/* ── Work row ── one section, three cards, full width. */}
-            <Sel id="work" className={SECTION_PAD} style={{ order: slot("work") }}>
+            <Sel id="work" className={SECTION_PAD} style={{ order: slot("work"), ...fillCss(wc('work')) }}>
               <RowDrop rowId="work" className="flex flex-wrap" style={{ gap: secGap("work"), ...secBox("work") }}>
               {card('requests', (
                 <CardShell nodeId="requests" titleNodeId="requests-title" title={String(wc('requests').title ?? content.requests.title)} count={visibleRequests.length} cfg={wc('requests')}>
@@ -983,7 +981,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
             {after('work')}
 
             {/* ── Records row ── Assets and CIs, in a parent section like every other card. */}
-            <Sel id="records" className={SECTION_PAD} style={{ order: slot("records") }}>
+            <Sel id="records" className={SECTION_PAD} style={{ order: slot("records"), ...fillCss(wc('records')) }}>
               <RowDrop rowId="records" className="flex flex-wrap" style={{ gap: secGap("records"), ...secBox("records") }}>
                 {card('assets', <RecordsCard nodeId="assets" titleFallback={content.assets.title} cfg={wc('assets')} rows={MY_ASSETS} />, secCols("records", content.cols.records), secGap("records"))}
                 {/* ⚠️ My CIs stays EMPTY on purpose (§7.4): it is empty on most real instances, so

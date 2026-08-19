@@ -217,10 +217,16 @@ export function IconPopover({ value, onPick, onClose, anchor }: {
       )}
 
       <div className={`flex-shrink-0 border-t border-[#F0F2F5] p-3 ${mode === 'image' ? 'hidden' : ''}`}>
+        {/* ⚠️ A PRIMARY button, not a dashed outline. Bringing your own mark is the one thing the
+            43-icon grid above cannot do for you, so it is the most important action in this popover
+            and it was styled as the least — a dotted rectangle reads as a drop zone you are meant to
+            ignore until nothing else fits.
+            ⚠️ And it names the formats it takes. "Upload SVG or image" made you find out by being
+            rejected which of your files counted as "image". */}
         <button
           onClick={() => fileRef.current?.click()}
-          className="flex h-9 w-full items-center justify-center gap-1.5 rounded border border-dashed border-[#C3CBD6] text-[13px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
-        ><Upload size={14} /> Upload SVG or image</button>
+          className="flex h-9 w-full items-center justify-center gap-1.5 rounded bg-[#3D8BD0] text-[13px] font-medium text-white transition-colors hover:bg-[#2d6ca0]"
+        ><Upload size={14} /> Upload SVG or PNG</button>
         <input
           ref={fileRef} type="file" accept=".svg,image/svg+xml,image/png,image/jpeg,image/webp"
           onChange={(e) => upload(e.target.files?.[0])} className="hidden"
