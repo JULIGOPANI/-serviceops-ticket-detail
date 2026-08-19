@@ -3,8 +3,8 @@
  *
  * One-source discipline, same as bomData: an image declares its PREREQUISITES, the fleet carries
  * raw specs, and compatibility is EVALUATED from the two. Nothing hard-codes "Compatible" — so the
- * Prerequisites card on the Summary tab and the Compatible/Incompatible/Unknown counts on the
- * Computers tab can never contradict each other.
+ * Prerequisites card on the Summary tab and the Compatible/Incompatible counts on the Computers
+ * tab can never contradict each other.
  */
 
 export type OsPlatform = 'Windows' | 'Linux';
@@ -30,6 +30,8 @@ export interface OsImage {
   status: OsUploadStatus;
   /** Blank until an ISO has landed. */
   uploadTime: string;
+  /** When this OS version shipped — catalogue metadata, not an upload timestamp. */
+  releaseDate: string;
   eosDate: string;
   referenceUrl: string;
   referenceLabel: string;
@@ -139,105 +141,105 @@ export const OS_IMAGES: OsImage[] = [
   {
     id: 'OSU-1', name: 'Windows 11', title: 'Windows 11 (25H2) Enterprise (x64)', platform: 'Windows',
     edition: 'Enterprise', osVersion: '25H2', architecture: 'x64', language: 'English (US)', size: '5.2 GB',
-    status: 'Uploaded', uploadTime: '12 Jul 2026, 10:22 AM', eosDate: '14 Oct 2027',
+    status: 'Uploaded', uploadTime: '12 Jul 2026, 10:22 AM', releaseDate: '30 Sep 2025', eosDate: '14 Oct 2027',
     referenceUrl: 'https://www.microsoft.com/software-download/windows11', referenceLabel: 'Official Microsoft ISO',
     fileName: 'Win11_25H2_Enterprise_English_x64.iso', prereq: 'win11',
   },
   {
     id: 'OSU-2', name: 'Ubuntu Server', title: 'Ubuntu Server 22.04.4 LTS (x64)', platform: 'Linux',
     edition: 'Server', osVersion: '22.04.4 LTS', architecture: 'x64', language: 'Multi-language', size: '1.8 GB',
-    status: 'Uploaded', uploadTime: '09 Jul 2026, 08:15 AM', eosDate: '31 May 2027',
+    status: 'Uploaded', uploadTime: '09 Jul 2026, 08:15 AM', releaseDate: '22 Feb 2024', eosDate: '31 May 2027',
     referenceUrl: 'https://releases.ubuntu.com/22.04/', referenceLabel: 'Ubuntu releases archive',
     fileName: 'ubuntu-22.04.4-live-server-amd64.iso', prereq: 'linux',
   },
   {
     id: 'OSU-3', name: 'Windows 11', title: 'Windows 11 (24H2) Pro (x64)', platform: 'Windows',
     edition: 'Pro', osVersion: '24H2', architecture: 'x64', language: 'English (US)', size: '5.6 GB',
-    status: 'Uploaded', uploadTime: '02 Jul 2026, 04:38 PM', eosDate: '13 Oct 2026',
+    status: 'Uploaded', uploadTime: '02 Jul 2026, 04:38 PM', releaseDate: '01 Oct 2024', eosDate: '13 Oct 2026',
     referenceUrl: 'https://www.microsoft.com/software-download/windows11', referenceLabel: 'Official Microsoft ISO',
     fileName: 'Win11_24H2_Pro_English_x64.iso', prereq: 'win11',
   },
   {
     id: 'OSU-4', name: 'Windows 10', title: 'Windows 10 (22H2) Enterprise (x64)', platform: 'Windows',
     edition: 'Enterprise', osVersion: '22H2', architecture: 'x64', language: 'English (US)', size: '4.7 GB',
-    status: 'Uploaded', uploadTime: '18 Jun 2026, 11:04 AM', eosDate: '14 Oct 2025',
+    status: 'Uploaded', uploadTime: '18 Jun 2026, 11:04 AM', releaseDate: '18 Oct 2022', eosDate: '14 Oct 2025',
     referenceUrl: 'https://www.microsoft.com/software-download/windows10', referenceLabel: 'Official Microsoft ISO',
     fileName: 'Win10_22H2_Enterprise_English_x64.iso', prereq: 'win10',
   },
   {
     id: 'OSU-5', name: 'Windows Server 2022', title: 'Windows Server 2022 Datacenter (x64)', platform: 'Windows',
     edition: 'Datacenter', osVersion: '21H2', architecture: 'x64', language: 'English (US)', size: '5.1 GB',
-    status: 'Failed', uploadTime: '', eosDate: '14 Oct 2031',
+    status: 'Failed', uploadTime: '', releaseDate: '18 Aug 2021', eosDate: '14 Oct 2031',
     referenceUrl: 'https://www.microsoft.com/evalcenter/windows-server-2022', referenceLabel: 'Microsoft Evaluation Center',
     fileName: 'SERVER_EVAL_x64FRE_en-us.iso', prereq: 'winsrv',
   },
   {
     id: 'OSU-6', name: 'Ubuntu Desktop', title: 'Ubuntu Desktop 24.04.1 LTS (x64)', platform: 'Linux',
     edition: 'Desktop', osVersion: '24.04.1 LTS', architecture: 'x64', language: 'Multi-language', size: '6.1 GB',
-    status: 'Not Uploaded', uploadTime: '', eosDate: '31 May 2029',
+    status: 'Not Uploaded', uploadTime: '', releaseDate: '29 Aug 2024', eosDate: '31 May 2029',
     referenceUrl: 'https://releases.ubuntu.com/24.04/', referenceLabel: 'Ubuntu releases archive',
     fileName: '', prereq: 'linux',
   },
   {
     id: 'OSU-7', name: 'Red Hat Enterprise Linux', title: 'Red Hat Enterprise Linux 9.4 (x64)', platform: 'Linux',
     edition: 'Server', osVersion: '9.4', architecture: 'x64', language: 'Multi-language', size: '9.8 GB',
-    status: 'Uploaded', uploadTime: '27 May 2026, 09:47 AM', eosDate: '31 May 2032',
+    status: 'Uploaded', uploadTime: '27 May 2026, 09:47 AM', releaseDate: '30 Apr 2024', eosDate: '31 May 2032',
     referenceUrl: 'https://access.redhat.com/downloads', referenceLabel: 'Red Hat customer portal',
     fileName: 'rhel-9.4-x86_64-dvd.iso', prereq: 'linux',
   },
   {
     id: 'OSU-8', name: 'Windows 11', title: 'Windows 11 (23H2) Education (x64)', platform: 'Windows',
     edition: 'Education', osVersion: '23H2', architecture: 'x64', language: 'English (UK)', size: '5.4 GB',
-    status: 'Cancelled', uploadTime: '', eosDate: '11 Nov 2026',
+    status: 'Cancelled', uploadTime: '', releaseDate: '31 Oct 2023', eosDate: '11 Nov 2026',
     referenceUrl: 'https://www.microsoft.com/software-download/windows11', referenceLabel: 'Official Microsoft ISO',
     fileName: '', prereq: 'win11',
   },
   {
     id: 'OSU-9', name: 'Windows Server 2019', title: 'Windows Server 2019 Standard (x64)', platform: 'Windows',
     edition: 'Standard', osVersion: '1809', architecture: 'x64', language: 'English (US)', size: '4.9 GB',
-    status: 'Uploaded', uploadTime: '14 May 2026, 03:12 PM', eosDate: '09 Jan 2029',
+    status: 'Uploaded', uploadTime: '14 May 2026, 03:12 PM', releaseDate: '02 Oct 2018', eosDate: '09 Jan 2029',
     referenceUrl: 'https://www.microsoft.com/evalcenter/windows-server-2019', referenceLabel: 'Microsoft Evaluation Center',
     fileName: '17763.737_x64FRE_en-us.iso', prereq: 'winsrv',
   },
   {
     id: 'OSU-10', name: 'Debian', title: 'Debian 12.6 "Bookworm" (x64)', platform: 'Linux',
     edition: 'Server', osVersion: '12.6', architecture: 'x64', language: 'Multi-language', size: '3.7 GB',
-    status: 'Not Uploaded', uploadTime: '', eosDate: '30 Jun 2028',
+    status: 'Not Uploaded', uploadTime: '', releaseDate: '29 Jun 2024', eosDate: '30 Jun 2028',
     referenceUrl: 'https://www.debian.org/distrib/', referenceLabel: 'Debian download mirror',
     fileName: '', prereq: 'linux',
   },
   {
     id: 'OSU-11', name: 'Windows 10', title: 'Windows 10 (21H2) Pro (x64)', platform: 'Windows',
     edition: 'Pro', osVersion: '21H2', architecture: 'x64', language: 'English (US)', size: '4.4 GB',
-    status: 'Failed', uploadTime: '', eosDate: '13 Jun 2024',
+    status: 'Failed', uploadTime: '', releaseDate: '16 Nov 2021', eosDate: '13 Jun 2024',
     referenceUrl: 'https://www.microsoft.com/software-download/windows10', referenceLabel: 'Official Microsoft ISO',
     fileName: 'Win10_21H2_Pro_English_x64.iso', prereq: 'win10',
   },
   {
     id: 'OSU-12', name: 'Ubuntu Server', title: 'Ubuntu Server 24.04.1 LTS (x64)', platform: 'Linux',
     edition: 'Server', osVersion: '24.04.1 LTS', architecture: 'x64', language: 'Multi-language', size: '2.1 GB',
-    status: 'Uploaded', uploadTime: '30 Apr 2026, 07:55 AM', eosDate: '31 May 2029',
+    status: 'Uploaded', uploadTime: '30 Apr 2026, 07:55 AM', releaseDate: '29 Aug 2024', eosDate: '31 May 2029',
     referenceUrl: 'https://releases.ubuntu.com/24.04/', referenceLabel: 'Ubuntu releases archive',
     fileName: 'ubuntu-24.04.1-live-server-amd64.iso', prereq: 'linux',
   },
   {
     id: 'OSU-13', name: 'Windows 11', title: 'Windows 11 (25H2) Pro (ARM64)', platform: 'Windows',
     edition: 'Pro', osVersion: '25H2', architecture: 'ARM64', language: 'English (US)', size: '4.8 GB',
-    status: 'Not Uploaded', uploadTime: '', eosDate: '14 Oct 2027',
+    status: 'Not Uploaded', uploadTime: '', releaseDate: '30 Sep 2025', eosDate: '14 Oct 2027',
     referenceUrl: 'https://www.microsoft.com/software-download/windows11arm64', referenceLabel: 'Official Microsoft ISO',
     fileName: '', prereq: 'win11',
   },
   {
     id: 'OSU-14', name: 'CentOS Stream', title: 'CentOS Stream 9 (x64)', platform: 'Linux',
     edition: 'Server', osVersion: '9', architecture: 'x64', language: 'Multi-language', size: '8.9 GB',
-    status: 'Uploaded', uploadTime: '21 Apr 2026, 02:26 PM', eosDate: '31 May 2027',
+    status: 'Uploaded', uploadTime: '21 Apr 2026, 02:26 PM', releaseDate: '03 Dec 2021', eosDate: '31 May 2027',
     referenceUrl: 'https://www.centos.org/download/', referenceLabel: 'CentOS download mirror',
     fileName: 'CentOS-Stream-9-latest-x86_64-dvd1.iso', prereq: 'linux',
   },
   {
     id: 'OSU-15', name: 'Windows Server 2025', title: 'Windows Server 2025 Datacenter (x64)', platform: 'Windows',
     edition: 'Datacenter', osVersion: '24H2', architecture: 'x64', language: 'English (US)', size: '6.4 GB',
-    status: 'Uploaded', uploadTime: '08 Apr 2026, 10:09 AM', eosDate: '10 Oct 2034',
+    status: 'Uploaded', uploadTime: '08 Apr 2026, 10:09 AM', releaseDate: '01 Nov 2024', eosDate: '10 Oct 2034',
     referenceUrl: 'https://www.microsoft.com/evalcenter/windows-server-2025', referenceLabel: 'Microsoft Evaluation Center',
     fileName: 'WINSERVER-2025-x64FRE-en-us.iso', prereq: 'winsrv',
   },
@@ -250,11 +252,10 @@ export interface OsComputer {
   endpointId: string;
   hostName: string;
   ipAddress: string;
-  /** Reported BY the agent, so a never-scanned endpoint has none. */
+  /** Reported BY the agent. */
   agentVersion: string | null;
-  /** Display string; 'Unknown' when the endpoint has never reported an inventory scan. */
   currentOs: string;
-  /** Comparable rank for the Current OS prerequisite. null = never scanned. */
+  /** Comparable rank for the Current OS prerequisite. */
   osRank: number | null;
   ram: number | null;
   disk: number | null;
@@ -265,7 +266,7 @@ export interface OsComputer {
   arch: string | null;
 }
 
-export type CompatStatus = 'Compatible' | 'Incompatible' | 'Unknown';
+export type CompatStatus = 'Compatible' | 'Incompatible';
 
 export interface EvaluatedComputer extends OsComputer {
   status: CompatStatus;
@@ -293,11 +294,7 @@ function failText(p: Prereq): string {
   }
 }
 
-/** An endpoint with no inventory data can't be judged either way — that is the Unknown bucket. */
-const unscanned = (c: OsComputer) => c.ram === null && c.osRank === null;
-
 export function evaluate(c: OsComputer, prereqs: Prereq[]): EvaluatedComputer {
-  if (unscanned(c)) return { ...c, status: 'Unknown', reasons: [] };
   const reasons: string[] = [];
   prereqs.forEach((p) => {
     let ok = true;
@@ -328,9 +325,8 @@ const WIN11_SEEDS: OsComputer[] = [
   { endpointId: 'EP-402', hostName: 'HR-PC-09', ipAddress: '172.16.14.61', agentVersion: '8.6.101', currentOs: 'Windows 10 1909', osRank: 1909, ram: 8, disk: 96, tpm: 2, secureBoot: true, cpuSpeed: 2.0, cpuCores: 4, arch: '64-bit' },
   { endpointId: 'EP-405', hostName: 'SALES-WKS-14', ipAddress: '172.16.14.77', agentVersion: '8.7.301', currentOs: 'Windows 10 22H2', osRank: 2202, ram: 4, disk: 40, tpm: 2, secureBoot: true, cpuSpeed: 1.9, cpuCores: 4, arch: '64-bit' },
   { endpointId: 'EP-411', hostName: 'DEV-BOX-03', ipAddress: '172.16.14.19', agentVersion: '8.7.408', currentOs: 'Windows 10 22H2', osRank: 2202, ram: 32, disk: 480, tpm: 2, secureBoot: true, cpuSpeed: 3.2, cpuCores: 12, arch: '64-bit' },
-  // Never scanned — no agent has reported, so there is no version or architecture to show either.
-  { endpointId: 'EP-418', hostName: 'LEGACY-PC-01', ipAddress: '172.16.14.5', agentVersion: null, currentOs: 'Unknown', osRank: null, ram: null, disk: null, tpm: null, secureBoot: null, cpuSpeed: null, cpuCores: null, arch: null },
-  { endpointId: 'EP-426', hostName: 'REMOTE-EP-42', ipAddress: '10.20.41.9', agentVersion: null, currentOs: 'Unknown', osRank: null, ram: null, disk: null, tpm: null, secureBoot: null, cpuSpeed: null, cpuCores: null, arch: null },
+  { endpointId: 'EP-418', hostName: 'LEGACY-PC-01', ipAddress: '172.16.14.5', agentVersion: '8.6.101', currentOs: 'Windows 10 2004', osRank: 2004, ram: 8, disk: 48, tpm: 1.2, secureBoot: false, cpuSpeed: 1.6, cpuCores: 4, arch: '64-bit' },
+  { endpointId: 'EP-426', hostName: 'REMOTE-EP-42', ipAddress: '10.20.41.9', agentVersion: '8.7.200', currentOs: 'Windows 10 21H2', osRank: 2102, ram: 16, disk: 256, tpm: 2, secureBoot: true, cpuSpeed: 2.6, cpuCores: 8, arch: '64-bit' },
 ];
 
 interface FleetShape {
@@ -375,8 +371,8 @@ const DISK_OK = [120, 210, 256, 480, 96, 180];
 const AGENT_VERSIONS = ['8.7.408', '8.7.404', '8.7.301', '8.7.200', '8.6.300', '8.6.101'];
 
 /* Fleet generator. The i % 20 rota fixes the shape of the estate — roughly 70-80% compatible, the
- * rest blocked on a real prerequisite or never scanned — so the three sub-tab counts stay
- * believable without random numbers that change on every render.
+ * rest blocked on a real prerequisite — so the two sub-tab counts stay believable without random
+ * numbers that change on every render.
  *
  * Shortfalls are cut FROM THE PROFILE'S OWN thresholds: a 55 GB disk blocks Windows 11 (64 GB) but
  * not Ubuntu (25 GB), so hard-coding Windows numbers would leave the Linux images with an empty
@@ -414,12 +410,6 @@ function generateFleet(profile: PrereqProfile, seed: number, count: number, ramM
       case 16: return { ...base, currentOs: old[0], osRank: old[1] };
       case 17: return { ...base, ram: Math.max(1, ramMin - 2) };
       case 18: return { ...base, secureBoot: false, disk: Math.max(6, diskMin - 4) };
-      // Never scanned: the agent has reported nothing, so its version and specs are unknown too.
-      case 19: return {
-        endpointId: base.endpointId, hostName, ipAddress, agentVersion: null,
-        currentOs: 'Unknown', osRank: null, ram: null, disk: null,
-        tpm: null, secureBoot: null, cpuSpeed: null, cpuCores: null, arch: null,
-      };
       default: return base;
     }
   });
@@ -439,7 +429,7 @@ export function computersFor(img: OsImage): EvaluatedComputer[] {
 }
 
 export function compatCounts(rows: EvaluatedComputer[]): Record<CompatStatus, number> {
-  const counts: Record<CompatStatus, number> = { Compatible: 0, Incompatible: 0, Unknown: 0 };
+  const counts: Record<CompatStatus, number> = { Compatible: 0, Incompatible: 0 };
   rows.forEach((r) => { counts[r.status] += 1; });
   return counts;
 }

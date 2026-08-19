@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertCircle, ArrowLeft, CheckCircle2, Disc, ExternalLink, Eye, FileArchive, ListChecks,
+  AlertCircle, ArrowLeft, CheckCircle2, Disc, Eye, FileArchive, ListChecks,
   Pause, Play, Search, Square, Trash2, UploadCloud, X,
 } from 'lucide-react';
 import { Pagination } from './Pagination';
@@ -53,12 +53,11 @@ function parseDay(s: string): Date | null {
 
 const Dash = () => <span className="text-[12px] text-[#9ca3af]">---</span>;
 
-const BUCKETS: CompatStatus[] = ['Compatible', 'Incompatible', 'Unknown'];
+const BUCKETS: CompatStatus[] = ['Compatible', 'Incompatible'];
 
 const COMPAT_TONE: Record<CompatStatus, { fg: string; bg: string }> = {
   Compatible: { fg: '#22A06B', bg: '#ECFDF3' },
   Incompatible: { fg: '#DC2626', bg: '#FEF3F2' },
-  Unknown: { fg: '#64748B', bg: '#F1F5F9' },
 };
 
 const btnPrimary = 'inline-flex h-8 items-center gap-1.5 rounded bg-[#3D8BD0] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#2d6ca0]';
@@ -316,16 +315,12 @@ export function AdminOsUpgradeDetail({ image, status, onBack, job, latestAttempt
     ['Size', image.size],
     ['Upload Status', <UploadStatusPill key="s" status={status} />],
     ['Upload Time', image.uploadTime || <Dash />],
+    /* The two lifecycle dates sit together — shipped on, supported until. */
+    ['Release Date', image.releaseDate],
     ['End-of-Support Date', (
       <span key="eos" className={eosPast ? 'text-[#DC2626]' : undefined}>
         {image.eosDate}{eosPast && ' · expired'}
       </span>
-    )],
-    ['ISO File Name', image.fileName || <Dash />],
-    ['Reference URL', (
-      <a key="ref" href={image.referenceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-[#3D8BD0] hover:underline">
-        {image.referenceLabel} <ExternalLink size={12} />
-      </a>
     )],
   ];
 
@@ -556,9 +551,7 @@ export function AdminOsUpgradeDetail({ image, status, onBack, job, latestAttempt
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-[12px] font-medium text-[#364658]">{c.hostName}</td>
                     <td className="whitespace-nowrap px-4 py-3 font-mono text-[12px] text-[#364658]">{c.ipAddress}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-[12px] text-[#364658]">
-                      {c.currentOs === 'Unknown' ? <span className="text-[#9CA3AF]">Unknown</span> : c.currentOs}
-                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-[12px] text-[#364658]">{c.currentOs}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-[12px] text-[#364658]">{c.agentVersion ?? <Dash />}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-[12px] text-[#364658]">{c.arch ?? <Dash />}</td>
                     <td className="whitespace-nowrap px-4 py-3">
@@ -566,14 +559,8 @@ export function AdminOsUpgradeDetail({ image, status, onBack, job, latestAttempt
                         {c.status}
                       </span>
                     </td>
-                    {/* Unknown has no reasons because it was never judged — say that rather than
-                        leaving a dash that reads like "no problems found". */}
                     <td className="px-4 py-3 text-[12px]">
-                      {c.reasons.length ? (
-                        <span className="text-[#DC2626]">{c.reasons.join('; ')}</span>
-                      ) : c.status === 'Unknown' ? (
-                        <span className="text-[#9CA3AF]">Never scanned</span>
-                      ) : <Dash />}
+                      {c.reasons.length ? <span className="text-[#DC2626]">{c.reasons.join('; ')}</span> : <Dash />}
                     </td>
                   </tr>
                 ))}

@@ -10,10 +10,9 @@ import type { DeploymentType, PatchDeployment } from './PatchDeploymentsListPage
 
 /* Create Patch Deployment — the form behind the listing's CTA.
  *
- * The one field that changes the shape of everything else is Deployment Type. A patch run pushes
- * KB/app patches and can install or uninstall them; an OS Upgrade run pushes an uploaded ISO, and
- * there is no such thing as uninstalling an operating system — so choosing it collapses
- * Configuration Type to Install and swaps the payload picker to the OS image catalogue. */
+ * The one field that changes the shape of everything else is Deployment Category. A patch run
+ * pushes KB/app patches; an OS Upgrade run pushes an uploaded ISO, so choosing it swaps the
+ * payload picker to the OS image catalogue. */
 
 const btnPrimary = 'inline-flex h-8 items-center gap-1.5 rounded bg-[#3D8BD0] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#2d6ca0] disabled:cursor-not-allowed disabled:bg-[#CBD5E1]';
 const btnSecondary = 'inline-flex h-8 items-center gap-1.5 rounded border border-[#DFE5ED] bg-white px-3.5 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]';
@@ -59,7 +58,7 @@ interface PickerColumn<T> {
   cell: (row: T) => React.ReactNode;
 }
 
-/** One picker for every "Add …" on this form — patches, OS images, offices, endpoints. */
+/** One picker for every "Add …" on this form — patches, OS upgrade patches, offices, endpoints. */
 function PickerDrawer<T extends { id: string }>({ isOpen, title, subtitle, rows, columns, selected, searchOf, onClose, onApply, single = false }: {
   isOpen: boolean;
   title: string;
@@ -70,7 +69,7 @@ function PickerDrawer<T extends { id: string }>({ isOpen, title, subtitle, rows,
   searchOf: (row: T) => string;
   onClose: () => void;
   onApply: (ids: string[]) => void;
-  /** Radio behaviour — picking replaces rather than adds. A run installs ONE OS image. */
+  /** Radio behaviour — picking replaces rather than adds. A run installs ONE OS upgrade patch. */
   single?: boolean;
 }) {
   const [picked, setPicked] = useState<string[]>(selected);
@@ -147,8 +146,8 @@ function PickerDrawer<T extends { id: string }>({ isOpen, title, subtitle, rows,
           <span className="text-[13px] text-[#7B8FA5]">
             {single
               ? (picked.length
-                ? <>One image selected · <span className="text-[#64748B]">unselect it to choose a different one</span></>
-                : 'Select one image')
+                ? <>One OS upgrade patch selected · <span className="text-[#64748B]">unselect it to choose a different one</span></>
+                : 'Select one OS upgrade patch')
               : <><span className="font-semibold text-[#364658]">{picked.length}</span> selected</>}
           </span>
           <div className="flex items-center gap-2">
@@ -178,7 +177,6 @@ export function CreatePatchDeployment({ onCancel, onCreate }: CreatePatchDeploym
   const [deploymentType, setDeploymentType] = useState<DeploymentType>('Patch');
   const [installAfter, setInstallAfter] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
-  const [configType, setConfigType] = useState<'Install' | 'Uninstall'>('Install');
   const [patchIds, setPatchIds] = useState<string[]>([]);
   const [imageIds, setImageIds] = useState<string[]>([]);
   const [officeNames, setOfficeNames] = useState<string[]>([]);
@@ -189,11 +187,6 @@ export function CreatePatchDeployment({ onCancel, onCreate }: CreatePatchDeploym
   const [picker, setPicker] = useState<null | 'payload' | 'offices' | 'endpoints'>(null);
 
   const isOsUpgrade = deploymentType === 'OS Upgrade';
-
-  /* You cannot uninstall an operating system, so an OS Upgrade run is install-only. Snapping the
-     value back here (not just hiding Uninstall) stops a run switched over from Patch keeping a
-     configuration type its own form no longer offers. */
-  useEffect(() => { if (isOsUpgrade) setConfigType('Install'); }, [isOsUpgrade]);
 
   // Only an uploaded ISO can be deployed — offering the rest would build a run that cannot run.
   const deployableImages = useMemo(() => OS_IMAGES.filter((i) => i.status === 'Uploaded'), []);
@@ -217,7 +210,10 @@ export function CreatePatchDeployment({ onCancel, onCreate }: CreatePatchDeploym
   const publish = () => {
     const d = build('Ready to Deploy');
     onCreate(d);
-    toast.success(`${d.id} published — ${payloadCount} ${isOsUpgrade ? 'OS image' : 'patch'}${payloadCount === 1 ? '' : 'es'} queued`);
+    const unit = isOsUpgrade
+      ? `OS upgrade patch${payloadCount === 1 ? '' : 'es'}`
+      : `patch${payloadCount === 1 ? '' : 'es'}`;
+    toast.success(`${d.id} published — ${payloadCount} ${unit} queued`);
   };
   const saveDraft = () => {
     if (!name.trim()) { toast.error('Give the deployment a name before saving it'); return; }
@@ -291,32 +287,14 @@ export function CreatePatchDeployment({ onCancel, onCreate }: CreatePatchDeploym
             </div>
           </div>
 
-          <div className="mt-4">
-            <label className={labelCls}>Configuration Type</label>
-            <div className="inline-flex rounded bg-[#F1F5F9] p-0.5">
-              {(isOsUpgrade ? (['Install'] as const) : (['Install', 'Uninstall'] as const)).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setConfigType(t)}
-                  className={`h-8 rounded px-4 text-[13px] font-medium transition-colors ${
-                    configType === t ? 'bg-white text-[#364658] shadow-sm' : 'text-[#7B8FA5] hover:text-[#364658]'
-                  }`}
-                >{t}</button>
-              ))}
-            </div>
-            {isOsUpgrade && (
-              <p className="mt-1.5 text-[12px] text-[#7B8FA5]">An OS upgrade can only be installed — there is nothing to uninstall.</p>
-            )}
-          </div>
-
           {/* ── Payload: patches, or the OS image when this is an upgrade ── */}
-          <FormSection title={isOsUpgrade ? 'OS Image' : 'Patches'}>
+          <FormSection title={isOsUpgrade ? 'OS Upgrade Patches' : 'Patches'}>
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-[13px] text-[#64748B]">{isOsUpgrade ? 'OS Image' : 'Patches'} <Required /></span>
+              <span className="text-[13px] text-[#64748B]">{isOsUpgrade ? 'OS Upgrade Patches' : 'Patches'} <Required /></span>
               {/* Once an image is on, the action is to CHANGE it — "Add" would promise a second. */}
               <button onClick={() => setPicker('payload')} className={addLinkCls}>
                 <CirclePlus size={15} />
-                {isOsUpgrade ? (imageIds.length ? 'Change OS Image' : 'Add OS Image') : 'Add Patches'}
+                {isOsUpgrade ? (imageIds.length ? 'Change OS Upgrade Patch' : 'Add OS Upgrade Patch') : 'Add Patches'}
               </button>
             </div>
             <div className="overflow-x-auto">
@@ -329,7 +307,7 @@ export function CreatePatchDeployment({ onCancel, onCreate }: CreatePatchDeploym
                   </thead>
                   <tbody className="divide-y divide-[#e5e7eb]">
                     {chosenImages.length === 0 ? (
-                      <EmptyRow colSpan={9} text="No OS image selected yet — add the one this run should install." />
+                      <EmptyRow colSpan={9} text="No OS upgrade patch selected yet — add the one this run should install." />
                     ) : chosenImages.map((i) => (
                       <tr key={i.id} className="transition-colors hover:bg-[#f9fafb]">
                         <td className="whitespace-nowrap px-4 py-3"><span className="rounded bg-[#e8f4fd] px-2 py-0.5 text-[12px] font-semibold text-[#3D8BD0]">{i.id}</span></td>
@@ -504,7 +482,7 @@ export function CreatePatchDeployment({ onCancel, onCreate }: CreatePatchDeploym
       <PickerDrawer
         isOpen={picker === 'payload' && isOsUpgrade}
         single
-        title={imageIds.length ? 'Change OS Image' : 'Add OS Image'}
+        title={imageIds.length ? 'Change OS Upgrade Patch' : 'Add OS Upgrade Patch'}
         subtitle="One image per run. Only images whose ISO has finished uploading can be deployed."
         rows={deployableImages}
         selected={imageIds}
