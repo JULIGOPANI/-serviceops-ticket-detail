@@ -3151,25 +3151,15 @@ onStackMinimizedChange,
                    then overall status beside the remote-office drill-down. */
                 if (isOsUpgradeRun) {
                   // Dots carry state, so a preview row reads without a second legend.
-                  const sevDot = (s: string) => (s === 'Critical' ? '#EF4444' : s === 'Important' ? '#F59E0B' : s === 'Moderate' ? '#EAB308' : '#94A3B8');
                   const bucketDot = (b: string) => (b === 'Installed' ? '#22C55E' : b === 'Missing' ? '#F59E0B' : '#94A3B8');
 
                   return (
                     <>
-                      <div className={`grid gap-4 ${wide ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                        {/* ⚠️ Still the patch payload — the Patches tab, the header KPI and the
-                            deployment matrix all read the same data, so relabelling this card
-                            alone would contradict everything it links to. */}
-                        <CountListCard
-                          label="Patches"
-                          icon={Package}
-                          color="#3D8BD0"
-                          total={DEPLOYED_PATCHES.length}
-                          caption={`${DEPLOYED_PATCHES.length === 1 ? 'patch' : 'patches'} in this deployment`}
-                          items={DEPLOYED_PATCHES.map((p) => ({ key: p.id, primary: p.application || p.name, dot: sevDot(p.severity) }))}
-                          onClick={() => setActiveMainTab('patches-list')}
-                          wide={wide}
-                        />
+                      {/* ⚠️ No Patches card on an upgrade run — the payload is an OS image, and a
+                          card counting patches states the wrong thing about what is being pushed.
+                          Endpoints is the only preview left, so it takes the full width rather
+                          than sitting in half a two-up row with nothing beside it. */}
+                      <div className="grid grid-cols-1 gap-4">
                         <CountListCard
                           label="Endpoints"
                           icon={Monitor}
