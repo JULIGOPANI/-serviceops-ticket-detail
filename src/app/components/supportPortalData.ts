@@ -22,6 +22,8 @@ export interface PortalPage {
   audience: string;
   modifiedAt: string;
   modifiedBy: string;
+  /** Edited since it was last published — the amber chip on the listing. */
+  dirty?: boolean;
 }
 
 export type TemplateLayout = 'classic' | 'spotlight' | 'catalog' | 'knowledge' | 'minimal' | 'status';
@@ -120,8 +122,23 @@ export const DEFAULT_PORTAL_PAGE: PortalPage = {
   source: 'Classic Service Desk',
   audience: 'All requesters',
   modifiedAt: 'Mon, Aug 17, 2026 09:14 AM',
-  modifiedBy: 'System',
+  modifiedBy: 'Juli Gopani',
+  dirty: true,
 };
+
+/* The listing says WHEN in relative terms, because "2 days ago" is the question an admin is
+   actually asking of that column; the full stamp stays on the record for anywhere precision
+   matters. Falls back to the raw stamp if it cannot be parsed rather than printing "NaN days". */
+export function relPortalStamp(stamp: string): string {
+  const t = Date.parse(stamp);
+  if (Number.isNaN(t)) return stamp;
+  const days = Math.floor((Date.now() - t) / 86400000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 30) return days + ' days ago';
+  const months = Math.floor(days / 30);
+  return months === 1 ? 'a month ago' : months + ' months ago';
+}
 
 export const TEMPLATE_CATEGORIES = ['All', 'IT Support', 'HR', 'Facilities', 'General'] as const;
 

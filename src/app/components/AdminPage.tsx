@@ -25,7 +25,10 @@ const BOM_SCREEN_FOR: Record<string, BomAdminScreen> = {
  *  it, so only that row swaps the pane. */
 const CARD_MODULES: Record<string, string> = {
   'Patch Management/OS Upgrade': 'OS Upgrade',
-  'Organization/Support Portal Customization': 'Support Portal Customization',
+  /* ⚠️ Support Channels, not Organization. The portal's settings already lived here, so putting its
+     customization anywhere else meant two homes for one subject. The card that used to open this
+     from Organization is gone rather than left as a second door. */
+  'Support Channels/Support Portal': 'Support Portal Customization',
 };
 
 /* Admin hub — the settings surface. Its own shell: the product's left icon rail is replaced by a

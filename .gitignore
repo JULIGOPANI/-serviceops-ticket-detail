@@ -48,3 +48,6 @@ credentials.txt
 /screenshot*.png
 /*.jpg
 /*.jpeg
+
+# Playwright MCP session artifacts
+.playwright-mcp/

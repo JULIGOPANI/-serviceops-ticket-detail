@@ -1,16 +1,100 @@
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ChevronDown, Copy, ExternalLink, LayoutTemplate, MonitorSmartphone, PenLine, Plus, Search,
-  SquarePen, Trash2, X,
+  Eye, MoreVertical, RotateCcw, Settings, Trash2, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AdminSupportPortalSettings } from './AdminSupportPortalSettings';
 import { Pagination } from './Pagination';
 import { SupportPortalBuilder } from './SupportPortalBuilder';
 import { SupportPortalTemplateGallery } from './SupportPortalTemplateGallery';
 import {
-  DEFAULT_PORTAL_PAGE, PORTAL_TEMPLATES, formatPortalStamp, nextPageId, uniquePageName,
+  DEFAULT_PORTAL_PAGE, PORTAL_TEMPLATES, formatPortalStamp, nextPageId, relPortalStamp, uniquePageName,
 } from './supportPortalData';
 import type { PortalPage, PortalTemplate } from './supportPortalData';
+
+/* One row's actions. A kebab rather than a rail of icons: five verbs, two of which ("Duplicate
+   layout", "Reset layout to default") are phrases no glyph says, so an icon row would need a
+   tooltip per item to be readable at all. */
+function RowMenu({ isDefault, onCustomize, onPreview, onSettings, onDuplicate, onReset, onDelete }: {
+  isDefault: boolean;
+  onCustomize: () => void; onPreview: () => void; onSettings: () => void;
+  onDuplicate: () => void; onReset: () => void; onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  /* ⚠️ PORTALLED to the body with fixed positioning. The table sits in an `overflow-x-auto`
+     wrapper, so an absolutely-positioned menu inside it is clipped to the row — the first
+     build showed a 6px sliver of white under the kebab and nothing else. Measured on open and
+     re-measured on scroll/resize so it stays with its button. */
+  const [at, setAt] = useState<{ top: number; left: number } | null>(null);
+  const place = () => {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const W = 210;
+    setAt({ top: r.bottom + 4, left: Math.max(8, Math.min(r.right - W, window.innerWidth - W - 8)) });
+  };
+  useEffect(() => {
+    if (!open) return;
+    place();
+    const away = (e: MouseEvent) => {
+      if (ref.current?.contains(e.target as Node) || btnRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', away);
+    document.addEventListener('keydown', key);
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      document.removeEventListener('mousedown', away);
+      document.removeEventListener('keydown', key);
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [open]);
+
+  const item = 'flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[#364658] transition-colors hover:bg-[#F5F7FA]';
+  const run = (fn: () => void) => () => { setOpen(false); fn(); };
+
+  return (
+    <div className="flex justify-start">
+      <button
+        ref={btnRef}
+        onClick={() => setOpen((o) => !o)}
+        title="More actions"
+        className="flex size-8 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]"
+      ><MoreVertical size={16} /></button>
+      {open && at && createPortal(
+        <div
+          ref={ref}
+          style={{ position: 'fixed', top: at.top, left: at.left }}
+          className="z-[10000] w-[210px] overflow-hidden rounded-md border border-[#E5E7EB] bg-white py-1 shadow-lg"
+        >
+          <button onClick={run(onCustomize)} className={item}><PenLine size={14} /> Customize</button>
+          <button onClick={run(onPreview)} className={item}><Eye size={14} /> Preview</button>
+          <button onClick={run(onSettings)} className={item}><Settings size={14} /> Portal settings</button>
+          <div className="my-1 h-px bg-[#E5E7EB]" />
+          <button onClick={run(onDuplicate)} className={item}><Copy size={14} /> Duplicate layout</button>
+          <button onClick={run(onReset)} className={item}><RotateCcw size={14} /> Reset layout to default</button>
+          {/* ⚠️ Not in the reference screen, but a duplicated portal with no way to remove it is a
+              dead row. Disabled WITH the reason on the default rather than hidden. */}
+          <div className="my-1 h-px bg-[#E5E7EB]" />
+          <button
+            onClick={run(onDelete)}
+            disabled={isDefault}
+            title={isDefault ? 'The default portal cannot be deleted — requesters have to land somewhere' : undefined}
+            className={`${item} ${isDefault ? 'cursor-not-allowed text-[#C4CDD8] hover:bg-transparent' : 'text-[#EF4444] hover:bg-[#FEF3F2]'}`}
+          ><Trash2 size={14} /> Delete</button>
+        </div>,
+        document.body,
+      )}
+    </div>
+  );
+}
 
 /* Support Portal Customization — Admin › Organization.
  *
@@ -129,7 +213,13 @@ function ConfirmDelete({ page, onCancel, onConfirm }: { page: PortalPage; onCanc
 
 type Scope = 'All' | 'Published' | 'Draft';
 
+/* Support Portal — one destination, two things you can do there.
+ *
+ * ⚠️ TABS, not two nav rows. Customization decides what the portal LOOKS like; Settings decides what
+ * a requester may DO on it. They are the same subject, so splitting them across the sidebar would
+ * make an admin remember which of two identically-named rows holds the switch they want. */
 export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boolean) => void }) {
+  const [tab, setTab] = useState<'customization' | 'settings'>('customization');
   /* ⚠️ Starts with ONE page, not empty. Every tenant already has a support portal — the requester
      is landing somewhere today — so an empty state here would claim the portal does not exist and
      invite the admin to "create" the thing they are actually editing. The default page is a System
@@ -140,6 +230,9 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
   const [gallery, setGallery] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  /* Which portals are switched on. Absent means ON — a portal you have never touched is live. */
+  const [enabled, setEnabled] = useState<Record<string, boolean>>({});
+  const isOn = (p: PortalPage) => p.id === DEFAULT_PORTAL_PAGE.id || enabled[p.id] !== false;
   const [scope, setScope] = useState<Scope>('All');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -245,12 +338,42 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
     </div>
   );
 
+  /* The strip sits above whichever pane is showing, in the tab styling the detail pages use. */
+  const tabs = (
+    <div className="flex items-center gap-2.5 border-b border-[#e5e7eb] px-4">
+      {([['customization', 'Customization'], ['settings', 'Settings']] as const).map(([id, label]) => (
+        <button
+          key={id}
+          onClick={() => setTab(id)}
+          className={`px-2 py-3 text-[13px] font-medium transition-colors border-b-2 ${
+            tab === id
+              ? 'border-[#3D8BD0] text-[#3D8BD0]'
+              : 'border-transparent text-[#64748B] hover:border-[#CBD5E1] hover:bg-[#f9fafb] hover:text-[#364658]'
+          }`}
+        >{label}</button>
+      ))}
+    </div>
+  );
+
+  /* ⚠️ The head sits ABOVE the tabs and does NOT change with them. Customization and Settings are
+     two views of ONE subject, so a title that rewrote itself per tab would read as two different
+     pages sharing a nav row — and saying which view you are in is the strip's job, not the title's. */
+  const shell = (body: ReactNode) => (
+    <>
+      <div className="px-4 pt-6">{head}</div>
+      {tabs}
+      {body}
+    </>
+  );
+
+  if (tab === 'settings') return shell(<AdminSupportPortalSettings />);
+
   // ── empty state ── no page has been built yet, so there is nothing to search or filter.
   if (pages.length === 0) {
     return (
       <>
+        {shell(
         <div className="px-4 py-6">
-          {head}
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[#D9E0EA] bg-[#FCFDFE] px-6 py-20 text-center">
             <span className="flex size-16 items-center justify-center rounded-full bg-[#EBF5FF] text-[#3D8BD0]">
               <MonitorSmartphone size={30} strokeWidth={1.6} />
@@ -266,7 +389,7 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
               className="mt-3 text-[13px] font-medium text-[#3D8BD0] hover:underline"
             >Browse {PORTAL_TEMPLATES.length} templates</button>
           </div>
-        </div>
+        </div>)}
         {overlays}
       </>
     );
@@ -276,7 +399,7 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
   const q = search.trim().toLowerCase();
   const rows = pages.filter((p) =>
     (scope === 'All' || p.status === scope)
-    && (!q || [p.id, p.name, p.source, p.audience, p.modifiedBy].some((f) => f.toLowerCase().includes(q))));
+    && (!q || [p.name, p.modifiedBy, p.status].some((f) => f.toLowerCase().includes(q))));
   const totalPages = Math.ceil(rows.length / perPage) || 1;
   const pageRows = rows.slice((page - 1) * perPage, page * perPage);
 
@@ -286,13 +409,20 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
     Draft: pages.filter((p) => p.status === 'Draft').length,
   };
 
-  const actionBtn = 'flex size-8 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]';
+  /* ⚠️ A portal is a PATH on the tenant's domain, not a domain of its own. The first pass built
+     'support.<slug>.com', which reads like every portal owns a hostname somebody would have to
+     register. The default page is the site root; everything else hangs off it. */
+  const portalUrl = (p: PortalPage) => {
+    if (p.id === DEFAULT_PORTAL_PAGE.id) return 'support.acme.com';
+    const slug = p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return 'support.acme.com/' + (slug || p.id.toLowerCase());
+  };
+
 
   return (
     <>
+      {shell(
       <div className="px-4 py-6">
-        {head}
-
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <div className="relative w-[280px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" size={15} />
@@ -327,67 +457,86 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px]">
+          <table className="w-full min-w-[860px]">
             <thead className="border-b border-[#e5e7eb]">
               <tr>
-                {['ID', 'Page Name', 'Type', 'Status', 'Audience', 'Last Modified', 'Modified By', 'Action'].map((h) => (
-                  <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658]">{h}</th>
+                {['Portal name', 'URL', 'Status', 'Enabled', ''].map((h, i) => (
+                  <th key={h || i} className="whitespace-nowrap px-4 py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658]">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e5e7eb] bg-white">
               {pageRows.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-[13px] text-[#9CA3AF]">
+                <tr><td colSpan={5} className="px-4 py-12 text-center text-[13px] text-[#9CA3AF]">
                   No portal pages match this filter.
                 </td></tr>
               ) : pageRows.map((p) => (
                 <tr key={p.id} className="transition-colors hover:bg-[#f9fafb]">
-                  <td className="whitespace-nowrap px-4 py-3">
+                  {/* The NAME is the way in. The SPP-# pill was a handle nobody refers to a portal by. */}
+                  <td className="px-4 py-3">
                     <button
                       onClick={() => setEditingId(p.id)}
-                      className="rounded bg-[#e8f4fd] px-2 py-0.5 text-[12px] font-semibold text-[#3D8BD0] transition-colors hover:bg-[#d0e8f9]"
-                    >{p.id}</button>
+                      className="inline-flex max-w-full items-center gap-2 text-left text-[13px] font-medium text-[#3D8BD0] hover:underline"
+                      title={p.name}
+                    >
+                      <span className="truncate">{p.name}</span>
+                      {p.id === DEFAULT_PORTAL_PAGE.id && (
+                        <span className="shrink-0 rounded bg-[#E8F1FB] px-1.5 py-0.5 text-[11px] font-medium text-[#3D8BD0]">Default</span>
+                      )}
+                    </button>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <a
+                      href={portalUrl(p)}
+                      onClick={(e) => e.preventDefault()}
+                      className="text-[13px] text-[#7B8FA5] hover:text-[#3D8BD0] hover:underline"
+                    >{portalUrl(p)}</a>
+                  </td>
+                  {/* ⚠️ Status is a SENTENCE, not a word: the pill says what state the portal is in,
+                      the line under it says who left it that way and when, and the amber chip warns
+                      that what is live is not what is saved. Split across three columns those stop
+                      being one story and the admin has to reassemble it. */}
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`rounded-sm px-2 py-0.5 text-[12px] font-medium ${
+                        p.status === 'Published' ? 'bg-[#ECFDF3] text-[#22A06B]' : 'bg-[#F1F5F9] text-[#64748B]'
+                      }`}>{p.status}</span>
+                      <span className="whitespace-nowrap text-[12px] text-[#7B8FA5]">{relPortalStamp(p.modifiedAt)} by {p.modifiedBy}</span>
+                      {p.status === 'Published' && p.dirty && (
+                        <span className="whitespace-nowrap rounded-sm bg-[#FEF6E7] px-2 py-0.5 text-[12px] font-medium text-[#B54708]">Unpublished changes</span>
+                      )}
+                    </div>
+                  </td>
+                  {/* ⚠️ The DEFAULT portal cannot be switched off — a requester has to land somewhere.
+                      Disabled with the reason on it rather than hidden, so the rule is legible. */}
+                  <td className="px-4 py-3">
+                    <button
+                      role="switch"
+                      aria-checked={isOn(p)}
+                      disabled={p.id === DEFAULT_PORTAL_PAGE.id}
+                      title={p.id === DEFAULT_PORTAL_PAGE.id
+                        ? 'The default portal is always on — requesters have to land somewhere'
+                        : isOn(p) ? 'Switch this portal off' : 'Switch this portal on'}
+                      onClick={() => setEnabled((e) => ({ ...e, [p.id]: !isOn(p) }))}
+                      className={`relative inline-flex h-[18px] w-[34px] items-center rounded-full transition-colors ${
+                        isOn(p) ? 'bg-[#3D8BD0]' : 'bg-[#CBD5E1]'
+                      } ${p.id === DEFAULT_PORTAL_PAGE.id ? 'cursor-not-allowed opacity-60' : ''}`}
+                    >
+                      <span className={`inline-block size-[14px] rounded-full bg-white transition-transform ${
+                        isOn(p) ? 'translate-x-[18px]' : 'translate-x-[2px]'
+                      }`} />
+                    </button>
                   </td>
                   <td className="px-4 py-3">
-                    <button onClick={() => setEditingId(p.id)} className="block max-w-[280px] truncate text-left text-[13px] font-medium text-[#364658] hover:text-[#3D8BD0]" title={p.name}>
-                      {p.name}
-                    </button>
-                    <div className="max-w-[280px] truncate text-[12px] text-[#7B8FA5]">Started from {p.source}</div>
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3">
-                    <span className="rounded-sm bg-[#F1F5F9] px-2 py-0.5 text-[12px] text-[#475467]">{p.type}</span>
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3">
-                    <span className={`inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-[12px] font-medium ${
-                      p.status === 'Published' ? 'bg-[#ECFDF3] text-[#22A06B]' : 'bg-[#F1F5F9] text-[#64748B]'
-                    }`}>
-                      <span className={`size-1.5 rounded-full ${p.status === 'Published' ? 'bg-[#22A06B]' : 'bg-[#94A3B8]'}`} />
-                      {p.status}
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-[13px] text-[#364658]">{p.audience}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-[13px] text-[#364658]">{p.modifiedAt}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-[13px] text-[#364658]">{p.modifiedBy}</td>
-                  <td className="whitespace-nowrap px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => setEditingId(p.id)} title="Edit page" className={actionBtn}><SquarePen size={16} /></button>
-                      <button onClick={() => duplicate(p)} title="Duplicate page" className={actionBtn}><Copy size={16} /></button>
-                      {/* ⚠️ Disabled WITH a reason on the default page, not hidden. A portal with no
-                          landing page is not a state the product can be in, and an action that
-                          silently vanishes reads as a bug rather than a rule. */}
-                      <button
-                        onClick={() => setConfirmId(p.id)}
-                        disabled={p.id === DEFAULT_PORTAL_PAGE.id}
-                        title={p.id === DEFAULT_PORTAL_PAGE.id
-                          ? 'The default portal page cannot be deleted — requesters have to land somewhere'
-                          : 'Delete page'}
-                        className={`flex size-8 items-center justify-center rounded transition-colors ${
-                          p.id === DEFAULT_PORTAL_PAGE.id
-                            ? 'cursor-not-allowed text-[#C3CBD6]'
-                            : 'text-[#EF4444] hover:bg-[#FEF3F2]'
-                        }`}
-                      ><Trash2 size={16} /></button>
-                    </div>
+                    <RowMenu
+                      isDefault={p.id === DEFAULT_PORTAL_PAGE.id}
+                      onCustomize={() => setEditingId(p.id)}
+                      onPreview={() => toast.success(`Opening ${p.name} in preview`)}
+                      onSettings={() => setTab('settings')}
+                      onDuplicate={() => duplicate(p)}
+                      onReset={() => toast.success(`${p.name} layout reset to the ServiceOps default`)}
+                      onDelete={() => setConfirmId(p.id)}
+                    />
                   </td>
                 </tr>
               ))}
@@ -403,7 +552,7 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
           onPageChange={setPage}
           onItemsPerPageChange={(n) => { setPerPage(n); setPage(1); }}
         />
-      </div>
+      </div>)}
       {overlays}
     </>
   );
