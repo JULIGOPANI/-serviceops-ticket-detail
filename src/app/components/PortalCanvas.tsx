@@ -5,7 +5,7 @@ import {
   AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical,
   AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, ArrowDown, ArrowLeft, ArrowRight,
   ArrowUp, Baseline, Bold, ChevronRight, Copy, GripHorizontal, GripVertical, Italic, Link2,
-  Braces, Globe, Maximize2, Move, MoveHorizontal, MoveVertical, Plus, RemoveFormatting,
+  Braces, Globe, Highlighter, Maximize2, UnfoldVertical, Move, MoveHorizontal, MoveVertical, Plus, RemoveFormatting,
   Replace, SquareDashed, Trash2, Underline, X,
 } from 'lucide-react';
 // ArrowLeft stays in use by the card toolbar's "Move left".
@@ -712,6 +712,8 @@ function TextToolbar({ id }: { id: string }) {
   const phRef = useRef<HTMLButtonElement>(null);
   const [pickColor, setPickColor] = useState<DOMRect | null>(null);
   const colorRef = useRef<HTMLButtonElement>(null);
+  const [pickHilite, setPickHilite] = useState<DOMRect | null>(null);
+  const hiliteRef = useRef<HTMLButtonElement>(null);
   const s: NodeStyle = styles[id] ?? {};
   const tBtn = (on?: boolean) => (on ? btnOn : btn);
   const sel = 'h-7 cursor-pointer rounded border border-[#E5E7EB] bg-white px-1.5 text-[12px] text-[#364658] outline-none hover:border-[#3D8BD0]';
@@ -784,6 +786,33 @@ function TextToolbar({ id }: { id: string }) {
           anchor={pickColor}
           onChange={(v) => setStyle(id, { color: v })}
           onClose={() => setPickColor(null)}
+        />
+      )}
+
+      {/* ⚠️ HIGHLIGHT, not a second text colour. The glyph is a marker over a filled bar — the same
+          shape every office editor uses — so the two colour buttons are told apart by what they
+          show rather than by their tooltips. The swatch under it is the CURRENT highlight, which is
+          what makes "is anything highlighted?" answerable without clicking. */}
+      <button
+        ref={hiliteRef}
+        className={tBtn(!!s.textBg)}
+        data-tip="Highlight colour"
+        onClick={() => setPickHilite(pickHilite ? null : hiliteRef.current!.getBoundingClientRect())}
+      >
+        <span className="flex flex-col items-center gap-[2px] leading-none">
+          <Highlighter size={13} />
+          <span
+            className="h-[3px] w-[14px] rounded-[1px] border border-[#E5E7EB]"
+            style={{ background: s.textBg ?? 'transparent' }}
+          />
+        </span>
+      </button>
+      {pickHilite && (
+        <PortalColorPicker
+          value={s.textBg ?? '#FDE68A'}
+          anchor={pickHilite}
+          onChange={(v) => setStyle(id, { textBg: v })}
+          onClose={() => setPickHilite(null)}
         />
       )}
 
@@ -951,39 +980,74 @@ function PlaceholderPopover({ anchor, onPick, onClose }: { anchor: DOMRect; onPi
  * fixed offset would be wrong for most of the cases it exists to fix. A layout effect reads both
  * after render and shifts by exactly the overhang, which is why it never overcorrects into the
  * element's own left edge. */
+/* The floating toolbar's shell.
+ *
+ * ⚠️ PORTALLED to document.body and positioned FIXED. Rendered inside the element it belongs to, it
+ * was clipped by the first ancestor with a non-visible overflow — which is every data widget, since
+ * a card that scrolls or truncates its rows has to hide its overflow. So selecting a widget heading
+ * drew its text toolbar INSIDE the card, half of it cut off. A toolbar is not part of the thing it
+ * edits; it hovers over the page, and it has to escape every box between the two.
+ *
+ * ⚠️ It follows the element on scroll and resize. Fixed positioning means the toolbar no longer
+ * moves with the page on its own, so it is re-measured while it is open — otherwise it would sit
+ * where the element USED to be the moment anything scrolled. */
 function ToolbarSlot({ toolbarBelow, children }: { toolbarBelow?: boolean | 'under'; children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [dx, setDx] = useState(0);
-  const [flip, setFlip] = useState(false);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    /* The canvas, not the window: the design panel occupies the right of the screen, so a toolbar
-       that merely fits the viewport can still sit underneath the panel. */
-    const canvas = el.closest('[data-portal-canvas]') ?? document.body;
-    const bar = el.getBoundingClientRect();
-    const box = canvas.getBoundingClientRect();
-    const over = bar.right - (box.right - 8);
-    const under = (box.left + 8) - bar.left;
-    setDx(over > 0 ? -over : under > 0 ? Math.min(under, 0) : 0);
-    /* ⚠️ And FLIP below when there is no room above. The banner's heading sits within 44px of the
-       canvas top, so its toolbar was drawn off the top edge and clipped — the horizontal clamp could
-       not help, because the overflow was vertical. Measured against the canvas for the same reason:
-       the portal's own top bar is inside it, and a toolbar tucked under that bar is as unreachable
-       as one off the page. */
-    setFlip(bar.top < box.top + 8);
-  }, [children]);
+    const place = () => {
+      const anchor = anchorRef.current;
+      const bar = barRef.current;
+      if (!anchor || !bar) return;
+      const host = anchor.parentElement;
+      if (!host) return;
+      const el = host.getBoundingClientRect();
+      const b = bar.getBoundingClientRect();
+      /* The canvas, not the window: the design panel occupies the right of the screen, so a toolbar
+         that merely fits the viewport can still sit underneath the panel. */
+      const canvas = host.closest('[data-portal-canvas]') ?? document.body;
+      const box = canvas.getBoundingClientRect();
+
+      const GAP = 8;
+      const above = el.top - b.height - 6;
+      const below = el.bottom + 6;
+      /* Above by default; below when there is no room — the banner's heading sits within 44px of
+         the canvas top, and the overflow there is vertical, which no horizontal clamp can fix. */
+      const wantBelow = toolbarBelow === 'under' || above < box.top + GAP;
+      const top = wantBelow ? below : above;
+
+      let left = el.left;
+      if (left + b.width > box.right - GAP) left = box.right - GAP - b.width;
+      if (left < box.left + GAP) left = box.left + GAP;
+
+      setPos({ top, left });
+    };
+    place();
+    /* Capture, so a scroll inside ANY ancestor moves it, not just the window. */
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [children, toolbarBelow]);
 
   return (
-    <div
-      ref={ref}
-      style={{ transform: dx ? `translateX(${dx}px)` : undefined }}
-      className={`absolute left-0 z-40 ${
-        flip ? 'top-full mt-1'
-          : toolbarBelow === 'under' ? 'top-full mt-1' : toolbarBelow ? 'top-5' : '-top-11'
-      }`}
-    >{children}</div>
+    <>
+      {/* A zero-size marker left in the tree, so the toolbar can find the element it belongs to
+          without that element having to pass its own rect down. */}
+      <span ref={anchorRef} className="pointer-events-none absolute left-0 top-0 h-0 w-0" />
+      {createPortal(
+        <div
+          ref={barRef}
+          style={{ position: 'fixed', top: pos?.top ?? -9999, left: pos?.left ?? -9999 }}
+          className="z-[9999]"
+        >{children}</div>,
+        document.body,
+      )}
+    </>
   );
 }
 
@@ -1109,10 +1173,24 @@ export function AddSectionSeam({ afterId }: { afterId: string }) {
         </>
       )}
       {showPill && (
-        <button
-          onClick={() => setPicking((p) => !p)}
-          className="absolute left-1/2 top-1/2 z-10 inline-flex h-7 -translate-x-1/2 -translate-y-1/2 items-center rounded-full bg-[#3D8BD0] px-3.5 text-[12px] font-medium text-white shadow-sm transition-colors hover:bg-[#2d6ca0]"
-        >+ Add Section</button>
+        /* ⚠️ The stretch handle rides WITH the CTA rather than only on the hairline. Dragging the
+           seam has always worked, but you had to find a 5px strip to discover it — so the one
+           gesture that resizes a section was the least visible thing on the canvas. Pairing it with
+           the button people already aim at makes both reachable from the same place. */
+        <span className="absolute left-1/2 top-1/2 z-10 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-1">
+          <button
+            onClick={() => setPicking((p) => !p)}
+            className="inline-flex h-7 items-center rounded-full bg-[#3D8BD0] px-3.5 text-[12px] font-medium text-white shadow-sm transition-colors hover:bg-[#2d6ca0]"
+          >+ Add Section</button>
+          <span
+            onMouseDown={beginResize}
+            data-tip="Drag to stretch the section above"
+            title="Drag to stretch the section above"
+            /* The same ns-resize cursor the panel's own stretch handles use — one gesture, one
+               cursor, wherever you meet it. */
+            className="inline-flex size-7 cursor-ns-resize items-center justify-center rounded-full bg-[#3D8BD0] text-white shadow-sm transition-colors hover:bg-[#2d6ca0]"
+          ><UnfoldVertical size={14} /></span>
+        </span>
       )}
 
       {picking && (

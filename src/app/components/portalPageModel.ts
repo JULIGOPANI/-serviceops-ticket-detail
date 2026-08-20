@@ -212,7 +212,7 @@ export interface PortalPageContent {
 export const DEFAULT_BLOCK_ORDER = ['quick', 'work', 'records'];
 
 export const DEFAULT_ROW_ORDER: Record<string, string[]> = {
-  quick: ['quick-incident', 'quick-service', 'quick-knowledge'],
+  quick: ['quick-incident', 'quick-service', 'quick-ad', 'quick-knowledge'],
   work: ['requests', 'approvals', 'knowledge'],
   records: ['assets', 'cis'],
 };
@@ -233,7 +233,7 @@ export function moveIn(list: string[], id: string, dir: -1 | 1): string[] {
 }
 
 export const DEFAULT_CONTENT: PortalPageContent = {
-  cols: { quick: 3, work: 3, records: 2 },
+  cols: { quick: 4, work: 3, records: 2 },
   hero: {
     title: 'Welcome to Support Portal',
     subtitle: 'Search our support center knowledge base',
@@ -244,6 +244,11 @@ export const DEFAULT_CONTENT: PortalPageContent = {
     { id: 'quick-incident', title: 'New Incident', desc: 'Report an incident' },
     { id: 'quick-service', title: 'Request Service', desc: 'Browse the services offered' },
     { id: 'quick-knowledge', title: 'Knowledge', desc: 'Browse knowledge' },
+    /* ⚠️ A FOURTH card, shipped by default. `quick-ad` was already declared as a node and already
+       had a spec — it was simply absent from the content, so the one action a requester most often
+       wants was the one they had to add by hand. It belongs to Quick Actions like the other three,
+       not as a loose element dropped elsewhere. */
+    { id: 'quick-ad', title: 'AD Self Service', desc: 'Reset your domain password' },
   ],
   requests: { title: 'My Open Requests', statuses: ['Open', 'In Progress'], scope: 'Raised by me', show: 5 },
   approvals: { title: 'Pending Approvals', show: 2 },
@@ -349,6 +354,8 @@ export interface NodeStyle {
   margin?: SpacingBox;
   /** Inner spacing. Same units. */
   padding?: SpacingBox;
+  /** A text run's highlight — the background behind the words, not the block's fill. */
+  textBg?: string;
   /** Horizontal sides move together until this is broken — the matrix's link toggle. */
   marginLinked?: boolean;
   paddingLinked?: boolean;

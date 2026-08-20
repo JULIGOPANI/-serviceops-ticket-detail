@@ -232,7 +232,7 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
   /* ⚠️ NOT onPage. This is spec §7.8 Featured Services — a requester's favourites list. The page
      carries the "Request Service" ACTION CARD, which is a different widget with a fixed
      destination. Flagging this one as placed made Featured Services unreachable. */
-  { id: 'c-services', name: 'Featured Services', icon: 'services', group: 'Custom', keywords: 'catalog request service favourites' },
+  { id: 'c-services', name: 'Most Used Services', icon: 'services', group: 'Custom', keywords: 'catalog request service favourites featured' },
   { id: 'c-feedback', name: 'Feedback', icon: 'feedback', group: 'Custom', keywords: 'rating csat survey stars' },
   /* Placed: the FAQ block already sits in the banner area of this portal, so the palette shows it
      as added rather than offering a second one. */

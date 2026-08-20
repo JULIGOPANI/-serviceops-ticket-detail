@@ -57,6 +57,25 @@ Nothing half-written. The audit is the backlog, not a mid-flight change.
    empty-state `Show message` option on widgets that have data, and confirming the
    section `Name` field is correctly inert.
 
+## Free positioning — the model, ANSWERED 20 Aug 2026
+
+These four asks are one piece of work and were blocked on a model question. The answers:
+
+1. **Banner heading/subtext draggable across the WHOLE banner** (today it only reaches about half).
+2. **Custom action cards placeable anywhere by dragging.**
+3. **Search bar resizable from all four corners**, narrowing until the icon meets the placeholder,
+   with the other sides taking their spacing responsively.
+4. **Text draggable among the other text of its section**, cursor changing to a hand.
+
+> **Scope: freely placed WITHIN ITS OWN SECTION — never floating above the whole page.**
+> **The gap it leaves behind: leave the current behaviour alone. Not a question to solve now.**
+> **At narrower widths: the section makes itself responsive — the data inside it responds, and the
+> parent section responds to its inner elements.**
+
+⚠️ Today `freePlaced` (in `PortalCanvas`) is hero-only and stores position as a % of the hero BAND.
+Extending it means the same mechanism keyed to whichever section the element belongs to — which is
+why all four land together rather than one at a time.
+
 ## Decisions made
 
 - **Audit before fixing.** One re-runnable sweep beats a manual pass, because the

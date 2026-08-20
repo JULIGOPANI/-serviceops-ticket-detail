@@ -298,6 +298,10 @@ export function containerCss(styles: PortalStyles, id: string): React.CSSPropert
 
   // Legacy text keys, still written by the canvas's dark rich-text toolbar.
   const color = g('color'); if (color) css.color = color as string;
+  /* ⚠️ Painted as backgroundColor on the TEXT node only. It is deliberately separate from bgFill —
+     a highlight sits behind the words, a fill sits behind the block, and one key doing both would
+     mean highlighting a heading also tinted the card around it. */
+  const textBg = g('textBg'); if (textBg) css.backgroundColor = textBg as string;
   const fs = g('fontSize'); const heading = g('heading');
   if (fs) css.fontSize = `${fs}px`;
   else if (heading) css.fontSize = `${HEADING_SIZE_MAP[heading as string] ?? 15}px`;

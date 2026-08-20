@@ -389,7 +389,7 @@ export const WIDGET_SPECS: WidgetSpec[] = [
 
   /* ─────────── §7.8 Featured Services ─────────── */
   {
-    id: 'featured_services', name: 'Featured Services', group: 'Live data', reuse: 'single', family: 'flat',
+    id: 'featured_services', name: 'Most Used Services', group: 'Live data', reuse: 'single', family: 'flat',
     gate: { kind: 'permission', setting: 'Access Service Catalog', section: 'Organization' },
     fields: [
       { key: 'title', label: 'Title', control: 'text', group: 'Content' },
@@ -425,7 +425,7 @@ export const WIDGET_SPECS: WidgetSpec[] = [
     packs: ['P1', 'P2', 'P8'], roles: ['title', 'body', 'meta'],
     notes: [{ tone: 'info', text: 'A requester’s favourites, not a browse-all grid — the catalogue itself is a page, not a widget.' }],
     // No `columns` here — it lives in the style store so the two controls share one value.
-    defaults: { title: 'Featured Services', show: 6, showDesc: false, showBrowse: true, browseLabel: 'Browse catalog', cardTemplate: 'left' },
+    defaults: { title: 'Most Used Services', show: 6, showDesc: false, showBrowse: true, browseLabel: 'Browse catalog', cardTemplate: 'left' },
   },
 
   /* ─────────── §7.10 Action cards ─────────── */
