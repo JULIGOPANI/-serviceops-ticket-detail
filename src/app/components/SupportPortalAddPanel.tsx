@@ -115,7 +115,10 @@ export function SupportPortalAddPanel({ onAdd, placedTypes }: Props) {
 
   /** Elements per group, after search. Groups with no hits are dropped entirely. */
   const groups = useMemo(() => {
-    const hits = q ? PORTAL_ELEMENTS.filter((e) => searchText(e).includes(q)) : PORTAL_ELEMENTS;
+    /* ⚠️ Filtered before the search, so a hidden element cannot be reached by typing its name
+       either — a palette that hides a row but still matches it on search is worse than both. */
+    const shown = PORTAL_ELEMENTS.filter((e) => !e.hidden);
+    const hits = q ? shown.filter((e) => searchText(e).includes(q)) : shown;
     return PORTAL_ELEMENT_GROUPS
       .map((g) => ({ group: g as PortalElementGroup, items: hits.filter((e) => e.group === g) }))
       .filter((g) => g.items.length > 0);

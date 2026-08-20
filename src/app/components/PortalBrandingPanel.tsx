@@ -17,7 +17,7 @@ import { Field, SelectField, Segmented, TextField } from './PortalControls';
  * able to click. */
 
 /** A read-only row: the value is a fact about the tenant, not a setting. */
-function ReadOnly({ label, value, hint }: { label: string; value: string; hint: string }) {
+function ReadOnly({ label, value }: { label: string; value: string }) {
   return (
     <div className="mb-4">
       <p className="mb-1 text-[12px] text-[#7B8FA5]">{label}</p>
@@ -27,14 +27,13 @@ function ReadOnly({ label, value, hint }: { label: string; value: string; hint: 
       <div className="flex h-9 w-full items-center rounded border border-[#E5E7EB] bg-[#F7F9FC] px-2.5 text-[13px] text-[#7B8FA5]">
         {value}
       </div>
-      <p className="mt-1 text-[11px] leading-[1.5] text-[#9CA3AF]">{hint}</p>
     </div>
   );
 }
 
 /** A field whose value falls back to the org-wide setting until this portal overrides it. */
-function Inherited({ label, value, onChange, placeholder, hint }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder: string; hint: string;
+function Inherited({ label, value, onChange, placeholder }: {
+  label: string; value: string; onChange: (v: string) => void; placeholder: string;
 }) {
   /* ⚠️ The badge is the whole point of the row. Without it an inherited value and an overridden one
      look identical — you cannot tell whether you are seeing the global default or a decision
@@ -47,10 +46,6 @@ function Inherited({ label, value, onChange, placeholder, hint }: {
         {!own && <span className="rounded bg-[#F1F5F9] px-1.5 py-0.5 text-[10px] font-medium text-[#7B8FA5]">Inherited</span>}
       </p>
       <TextField value={value} onChange={onChange} placeholder={placeholder} />
-      <p className="mt-1 text-[11px] leading-[1.5] text-[#9CA3AF]">
-        {own ? 'Overridden for this portal.' : 'Using the global default. Type here to override it for this portal only.'}
-        {hint ? ` · ${hint}` : ''}
-      </p>
     </div>
   );
 }
@@ -87,12 +82,10 @@ export function PortalBrandingPanel() {
         <ReadOnly
           label="Company"
           value="Acme Corporation"
-          hint="Enable the multi-company feature to run a separate portal per company."
         />
         <ReadOnly
           label="Portal URL"
           value="https://support.acme.com"
-          hint="The default portal keeps a fixed URL — it is where requesters land when nothing else matches."
         />
 
         <Inherited
@@ -100,7 +93,6 @@ export function PortalBrandingPanel() {
           value={v.title}
           onChange={(x) => set('title', x)}
           placeholder="Support Portal"
-          hint="Shown on the login page"
         />
 
         <Field label="Landing Page for Guest Users">
@@ -112,7 +104,7 @@ export function PortalBrandingPanel() {
         </Field>
 
         <Head>Sign-on</Head>
-        <Field label="Identity Provider" help="Requesters of this portal authenticate against this provider.">
+        <Field label="Identity Provider">
           <SelectField
             value={v.idp}
             onChange={(x) => set('idp', x)}
@@ -133,14 +125,12 @@ export function PortalBrandingPanel() {
           value={v.email}
           onChange={(x) => set('email', x)}
           placeholder="servicedesk@acme.com"
-          hint=""
         />
         <Inherited
           label="Support Contact No."
           value={v.phone}
           onChange={(x) => set('phone', x)}
           placeholder="+91 79 4040 0000"
-          hint=""
         />
 
         <Note>

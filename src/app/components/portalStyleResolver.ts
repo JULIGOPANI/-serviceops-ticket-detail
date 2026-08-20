@@ -266,12 +266,24 @@ export function containerCss(styles: PortalStyles, id: string): React.CSSPropert
     if (r !== undefined) css.borderRadius = `${r}px`;
   }
 
-  const pad = g('padding');
+  /* ⚠️ PADDING IS OWN-ONLY, never resolved through the chain — the same rule height already has.
+     Inherited, a section's 24px landed on its heading, its subtitle, its search box and every card
+     inside it, so setting the banner's left padding indented all of its contents by the same amount
+     ON TOP of moving the band's own edge. Padding is the space between a box and ITS contents; it
+     is meaningless as a statement about somebody else's box, which is exactly why it cannot
+     cascade. `styles[id]` reads only what this node set. */
+  const own = styles[id];
+  const pad = own?.padding;
   if (pad) {
-    css.paddingTop = `${pad.top}px`; css.paddingBottom = `${pad.bottom}px`;
-    css.paddingLeft = `${pad.left}%`; css.paddingRight = `${pad.right}%`;
+    /* ⚠️ PER SIDE, and only where a value exists. Writing all four unconditionally meant an unset
+       side emitted `0`, which beats the element's own class — so setting the top padding of a
+       section removed its side gutters. Undefined here leaves that edge to whatever paints it. */
+    if (pad.top !== undefined) css.paddingTop = `${pad.top}px`;
+    if (pad.bottom !== undefined) css.paddingBottom = `${pad.bottom}px`;
+    if (pad.left !== undefined) css.paddingLeft = `${pad.left}%`;
+    if (pad.right !== undefined) css.paddingRight = `${pad.right}%`;
   } else {
-    const py = g('padY');
+    const py = own?.padY;
     if (py !== undefined) { css.paddingTop = `${py}px`; css.paddingBottom = `${py}px`; }
   }
 

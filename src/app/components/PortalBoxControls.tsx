@@ -164,7 +164,6 @@ export function BorderRow({ width, color, sides, onWidth, onColor, onSides }: {
           <span className="w-[38px] flex-shrink-0"><ColorField value={color} onChange={onColor} /></span>
         </div>
       )}
-      {!adv && width === 0 && <p className="mt-1.5 text-[11px] text-[#9CA3AF]">Width 0 — no border is drawn.</p>}
     </div>
   );
 }

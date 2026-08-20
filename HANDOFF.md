@@ -1,100 +1,92 @@
-# Handoff — 2026-08-19 11:40
+# Handoff — 2026-08-20 11:19
 
 ## Read first
 
-In `CLAUDE.md`, the six newest **Support Portal** bullets: what the panel no
-longer holds, the section end to end, resize part two, Branding and the logo,
-surfaces and text styles, and the icon picker / text toolbar. Between them they
-cover everything this session touched and — more usefully — the trap behind each
-change.
+In `CLAUDE.md`, the six newest **Portal builder** bullets: the conformance
+harness, the layout & alignment model, padding belonging to the painted box,
+`fillCss`, child text nodes, and hidden catalogue elements. Between them they
+cover everything this session touched and the trap behind each change.
+
+Then read **[audit/FINDINGS.md](audit/FINDINGS.md)** — it is the current defect
+list and the plan.
 
 ## What we worked on this session
 
-Continued refining the Support Portal builder: stripped four whole sections out
-of the panels, unified section spacing and fills, rebuilt Branding down to the
-fields that belong to one portal, gave the logo its own layer, and fixed a run of
-bugs where a control existed but wrote to something nothing read back.
+Shifted from building features to **making what exists actually work**. Built an
+automated conformance sweep, researched Duda's real layout model to replace
+guesswork, and fixed the highest-impact defects it found.
 
 ## Completed
 
-- **Panels emptied of what the canvas already does.** Layout and Size removed
-  from every widget (and P2 with Size); Shadow removed from the shared P1 pack and
-  the Table spec; a text child's Alignment accordion removed.
-- **Sections unified**: one padding rhythm (24 / 12 / no margin), fills painting
-  the whole section rather than the inner row, no seam under the hero, and
-  Alignment appearing only once a section has content.
-- **Resize**: the top grip drags the gap above an element (to −120px), both side
-  handles are squares that resize, and the top bar grows by padding instead.
-- **Most Read is responsive** to its own width via `@container` — clean down to
-  ~250px (see Next steps for where it still breaks).
-- **Statuses is a multi-select** with Select all / Clear, replacing five chips.
-- **Branding** cut to the ten fields that belong to this portal, with a live
-  Inherited badge; the **logo** moved to its own layer with an upload container
-  and the shared style pack.
-- **Every UploadZone** shows a 92px chequerboard preview + "Replace image".
-- **Icon picker**: selecting an icon selects the icon; upload is a primary
-  "Upload SVG or PNG" button.
-- **Text toolbar** is white, its colour control is a real button with a
-  Canva-style glyph, and the align buttons are clickable again.
-- **Card fixes**: the icon-top template centres its text, the text-only template
-  works, and action cards / KPIs no longer render inside a second card.
+- **Conformance harness** — `audit/portal-conformance.js`, re-runnable with
+  `await __audit.run()`. Baseline: **27 nodes, ~370 controls, ~60 inert**, triaged
+  in `audit/FINDINGS.md` into four shared causes.
+- **Layout research** — `LAYOUT-ALIGNMENT-SPEC.md`, measured from Duda's DOM.
+  Preset sets, alignment vocabularies, defaults and the empty-section question all
+  answered empirically rather than assumed.
+- **Section presets on built-in bands** (audit cause A4) — the tile now tracks the
+  preset you are on, and a 3-card band offers 3 tiles instead of 2.
+- **Padding lands inside the card** — for placed widgets, added sections and the
+  built-in banner action cards. Dragging a section taller no longer clips.
+- **Featured Services** — card templates added and driving the canvas; Icon group,
+  Divider and `Show icon` removed; icon-top now centres its text.
+- **Contact Us** — every line's label and value editable in the panel and inline.
+- **Inline editing** extended to widget headings, Feedback's title/prompt, Button
+  label, Image caption, Title eyebrow/subtitle, and the icon on placed Action
+  Card / AD Self Service / KPI.
+- **Panel simplification** — Arrangement removed everywhere, Shadow removed from
+  action cards, Icon group removed from Contact Us, accordions open on selection.
+- **Table sheet** is 10 × 10 and fills its dialog; CSV over the cap clips and says so.
+- **Spacer, Advanced Tabs and Media Slider hidden** from the palette, search and seed.
 
 ## In progress
 
-Nothing half-written. Two things are implemented but **unverified end to end** —
-see Next steps 1 and 2.
+Nothing half-written. The audit is the backlog, not a mid-flight change.
 
 ## Next steps
 
-1. **Elements dropped from the Widgets panel land in a built-in row, and that row
-   path renders them without a `<Sel>` wrapper** — so no `el-N` node exists to
-   select. This blocked verification of the toolbar B/I/U click-through and is
-   worth fixing on its own: an element you cannot select is an element you cannot
-   edit. `ColumnBody` already wraps its placed elements; the row path needs the
-   same.
-2. **Text styles from the floating toolbar** — the fix is in (`Sel` spreads
-   `styleOf` for text nodes) but could not be exercised because of 1. Worth a
-   manual click of B on a card subtitle.
-3. **Most Read below ~205px** still overflows; the pressure is the card HEADER
-   (title + count + View all), not the rows. Hiding the count and collapsing to
-   the chevron below ~220px would finish it.
-4. **Undo of a deleted built-in block** still does not restore the block —
-   recorded but not reversed. Text and config restore fine, so it is specific to
-   whatever state the delete path writes.
-5. Carried over: Accordion/List parent selection; per-row table selection (needs
-   `Sel` able to render as `<tr>`); an added section's Columns control does not
-   restructure its `rows`.
+1. **A3 — alignment** (8 nodes). Biggest cluster and the longest-running
+   complaint. Implement against `LAYOUT-ALIGNMENT-SPEC.md` §3, which REPLACES the
+   earlier preset/alignment work rather than extending it — including removing the
+   `hasContent` gate.
+2. **A1 — corner-radius unit select** (12 nodes, almost certainly one shared fix).
+3. **A2 — typography Font select** (6 nodes).
+4. **Extend harness coverage** from 23% — it has swept widgets and sections but
+   not child nodes, columns, page chrome, toolbars, drag/resize or undo.
+5. **Two removal candidates still awaiting a decision** (FINDINGS §D): the
+   empty-state `Show message` option on widgets that have data, and confirming the
+   section `Name` field is correctly inert.
 
 ## Decisions made
 
-- **Two controls for one value is the recurring fault**, and the canvas wins.
-  That single rule is why Layout, Size, Shadow and the text Alignment accordion
-  all left the panel this session.
-- **An element that paints its own surface must be `bare`** — otherwise it gets a
-  second box whose fill and radius nothing can reach.
-- **Alignment is a question about content**, so it does not exist before there is
-  any; `hasContent` is derived per render rather than stored.
-- **Replace, not Remove**, on every image slot — these are always filled, so
-  swapping is the common move and the destructive verb should not be on it.
-- **The section fill belongs to the section**, padding included, or a background
-  reads as a floating rectangle.
-- **The gap above an element is a better question than its top edge** — dragging
-  the top to grow something moves it into the block above.
+- **Audit before fixing.** One re-runnable sweep beats a manual pass, because the
+  next change re-opens the same questions. ~60 defects turned out to be four
+  shared causes, which a widget-by-widget approach would have fixed repeatedly.
+- **Duda's model is measured, not copied wholesale.** We took the axis rule and
+  the preset behaviour; we deliberately skipped "More options" (Items per row /
+  Items Fit) as more configuration than this user base wants.
+- **Hidden, not deleted.** A `hidden` flag keeps specs and renderers intact so
+  existing pages keep working and the decision is one flag to reverse.
+- **Two controls for one value is the recurring fault**, and the canvas wins. That
+  rule is why Arrangement, Shadow, the Contact Us Icon group and `Show icon` all
+  left the panel this session.
+- **Removals are batched for one approval** rather than decided unilaterally.
 
 ## Gotchas & notes
 
-- ⚠️ **The Bash tool strips backslashes inside heredocs.** It bit twice more this
-  session; the second time it compiled `/^sec-\d+$/` to `/^sec-d+$/`, which is a
-  valid regex that silently matches nothing — the Alignment gate looked
-  implemented and did nothing. Write the script with the Write tool, or use
-  backslash-free anchors, or build the backslash with `String.fromCharCode(92)`.
-- ⚠️ **`npm run build` is esbuild only.** Two blank-page runtime errors shipped
-  green this session: a `<Tooltip>` used without an import, and a `useCallback`
-  naming `sections` in its dep array while declared above it (TDZ). Check the
-  browser console after any edit.
-- ⚠️ **A multi-step node script that throws part-way writes nothing** — the
-  earlier successful edits are silently discarded.
-- ⚠️ A JSX comment cannot be the first thing inside a parenthesised `return`.
-- ⚠️ A flex item's basis is its content, so truncation needs `w-0` alongside
-  `flex-1`; and `flex-wrap` lets an item wrap instead of shrinking, which is the
-  opposite of responsive.
+- ⚠️ **`npm run build` is esbuild only — it is NOT a typecheck.** Three runtime
+  crashes shipped green this session: `createPortal` used without an import, refs
+  declared *after* the line that assigns them, and a `<Tooltip>` with no import.
+  Only the browser catches these.
+- ⚠️ **Check the dev server is the right folder.** `localhost:5173` was serving
+  `...--main_Final\...` — a different copy — for an entire session. The symptom
+  (an admin gear with no handler) looked nothing like the cause. Work is served
+  from a second instance on **5174**.
+- ⚠️ **Hand-rolled browser probes cried wolf three times**: an expand loop that
+  toggled accordions *shut* by running twice, a selector matching a wrapper
+  instead of the tile, and reading a node's text while the floating toolbar lives
+  inside it. Drive through the harness, which has guards for all three.
+- ⚠️ **The Bash tool strips backslashes inside heredocs** and mangles nested
+  quotes — write scripts with the Write tool and run the file.
+- ⚠️ One empty section was left behind on the Duda research site
+  (`serviceops-portal-research`); it is unpublished and it is a one-click delete.

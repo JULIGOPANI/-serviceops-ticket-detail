@@ -18,8 +18,29 @@ export const HERO_SPEC: WidgetSpec = {
     { key: 'showSearch', label: 'Show the search bar', control: 'toggle', group: 'Content' },
     { key: 'searchPlaceholder', label: 'Search placeholder', control: 'text', group: 'Content', when: (c) => c.showSearch !== false },
     { key: 'height', label: 'Height', control: 'slider', tab: 'style', group: 'Banner', min: 120, max: 600 },
+    /* ⚠️ Background is TWO TABS — Image or Colour — with image the default, because a banner is a
+       picture first and the colour is what you fall back to. It replaced Fill's None / Colour /
+       Image: "None" was never a real answer for a band whose whole job is to be a backdrop, and
+       having the choice in two places (here and the shared Style pack) meant the two could disagree
+       about what the band was showing. */
     {
-      key: 'contentAlign', label: 'Content alignment', control: 'nine', tab: 'style', group: 'Banner',
+      key: 'bgKind', label: 'Background', control: 'segmented', tab: 'style', group: 'Banner',
+      options: [{ value: 'image', label: 'Image' }, { value: 'color', label: 'Colour' }],
+    },
+    {
+      key: 'bannerImage', label: 'Banner image', control: 'upload', tab: 'style', group: 'Banner',
+      when: (c) => (c.bgKind ?? 'image') === 'image',
+    },
+    {
+      key: 'bannerColor', label: 'Banner colour', control: 'color', tab: 'style', group: 'Banner',
+      when: (c) => c.bgKind === 'color',
+    },
+    /* ⚠️ One toggle, live. "Also behind the whole page" is the move people make once they have a
+       photograph they like — and doing it by hand would mean finding the Page layer and uploading
+       the same file twice, with the two free to drift the moment either is changed. */
+    {
+      key: 'bgWholePage', label: 'Also use behind the whole page', control: 'toggle', tab: 'style', group: 'Banner',
+      help: 'The same background runs under every section, not just the banner.',
     },
     /* Removed on request: Stretch to the page edges, Content max width, Heading colour, and with the
        colour gone the Contrast guard that measured it. The renderer still reads the same cfg keys,
@@ -28,7 +49,10 @@ export const HERO_SPEC: WidgetSpec = {
     { key: 'searchWidth', label: 'Search width', control: 'slider', tab: 'style', group: 'Search', min: 40, max: 100, unit: '%', when: (c) => c.showSearch !== false },
     { key: 'searchRadius', label: 'Search corner radius', control: 'slider', tab: 'style', group: 'Search', min: 0, max: 24, when: (c) => c.showSearch !== false },
   ],
-  packs: ['P1'],
+  /* ⚠️ NO P1. That pack opens with Fill (None / Colour / Image), which is the same question the
+     Background tabs above already ask — two controls for one value, and the loser is whichever you
+     did not touch last. The banner keeps its border, radius and spacing through its own rows. */
+  packs: [],
   /* §7.20 — nothing in the palette can put a banner back, so Duplicate and Delete would be a
      one-way door. The overflow carries Move up / Move down / Reset to default only. */
   noDelete: true,
@@ -43,6 +67,7 @@ export const HERO_SPEC: WidgetSpec = {
     searchPlaceholder: 'How can we help you?',
     fullBleed: false,
     height: 260, contentAlign: 'center', contentMaxWidth: 70,
+    bgKind: 'image', bannerColor: '#3D8BD0', bgWholePage: false,
     headingColor: '#FFFFFF', searchWidth: 70, searchRadius: 4,
     // §7.20's search sub-element.
     searchScope: 'knowledge', searchSuggestions: true,
@@ -84,8 +109,20 @@ export const SECTION_SPEC: WidgetSpec = {
        the page — an effect nobody was asking a full-width section for, sitting in the same list as
        the fill that actually changes how the page reads. */
     accordions: [
+      /* ⚠️ Layout is BACK on the section, because it now does something. It left when its only rows
+         were a column count the canvas already set and an alignment nothing read; what replaces it
+         is a preset row that rewrites the section's shape and reflows its contents, with the two
+         alignment rows underneath following whichever axis that shape produced. */
       {
-        id: 'style', open: true,
+        id: 'layout', open: true,
+        fields: [
+          { key: 'preset', label: 'Presets', control: 'sectionPreset' },
+          { key: 'distribute', label: 'Content alignment', control: 'distribute' },
+          { key: 'valign', label: '', control: 'valign' },
+        ],
+      },
+      {
+        id: 'style',
         fields: [
           { key: 'fill', label: 'Fill', control: 'segmented',
             options: [{ value: 'none', label: 'None' }, { value: 'color', label: 'Colour' }, { value: 'image', label: 'Image' }] },
@@ -96,17 +133,10 @@ export const SECTION_SPEC: WidgetSpec = {
         ],
       },
       { id: 'spacing', spacing: 'both' },
-      /* 4. ⚠️ Alignment appears only once the section HAS something to align. An empty band offering
-         "align the contents left" is a control with no referent — and which axis even applies is a
-         property of what you put in it, so the question cannot be answered before then. */
-      {
-        id: 'alignment',
-        when: (c) => c.hasContent === true,
-        fields: [
-          { key: 'distribute', label: 'Content alignment', control: 'distribute' },
-          { key: 'valign', label: 'Columns alignment', control: 'valign', divider: true },
-        ],
-      },
+      /* ⚠️ There is NO separate Alignment accordion any more. It held the same two rows Layout
+         holds, writing the same two keys — so a section had two Content-alignment controls that
+         could show different things depending on which one you had touched last. They belong with
+         the preset, because the preset is what decides which axis the words even refer to. */
     ],
   },
   noDelete: true,
@@ -116,7 +146,7 @@ export const SECTION_SPEC: WidgetSpec = {
   /* ⚠️ `bg` needs a default of its own. Without one the panel's colour field fell back to its
      control default while the canvas fell back to white — so the swatch said one colour and the
      band painted another, and the fill looked broken when it was only unset. */
-  defaults: { name: 'New section', cardTemplate: 'left', distribute: 'start', valign: 'start', colGap: 16, fill: 'none', bg: '#FFFFFF', borderWidth: 0, borderColor: '#E5E7EB', radius: 8, minHeight: 0 },
+  defaults: { name: 'New section', cardTemplate: 'left', colGap: 16, fill: 'none', bg: '#FFFFFF', borderWidth: 0, borderColor: '#E5E7EB', radius: 8, minHeight: 0 },
 };
 
 /** L2 — a column owns its width and the alignment of the blocks inside it. Nothing else (§7.21). */

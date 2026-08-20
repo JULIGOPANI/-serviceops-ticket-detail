@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react';
 import { Image as ImageIcon, Search, Star } from 'lucide-react';
 import { PORTAL_ELEMENTS } from './supportPortalData';
-import { renderSpec } from './portalPageModel';
+import { ACTION_TYPES, fillCss, renderSpec } from './portalPageModel';
 import type { PlacedElement } from './portalPageModel';
 import { COLLECTION_RENDERERS } from './PortalCollectionRender';
+import { useCanvas } from './PortalCanvas';
+import { containerCss } from './portalStyleResolver';
 import { shadowCss } from './PortalBoxControls';
 import { LineMark } from './PortalLineStyles';
 import { Sel } from './PortalCanvas';
@@ -20,9 +22,49 @@ import type { IconChoice } from './PortalIconPicker';
 
 const empty = 'text-[13px] text-[#9CA3AF]';
 
-/** Card-shaped elements get a surface; everything else sits directly on the section. */
-function Surface({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-lg border border-[#E5E7EB] bg-white p-4">{children}</div>;
+/** The chosen container styling and nothing else — no resting classes, so an element that has
+ *  set none of it is untouched. Used where a widget paints its own chrome and only needs the
+ *  block-level Fill / Border / Radius laid over the top. */
+function StyledBox({ children, id }: { children: React.ReactNode; id: string }) {
+  const { styles } = useCanvas();
+  const css = containerCss(styles ?? {}, id);
+  return Object.keys(css).length ? <div style={css}>{children}</div> : <>{children}</>;
+}
+
+/** Card-shaped elements get a surface; everything else sits directly on the section.
+ *
+ * ⚠️ It resolves from STYLES, not from widget config. The P1 pack writes bgFill / bg / radius /
+ * borderMode with setStyle, so a Surface reading cfg.fill and cfg.radius was looking in the wrong
+ * store under the wrong names — which is why Fill, Border and Corner radius were storable and
+ * invisible on every card-shaped element. containerCss already knows how to turn those keys into
+ * CSS, and it deliberately emits nothing for values nobody chose, so an untouched element keeps
+ * exactly the resting classes below. */
+function Surface({ children, id }: { children: React.ReactNode; id: string }) {
+  const { styles } = useCanvas();
+  /* ⚠️ Padding and height come from the node's own style and land HERE, on the painted box. Sel
+     deliberately withholds them for exactly this reason — see paintsOwnSurface. `minHeight` rather
+     than `height` so a card asked to be taller grows and its contents stay laid out inside it,
+     instead of the card keeping its size while a wrapper crops it. */
+  const own = styles?.[id] ?? {};
+  const pad = own.padding;
+  const inner: React.CSSProperties = {
+    ...(pad?.top !== undefined ? { paddingTop: pad.top } : {}),
+    ...(pad?.bottom !== undefined ? { paddingBottom: pad.bottom } : {}),
+    ...(pad?.left !== undefined ? { paddingLeft: `${pad.left}%` } : {}),
+    ...(pad?.right !== undefined ? { paddingRight: `${pad.right}%` } : {}),
+    ...(own.height !== undefined ? { minHeight: own.height } : {}),
+  };
+  const css = { ...containerCss(styles ?? {}, id), ...inner };
+  const cls = [
+    css.borderRadius === undefined ? "rounded-lg" : "",
+    css.borderWidth === undefined ? "border border-[#E5E7EB]" : "",
+    css.background === undefined && css.backgroundColor === undefined ? "bg-white" : "",
+    /* The resting 16px only while nobody has set their own — otherwise the class would win on the
+       sides the slider left alone and the two would disagree edge by edge. */
+    pad ? "" : "p-4",
+    "flex flex-col",
+  ].filter(Boolean).join(" ");
+  return <div className={cls} style={css}>{children}</div>;
 }
 
 /* The four spec-driven element types that render from their own config rather than the generic
@@ -36,6 +78,8 @@ const BTN_SIZE: Record<string, string> = { sm: 'h-7 px-3 text-[12px]', md: 'h-9 
    exists to make unnecessary. The suffix matches the config key it writes. */
 function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, glyph: React.ReactNode, nodeId: string) {
   if (!cfg) return null;
+  /* eslint-disable-next-line react-hooks/rules-of-hooks -- called unconditionally from one caller. */
+  const { enabled, select, pickIcon } = useCanvas();
   const T = ({ part, children, ...rest }: { part: string; children: React.ReactNode } & React.ComponentProps<typeof Sel>) =>
     <Sel id={`${nodeId}-${part}`} {...rest}>{children}</Sel>;
 
@@ -97,25 +141,50 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
      Card that looked different from New Incident sitting three inches above it would read as a
      second, worse kind of card — so this is the same surface, the same icon badge and the same
      title/subtitle pair the quick row renders. */
-  if (type === 'x-action-card') {
+  /* ⚠️ ALL the action types, not just the palette's custom one. Same branch, same card, same
+     config keys — which is what makes AD Self Service identical to Request Service rather than
+     merely described as identical. */
+  if (ACTION_TYPES.has(type)) {
     const top = cfg.iconPos === 'top';
     const centre = cfg.contentAlign === 'center' || (top && (cfg.contentAlign ?? 'start') === 'start');
     const bw = Number(cfg.borderWidth ?? 0);
     return (
       <div
         style={{
-          background: cfg.fill === 'color' ? String(cfg.bg ?? '#FFFFFF') : '#FFFFFF',
-          borderRadius: Number(cfg.radius ?? 8),
-          ...(bw > 0 ? { border: `${bw}px solid ${String(cfg.borderColor ?? '#E5E7EB')}` } : { border: '1px solid #E5E7EB' }),
+          /* ⚠️ Through the SAME fillCss the built-in cards use. Hand-rolled here, this branch read
+             `fill === 'color'` and never looked at `bgImage` at all — so the Image option in its own
+             Style accordion did nothing, on the one element whose whole job is to be a tile. */
+          /* LONGHAND defaults. A `background` or `border` shorthand here is expanded by the
+             browser into its longhands, so any longhand arriving after it — even an absent one —
+             wipes what the shorthand set. */
+          backgroundColor: '#FFFFFF',
+          borderWidth: 1, borderStyle: 'solid', borderColor: '#E5E7EB',
+          /* No radius here — `rounded-lg` on the class list, exactly as the built-in quick cards
+             have it, so an untouched card is 10px on both paths. fillCss still overrides it the
+             moment a fill is chosen, which is the only time the panel offers the control. */
+          ...fillCss(cfg),
+          ...(bw > 0 ? { borderWidth: bw, borderStyle: 'solid', borderColor: String(cfg.borderColor ?? '#E5E7EB') } : {}),
           minHeight: Number(cfg.minHeight) || undefined,
         }}
-        className={`flex h-full gap-3 p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_12px_rgba(16,24,40,0.06)] ${
+        className={`flex h-full gap-3 rounded-lg p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_12px_rgba(16,24,40,0.06)] ${
           top ? 'flex-col' : 'items-center'
         } ${centre ? 'items-center text-center' : ''}`}
       >
-        <span className="flex size-11 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#475467]">
-          {glyph ?? <Star size={22} />}
-        </span>
+        {/* ⚠️ The icon is its own LAYER and opens the picker in place, exactly as the built-in
+            quick-action cards do. On a placed card it was the one part you could see and not touch:
+            you had to know it lived in the panel, which is the knowledge a canvas exists to remove.
+            Selecting it and opening the grid are ONE gesture, because an icon has exactly one thing
+            to change. */}
+        <Sel id={`${nodeId}-icon`} className="flex-shrink-0">
+          <span
+            role={enabled ? 'button' : undefined}
+            onClick={enabled ? (ev) => { ev.stopPropagation(); select(`${nodeId}-icon`); pickIcon(nodeId, (ev.currentTarget as HTMLElement).getBoundingClientRect()); } : undefined}
+            title={enabled ? 'Click to change this icon' : undefined}
+            className="flex size-11 items-center justify-center rounded bg-[#F1F5F9] text-[#475467]"
+          >
+            {glyph ?? <Star size={22} />}
+          </span>
+        </Sel>
         <span className="min-w-0 flex-1">
           <T part="title" className="block">
             <span className="block truncate text-[16px] font-semibold text-[#364658]">{String(cfg.title ?? 'Action card')}</span>
@@ -130,7 +199,7 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
 
   if (type === 'b-button') {
     const style = String(cfg.style ?? 'primary');
-    const label = String(cfg.label ?? 'Button');
+    const label = <T part="label">{String(cfg.label ?? 'Button')}</T>;
     const common = `inline-flex items-center justify-center gap-2 font-medium ${BTN_SIZE[String(cfg.size ?? 'md')]} ${cfg.fullWidth ? 'w-full' : ''}`;
     /* ⚠️ The fallback is the THEME's variable, not a literal: an untouched button has to follow the
        theme's button style, while one that set its own radius keeps it. A hard 6 made every button
@@ -155,7 +224,7 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
     };
     let btn: ReactNode;
     if (style === 'icon') {
-      btn = <span title={label} style={{ ...radius, ...face, background: fill, color: text }} className="inline-flex size-9 items-center justify-center">{glyph ?? '★'}</span>;
+      btn = <span title={String(cfg.label ?? 'Button')} style={{ ...radius, ...face, background: fill, color: text }} className="inline-flex size-9 items-center justify-center">{glyph ?? '★'}</span>;
     } else if (style === 'link') {
       btn = <span style={{ ...face, color: text }} className="underline">{glyph}{label}</span>;
     } else if (style === 'outline') {
@@ -193,7 +262,7 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
           }}
           className="inline-block w-full object-cover"
         />
-        {!!cfg.caption && <figcaption className="mt-1.5 text-[12px] text-[#7B8FA5]">{String(cfg.caption)}</figcaption>}
+        {!!cfg.caption && <figcaption className="mt-1.5 text-[12px] text-[#7B8FA5]"><T part="caption">{String(cfg.caption)}</T></figcaption>}
       </figure>
     );
   }
@@ -204,7 +273,14 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
     return (
       <div className={`flex gap-3 ${top ? 'flex-col' : 'items-center'}`}>
         {!noIcon && (
-          <span className="flex size-11 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#475467]">{glyph ?? '#'}</span>
+          <Sel id={`${nodeId}-icon`} className="flex-shrink-0">
+            <span
+              role={enabled ? 'button' : undefined}
+              onClick={enabled ? (ev) => { ev.stopPropagation(); select(`${nodeId}-icon`); pickIcon(nodeId, (ev.currentTarget as HTMLElement).getBoundingClientRect()); } : undefined}
+              title={enabled ? 'Click to change this icon' : undefined}
+              className="flex size-11 items-center justify-center rounded bg-[#F1F5F9] text-[#475467]"
+            >{glyph ?? '#'}</span>
+          </Sel>
         )}
         <span className="min-w-0">
           <span style={{ fontSize: `${Math.round((16 * Number(cfg.numberSize ?? 180)) / 100)}px`, color: String(cfg.numberColor ?? '#364658') }} className="block font-semibold leading-none">12</span>
@@ -219,7 +295,7 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
   return null;
 }
 
-export function PortalPlacedElement({ item, icon, text, cfg }: {
+function PlacedBody({ item, icon, text, cfg }: {
   item: PlacedElement;
   icon?: IconChoice;
   text?: { title?: string; desc?: string };
@@ -237,10 +313,28 @@ export function PortalPlacedElement({ item, icon, text, cfg }: {
   /* A collection widget draws itself — it owns items, arrangement and its own chrome, so it goes
      straight onto the section rather than inside the generic card surface. */
   const Collection = COLLECTION_RENDERERS[item.type];
-  if (Collection && cfg) return <Collection nodeId={item.id} cfg={cfg} glyph={glyph} />;
+  /* ⚠️ Wrapped in StyledBox, not returned bare. A collection owns its ITEMS and their arrangement,
+     which is why it does not sit inside the generic Surface — but Fill, Border and Corner radius
+     are statements about the block as a whole, and returning the renderer straight out meant the
+     Style pack wrote those keys for eight widgets that never read one of them. StyledBox emits only
+     what a human actually chose, so an untouched collection renders exactly as it did. */
+  /* ⚠️ A DATA widget gets the same white card as every other data widget. Announcements and Contact
+     Us were rendering flat onto the grey page beside My Requests and Pending Approvals, which sit in
+     white cards — so two widgets doing the identical job looked like different kinds of thing, and
+     the page had no consistent edge between one block and the next.
+     ⚠️ Group, not type: what earns a card is being a panel of DATA (Live data and Custom), which is
+     also the rule the palette now sorts by. A Divider, a Spacer, a Title or an Image is a collection
+     renderer too, and a white card around a horizontal rule would be nonsense — those keep the bare
+     StyledBox. Action Card and KPI paint their own surface and are excluded for the older reason:
+     they would end up as a card inside a card. */
+  const dataWidget = (def?.group === 'Live data' || def?.group === 'Custom') && !renderSpec(item.type).bare;
+  if (Collection && cfg) {
+    const drawn = <Collection nodeId={item.id} cfg={cfg} glyph={glyph} />;
+    return dataWidget ? <Surface id={item.id}>{drawn}</Surface> : <StyledBox id={item.id}>{drawn}</StyledBox>;
+  }
 
   const configured = specDrivenBody(item.type, cfg, glyph, item.id);
-  if (configured) return spec.bare ? configured : <Surface>{configured}</Surface>;
+  if (configured) return spec.bare ? configured : <Surface id={item.id}>{configured}</Surface>;
 
   /* Once an icon or a title is set, the element stops being a placeholder and renders what it was
      given — the same component, just no longer blank. */
@@ -258,7 +352,7 @@ export function PortalPlacedElement({ item, icon, text, cfg }: {
         </span>
       </div>
     );
-    return spec.bare ? body : <Surface>{body}</Surface>;
+    return spec.bare ? body : <Surface id={item.id}>{body}</Surface>;
   }
 
   switch (item.type) {
@@ -321,7 +415,7 @@ export function PortalPlacedElement({ item, icon, text, cfg }: {
     /* ── card-shaped: a real surface, still empty inside ── */
     case 'x-kpi':
       return (
-        <Surface>
+        <Surface id={item.id}>
           <div className="text-[12px] text-[#9CA3AF]">Metric</div>
           <div className="mt-1 text-[26px] font-semibold text-[#C3CBD6]">—</div>
         </Surface>
@@ -329,7 +423,7 @@ export function PortalPlacedElement({ item, icon, text, cfg }: {
 
     case 'b-table':
       return (
-        <Surface>
+        <Surface id={item.id}>
           <div className="grid grid-cols-3 gap-2 border-b border-[#F0F2F5] pb-2 text-[12px] font-semibold text-[#9CA3AF]">
             <span>Column</span><span>Column</span><span>Column</span>
           </div>
@@ -349,7 +443,7 @@ export function PortalPlacedElement({ item, icon, text, cfg }: {
      exactly what these render before they are pointed at data. */
   if (!spec.bare) {
     return (
-      <Surface>
+      <Surface id={item.id}>
         <div className="text-[15px] font-semibold text-[#9CA3AF]">{label}</div>
         <div className="mt-3 flex items-center justify-center rounded border border-dashed border-[#E5E7EB] py-8">
           <span className={empty}>No data configured</span>
@@ -363,4 +457,19 @@ export function PortalPlacedElement({ item, icon, text, cfg }: {
       <span className={empty}>{label}</span>
     </div>
   );
+}
+
+/* ⚠️ ONE wrapper for every element that has no box of its own. renderSpec calls most things
+   `bare` — text, collections, images, tabs, the action tiles — meaning they sit straight on the
+   section with no surface, so the Style pack could offer Fill, Border and Corner radius to eleven
+   widgets that had nothing to apply them to. A non-bare element already paints those through
+   Surface, and a text node through Sel, so wrapping either would draw the border twice; this covers
+   exactly the gap between them. StyledBox emits only what a human chose, so nothing untouched moves. */
+export function PortalPlacedElement(props: React.ComponentProps<typeof PlacedBody>) {
+  const spec = renderSpec(props.item.type);
+  const body = <PlacedBody {...props} />;
+  /* A collection wraps itself (above), so wrapping again here would draw its border twice. */
+  return spec.bare && spec.kind !== "text" && !COLLECTION_RENDERERS[props.item.type]
+    ? <StyledBox id={props.item.id}>{body}</StyledBox>
+    : body;
 }

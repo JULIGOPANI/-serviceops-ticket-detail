@@ -16,7 +16,7 @@ import { AddSectionSeam, ColumnAdders, Sel, draggedElement, styleOf, useCanvas }
 import { PAGE_ID, chosen, roleStyle } from './portalStyleResolver';
 import { shadowCss } from './PortalBoxControls';
 import { PortalPlacedElement } from './PortalPlacedElement';
-import { DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, colId, nodePath } from './portalPageModel';
+import { DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, fillCss, colId, nodePath } from './portalPageModel';
 import type { CustomSection, PlacedElement, PortalPageContent } from './portalPageModel';
 import { iconNode, isImageChoice } from './PortalIconPicker';
 import type { IconChoice } from './PortalIconPicker';
@@ -118,8 +118,13 @@ function ColumnBody({ id, item, live, icons, placedText, cfg }: { id: string; it
         e.stopPropagation();
         dropInColumn(id, type);
       }}
-      style={styleOf(styles, id)}
-      className={`relative flex h-full flex-col justify-center rounded transition-colors ${
+      /* ⚠️ No styleOf here either — Sel applies the node style once, above. */
+      /* ⚠️ justify comes from the column's OWN setting. It was hard-coded to `justify-center`, so the
+         spec's "Align the blocks inside" (Top / Middle / Bottom) wrote a value nothing read and every
+         column centred its contents whatever you picked. */
+      className={`relative flex h-full flex-col ${
+        ({ start: 'justify-start', center: 'justify-center', end: 'justify-end' } as Record<string, string>)[String(cfg?.(id)?.blockAlign ?? 'center')] ?? 'justify-center'
+      } rounded transition-colors ${
         item ? '' : 'min-h-[120px] items-center border border-dashed'
       } ${over ? 'border-[#3D8BD0] bg-[#EBF5FF]' : item ? '' : 'border-[#C3CBD6]'}`}
     >
@@ -170,22 +175,8 @@ export const SECTION_PAD = 'px-6 py-3';
    a white gutter — which is not what "give this section a background" means to anyone. On the
    wrapper it runs the full width of the band and the padding sits inside the colour, where it reads
    as breathing room rather than a margin. */
-export function fillCss(c: Record<string, unknown>): React.CSSProperties {
-  const fill = String(c.fill ?? 'none');
-  const width = Number(c.borderWidth ?? 0);
-  return {
-    background: fill === 'color' ? String(c.bg ?? '#FFFFFF') : undefined,
-    backgroundImage: fill === 'image' && c.bgImage ? `url(${String(c.bgImage)})` : undefined,
-    backgroundSize: fill === 'image' ? 'cover' : undefined,
-    backgroundPosition: fill === 'image' ? 'center' : undefined,
-    /* ⚠️ Border and radius only once there IS a fill — the panel gates its own fields the same way,
-       and a 1px rule around a transparent band is a box drawn round nothing. */
-    borderWidth: fill !== 'none' && width ? width : undefined,
-    borderStyle: fill !== 'none' && width ? 'solid' : undefined,
-    borderColor: fill !== 'none' && width ? String(c.borderColor ?? '#E5E7EB') : undefined,
-    borderRadius: fill !== 'none' ? Number(c.radius ?? 0) || undefined : undefined,
-  };
-}
+/* Re-exported from the model so the many call sites here keep their import. */
+export { fillCss };
 
 function AddedSection({ section, icons, placedText, cfg }: { section: CustomSection; icons?: Record<string, IconChoice | undefined>; placedText?: Record<string, { title?: string; desc?: string }>; cfg?: (id: string) => Record<string, unknown> }) {
   const { styles, selectedId, hoverId } = useCanvas();
@@ -202,7 +193,9 @@ function AddedSection({ section, icons, placedText, cfg }: { section: CustomSect
           only change here is that the default is bare rather than a card.
           ⚠️ Padding stays. Without it a dropped element would touch the page edge, and the page's
           own gutter is not the section's to borrow. */}
-      <div style={styleOf(styles, section.id)}>
+      {/* ⚠️ No style here. This inner box was spreading the section's OWN style a second time, so
+          every padding value was applied once around the section and once again inside it. */}
+      <div>
         <div className="flex flex-col gap-4">
           {section.rows.map((row, r) => (
             <div key={r} className="flex gap-4">
@@ -432,6 +425,11 @@ function CardShell({ nodeId, titleNodeId, title, count, cfg = EMPTY_CFG, childre
 }) {
   const { styles } = useCanvas();
   const rid = nodeId ?? titleNodeId ?? '';
+  /* ⚠️ Every card heading is a node, whether or not the call site remembered to ask. The editable
+     title used to depend on a caller passing titleNodeId, so the three cards that did got inline
+     editing and My Assets and My CIs — which go through EmptyCard — did not. Same words, same job,
+     two behaviours decided by a prop nobody could see. Derived from the card id instead. */
+  const titleId = titleNodeId ?? (nodeId ? nodeId + '-title' : undefined);
   const titleCss = rid ? roleStyle(styles, rid, 'title') : undefined;
   const linkCss = rid ? roleStyle(styles, rid, 'link') : undefined;
   const showCount = cfg.showCount !== false;
@@ -446,9 +444,9 @@ function CardShell({ nodeId, titleNodeId, title, count, cfg = EMPTY_CFG, childre
   return (
     <div className="@container flex min-w-0 flex-col">
       <div className="flex items-center gap-2 px-4 pb-2.5 pt-3.5">
-        {titleNodeId ? (
-          <Sel id={titleNodeId} className="min-w-0 flex-1 px-0.5">
-            <span style={{ ...titleCss, ...styleOf(styles, titleNodeId) }} className="block truncate text-[15px] font-semibold text-[#364658]">{title}</span>
+        {titleId ? (
+          <Sel id={titleId} className="min-w-0 flex-1 px-0.5">
+            <span style={{ ...titleCss, ...styleOf(styles, titleId) }} className="block truncate text-[15px] font-semibold text-[#364658]">{title}</span>
           </Sel>
         ) : (
           <span style={titleCss} className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[#364658]">{title}</span>
@@ -515,6 +513,19 @@ function Row({ nodeId, children }: { nodeId: string; children: ReactNode }) {
 export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CONTENT, sections = [], icons, placedText, blockOrder = DEFAULT_BLOCK_ORDER, rowOrder = DEFAULT_ROW_ORDER, removed = [], rowExtras, cfg }: SupportPortalPreviewProps) {
   const { styles, enabled, select, pickIcon } = useCanvas();
   const st = (id: string) => styleOf(styles, id);
+  /* A node's OWN padding and dragged height, for the elements that paint their own card and
+     therefore have to apply both themselves. Vertical is px, horizontal is %, as everywhere else. */
+  const padCss = (id: string): React.CSSProperties => {
+    const pad = styles[id]?.padding;
+    const h = styles[id]?.height;
+    return {
+      ...(pad?.top !== undefined ? { paddingTop: pad.top } : {}),
+      ...(pad?.bottom !== undefined ? { paddingBottom: pad.bottom } : {}),
+      ...(pad?.left !== undefined ? { paddingLeft: `${pad.left}%` } : {}),
+      ...(pad?.right !== undefined ? { paddingRight: `${pad.right}%` } : {}),
+      ...(h !== undefined ? { minHeight: h } : {}),
+    };
+  };
   /** A widget's resolved config, or its rendering defaults when the builder passes none. */
   const wc = (id: string) => cfg?.(id) ?? EMPTY_CFG;
   /* §7.22 — the page layer. Its primary colour drives the hero gradient, so a preset visibly
@@ -540,6 +551,19 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
      ⚠️ The max-width is applied HERE, with margins keyed to the same alignment: a capped line that
      kept auto margins would centre itself no matter which button you pressed, which is precisely
      the bug this replaces. */
+  /* The banner's background, resolved once — the band and (when asked) the page share it. */
+  const heroCfg = wc('hero');
+  const heroImg = String(heroCfg.bannerImage ?? '');
+  /* ⚠️ Colour REPLACES the image, it does not tint it. `background` alone leaves any
+     `background-image` already on the box in place, so picking a colour painted UNDER the artwork
+     and came out as a tinted photograph — which is not what choosing "Colour" means. Setting
+     `backgroundImage: 'none'` explicitly is what makes the two tabs mutually exclusive. */
+  const heroBg: React.CSSProperties = heroCfg.bgKind === 'color'
+    ? { background: String(heroCfg.bannerColor ?? '#3D8BD0'), backgroundImage: 'none' }
+    : heroImg
+      ? { backgroundImage: `url(${heroImg})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+      : { background: `linear-gradient(135deg, ${pageAccent} 0%, #050B18 100%)` };
+
   const heroLine = (nodeId: string): React.CSSProperties => {
     const own = styles[nodeId]?.align;
     const a = String(own ?? heroAlignX(String(wc('hero').contentAlign ?? 'center')));
@@ -552,17 +576,36 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
     };
   };
 
-  const secBox = (id: string): React.CSSProperties => ({
+  /* ⚠️ Which CSS property an alignment writes DEPENDS ON THE AXIS. On a row of columns "Content
+     alignment" runs along the main axis (justify) and "Columns alignment" across it (align); the
+     moment the section is stacked those two swap, because the main axis is now vertical. Mapping
+     them unconditionally meant every control on a stacked section drove the wrong direction — the
+     row that said "Left" moved things up. */
+  const secRowAxis = (id: string, fallback: number) => secCols(id, fallback) > 1;
+  /* ⚠️ A card with flex-grow 1 fills every pixel, so there is no free space and justify-content can
+     do NOTHING — which is why Content alignment looked dead however it was wired. Packing the row
+     is therefore part of choosing an alignment that is not "fill", not a separate setting: the
+     class goes on exactly when the chosen value needs room to move within. */
+  const secPacked = (id: string, fallback: number) => {
+    const rowAxis = secRowAxis(id, fallback);
+    return rowAxis && String(wc(id).distribute ?? 'start') !== 'start';
+  };
+  const secBox = (id: string, fallback = 3): React.CSSProperties => ({
     paddingTop: wc(id).padTop === undefined ? undefined : Number(wc(id).padTop) || undefined,
     paddingBottom: wc(id).padBottom === undefined ? undefined : Number(wc(id).padBottom) || undefined,
     /* Columns alignment — how the cards sit on the CROSS axis. `stretch` is the odd one out: it is
        the flex default the row already has, so it is expressed as `undefined` rather than a value. */
-    alignItems: ({ start: 'flex-start', center: 'center', end: 'flex-end', stretch: undefined } as
-      Record<string, string | undefined>)[String(wc(id).valign ?? 'stretch')],
+    flexDirection: secRowAxis(id, fallback) ? undefined : 'column',
+    alignItems: ({ start: 'flex-start', center: 'center', end: 'flex-end', stretch: undefined, between: undefined, around: undefined } as
+      Record<string, string | undefined>)[String(
+        secRowAxis(id, fallback) ? (wc(id).valign ?? 'stretch') : (wc(id).distribute ?? 'stretch'),
+      )],
     /* Content alignment — how the cards distribute along the MAIN axis. Inert until now: the
        control wrote the key and nothing read it. */
-    justifyContent: ({ start: 'flex-start', center: 'center', end: 'flex-end', between: 'space-between', around: 'space-around' } as
-      Record<string, string | undefined>)[String(wc(id).distribute ?? 'start')],
+    justifyContent: ({ start: 'flex-start', center: 'center', end: 'flex-end', between: 'space-between', around: 'space-around', stretch: undefined } as
+      Record<string, string | undefined>)[String(
+        secRowAxis(id, fallback) ? (wc(id).distribute ?? 'start') : (wc(id).valign ?? 'start'),
+      )],
     /* Size › Height. minHeight not height, so a band still grows when its content needs more room —
        a fixed height would clip the cards the moment someone raised the icon size. */
     minHeight: Number(wc(id).minHeight) || undefined,
@@ -621,6 +664,10 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
        unbreakable content — the "AST-13: DESKTOP-5JPPI6F" pill, a long subject — sets a min-content
        floor above the flex basis, and the third card wraps to its own line however many columns the
        section says it has. */
+    /* ⚠️ styleOf BELONGS HERE. Every widget panel writes its Spacing and Size into styles[id],
+       but this call site spread only the flex share and the order — so padding, margin, width and
+       height set on a card were stored and never read, and the controls looked inert while working
+       perfectly. Spread before order, which is this row own concern and must win. */
     <Sel id={id} className="min-w-0 rounded-lg border border-[#E5E7EB] bg-white" style={{ ...(cols ? share(cols, gap) : {}), order }}>
       {/* No overflow-hidden: a card must be free to grow past a dragged height rather than clip
           its own rows. The radius is on the Sel wrapper, which keeps the corners. */}
@@ -656,7 +703,13 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
       <div className="flex min-h-0 flex-1">
         <PortalRail cfg={wc("rail")} />
 
-        <div className="min-w-0 flex-1 bg-[#F4F6FA]">
+        {/* ⚠️ The page takes the SAME resolved background, not a second copy of the setting — one
+            upload, two surfaces, and no way for them to drift. `bg-[#F4F6FA]` stays as the class so
+            an untouched page is unchanged; the inline style only exists while the toggle is on. */}
+        <div
+          className="min-w-0 flex-1 bg-[#F4F6FA]"
+          style={heroCfg.bgWholePage === true ? { ...heroBg, backgroundAttachment: 'fixed' } : undefined}
+        >
           {/* ── Hero ── */}
           {/* Full bleed ignores the page's side inset (§7.20); the 9-point picker places the
               content block, and the heading colour is the one the contrast guard measures. */}
@@ -669,12 +722,17 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
             <div
               className="relative flex flex-col justify-center overflow-hidden pb-[86px]"
               style={{
-                background: `linear-gradient(135deg, ${pageAccent} 0%, #050B18 100%)`,
+                /* ⚠️ The tabs decide, in one place. Image wins when one is uploaded; Colour paints
+                   flat; and with neither the band keeps its gradient, so a portal nobody has touched
+                   still looks designed rather than blank. */
+                ...heroBg,
                 minHeight: Number(wc('hero').height ?? 260),
                 ...st('hero'),
               }}
             >
-              <HeroArtwork />
+              {/* The decorative line-work belongs to the DEFAULT band. Over a chosen colour it reads
+                  as dirt on the colour, and over a photograph as a scratch on the photograph. */}
+              {heroCfg.bgKind !== 'color' && !heroImg && <HeroArtwork />}
               {/* ⚠️ FULL WIDTH. The block used to be capped at 70% and centred with auto margins,
                   which meant a heading aligned left landed at the left edge of that centred column —
                   15% in from the banner — and no setting could reach the banner's own edges. The cap
@@ -739,7 +797,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
             {/* ⚠️ The hero overlap is the ONE margin that survives: it is a relationship with the
                 banner above it, not spacing of its own, and it only applies while the row is first. */}
             <Sel id="quick" className={`relative z-10 ${SECTION_PAD} ${blockOrder.indexOf("quick") === 0 ? "-mt-[62px]" : ""}`} style={{ order: slot("quick"), ...fillCss(wc('quick')) }}>
-              <RowDrop rowId="quick" className="flex flex-wrap" style={{ gap: secGap("quick"), ...secBox("quick") }}>
+              <RowDrop rowId="quick" className={`flex flex-wrap${secPacked("quick", 4) ? " portal-row-packed" : ""}`} style={{ gap: secGap("quick"), ...secBox("quick", 4) }}>
                 {quickCards.map((a) => {
                   const c = wc(a.id);
                   /* ⚠️ The SECTION's Card template is the row's shape and wins over the card's own
@@ -771,7 +829,17 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                   return (
                     <Sel key={a.id} id={a.id} className="min-w-0 rounded-lg" style={share(secCols("quick", content.cols.quick), secGap("quick"))}>
                       <div
-                        style={st(a.id)}
+                        /* ⚠️ fillCss AFTER st(): the card's Style accordion writes fill / colour /
+                           image / border / radius into its CONFIG, and this div was reading only the
+                           style store — so every one of those controls saved a value the canvas never
+                           looked at. Config last, because it is the more specific decision. */
+                        /* ⚠️ padCss LAST, and `p-4` KEPT. Sel withholds padding for this node
+                           (paintsOwnSurface) so it has to land here — but dropping the class the
+                           moment any side was set collapsed the sides the slider had NOT touched to
+                           zero: setting a left inset silently removed the card's 16px top and
+                           bottom. An inline side beats the class on its own edge and leaves the
+                           other three resting where they were, which is what "set one side" means. */
+                        style={{ ...st(a.id), ...fillCss(c), ...padCss(a.id), minHeight: Number(c.minHeight) || undefined }}
                         className={`flex h-full gap-3 rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_12px_rgba(16,24,40,0.06)] ${
                           top ? 'flex-col' : iconRight ? 'flex-row-reverse items-center' : 'items-center'
                         } ${centre ? 'items-center text-center' : ''}`}
@@ -855,7 +923,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
             {/* ── Work row ── */}
             {/* ── Work row ── one section, three cards, full width. */}
             <Sel id="work" className={SECTION_PAD} style={{ order: slot("work"), ...fillCss(wc('work')) }}>
-              <RowDrop rowId="work" className="flex flex-wrap" style={{ gap: secGap("work"), ...secBox("work") }}>
+              <RowDrop rowId="work" className={`flex flex-wrap${secPacked("work", 3) ? " portal-row-packed" : ""}`} style={{ gap: secGap("work"), ...secBox("work", 3) }}>
               {card('requests', (
                 <CardShell nodeId="requests" titleNodeId="requests-title" title={String(wc('requests').title ?? content.requests.title)} count={visibleRequests.length} cfg={wc('requests')}>
                   <Sel id="requests-list">
@@ -982,7 +1050,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
 
             {/* ── Records row ── Assets and CIs, in a parent section like every other card. */}
             <Sel id="records" className={SECTION_PAD} style={{ order: slot("records"), ...fillCss(wc('records')) }}>
-              <RowDrop rowId="records" className="flex flex-wrap" style={{ gap: secGap("records"), ...secBox("records") }}>
+              <RowDrop rowId="records" className={`flex flex-wrap${secPacked("records", 2) ? " portal-row-packed" : ""}`} style={{ gap: secGap("records"), ...secBox("records", 2) }}>
                 {card('assets', <RecordsCard nodeId="assets" titleFallback={content.assets.title} cfg={wc('assets')} rows={MY_ASSETS} />, secCols("records", content.cols.records), secGap("records"))}
                 {/* ⚠️ My CIs stays EMPTY on purpose (§7.4): it is empty on most real instances, so
                     its empty state is the state most requesters will see. Inventing placeholder CIs

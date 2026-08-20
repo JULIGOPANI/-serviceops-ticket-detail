@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -8,15 +8,19 @@ import { toast } from 'sonner';
  * anybody is fluent in for a grid is a grid — row-by-row through a side panel meant holding the
  * shape of the thing in your head while editing it through a keyhole.
  *
- * ⚠️ "Infinite" rows and columns are trailing BLANKS, not a scroll trick: there is always one empty
- * row below the last filled one and one empty column to its right, so the sheet grows by typing
- * into it. Nothing is added until something is written, which is why a fresh table is not a
- * hundred empty cells. */
+ * ⚠️ The sheet is EXACTLY the table's limit — 10 × 10 — rather than the content plus a margin of
+ * trailing blanks. Growing by blanks meant the grid was a different size for every table, so it
+ * never filled the dialog: three columns of content rendered five 180px columns inside an 1100px
+ * box and left a dead white strip down the right, with six empty rows under it. Since a table
+ * cannot exceed ten either way, showing all ten is both the honest picture of the limit and the
+ * only size that fills the space — the blanks ARE the room to grow, so there is nothing left to
+ * pad. Cells share the width instead of being fixed, so the sheet has no horizontal scroll and no
+ * leftover edge at any dialog width. */
 
 type Grid = string[][];
 
-const BLANK_ROWS = 6;
-const BLANK_COLS = 2;
+/** The table's hard limit, on both axes (spec §7.17). */
+const SIZE = 10;
 
 /** Trims the trailing blanks back off, so what is stored is what was actually typed. */
 export function trimGrid(g: Grid): Grid {
@@ -27,13 +31,12 @@ export function trimGrid(g: Grid): Grid {
   return rows.map((r) => Array.from({ length: width }, (_, i) => r[i] ?? ''));
 }
 
-/** Pads with the trailing blanks that make the sheet feel endless. */
-const pad = (g: Grid): Grid => {
-  const width = Math.max(1, ...g.map((r) => r.length)) + BLANK_COLS;
-  const rows = g.map((r) => Array.from({ length: width }, (_, i) => r[i] ?? ''));
-  for (let i = 0; i < BLANK_ROWS; i += 1) rows.push(Array.from({ length: width }, () => ''));
-  return rows;
-};
+/** Squares the content up to exactly SIZE × SIZE — padding what is short, dropping what is over. */
+const fit = (g: Grid): Grid =>
+  Array.from({ length: SIZE }, (_, r) => Array.from({ length: SIZE }, (_, c) => g[r]?.[c] ?? ''));
+
+/** True when a grid carries anything the cap would have to discard. */
+const overflows = (g: Grid) => g.length > SIZE || g.some((r) => r.length > SIZE);
 
 /* ⚠️ A real CSV split, not `line.split(',')`. Quoted fields containing commas are the normal case
    in exported data — "Doe, Jane" — and a naive split turns one column into two for that row only,
@@ -63,10 +66,10 @@ export function PortalTableContent({ value, onApply, onClose }: {
   onApply: (g: Grid) => void;
   onClose: () => void;
 }) {
-  const [grid, setGrid] = useState<Grid>(() => pad(value));
+  const [grid, setGrid] = useState<Grid>(() => fit(value));
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const width = useMemo(() => Math.max(1, ...grid.map((r) => r.length)), [grid]);
+
 
   const setCell = (r: number, c: number, v: string) => {
     setGrid((prev) => {
@@ -86,29 +89,37 @@ export function PortalTableContent({ value, onApply, onClose }: {
     fr.onload = () => {
       const parsed = parseCsv(String(fr.result));
       if (!parsed.length) { toast.error('That file had no rows in it'); return; }
-      setGrid(pad(parsed));
-      toast.success(`${parsed.length} rows loaded — review them, then Apply`);
+      /* ⚠️ A file bigger than the sheet is CLIPPED AND SAID SO. Silently dropping the eleventh
+         column is the kind of loss someone finds a week later, and refusing the whole file for one
+         extra column is worse — the first ten are almost always the ones they wanted. */
+      const clipped = overflows(parsed);
+      setGrid(fit(parsed));
+      toast[clipped ? 'error' : 'success'](clipped
+        ? `Loaded the first ${SIZE} rows and columns — a table stops at ${SIZE} × ${SIZE}`
+        : `${parsed.length} rows loaded — review them, then Apply`);
     };
     fr.readAsText(file);
   };
 
-  const cell = 'h-9 w-[180px] flex-shrink-0 border-b border-r border-[#E5E7EB] px-3 text-[13px] text-[#364658] focus:relative focus:z-10 focus:outline-none focus:ring-2 focus:ring-[#3D8BD0]';
+  /* ⚠️ `min-w-0`, no fixed width. A 180px cell is what left the dead strip; sharing the row means
+     ten columns land exactly on the dialog's edge however wide it is. */
+  const cell = 'h-9 min-w-0 border-b border-r border-[#E5E7EB] px-2 text-[13px] text-[#364658] focus:relative focus:z-10 focus:outline-none focus:ring-2 focus:ring-[#3D8BD0]';
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-6">
-      <div className="flex max-h-[86vh] w-[1100px] max-w-full flex-col rounded-lg bg-white shadow-2xl">
+      <div className="flex max-h-[92vh] w-[920px] max-w-full flex-col rounded-lg bg-white shadow-2xl">
         <div className="flex items-center justify-between gap-4 border-b border-[#e5e7eb] px-5 py-3">
           <h2 className="text-[15px] font-semibold text-[#364658]">Table content</h2>
           <button onClick={onClose} className="flex size-8 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6]"><X size={18} /></button>
         </div>
 
-        <div className="flex items-center justify-between gap-4 px-5 py-3">
+        <div className="flex items-center justify-between gap-4 px-5 py-2.5">
           <div>
-            <p className="text-[13px] text-[#64748B]">Type into the sheet, or upload a CSV to replace what is here.</p>
+            <p className="text-[13px] text-[#64748B]">Type into the sheet, or upload a CSV to replace what is here. A table stops at {SIZE} × {SIZE}.</p>
             {/* ⚠️ Clear All is a LINK, not a button. It throws away every row, and it must not look
                 like the thing beside it that adds them. */}
             <button
-              onClick={() => { setGrid(pad([])); toast.success('Cleared — nothing is saved until you Apply'); }}
+              onClick={() => { setGrid(fit([])); toast.success('Cleared — nothing is saved until you Apply'); }}
               className="mt-1 text-[13px] font-medium text-[#3D8BD0] hover:underline"
             >Clear All</button>
           </div>
@@ -125,24 +136,23 @@ export function PortalTableContent({ value, onApply, onClose }: {
           />
         </div>
 
-        {/* Both axes scroll; the sheet is wider and taller than the dialog on purpose. */}
-        <div className="min-h-0 flex-1 overflow-auto border-y border-[#E5E7EB]">
-          <div className="inline-block min-w-full">
-            {grid.map((row, r) => (
-              <div key={r} className="flex">
-                {Array.from({ length: width }).map((_, c) => (
-                  <input
-                    key={c}
-                    value={row[c] ?? ''}
-                    onChange={(e) => setCell(r, c, e.target.value)}
-                    /* The first row reads as the header, because that is what the table does with
-                       it — the sheet should not need a legend to say so. */
-                    className={`${cell} ${r === 0 ? 'bg-[#F9FAFB] font-semibold' : 'bg-white'}`}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
+        {/* ⚠️ No scroll container. The whole sheet is 10 × 10 and it fits, so a scroll box would only
+            ever add an inner edge and a gutter to a grid that has nothing beyond it. */}
+        <div className="border-y border-l border-[#E5E7EB]">
+          {grid.map((row, r) => (
+            <div key={r} className="grid grid-cols-10">
+              {row.map((v, c) => (
+                <input
+                  key={c}
+                  value={v}
+                  onChange={(e) => setCell(r, c, e.target.value)}
+                  /* The first row reads as the header, because that is what the table does with
+                     it — the sheet should not need a legend to say so. */
+                  className={`${cell} ${r === 0 ? 'bg-[#F9FAFB] font-semibold' : 'bg-white'}`}
+                />
+              ))}
+            </div>
+          ))}
         </div>
 
         <div className="flex justify-end gap-2 px-5 py-3">

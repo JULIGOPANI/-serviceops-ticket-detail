@@ -13,6 +13,7 @@ import type { ReactNode } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, ImageOff, ShoppingCart, Star } from 'lucide-react';
 import { Sel, useCanvas } from './PortalCanvas';
 import { itemNodeId, subNodeId } from './portalPageModel';
+import type { PortalStyles } from './portalPageModel';
 import { chosen, roleStyle } from './portalStyleResolver';
 import { IconFrameBox } from './PortalIconFrame';
 import type { IconFrame } from './PortalIconFrame';
@@ -25,13 +26,22 @@ const visible = (items: Item[] | undefined, live: boolean) =>
 
 /** A widget's own heading, when it has one. Hidden when blank — a title bar with nothing in it is
  *  worse than no title bar. */
+/* ⚠️ Wrapped in Sel, so the heading is a NODE. It was a plain <h3>, which meant the words at the top
+   of Contact, Announcements, FAQ, Table, Slider and Gallery could be read on the canvas and changed
+   only from the panel — the exact knowledge a canvas exists to make unnecessary, and the reason the
+   live-data cards felt editable while every other widget did not.
+   ⚠️ Nothing else was needed: nodeById already describes any `<id>-title` as a text node and
+   ownerOf already strips the suffix so the value reads and writes on the WIDGET's config. One
+   wrapper turns that latent machinery on for every widget that has a heading. */
 function WidgetTitle({ nodeId, text }: { nodeId: string; text?: unknown }) {
   const { styles } = useCanvas();
   if (!text) return null;
   return (
-    <h3 style={roleStyle(styles, nodeId, 'title')} className="mb-3 text-[16px] font-semibold text-[#364658]">
-      {String(text)}
-    </h3>
+    <Sel id={`${nodeId}-title`}>
+      <h3 style={roleStyle(styles, nodeId, 'title')} className="mb-3 text-[16px] font-semibold text-[#364658]">
+        {String(text)}
+      </h3>
+    </Sel>
   );
 }
 
@@ -456,6 +466,8 @@ export function FeedbackRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
   const size = Number(cfg.markSize ?? 20);
   const centre = cfg.ratingAlign === 'center';
   const questions = visible(cfg.questions as Item[], enabled);
+  /* 12px keeps the `space-y-3` rhythm this stack shipped with when nobody has moved the slider. */
+  const { gap: qGap, dividers: qRules } = arrange(styles, nodeId, 12);
 
   const marks = Array.from({ length: 5 }).map((_, i) => (
     cfg.scale === 'number'
@@ -471,8 +483,15 @@ export function FeedbackRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
 
   return (
     <div>
-      <div style={roleStyle(styles, nodeId, 'title')} className="text-[15px] font-semibold text-[#364658]">{String(cfg.title ?? '')}</div>
-      <div style={roleStyle(styles, nodeId, 'subtitle')} className="mt-0.5 text-[13px] text-[#7B8FA5]">{String(cfg.prompt ?? '')}</div>
+      {/* ⚠️ Both are NODES. They were the only authored words on this widget you could read on the
+          canvas and change only from the panel — `prompt` takes the `-sub` suffix because that is
+          what nodeById already calls a widget's second line, so no new machinery is needed. */}
+      <Sel id={`${nodeId}-title`}>
+        <div style={roleStyle(styles, nodeId, 'title')} className="text-[15px] font-semibold text-[#364658]">{String(cfg.title ?? '')}</div>
+      </Sel>
+      <Sel id={`${nodeId}-sub`}>
+        <div style={roleStyle(styles, nodeId, 'subtitle')} className="mt-0.5 text-[13px] text-[#7B8FA5]">{String(cfg.sub ?? cfg.prompt ?? '')}</div>
+      </Sel>
       <div className={`mt-3 flex items-center gap-1.5 ${centre ? 'justify-center' : ''}`}>{marks}</div>
 
       {/* Follow-ups are asked AFTER the rating, never instead of it — so the canvas shows them as
@@ -482,7 +501,10 @@ export function FeedbackRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
           <p className="mb-2 text-[11px] uppercase tracking-wider text-[#9CA3AF]">
             {cfg.askWhen === 'low' ? 'Asked when the rating is 3 or below' : 'Asked after every rating'}
           </p>
-          <div className="space-y-3">
+          <div
+            style={{ display: 'flex', flexDirection: 'column', gap: qGap }}
+            className={qRules ? '[&>*+*]:border-t [&>*+*]:border-t-[#F0F2F5]' : ''}
+          >
             {questions.map((q) => (
               <Sel key={q.id} id={itemNodeId(nodeId, q.id)}>
                 <div>
@@ -525,20 +547,61 @@ const CONTACT_LINES = [
   { key: 'showHours', label: 'Hours', value: 'Mon–Fri, 09:00–20:00 IST' },
 ];
 
+/* The P4 Arrangement pack, read back.
+ *
+ * ⚠️ Every one of these widgets DECLARES P4 in its packs, so the panel drew a "Gap between items"
+ * slider and a "Divider between items" switch — and then three renderers out of a dozen actually
+ * read the keys. The rest hard-coded their own stack, so both controls moved and nothing happened.
+ * A pack in the spec is a promise the renderer has to keep, and one shared reader is what stops the
+ * next widget quietly breaking it again.
+ *
+ * ⚠️ The gap DEFAULTS TO ZERO. These stacks already space their rows with their own padding, so a
+ * non-zero default would have re-spaced every existing widget the moment the control started
+ * working — the slider adds room on top of the resting rhythm rather than replacing it. */
+function arrange(styles: PortalStyles, nodeId: string, fallbackGap = 0) {
+  return {
+    gap: Number(chosen(styles, nodeId, 'gap') ?? fallbackGap),
+    dividers: chosen(styles, nodeId, 'dividers') !== false,
+  };
+}
+
+/** The stack a list of rows sits in — gap between them, rule between them, both optional. */
+const stackProps = (gap: number, dividers: boolean) => ({
+  style: { display: 'flex', flexDirection: 'column' as const, gap },
+  /* ⚠️ An explicit child rule, not `divide-y`. Tailwind's divide utilities compute their width
+     through a reverse variable that resolves to 0 in this stack, so the class was present on the
+     element and the border measured 0px — present-but-inert, which reads exactly like a broken
+     toggle. The arbitrary variant states the rule outright and is a literal string, so it survives
+     class scanning. */
+  className: dividers ? '[&>*+*]:border-t [&>*+*]:border-t-[#F0F2F5] border-t border-[#F0F2F5]' : '',
+});
+
 export function ContactRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
   const { styles } = useCanvas();
-  const lines = CONTACT_LINES.filter((l) => cfg[l.key] !== false);
+  /* The index is carried through the filter so a hidden line does not renumber the ones below it. */
+  const lines = CONTACT_LINES.map((l, i) => ({ ...l, i })).filter((l) => cfg[l.key] !== false);
+  const { gap, dividers } = arrange(styles, nodeId);
   return (
     <div className="@container min-w-0">
       <WidgetTitle nodeId={nodeId} text={cfg.title} />
       {lines.length === 0 ? (
         <p className="py-4 text-[13px] text-[#9CA3AF]">Every line is switched off — nothing will show here.</p>
       ) : (
-        <div className="divide-y divide-[#F0F2F5] border-t border-[#F0F2F5]">
+        <div {...stackProps(gap, dividers)}>
           {lines.map((l) => (
             <div key={l.key} className="py-2.5">
-              <div style={roleStyle(styles, nodeId, 'meta')} className="text-[12px] text-[#7B8FA5]">{l.label}</div>
-              <div style={roleStyle(styles, nodeId, 'body')} className="mt-0.5 truncate text-[13px] text-[#364658]">{l.value}</div>
+              {/* ⚠️ The line's INDEX keys the node, not its label — the label is itself editable, so
+                  keying by it would move the node the moment somebody renamed it. */}
+              <Sel id={`${nodeId}-cl${l.i}`}>
+                <div style={roleStyle(styles, nodeId, 'meta')} className="text-[12px] text-[#7B8FA5]">
+                  {String(cfg[`cl${l.i}`] ?? l.label)}
+                </div>
+              </Sel>
+              <Sel id={`${nodeId}-cv${l.i}`}>
+                <div style={roleStyle(styles, nodeId, 'body')} className="mt-0.5 truncate text-[13px] text-[#364658]">
+                  {String(cfg[`cv${l.i}`] ?? l.value)}
+                </div>
+              </Sel>
             </div>
           ))}
         </div>
@@ -560,10 +623,11 @@ const ANNOUNCEMENTS = [
 export function AnnouncementsRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
   const { styles } = useCanvas();
   const rows = ANNOUNCEMENTS.slice(0, Number(cfg.show ?? 3));
+  const { gap, dividers } = arrange(styles, nodeId);
   return (
     <div className="@container min-w-0">
       <WidgetTitle nodeId={nodeId} text={cfg.title} />
-      <div className="divide-y divide-[#F0F2F5] border-t border-[#F0F2F5]">
+      <div {...stackProps(gap, dividers)}>
         {rows.map((a) => (
           <div key={a.id} className="py-2.5">
             {/* Stacked by default (§7.5): an announcement's headline is the thing, the date is a
@@ -598,25 +662,44 @@ export function FeaturedServicesRender({ nodeId, cfg }: { nodeId: string; cfg: C
   /* Columns lives in the STYLE store, because the Content tab and the Arrangement pack are two
      controls for one value (§7.8) — read it back from the same place both of them write. */
   const cols = Number(chosen(styles, nodeId, 'columns') ?? cfg.columns ?? 3);
+  /* ⚠️ One value decides icon position AND whether there is an icon — 'none' is the Text-only tile.
+     The old `showIcon` toggle is gone with the Icon group it belonged to; two controls answering
+     one question is how a card ends up with a position set for an icon it does not have. */
+  const tpl = String(cfg.cardTemplate ?? 'left');
 
   return (
     <div className="@container min-w-0">
       <div className="mb-3 flex items-center gap-2">
-        <h3 style={roleStyle(styles, nodeId, 'title')} className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[#364658]">
-          {String(cfg.title ?? '')}
-        </h3>
+        {/* ⚠️ This widget draws its own heading rather than using WidgetTitle, because the heading
+            and the browse link share a row. That is also why it was missed: the one fix that gave
+            every other widget an editable heading could not reach it. */}
+        <Sel id={`${nodeId}-title`} className="min-w-0 flex-1">
+          <h3 style={roleStyle(styles, nodeId, 'title')} className="truncate text-[15px] font-semibold text-[#364658]">
+            {String(cfg.title ?? '')}
+          </h3>
+        </Sel>
         {cfg.showBrowse !== false && (
-          <span style={roleStyle(styles, nodeId, 'link')} className="flex-shrink-0 text-[12px] font-medium text-[#3D8BD0]">
-            {String(cfg.browseLabel ?? 'Browse catalog')}
-          </span>
+          <Sel id={`${nodeId}-viewall`} className="flex-shrink-0">
+            <span style={roleStyle(styles, nodeId, 'link')} className="text-[12px] font-medium text-[#3D8BD0]">
+              {String(cfg.browseLabel ?? 'Browse catalog')}
+            </span>
+          </Sel>
         )}
       </div>
       <div
         style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, gap: Number(chosen(styles, nodeId, 'gap') ?? 12) }}
       >
         {items.map((s) => (
-          <div key={s.id} className="flex min-w-0 items-center gap-2.5 rounded border border-[#E5E7EB] bg-white px-3 py-2.5">
-            {cfg.showIcon !== false && (
+          /* ⚠️ The tile obeys the CARD TEMPLATE, exactly as a quick-action card does. Icon-top also
+             centres the words: picking the stacked tile IS the decision to centre, and an icon
+             centred over left-hugging text is not an arrangement anyone chose. */
+          <div
+            key={s.id}
+            className={`flex min-w-0 gap-2.5 rounded border border-[#E5E7EB] bg-white px-3 py-2.5 ${
+              tpl === 'top' ? 'flex-col items-center text-center' : tpl === 'right' ? 'flex-row-reverse items-center' : 'items-center'
+            }`}
+          >
+            {tpl !== 'none' && (
               <span className="flex size-7 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#475467]">
                 <ShoppingCart size={15} strokeWidth={1.7} />
               </span>
@@ -686,13 +769,17 @@ export function TitleRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
   return (
     <div id={cfg.anchor ? String(cfg.anchor) : undefined} style={{ textAlign: align }}>
       {!!cfg.eyebrow && (
-        <div style={roleStyle(styles, nodeId, 'meta')} className="mb-1 text-[12px] uppercase tracking-wider text-[#7B8FA5]">{String(cfg.eyebrow)}</div>
+        <Sel id={`${nodeId}-label`}>
+          <div style={roleStyle(styles, nodeId, 'meta')} className="mb-1 text-[12px] uppercase tracking-wider text-[#7B8FA5]">{String(cfg.eyebrow)}</div>
+        </Sel>
       )}
       <Tag style={roleStyle(styles, nodeId, 'title')} className={cfg.level === 'h1' || cfg.level === 'h2' ? 'text-[26px] font-semibold leading-tight text-[#364658]' : 'text-[18px] font-semibold leading-tight text-[#364658]'}>
-        {String(cfg.text ?? '')}
+        <Sel id={`${nodeId}-title`}>{String(cfg.text ?? '')}</Sel>
       </Tag>
       {!!cfg.sub && (
-        <div style={roleStyle(styles, nodeId, 'subtitle')} className="mt-1 text-[14px] text-[#5B7A99]">{String(cfg.sub)}</div>
+        <Sel id={`${nodeId}-sub`}>
+          <div style={roleStyle(styles, nodeId, 'subtitle')} className="mt-1 text-[14px] text-[#5B7A99]">{String(cfg.sub)}</div>
+        </Sel>
       )}
       {cfg.rule === true && (
         <div className="mt-3" style={{ borderTopWidth: Number(cfg.ruleThickness ?? 1), borderTopStyle: 'solid', borderTopColor: String(cfg.ruleColor ?? '#E5E7EB') }} />

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   AlignCenter, AlignLeft, AlignRight, ChevronDown, ChevronLeft, ChevronRight, Layers, Link2, List, PanelLeft,
-  Plus, Rows3, Search, Square, Trash2, Type,
+  Plus, RotateCcw, Rows3, Search, Square, Trash2, Type,
 } from 'lucide-react';
 import {
   REQUEST_SCOPES, REQUEST_STATUSES, nodeById, nodePath, placedType,
@@ -337,10 +337,19 @@ export function PortalElementPanel({ nodeId, content, setContent, styles, setSty
           <span className="flex size-8 flex-shrink-0 items-center justify-center rounded bg-[#EBF5FF] text-[#3D8BD0]">
             {NODE_ICON[node.kind] ?? <Layers size={16} />}
           </span>
-          <span className="min-w-0">
+          <span className="min-w-0 flex-1">
             <span className="block truncate text-[14px] font-semibold text-[#364658]">{node.name}</span>
             <span className="block text-[12px] text-[#7B8FA5]">Content &amp; data</span>
           </span>
+          {/* ⚠️ Reset lives BESIDE THE NAME, the same place and the same glyph as every widget
+              drawer. It was a blue text link at the foot of the Spacing accordion — a different
+              shape, in a different place, reading as "reset the spacing" when it clears the whole
+              element. Two panels that reset differently are two panels you have to learn. */}
+          <button
+            onClick={() => patch({ margin: undefined, padding: undefined, radius: undefined, bg: undefined, align: undefined, color: undefined, fontSize: undefined, bold: undefined, italic: undefined, underline: undefined, heading: undefined })}
+            title="Reset this element to default"
+            className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]"
+          ><RotateCcw size={15} /></button>
         </div>
       </div>
 
@@ -360,21 +369,11 @@ export function PortalElementPanel({ nodeId, content, setContent, styles, setSty
             )}
           >Style</SectionHead>
 
-          <Drawer title="Layout" open={openDrawers.includes('Layout')} onToggle={() => toggleDrawer('Layout')}>
-            <Field label="Alignment">
-              <div className="flex gap-1">
-                {([['left', AlignLeft], ['center', AlignCenter], ['right', AlignRight]] as const).map(([a, Ic]) => (
-                  <button
-                    key={a}
-                    onClick={() => patch({ align: a })}
-                    className={`flex h-8 flex-1 items-center justify-center rounded border transition-colors ${
-                      s.align === a ? 'border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]' : 'border-[#DFE5ED] bg-white text-[#64748B] hover:bg-[#F5F7FA]'
-                    }`}
-                  ><Ic size={15} /></button>
-                ))}
-              </div>
-            </Field>
-          </Drawer>
+          {/* ⚠️ The Layout drawer is gone. Its only row was Alignment, and the floating toolbar over
+              the selected words carries left / centre / right where you can see them act — a second
+              copy in the panel meant two controls for one value, and the one you were not looking at
+              won the last write. Spacing stays: it positions the text BLOCK, which the toolbar does
+              not touch. */}
 
           {/* ⚠️ A TEXT node gets no Style drawer at all. Its only style rows were Text style and
               Text colour, and both live on the floating toolbar over the selected words — the same
@@ -401,10 +400,6 @@ export function PortalElementPanel({ nodeId, content, setContent, styles, setSty
 
           <Drawer title="Spacing" open={openDrawers.includes('Spacing')} onToggle={() => toggleDrawer('Spacing')}>
             <SpacingMatrix style={s} onChange={patch} />
-            <button
-              onClick={() => patch({ margin: undefined, padding: undefined, radius: undefined, bg: undefined, align: undefined, color: undefined, fontSize: undefined, bold: undefined, italic: undefined, underline: undefined, heading: undefined })}
-              className="mt-4 text-[13px] font-medium text-[#3D8BD0] hover:underline"
-            >Reset to theme style</button>
           </Drawer>
         </div>
       </div>

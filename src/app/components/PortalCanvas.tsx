@@ -1,16 +1,17 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import {
   AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical,
   AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, ArrowDown, ArrowLeft, ArrowRight,
   ArrowUp, Baseline, Bold, ChevronRight, Copy, GripHorizontal, GripVertical, Italic, Link2,
-  MoveHorizontal, MoveVertical, Plus,
-  Replace, SquareDashed, Trash2, Underline,
+  Braces, Globe, Maximize2, Move, MoveHorizontal, MoveVertical, Plus, RemoveFormatting,
+  Replace, SquareDashed, Trash2, Underline, X,
 } from 'lucide-react';
 // ArrowLeft stays in use by the card toolbar's "Move left".
 import { toast } from 'sonner';
 import { AiSparkle } from './AiSparkle';
-import { HEADING_SIZE, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, nodeById, nodePath, placedIn } from './portalPageModel';
+import { HEADING_SIZE, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, nodeById, paintsOwnSurface, nodePath, placedIn } from './portalPageModel';
 import { boxCss, containerCss } from './portalStyleResolver';
 import { PORTAL_ELEMENTS, PORTAL_ELEMENT_GROUPS } from './supportPortalData';
 import { elementIcon } from './SupportPortalAddPanel';
@@ -57,6 +58,8 @@ interface CanvasCtx {
   pickIcon: (id: string, anchor: DOMRect) => void;
   /** Swaps a placed element for a different kind, in the same spot. */
   replaceElement: (id: string, elementType: string) => void;
+  /** Toggles the banner's background onto the page — the toolbar half of the panel's toggle. */
+  onWholePage?: () => void;
   /** Drops `sourceId` at `targetId`'s position — the grip's drag-to-reorder. */
   moveTo: (sourceId: string, targetId: string) => void;
   /** True when the two ids sit in the same list, so a drop between them is meaningful. */
@@ -151,8 +154,11 @@ export function sizeOf(styles: PortalStyles, id: string): React.CSSProperties {
   }
   if (s.align === 'stretch') { css.flexGrow = 1; css.width = '100%'; }
   if (s.margin) {
-    css.marginTop = `${s.margin.top}px`; css.marginBottom = `${s.margin.bottom}px`;
-    css.marginLeft = `${s.margin.left}%`; css.marginRight = `${s.margin.right}%`;
+    /* ⚠️ Per side, and only where set — an unset side must not emit 0 and beat the class. */
+    if (s.margin.top !== undefined) css.marginTop = `${s.margin.top}px`;
+    if (s.margin.bottom !== undefined) css.marginBottom = `${s.margin.bottom}px`;
+    if (s.margin.left !== undefined) css.marginLeft = `${s.margin.left}%`;
+    if (s.margin.right !== undefined) css.marginRight = `${s.margin.right}%`;
   }
   return css;
 }
@@ -182,7 +188,9 @@ function AlignAxis({ axis, value, options, open, onToggle, onPick }: {
     <div className="relative">
       <button
         className={open ? btnOn : btn}
-        title={`${axis === 'h' ? 'Horizontal' : 'Vertical'} alignment — ${current[1].toLowerCase()}`}
+        /* data-tip, like every other action on this bar — the alignment control sits IN the toolbar,
+           so a slower tooltip here would make one glyph in the row behave unlike its neighbours. */
+        data-tip={`${axis === 'h' ? 'Horizontal' : 'Vertical'} alignment — ${current[1].toLowerCase()}`}
         onClick={onToggle}
       >{current[2]}</button>
       {open && (
@@ -194,7 +202,7 @@ function AlignAxis({ axis, value, options, open, onToggle, onPick }: {
               <button
                 key={v}
                 className={value === v ? btnOn : btn}
-                title={label}
+                data-tip={label}
                 onClick={() => onPick(v)}
               >{ic}</button>
             ))}
@@ -263,7 +271,7 @@ function ElementPicker({ mode, onPick, onClose }: { mode: 'add' | 'replace'; onP
    right panel, so a "Design" pill here would be a second door to a room you are already in.
    Every button does the thing it says — nothing here is a placeholder. */
 function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: string }) {
-  const { styles, setStyle, moveNode, duplicateNode, deleteNode, canDuplicate, addInside, replaceElement } = useCanvas();
+  const { styles, setStyle, moveNode, duplicateNode, deleteNode, canDuplicate, addInside, replaceElement, onWholePage } = useCanvas();
   const [picking, setPicking] = useState(false);
   const [axis, setAxis] = useState<'h' | 'v' | null>(null);
 
@@ -320,20 +328,47 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
     ['stretch', 'Stretch', <MoveVertical key="s" size={15} />],
   ];
 
+  /* ⚠️ INSTANT tooltips, and `data-tip` rather than `title`. A native title waits about a second
+     before it appears, which on a row of seven unlabelled glyphs means you either already know what
+     they do or you hover and wait — and the delay is set by the OS, so it cannot be shortened while
+     the attribute is what carries the label. Reading the label off data-tip and drawing it here
+     makes it appear on contact, and leaves nothing behind to show a second, slower copy.
+     ⚠️ ONE listener on the container, not a wrapper per button: the toolbar is rebuilt for every
+     selection, and delegation keeps the label a property of the button rather than of extra markup
+     around it. It renders BELOW the bar — the toolbar already sits above the element, so anything
+     above IT is the likeliest thing to be clipped at the top of the canvas. */
+  const [tip, setTip] = useState<{ label: string; x: number } | null>(null);
+  const readTip = (e: React.MouseEvent) => {
+    const el = (e.target as HTMLElement)?.closest?.('[data-tip]') as HTMLElement | null;
+    if (!el) { setTip(null); return; }
+    const label = el.getAttribute('data-tip');
+    if (!label) { setTip(null); return; }
+    setTip({ label, x: el.offsetLeft + el.offsetWidth / 2 });
+  };
+
   return (
     <div
       onClick={(e) => e.stopPropagation()}
-      className="flex items-center gap-0.5 rounded border border-[#E5E7EB] bg-white px-1 py-1 shadow-[0_4px_6px_-2px_rgba(16,24,40,0.06),0_12px_16px_-4px_rgba(16,24,40,0.10)]"
+      onMouseOver={readTip}
+      onMouseMove={readTip}
+      onMouseLeave={() => setTip(null)}
+      className="relative flex items-center gap-0.5 rounded border border-[#E5E7EB] bg-white px-1 py-1 shadow-[0_4px_6px_-2px_rgba(16,24,40,0.06),0_12px_16px_-4px_rgba(16,24,40,0.10)]"
     >
+      {tip && (
+        <span
+          style={{ left: tip.x }}
+          className="pointer-events-none absolute top-full z-[80] mt-1.5 max-w-[220px] -translate-x-1/2 whitespace-nowrap rounded bg-[#1F2937] px-2 py-1 text-[11px] leading-[16px] text-white shadow-[0_4px_10px_rgba(16,24,40,0.18)]"
+        >{tip.label}</span>
+      )}
       {/* The grip drags the element itself — pick it up here, drop it on a sibling to reorder. */}
       <span
         draggable
         onDragStart={(e) => { e.dataTransfer.setData(MOVE_MIME, id); e.dataTransfer.effectAllowed = 'move'; }}
-        title="Drag to move"
+        data-tip="Drag to move"
         className="flex size-7 cursor-grab items-center justify-center text-[#9CA3AF] active:cursor-grabbing"
       ><GripVertical size={14} /></span>
       {moves.map(([label, ic, dir]) => (
-        <button key={label} className={btn} title={label} onClick={() => moveNode(id, dir)}>{ic}</button>
+        <button key={label} className={btn} data-tip={label} onClick={() => moveNode(id, dir)}>{ic}</button>
       ))}
       {/* ⚠️ "+" opens the list HERE rather than swapping the side panel to it. Sending you to
           another surface to pick, then back to the canvas to see the result, is three steps for one
@@ -343,7 +378,7 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
         <div className="relative">
           <button
             className={btn}
-            title={swaps ? 'Replace widget' : 'Add widget'}
+            data-tip={swaps ? 'Replace widget' : 'Add widget'}
             onClick={() => setPicking((v) => !v)}
           >{swaps ? <Replace size={15} /> : <Plus size={15} />}</button>
           {picking && (
@@ -360,13 +395,31 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
       )}
       <button
         className={dupOk ? btn : btnOff}
-        title={dupOk ? 'Duplicate' : 'This block is part of the page layout and can’t be duplicated'}
+        data-tip={dupOk ? 'Duplicate' : 'This block is part of the page layout and can’t be duplicated'}
         onClick={() => dupOk && duplicateNode(id)}
       ><Copy size={14} /></button>
+      {/* ⚠️ The BANNER's three, and only the banner's. It is the one block with a background image,
+          so stretch-to-cover and use-behind-the-page are questions no other element can answer — and
+          putting them in the shared toolbar would mean two dead buttons on every card. The "+" it
+          already has opens the element library, which is where Text and Button come from. */}
+      {id === 'hero' && (
+        <>
+          <button
+            className={btn}
+            data-tip="Stretch the image to cover the banner"
+            onClick={() => { setStyle(id, { bgSize: styles[id]?.bgSize === 'contain' ? 'cover' : 'contain' }); toast.success(styles[id]?.bgSize === 'contain' ? 'Image covers the banner' : 'Whole image shown'); }}
+          ><Maximize2 size={15} /></button>
+          <button
+            className={btn}
+            data-tip="Also use this background behind the whole page"
+            onClick={() => onWholePage?.()}
+          ><Globe size={15} /></button>
+        </>
+      )}
       {kind === 'section' && (
         <button
           className={btn}
-          title="Clear all padding"
+          data-tip="Clear all padding"
           onClick={() => { setStyle(id, { padding: ZERO_BOX }); toast.success(`Padding cleared on ${name}`); }}
         ><SquareDashed size={15} /></button>
       )}
@@ -388,7 +441,7 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
       />
       <button
         className="flex size-7 items-center justify-center rounded text-[#EF4444] transition-colors hover:bg-[#FEF3F2]"
-        title="Delete"
+        data-tip="Delete"
         onClick={() => deleteNode(id)}
       ><Trash2 size={14} /></button>
     </div>
@@ -637,8 +690,29 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
  * signal that stopped being worth its cost: two toolbars in two colour schemes made the canvas look
  * like two products, and on a dark bar the colour control could not show the colour it sets, which
  * is the one thing that control has to do. */
+/* ⚠️ The same instant-tooltip reader the element toolbar uses. The text bar was left on native
+   `title` — so half the floating toolbars in this builder answered on contact and half made you
+   wait a second, on glyphs (A with a bar, Tx, the align set) that are considerably less obvious
+   than move-left and delete. */
+function useToolbarTip() {
+  const [tip, setTip] = useState<{ label: string; x: number } | null>(null);
+  const readTip = (e: React.MouseEvent) => {
+    const el = (e.target as HTMLElement)?.closest?.('[data-tip]') as HTMLElement | null;
+    const label = el?.getAttribute('data-tip');
+    if (!el || !label) { setTip(null); return; }
+    setTip({ label, x: el.offsetLeft + el.offsetWidth / 2 });
+  };
+  return { tip, setTip, readTip };
+}
+
 function TextToolbar({ id }: { id: string }) {
-  const { styles, setStyle } = useCanvas();
+  const { tip, setTip, readTip } = useToolbarTip();
+  const { styles, setStyle, setText } = useCanvas();
+  const [pop, setPop] = useState<'link' | 'ph' | null>(null);
+  /* The trigger's rect, captured on click — a fixed popover has to be told where its button is. */
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const linkRef = useRef<HTMLButtonElement>(null);
+  const phRef = useRef<HTMLButtonElement>(null);
   const [pickColor, setPickColor] = useState<DOMRect | null>(null);
   const colorRef = useRef<HTMLButtonElement>(null);
   const s: NodeStyle = styles[id] ?? {};
@@ -649,15 +723,24 @@ function TextToolbar({ id }: { id: string }) {
   return (
     <div
       onClick={(e) => e.stopPropagation()}
-      className="flex items-center gap-0.5 rounded border border-[#E5E7EB] bg-white px-1 py-1 shadow-[0_4px_6px_-2px_rgba(16,24,40,0.06),0_12px_16px_-4px_rgba(16,24,40,0.10)]"
+      onMouseOver={readTip}
+      onMouseMove={readTip}
+      onMouseLeave={() => setTip(null)}
+      className="relative flex items-center gap-0.5 rounded border border-[#E5E7EB] bg-white px-1 py-1 shadow-[0_4px_6px_-2px_rgba(16,24,40,0.06),0_12px_16px_-4px_rgba(16,24,40,0.10)]"
     >
+      {tip && (
+        <span
+          style={{ left: tip.x }}
+          className="pointer-events-none absolute top-full z-[80] mt-1.5 max-w-[220px] -translate-x-1/2 whitespace-nowrap rounded bg-[#1F2937] px-2 py-1 text-[11px] leading-[16px] text-white shadow-[0_4px_10px_rgba(16,24,40,0.18)]"
+        >{tip.label}</span>
+      )}
       <span className="flex size-7 cursor-grab items-center justify-center text-[#9CA3AF]"><GripVertical size={14} /></span>
       <span className="flex size-7 items-center justify-center"><AiSparkle size={14} /></span>
       <span className="mx-0.5 h-4 w-px bg-[#E5E7EB]" />
 
-      <button className={tBtn(s.bold)} title="Bold" onClick={() => setStyle(id, { bold: !s.bold })}><Bold size={14} /></button>
-      <button className={tBtn(s.italic)} title="Italic" onClick={() => setStyle(id, { italic: !s.italic })}><Italic size={14} /></button>
-      <button className={tBtn(s.underline)} title="Underline" onClick={() => setStyle(id, { underline: !s.underline })}><Underline size={14} /></button>
+      <button className={tBtn(s.bold)} data-tip="Bold" onClick={() => setStyle(id, { bold: !s.bold })}><Bold size={14} /></button>
+      <button className={tBtn(s.italic)} data-tip="Italic" onClick={() => setStyle(id, { italic: !s.italic })}><Italic size={14} /></button>
+      <button className={tBtn(s.underline)} data-tip="Underline" onClick={() => setStyle(id, { underline: !s.underline })}><Underline size={14} /></button>
 
       <span className="mx-0.5 h-4 w-px bg-[#E5E7EB]" />
 
@@ -690,7 +773,7 @@ function TextToolbar({ id }: { id: string }) {
       <button
         ref={colorRef}
         className={tBtn()}
-        title="Text colour"
+        data-tip="Text colour"
         onClick={() => setPickColor(pickColor ? null : colorRef.current!.getBoundingClientRect())}
       >
         <span className="flex flex-col items-center gap-[2px] leading-none">
@@ -708,12 +791,156 @@ function TextToolbar({ id }: { id: string }) {
       )}
 
       {([['left', AlignLeft], ['center', AlignCenter], ['right', AlignRight]] as const).map(([a, Ic]) => (
-        <button key={a} className={tBtn(s.align === a)} title={`Align ${a}`} onClick={() => setStyle(id, { align: a })}>
+        <button key={a} className={tBtn(s.align === a)} data-tip={`Align ${a}`} onClick={() => setStyle(id, { align: a })}>
           <Ic size={14} />
         </button>
       ))}
-      <button className={tBtn()} title="Link" onClick={() => toast.success('Link picker opens with the block model')}><Link2 size={14} /></button>
+      {/* ⚠️ CLEAR FORMATTING sits with the character toggles it undoes, not at the end of the bar.
+          It is the escape hatch for B / I / U / size / colour, so it belongs where those are — and it
+          DELETES those keys rather than writing new ones, which is what makes the text fall back to
+          the theme instead of to a hard-coded default that would drift from it. */}
+      <button
+        className={tBtn()}
+        data-tip="Clear formatting"
+        onClick={() => {
+          setStyle(id, { bold: undefined, italic: undefined, underline: undefined, color: undefined, fontSize: undefined, heading: undefined, align: undefined });
+          toast.success('Formatting cleared');
+        }}
+      ><RemoveFormatting size={14} /></button>
+
+      <span className="mx-0.5 h-4 w-px bg-[#E5E7EB]" />
+
+      <button
+        ref={linkRef}
+        className={pop === 'link' ? btnOn : btn}
+        data-tip="Link"
+        onClick={() => { setAnchor(linkRef.current?.getBoundingClientRect() ?? null); setPop(pop === 'link' ? null : 'link'); }}
+      ><Link2 size={14} /></button>
+      {pop === 'link' && anchor && <LinkPopover anchor={anchor} onClose={() => setPop(null)} />}
+      {/* ⚠️ A LABELLED button, not a glyph. "Placeholder" is the one action here whose result is a
+          token rather than a visible change, so an icon alone would be a guess — and it is the
+          control a support-portal admin reaches for most, because a banner that greets someone by
+          name is much of the reason this text is editable at all. */}
+      <button
+        ref={phRef}
+        className={`flex h-7 items-center gap-1 rounded px-2 text-[12px] font-medium transition-colors ${
+          pop === 'ph' ? 'bg-[#EBF5FF] text-[#3D8BD0]' : 'text-[#64748B] hover:bg-[#F3F4F6] hover:text-[#364658]'
+        }`}
+        onClick={() => { setAnchor(phRef.current?.getBoundingClientRect() ?? null); setPop(pop === 'ph' ? null : 'ph'); }}
+      ><Braces size={14} /> Placeholder</button>
+      {pop === 'ph' && anchor && <PlaceholderPopover anchor={anchor} onPick={(t) => { setText(id, t); setPop(null); }} onClose={() => setPop(null)} />}
     </div>
+  );
+}
+
+/* ── Link ────────────────────────────────────────────────────────────────────
+ *
+ * ⚠️ URL, then the words, then the target — the order the sentence is spoken in. "Open in new tab"
+ * is a checkbox rather than a toggle because it is a property of the link being written, not a
+ * setting being switched on somewhere else. */
+/* ⚠️ PORTALLED to document.body and positioned FIXED, exactly as the icon picker already is.
+   Rendered `absolute` inside the toolbar these two were laid out relative to a bar that is itself
+   absolutely positioned near the top of the canvas — so they were clipped by its stacking context
+   and, on a text node high on the page, ran off the edge with no way to reach the rest. Anything
+   that opens FROM the floating toolbar has to escape it; the toolbar is not a container, it is a
+   thing hovering over the content.
+   ⚠️ Clamped on BOTH axes, and flipped above the trigger when there is no room below — a popover
+   that opens off-screen is the same bug in a different direction. */
+function AnchoredPopover({ anchor, width, height, children }: {
+  anchor: DOMRect; width: number; height: number; children: React.ReactNode;
+}) {
+  const below = anchor.bottom + 8;
+  const fitsBelow = below + height <= window.innerHeight - 8;
+  const top = fitsBelow ? below : Math.max(8, anchor.top - height - 8);
+  const left = Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8));
+  return createPortal(
+    <div style={{ top, left, width }} className="fixed z-[10001] rounded-lg border border-[#E5E7EB] bg-white shadow-[0_12px_24px_-6px_rgba(16,24,40,0.18)]">
+      {children}
+    </div>,
+    document.body,
+  );
+}
+
+function LinkPopover({ anchor, onClose }: { anchor: DOMRect; onClose: () => void }) {
+  const [url, setUrl] = useState('');
+  const [label, setLabel] = useState('');
+  const [blank, setBlank] = useState(false);
+  const inp = 'h-9 w-full rounded border border-[#d1d5db] px-2.5 text-[13px] text-[#364658] outline-none focus:border-[#3D8BD0] focus:ring-1 focus:ring-[#3D8BD0]';
+  return (
+    <>
+      {createPortal(<span className="fixed inset-0 z-[10000]" onClick={onClose} />, document.body)}
+      <AnchoredPopover anchor={anchor} width={300} height={250}>
+      <div className="p-3">
+        <p className="mb-1 text-[12px] text-[#7B8FA5]">URL</p>
+        <input autoFocus value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" className={inp} />
+        <p className="mb-1 mt-3 text-[12px] text-[#7B8FA5]">Text</p>
+        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="The words that carry the link" className={inp} />
+        <label className="mt-3 flex cursor-pointer items-center gap-2">
+          <input type="checkbox" checked={blank} onChange={(e) => setBlank(e.target.checked)} className="size-4 accent-[#3D8BD0]" />
+          <span className="text-[13px] text-[#364658]">Open in new tab</span>
+        </label>
+        <div className="mt-3 flex justify-end">
+          <button
+            disabled={!url.trim()}
+            onClick={() => { toast.success(`Linked to ${url}`); onClose(); }}
+            className="inline-flex h-8 items-center rounded bg-[#3D8BD0] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#2d6ca0] disabled:opacity-40"
+          >Insert</button>
+        </div>
+      </div>
+      </AnchoredPopover>
+    </>
+  );
+}
+
+/* ── Placeholders ────────────────────────────────────────────────────────────
+ *
+ * ⚠️ Grouped by the RECORD they come from, not listed flat. "Service Name" and "Requester Name" are
+ * the same shape of thing and mean entirely different things; the group is what tells them apart,
+ * and a flat list of thirty tokens makes you read every one to find the one you meant. */
+const PLACEHOLDERS: { group: string; items: string[] }[] = [
+  { group: 'Request', items: ['Service Name', 'Service Category', 'Service Cost'] },
+  { group: 'Requester', items: ['Requester Name', 'Created By Name'] },
+  { group: 'Request Custom Fields', items: ['New Number', 'New Dropdown', 'Assets', 'CI', 'Service'] },
+];
+
+function PlaceholderPopover({ anchor, onPick, onClose }: { anchor: DOMRect; onPick: (token: string) => void; onClose: () => void }) {
+  const [q, setQ] = useState('');
+  const groups = PLACEHOLDERS
+    .map((g) => ({ ...g, items: g.items.filter((i) => !q || i.toLowerCase().includes(q.toLowerCase())) }))
+    .filter((g) => g.items.length);
+  return (
+    <>
+      {createPortal(<span className="fixed inset-0 z-[10000]" onClick={onClose} />, document.body)}
+      <AnchoredPopover anchor={anchor} width={300} height={340}>
+      <div className="max-h-[340px] overflow-y-auto rounded-lg">
+        <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-[#F0F2F5] bg-white px-3 py-2.5">
+          <span className="text-[13px] font-semibold text-[#364658]">Placeholders</span>
+          <button onClick={onClose} className="ml-auto flex size-6 items-center justify-center rounded text-[#64748B] hover:bg-[#F3F4F6]"><X size={14} /></button>
+        </div>
+        <div className="px-3 pt-2.5">
+          <input
+            autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search"
+            className="h-8 w-full rounded border border-[#d1d5db] px-2.5 text-[12px] outline-none focus:border-[#3D8BD0]"
+          />
+        </div>
+        {groups.map((g) => (
+          <div key={g.group} className="px-3 pb-1 pt-3">
+            <p className="mb-1.5 border-b border-[#F0F2F5] pb-1 text-[12px] font-medium text-[#7B8FA5]">{g.group}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {g.items.map((i) => (
+                <button
+                  key={i}
+                  onClick={() => onPick('%{' + i.toLowerCase().replace(/ /g, '_') + '}')}
+                  className="rounded bg-[#EEF2F6] px-2 py-1 text-[12px] text-[#364658] transition-colors hover:bg-[#DDE6EF]"
+                >{i}</button>
+              ))}
+            </div>
+          </div>
+        ))}
+        {!groups.length && <p className="px-3 py-6 text-center text-[12px] text-[#9CA3AF]">Nothing matches that.</p>}
+      </div>
+      </AnchoredPopover>
+    </>
   );
 }
 
@@ -730,6 +957,7 @@ function TextToolbar({ id }: { id: string }) {
 function ToolbarSlot({ toolbarBelow, children }: { toolbarBelow?: boolean | 'under'; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [dx, setDx] = useState(0);
+  const [flip, setFlip] = useState(false);
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -742,6 +970,12 @@ function ToolbarSlot({ toolbarBelow, children }: { toolbarBelow?: boolean | 'und
     const over = bar.right - (box.right - 8);
     const under = (box.left + 8) - bar.left;
     setDx(over > 0 ? -over : under > 0 ? Math.min(under, 0) : 0);
+    /* ⚠️ And FLIP below when there is no room above. The banner's heading sits within 44px of the
+       canvas top, so its toolbar was drawn off the top edge and clipped — the horizontal clamp could
+       not help, because the overflow was vertical. Measured against the canvas for the same reason:
+       the portal's own top bar is inside it, and a toolbar tucked under that bar is as unreachable
+       as one off the page. */
+    setFlip(bar.top < box.top + 8);
   }, [children]);
 
   return (
@@ -749,7 +983,8 @@ function ToolbarSlot({ toolbarBelow, children }: { toolbarBelow?: boolean | 'und
       ref={ref}
       style={{ transform: dx ? `translateX(${dx}px)` : undefined }}
       className={`absolute left-0 z-40 ${
-        toolbarBelow === 'under' ? 'top-full mt-1' : toolbarBelow ? 'top-5' : '-top-11'
+        flip ? 'top-full mt-1'
+          : toolbarBelow === 'under' ? 'top-full mt-1' : toolbarBelow ? 'top-5' : '-top-11'
       }`}
     >{children}</div>
   );
@@ -949,7 +1184,11 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
   /** Layout defaults from the page (a row member's default share). sizeOf overrides these. */
   style?: React.CSSProperties;
 }) {
-  const { enabled, selectedId, hoverId, select, setHover, styles, moveTo, setText } = useCanvas();
+  /* ⚠️ `setStyle` belongs here. `beginFree` calls it, and without it the free-drag threw a
+     ReferenceError on the very first mousedown — swallowed into the console, so the handler looked
+     attached, the cursor looked right, and nothing moved. Three attempts at fixing the drag failed
+     because I was reading the rendered output instead of the console. */
+  const { enabled, selectedId, hoverId, select, setHover, styles, setStyle, moveTo, setText } = useCanvas();
   const ref = useRef<HTMLDivElement>(null);
   const [moveOver, setMoveOver] = useState(false);
   const node = nodeById(id);
@@ -958,13 +1197,28 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
      `st(id)` itself, but a text child of a placed element has none — so the toolbar wrote its
      styles and nothing ever read them back, and pressing B on a selected card subtitle did exactly
      nothing. Restricted to text so a container cannot pick up a second background here. */
+  /* ⚠️ SPACING is spread for EVERY node, not just text. The Spacing matrix writes padding and
+     margin into styles[id] for whatever is selected, but only the text branch below ever read that
+     back — so seventeen of the eighteen catalogue elements had a Spacing control that stored its
+     value and painted nothing. The rest of containerCss stays behind the text gate on purpose: a
+     card paints its own background and border from its config, and spreading those here would give
+     it a second surface underneath the one it draws. */
+  /* Applied whole, for every kind. It used to be text-only, which is why the call sites each
+     grew their own copy — and why removing theirs would have broken everything but text. */
+  /* ⚠️ An element that paints its own card keeps its padding and height OFF this wrapper — the card
+     applies them itself, so the space lands inside the border and a dragged height grows the card
+     rather than cropping it. Margin and width stay here: those are about where the element sits and
+     how much room it takes, which is the wrapper's business either way. */
+  const ownSurface = paintsOwnSurface(id);
+  const drop = (x: React.CSSProperties): React.CSSProperties =>
+    (ownSurface ? Object.fromEntries(Object.entries(x).filter(([k]) => !k.startsWith('padding') && k !== 'height')) : x);
   const size = {
     ...baseStyle,
-    ...sizeOf(styles, id),
-    ...(nodeById(id)?.kind === 'text' ? styleOf(styles, id) : {}),
+    ...drop(sizeOf(styles, id)),
+    ...drop(styleOf(styles, id)),
   };
   /* A dragged height crops its content — on an inner box, so the chrome above can overflow freely. */
-  const clipped = styles[id]?.height !== undefined;
+  const clipped = styles[id]?.height !== undefined && !ownSurface;
   const body = clipped
     ? <div className="min-h-0 w-full flex-1 overflow-hidden">{children}</div>
     : children;
@@ -972,6 +1226,67 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
 
   const on = selectedId === id;
   const hov = hoverId === id && !on;
+
+  /* ⚠️ FREE PLACEMENT, banner children only. Everything else on this page is laid out — a card is in
+     a row, a row is in a section — and letting those be dragged anywhere would break the layout that
+     makes them line up. The banner is the one block that is a CANVAS rather than a stack: its
+     heading, subtext and search have no siblings to align with, so where they sit is the design.
+     Stored as a % of the band so the placement survives the banner being made taller or the panel
+     being dragged. */
+  const freePlaced = /^hero-(title|subtitle|search)$/.test(id);
+  const free = styles[id];
+  const freeStyle: React.CSSProperties = freePlaced && (free?.freeX !== undefined || free?.freeY !== undefined)
+    ? { position: 'absolute', left: `${free?.freeX ?? 50}%`, top: `${free?.freeY ?? 50}%`, transform: 'translate(-50%, -50%)', margin: 0 }
+    : {};
+
+  /* ⚠️ The WHOLE element is the handle, not only the grip. `cursor: move` was painted across the
+     block while a 24px dot was the one thing that actually moved it — so the affordance promised
+     something the element did not do: you pressed the heading, dragged, and nothing happened.
+     ⚠️ A 4px THRESHOLD is what lets grabbing anywhere coexist with inline editing. Under 4px the
+     press stays a click and the caret lands where you pressed; past it the press becomes a drag.
+     Arming on mousedown alone would make the text uneditable, and requiring the grip made the
+     banner feel stuck. And while the text IS being edited we stay out entirely, so selecting a
+     word still selects a word rather than flinging the heading across the banner. */
+  const beginFree = (e: React.MouseEvent, immediate = false) => {
+    if (!freePlaced || !enabled) return;
+    const host = ref.current;
+    if (!immediate && host && document.activeElement instanceof HTMLElement
+      && host.contains(document.activeElement) && document.activeElement.isContentEditable) return;
+    /* ⚠️ Resolved from the DOCUMENT, not from this node upward. Walking up with `closest` was
+       silently returning null — the grip is portalled outside its own wrapper in the stacking order —
+       and a null band made the whole drag return before it registered a single listener, which is why
+       the handler was attached and nothing ever moved. There is exactly one banner on a page. */
+    const band = document.querySelector('[data-node="hero"]') as HTMLElement | null;
+    if (!band) return;
+    e.stopPropagation();
+    if (immediate) e.preventDefault();
+    const box = band.getBoundingClientRect();
+    const sx = e.clientX;
+    const sy = e.clientY;
+    let live = immediate;
+    const arm = () => { select(id); document.body.style.cursor = 'move'; document.body.style.userSelect = 'none'; };
+    const apply = (ev: MouseEvent) => setStyle(id, {
+      freeX: Math.max(4, Math.min(96, Math.round(((ev.clientX - box.left) / box.width) * 100))),
+      freeY: Math.max(6, Math.min(94, Math.round(((ev.clientY - box.top) / box.height) * 100))),
+    });
+    const move = (ev: MouseEvent) => {
+      if (!live) {
+        if (Math.abs(ev.clientX - sx) < 4 && Math.abs(ev.clientY - sy) < 4) return;
+        live = true;
+        arm();
+      }
+      apply(ev);
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    if (immediate) arm();
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
   const ring = on
     ? 'outline-2 outline-[#3D8BD0]'
     : hov ? 'outline-1 outline-[#3D8BD0]/60' : 'outline-1 outline-transparent';
@@ -980,7 +1295,11 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
     <div
       ref={ref}
       data-node={id}
-      style={size}
+      style={{ ...size, ...freeStyle }}
+      /* ⚠️ `cursor: move` — the four-arrow glyph — so the affordance is visible before the drag,
+         not discovered by trying. It is the one cursor that means "pick this up and put it
+         anywhere", which is exactly what this element can do and what its neighbours cannot. */
+      onMouseDown={freePlaced ? beginFree : undefined}
       onMouseOver={(e) => { e.stopPropagation(); setHover(id); }}
       onMouseOut={(e) => { e.stopPropagation(); setHover(null); }}
       onClick={(e) => { e.stopPropagation(); select(id); }}
@@ -1004,7 +1323,7 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
       /* No display change here — call sites pass their own layout classes (the header is a flex
          row), so forcing flex-col on every wrapper would rearrange the page. The painted child
          gets the same minHeight instead, which keeps the two boxes the same size. */
-      className={`relative outline -outline-offset-1 transition-[outline-color] ${ring} ${className}`}
+      className={`relative outline -outline-offset-1 transition-[outline-color] ${ring} ${freePlaced && enabled && on ? 'cursor-move' : ''} ${className}`}
     >
       {/* Name chip on HOVER only. Once selected, the toolbar and handles say what you have, and the
           panel's breadcrumb handles stepping up — a chip on top of that is one label too many. */}
@@ -1031,9 +1350,21 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
 
       {moveOver && <span className="pointer-events-none absolute inset-0 z-30 rounded ring-2 ring-[#3D8BD0] ring-offset-2" />}
 
+      {on && freePlaced && (
+        <span
+          onMouseDown={(e) => beginFree(e, true)}
+          title="Drag to place this anywhere in the banner"
+          className="absolute -top-3 left-1/2 z-40 flex size-6 -translate-x-1/2 cursor-move items-center justify-center rounded-full border border-[#3D8BD0] bg-white text-[#3D8BD0] shadow-sm"
+        ><Move size={13} /></span>
+      )}
       {on && <SelectionHandles id={id} elRef={ref} />}
 
-      {on && (
+      {/* ⚠️ The BANNER gets no floating toolbar. It is the full-width block behind everything else,
+          so its bar had nowhere to sit that was not on top of its own heading — and every action it
+          carried (background, stretch, whole-page, padding, delete) is a panel decision, not a
+          nudge you make while looking at the page. Its handles stay: size is the one thing you do
+          want to judge by eye. */}
+      {on && id !== 'hero' && (
         <ToolbarSlot toolbarBelow={toolbarBelow}>
           {node.kind === 'text' ? <TextToolbar id={id} /> : <ElementToolbar id={id} kind={node.kind} name={node.name} />}
         </ToolbarSlot>

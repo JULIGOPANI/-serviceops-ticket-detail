@@ -40,7 +40,11 @@ export function TemplatePicker({ value, onChange }: { value: string; onChange: (
                 a layout you don't get. */}
             <span className={`flex items-center gap-1.5 ${t.dir}`}>
               {!t.noIcon && <span className={`flex-shrink-0 rounded ${on ? 'bg-[#3D8BD0]/30' : 'bg-[#DFE5ED]'} size-4`} />}
-              <span className="flex flex-col gap-[3px]">
+              {/* ⚠️ Icon-top CENTRES its lines. The bars are fixed widths inside a plain column, so
+                  they defaulted to the left edge while the icon above them sat centred — a tile that
+                  promised one arrangement and drew another, on the one template whose whole point is
+                  the stacked, centred look. */}
+              <span className={`flex flex-col gap-[3px] ${t.value === 'top' ? 'items-center' : ''}`}>
                 <span className={`h-[3px] w-8 rounded-full ${on ? 'bg-[#3D8BD0]/30' : 'bg-[#DFE5ED]'}`} />
                 <span className="h-[3px] w-6 rounded-full bg-[#EEF2F6]" />
               </span>

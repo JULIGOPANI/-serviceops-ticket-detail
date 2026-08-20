@@ -34,6 +34,8 @@ import {
 } from './PortalControls';
 import { PortalItemList } from './PortalItemList';
 import { TemplatePicker } from './PortalSectionControls';
+import { ACROSS_ROW, ACROSS_STACK, DOWN_ROW, DOWN_STACK, SectionPresets } from './PortalSectionLayout';
+import type { PresetId } from './PortalSectionLayout';
 import { BorderRow, RadiusRow, ShadowBlock, SizeRow } from './PortalBoxControls';
 import { PortalTableContent } from './PortalTableContent';
 import { LineStylePicker } from './PortalLineStyles';
@@ -92,10 +94,17 @@ function BulkAdd({ onFiles }: { onFiles: (srcs: string[]) => void }) {
    type, which say "how the words are set" — but almost every alignment row in this builder positions
    a BLOCK inside its container. A rule with bars against it reads as "put the thing here", which is
    the actual question, and the four of them read as one family. */
-const AlignGlyph = ({ kind }: { kind: 'start' | 'center' | 'end' | 'stretch' | 'between' | 'around' }) => {
+/* ⚠️ AXIS matters as much as the value. Both alignment rows offer start / center / end, so drawn
+   from the value alone the two rows came out IDENTICAL — the same three horizontal glyphs stacked
+   above each other, one row claiming to place things sideways and the other vertically. Rotating
+   the same family a quarter turn keeps them one set while making the second row say "up and down",
+   which is the only thing that ever distinguished the two questions. */
+const AlignGlyph = ({ kind, axis = 'x' }: {
+  kind: 'start' | 'center' | 'end' | 'stretch' | 'between' | 'around'; axis?: 'x' | 'y';
+}) => {
   const rule = '#64748B';
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden style={axis === 'y' ? { transform: 'rotate(90deg)' } : undefined}>
       {kind === 'start' && (
         <>
           <path d="M2 2v12" stroke={rule} strokeWidth="1.6" strokeLinecap="round" />
@@ -142,6 +151,10 @@ const AlignGlyph = ({ kind }: { kind: 'start' | 'center' | 'end' | 'stretch' | '
   );
 };
 
+const ALIGN_KIND: Record<string, 'start' | 'center' | 'end' | 'stretch' | 'between' | 'around'> = {
+  left: 'start', start: 'start', center: 'center', right: 'end', end: 'end',
+  justify: 'stretch', between: 'between', around: 'around', stretch: 'stretch',
+};
 const ALIGN_ICON: Record<string, ReactNode> = {
   left: <AlignGlyph kind="start" />,
   start: <AlignGlyph kind="start" />,
@@ -154,8 +167,8 @@ const ALIGN_ICON: Record<string, ReactNode> = {
   stretch: <AlignGlyph kind="stretch" />,
 };
 
-function AlignRow({ value, options, onChange }: {
-  value: string; options: { value: string; label: string }[]; onChange: (v: string) => void;
+function AlignRow({ value, options, onChange, axis = 'x' }: {
+  value: string; options: { value: string; label: string }[]; onChange: (v: string) => void; axis?: 'x' | 'y';
 }) {
   return (
     <div className="inline-flex overflow-hidden rounded border border-[#DFE5ED]">
@@ -169,7 +182,7 @@ function AlignRow({ value, options, onChange }: {
             className={`flex h-8 w-9 items-center justify-center transition-colors ${
               i > 0 ? 'border-l border-[#DFE5ED]' : ''
             } ${on ? 'bg-[#EBF5FF] text-[#3D8BD0]' : 'bg-white text-[#64748B] hover:bg-[#F5F7FA]'}`}
-          >{ALIGN_ICON[o.value]}</button>
+          ><AlignGlyph kind={ALIGN_KIND[o.value] ?? 'start'} axis={axis} /></button>
         );
       })}
     </div>
@@ -466,6 +479,8 @@ export interface WidgetDrawerProps {
   onSelect: (id: string | null) => void;
   /** Clears this element's own config and style. Rendered beside its name, not above the panel. */
   onReset?: () => void;
+  /** Rewrites a section's shape and reflows what is inside it. */
+  applyPreset?: (sectionId: string, preset: PresetId) => void;
   icon?: IconChoice;
   setIcon: (c?: IconChoice) => void;
   /** Layer-level structural actions — never in the tab body (§2.1). */
@@ -477,13 +492,26 @@ export interface WidgetDrawerProps {
 }
 
 export function PortalWidgetDrawer(props: WidgetDrawerProps) {
-  const { nodeId, spec, cfg, setCfg, styles, setStyle, replaceStyle, onSelect, onReset, icon, setIcon } = props;
+  const { nodeId, spec, cfg, setCfg, styles, setStyle, replaceStyle, onSelect, onReset, applyPreset, icon, setIcon } = props;
   const node = nodeById(nodeId);
   const path = nodePath(nodeId);
+  /* Derived from the spec, not a hand-written list — a new group is open on arrival without anyone
+     remembering to add it here. */
+  const ALL_GROUPS = [
+    ...new Set([
+      'Content', '__spacing',
+      ...(spec.fields ?? []).map((f) => f.group).filter(Boolean) as string[],
+      ...(spec.panel?.accordions ?? []).map((a) => ACCORDION_TITLE[a.id] ?? a.id),
+      ...(spec.packs ?? []),
+    ]),
+  ];
 
-  const [openGroups, setOpenGroupsState] = useState<string[]>(
-    GROUP_MEMORY[spec.id] ?? ['Content', 'Header', 'Layout', 'Text', 'Tile', 'Button', 'P1'],
-  );
+  /* ⚠️ OPEN by default, all of them. The panel used to open with a hand-picked few expanded, so
+     selecting an element showed a column of closed rows and the work started with a round of
+     clicking things open to find out what was in them. A styling panel is read by scanning, and you
+     cannot scan what is collapsed. The per-widget memory still wins, so anything you deliberately
+     shut stays shut for that widget type. */
+  const [openGroups, setOpenGroupsState] = useState<string[]>(GROUP_MEMORY[spec.id] ?? ALL_GROUPS);
   const setOpenGroups = (next: string[]) => { GROUP_MEMORY[spec.id] = next; setOpenGroupsState(next); };
   const toggleGroup = (g: string) =>
     setOpenGroups(openGroups.includes(g) ? openGroups.filter((x) => x !== g) : [...openGroups, g]);
@@ -531,7 +559,13 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
       : spec.packs;
   /* ⚠️ P2 IS the Size accordion in pack form — dropping the group without dropping the pack would
      leave the same fields on screen under a different title. */
-  const viewPacks = (viewPacks0 ?? []).filter((id) => id !== 'P2');
+  /* ⚠️ P4 goes when the widget has no records. Gap between items and a rule between items are both
+     statements ABOUT items — offered on an empty widget they are controls whose effect cannot be
+     seen, which is the same fault as a control that writes to nothing. The Empty-state group stays,
+     because that IS the setting that matters when there is nothing to show. */
+  /* P2 IS the Size accordion in pack form and P4 IS Arrangement — dropping the groups without the
+     packs would leave the same fields under a different title. */
+  const viewPacks = (viewPacks0 ?? []).filter((id) => id !== 'P2' && id !== 'P4');
   const viewRoles = childSpec ? childSpec.roles : subField
     ? (collection?.subElements?.find((s) => s.key === subField.key)?.role
       ? [collection!.subElements!.find((s) => s.key === subField.key)!.role!] : ['body' as const])
@@ -714,26 +748,37 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
          different one in an action card — and the difference carried no meaning, since both answer
          "where does this sit". Distribute keeps its five options and valign its four; only the
          chrome is shared. */
+      case 'sectionPreset':
+        return (
+          <SectionPresets
+            count={Number(cfg.__count ?? 0)}
+            current={(cfg.__preset as PresetId) ?? 'cols'}
+            onPick={(x) => applyPreset?.(nodeId, x)}
+          />
+        );
+      /* ⚠️ The option SET follows the axis. On a row of columns "centre" means the columns sit in
+         the middle of the band; on a stack it means each block is centred across the width — two
+         different questions, and offering one list for both is what made half the options inert. */
+      /* ⚠️ The fallback is the value the CANVAS actually uses when nothing is set, not a tidy
+         'start' for both. Flex fills its cross axis by default, so an untouched row of columns is
+         stretched — lighting "Top" there made the panel state a fact the page disagreed with. Every
+         one of these rows opens with a button already lit, precisely so you can read what you have
+         before you change it. The pair swaps with the axis for the same reason. */
       case 'distribute':
         return (
           <AlignRow
-            value={String(v ?? 'start')}
-            options={[
-              { value: 'start', label: 'Left' }, { value: 'center', label: 'Centre' },
-              { value: 'end', label: 'Right' }, { value: 'between', label: 'Space between' },
-              { value: 'around', label: 'Space around' },
-            ]}
+            axis="x"
+            value={String(v ?? (cfg.__rowAxis ? 'start' : 'stretch'))}
+            options={cfg.__rowAxis ? ACROSS_ROW : ACROSS_STACK}
             onChange={(x) => set(f.key, x)}
           />
         );
       case 'valign':
         return (
           <AlignRow
-            value={String(v ?? 'start')}
-            options={[
-              { value: 'start', label: 'Top' }, { value: 'center', label: 'Middle' },
-              { value: 'end', label: 'Bottom' }, { value: 'stretch', label: 'Equal height' },
-            ]}
+            axis="y"
+            value={String(v ?? (cfg.__rowAxis ? 'stretch' : 'start'))}
+            options={cfg.__rowAxis ? DOWN_ROW : DOWN_STACK}
             onChange={(x) => set(f.key, x)}
           />
         );
@@ -851,7 +896,11 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
     /* ⚠️ ShadowBlock draws its own "Shadow" row — the toggle IS the label. Letting Field add a
        second one printed "Shadow / Shadow" on every widget that has a shadow. The other box
        controls (radius, border, size) rely on Field's label, so only this one opts out. */
-    const selfLabelled = f.control === 'shadow';
+    /* ⚠️ `borderRow` and `radius` join `shadow` here. Both draw their own heading — with the
+       advanced per-side toggle beside it — so wrapped in a Field they printed "Border / Border" and
+       "Corner radius / Corner radius", one under the other, which is what made the Colour tab twice
+       the height of every other panel and read as two controls per row. */
+    const selfLabelled = f.control === 'shadow' || f.control === 'borderRow' || f.control === 'radius';
     /* ⚠️ A self-labelled block IS a switch row, so it gets NO Field wrapper at all — it owns its own
        spacing exactly like ToggleRow does. Wrapped, it inherited the wrapper's margin and its own
        `first:mt-0` zeroed out, which is how the Shadow block ended up 6px under the Divider switch,
@@ -883,10 +932,17 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
      ⚠️ This is the WIDGET drawer's filter. Structure keeps its own — a section's Columns and a
      spacer's height have no handle to drag — which is why it lives here and not in the accordion
      renderer that structure specs share. */
-  const DROP_GROUPS = new Set(['Layout', 'Size']);
+  /* ⚠️ Arrangement joins Layout and Size. Its two controls were gap and a divider between items —
+     one duplicated the Spacing the section already owns, the other could not apply to half the
+     widgets that declared it. Dropped at the drawer rather than deleted from thirty specs, the same
+     way Layout and Size were. */
+  const DROP_GROUPS = new Set(['Layout', 'Size', 'Arrangement']);
 
   const groupsFor = (which: 'content' | 'style') => {
-    const visible = viewFields.filter((f) => (f.tab ?? 'content') === which && !DROP_GROUPS.has(f.group ?? '') && (!f.when || f.when(viewCfg)));
+    const visible = viewFields.filter((f) => (f.tab ?? 'content') === which
+      && !DROP_GROUPS.has(f.group ?? '')
+      && !(cfg.__noData === true && f.group === 'Arrangement')
+      && (!f.when || f.when(viewCfg)));
     const order: string[] = [];
     const byGroup: Record<string, WidgetField[]> = {};
     visible.forEach((f) => {

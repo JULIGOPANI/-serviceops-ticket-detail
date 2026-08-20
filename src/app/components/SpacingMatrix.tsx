@@ -62,7 +62,10 @@ export function SpacingMatrix({ style, onChange, only }: Props) {
   const [advanced, setAdvanced] = useState<string | null>(null);
   const [live, setLive] = useState<string | null>(null);
 
-  const boxOf = (r: Ring): SpacingBox => (r === 'margin' ? style.margin : style.padding) ?? ZERO_BOX;
+  /* ⚠️ An EMPTY box, not ZERO_BOX. Merging over four zeros is what made one slider write all four
+     sides; merging over nothing leaves the sides you did not touch unset, so the element keeps the
+     spacing it already had on those edges. */
+  const boxOf = (r: Ring): SpacingBox => (r === 'margin' ? style.margin : style.padding) ?? {};
   const write = (r: Ring, next: SpacingBox) =>
     onChange(r === 'margin' ? { margin: next } : { padding: next });
 

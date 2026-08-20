@@ -16,6 +16,8 @@ import { toast } from 'sonner';
  * search is there for when they do. Upload covers the rest, because every service desk eventually
  * has a service no stock set has a glyph for. */
 
+import { UploadZone } from './PortalControls';
+
 export interface IconChoice {
   /** Registry key, `upload` for a custom glyph, or `image` for a picture filling the slot. */
   key: string;
@@ -237,8 +239,44 @@ export function IconPopover({ value, onPick, onClose, anchor }: {
   );
 }
 
-/** The Content-section field: current icon, name, change / remove. */
+/* ⚠️ TABS, not a single "Icon" row. The slot has always accepted two different things — a glyph
+   that sits inside the badge, and a picture that becomes it — and one field called "Icon" made the
+   second one undiscoverable: you had to know that uploading a particular kind of file would be
+   treated differently. Naming the two choices is what makes both reachable, and it is the same
+   distinction isImageChoice already draws in the data.
+   ⚠️ The tab OPENS on whatever the slot currently holds, so the field always shows you what is
+   there rather than a default that hides it. */
 export function IconField({ value, onChange }: { value?: IconChoice; onChange: (c?: IconChoice) => void }) {
+  const [tab, setTab] = useState<'image' | 'icon'>(isImageChoice(value) ? 'image' : 'icon');
+  const tabBtn = (id: 'image' | 'icon', label: string) => (
+    <button
+      key={id}
+      onClick={() => setTab(id)}
+      className={`h-7 flex-1 rounded text-[12px] font-medium transition-colors ${
+        tab === id ? 'bg-white text-[#364658] shadow-[0_1px_2px_rgba(16,24,40,0.06)]' : 'text-[#64748B] hover:text-[#364658]'
+      }`}
+    >{label}</button>
+  );
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-1 rounded bg-[#F1F5F9] p-0.5">
+        {tabBtn('image', 'Image')}
+        {tabBtn('icon', 'Icon')}
+      </div>
+      {/* ⚠️ UploadZone already draws the preview and says "Replace image" once one is set — the
+          swap is the common move on a slot that is always filled, so it must not read "Remove". */}
+      {tab === 'image'
+        ? <UploadZone
+            value={isImageChoice(value) ? value?.src : undefined}
+            onChange={(src) => onChange(src ? { key: 'image', src } : undefined)}
+          />
+        : <IconOnlyField value={isImageChoice(value) ? undefined : value} onChange={onChange} />}
+    </div>
+  );
+}
+
+/** The icon half: the current glyph, its name, and the picker. */
+function IconOnlyField({ value, onChange }: { value?: IconChoice; onChange: (c?: IconChoice) => void }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
 

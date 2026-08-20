@@ -204,6 +204,10 @@ export interface PortalElement {
   onPage?: boolean;
   /** Extra words the search should match (variants, synonyms) without cluttering the row. */
   keywords?: string;
+  /* ⚠️ Withheld from the palette, but NOT deleted. Its spec and renderer stay, so anything already
+     on a page keeps working and the decision is one flag to reverse. Deleting the entry would take
+     the element off existing pages too, which is a different and much larger decision. */
+  hidden?: boolean;
 }
 
 /* ⚠️ `onPage` mirrors what SupportPortalPreview actually renders. Keep the two in step — a row
@@ -224,15 +228,15 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
   { id: 'c-cis', name: 'My CIs', icon: 'cis', group: 'Live data', onPage: true, keywords: 'configuration items cmdb' },
   { id: 'c-announcements', name: 'Announcements', icon: 'announcements', group: 'Live data', keywords: 'news broadcast banner' },
   { id: 'c-knowledge', name: 'Most Read Knowledge', icon: 'knowledge', group: 'Live data', onPage: true, keywords: 'articles kb most read' },
-  { id: 'c-contact', name: 'Contact Us', icon: 'contact', group: 'Live data', keywords: 'support escalate raise' },
+  { id: 'c-contact', name: 'Contact Us', icon: 'contact', group: 'Custom', keywords: 'support escalate raise' },
   /* ⚠️ NOT onPage. This is spec §7.8 Featured Services — a requester's favourites list. The page
      carries the "Request Service" ACTION CARD, which is a different widget with a fixed
      destination. Flagging this one as placed made Featured Services unreachable. */
-  { id: 'c-services', name: 'Featured Services', icon: 'services', group: 'Live data', keywords: 'catalog request service favourites' },
-  { id: 'c-feedback', name: 'Feedback', icon: 'feedback', group: 'Live data', keywords: 'rating csat survey stars' },
+  { id: 'c-services', name: 'Featured Services', icon: 'services', group: 'Custom', keywords: 'catalog request service favourites' },
+  { id: 'c-feedback', name: 'Feedback', icon: 'feedback', group: 'Custom', keywords: 'rating csat survey stars' },
   /* Placed: the FAQ block already sits in the banner area of this portal, so the palette shows it
      as added rather than offering a second one. */
-  { id: 'c-faq', name: 'FAQ', icon: 'faq', group: 'Live data', onPage: true, keywords: 'questions help answers' },
+  { id: 'c-faq', name: 'FAQ', icon: 'faq', group: 'Custom', onPage: true, keywords: 'questions help answers' },
 
   // ── Actions — fixed destinations, the same for every requester ──
   { id: 'act-incident', name: 'New Incident', icon: 'incident', group: 'Actions', onPage: true, keywords: 'report issue raise ticket' },
@@ -242,7 +246,7 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
   { id: 'act-ad', name: 'AD Self Service', icon: 'adself', group: 'Actions', keywords: 'password reset domain unlock' },
   { id: 'act-knowledge', name: 'Knowledge', icon: 'knowledge', group: 'Actions', onPage: true, keywords: 'articles help search' },
 
-  { id: 'l-tabs', name: 'Advanced Tabs', icon: 'tabs', group: 'Basic' },
+  { id: 'l-tabs', name: 'Advanced Tabs', icon: 'tabs', group: 'Basic', hidden: true }, // hidden 20 Aug 2026
   { id: 'l-divider', name: 'Divider', icon: 'divider', group: 'Basic', keywords: 'vertical horizontal v/h separator rule' },
 
   /* ⚠️ File Download, Click to Call, Click to Mail and Share are NOT here. They are Button
@@ -258,7 +262,7 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
   // ── Basic ──
   { id: 'b-text', name: 'Text', icon: 'text', group: 'Basic', keywords: 'paragraph body copy' },
   { id: 'b-button', name: 'Button', icon: 'button', group: 'Basic', keywords: 'cta link action' },
-  { id: 'b-spacer', name: 'Spacer', icon: 'spacer', group: 'Basic', keywords: 'gap whitespace' },
+  { id: 'b-spacer', name: 'Spacer', icon: 'spacer', group: 'Basic', keywords: 'gap whitespace', hidden: true }, // hidden 20 Aug 2026
   { id: 'b-table', name: 'Table', icon: 'table', group: 'Basic', keywords: 'grid rows columns data' },
   { id: 'b-accordion', name: 'Accordion', icon: 'accordion', group: 'Basic', keywords: 'collapse faq expand' },
   { id: 'b-text-image', name: 'Text with Image', icon: 'textImage', group: 'Basic', keywords: 'media split' },
@@ -266,7 +270,7 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
 
   // ── Visual ──
   { id: 'v-image', name: 'Image', icon: 'image', group: 'Visual', keywords: 'picture photo' },
-  { id: 'v-slider', name: 'Media Slider', icon: 'slider', group: 'Visual', keywords: 'carousel gallery' },
+  { id: 'v-slider', name: 'Media Slider', icon: 'slider', group: 'Visual', keywords: 'carousel gallery', hidden: true }, // hidden 20 Aug 2026 — 22 of 33 controls inert
 
 
   // ── Custom ──
@@ -305,3 +309,10 @@ export function uniquePageName(pages: PortalPage[], base: string): string {
     if (!taken.has(candidate.toLowerCase())) return candidate;
   }
 }
+
+/* Live-data widgets with no records right now.
+ *
+ * ⚠️ In the real product this is a question for the data layer, not a constant — it is here because
+ * this is a prototype and the answer has to come from somewhere. What matters is that ONE place
+ * knows it, so the canvas and the panel cannot disagree about whether a widget has anything in it. */
+export const PORTAL_EMPTY_WIDGETS = new Set(['cis']);

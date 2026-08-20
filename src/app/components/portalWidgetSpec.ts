@@ -350,11 +350,24 @@ export const WIDGET_SPECS: WidgetSpec[] = [
     id: 'contact_us', name: 'Contact Us', group: 'Live data', reuse: 'single', family: 'flat',
     fields: [
       { key: 'title', label: 'Title', control: 'text', group: 'Content' },
+      /* ⚠️ Each line's LABEL and VALUE are editable here, not just switchable. The panel used to
+         offer three on/off toggles and a link to Organization, so the only thing an admin could do
+         to the words on their own portal was hide them. The org record stays the source these are
+         seeded FROM — the link below still points at it — but a portal may legitimately want to say
+         "Service desk" instead of "Email", or publish a different number to requesters. */
       { key: 'showEmail', label: 'Show email', control: 'toggle', group: 'Content' },
+      { key: 'cl0', label: 'Email — label', control: 'text', group: 'Content', when: (c) => c.showEmail !== false },
+      { key: 'cv0', label: 'Email — value', control: 'text', group: 'Content', when: (c) => c.showEmail !== false },
       { key: 'showPhone', label: 'Show phone', control: 'toggle', group: 'Content' },
+      { key: 'cl1', label: 'Phone — label', control: 'text', group: 'Content', when: (c) => c.showPhone !== false },
+      { key: 'cv1', label: 'Phone — value', control: 'text', group: 'Content', when: (c) => c.showPhone !== false },
       { key: 'showHours', label: 'Show hours', control: 'toggle', group: 'Content' },
+      { key: 'cl2', label: 'Hours — label', control: 'text', group: 'Content', when: (c) => c.showHours !== false },
+      { key: 'cv2', label: 'Hours — value', control: 'text', group: 'Content', when: (c) => c.showHours !== false },
     ],
-    packs: ['P1', 'P2', 'P4', 'P6', 'P8'], roles: ['title', 'body', 'meta'],
+    /* ⚠️ No P6. Contact Us has no icon of its own — the group was styling a glyph that is not on
+       the widget, which is a control with nothing to act on. P4 goes with the global removal. */
+    packs: ['P1', 'P2', 'P8'], roles: ['title', 'body', 'meta'],
     // §8.4 rule 2 — show the value, say where it lives, link there. A local field here would
     // silently diverge from the record every other portal reads.
     notes: [{
@@ -362,7 +375,16 @@ export const WIDGET_SPECS: WidgetSpec[] = [
       text: 'The email address, phone number and hours come from the portal’s own settings, so every portal stays consistent. These switches only decide whether each line appears.',
       link: { label: 'Edit contact details', section: 'Organization', card: 'Company Details' },
     }],
-    defaults: { title: 'Contact Us', showEmail: true, showPhone: true, showHours: true },
+    /* ⚠️ The line strings are seeded HERE as well as being the renderer's fallback. Without them the
+       panel opened with three blank inputs while the canvas showed "Email / servicedesk@acme.com" —
+       the field looked empty and the page looked filled, so the only way to learn the current value
+       was to read it off the page and retype it. A default is what makes the control state a fact. */
+    defaults: {
+      title: 'Contact Us', showEmail: true, showPhone: true, showHours: true,
+      cl0: 'Email', cv0: 'servicedesk@acme.com',
+      cl1: 'Phone', cv1: '+91 79 4040 0000',
+      cl2: 'Hours', cv2: 'Mon–Fri, 09:00–20:00 IST',
+    },
   },
 
   /* ─────────── §7.8 Featured Services ─────────── */
@@ -379,15 +401,31 @@ export const WIDGET_SPECS: WidgetSpec[] = [
         options: [{ value: '1', label: '1' }, { value: '2', label: '2' }, { value: '3', label: '3' }],
         help: 'The same setting as Arrangement → Columns on the Styling tab.',
       },
-      { key: 'showIcon', label: 'Show icon', control: 'toggle', group: 'Content' },
       { key: 'showDesc', label: 'Show description', control: 'toggle', group: 'Content' },
       { key: 'showBrowse', label: 'Show “Browse catalog” link', control: 'toggle', group: 'Content' },
       { key: 'browseLabel', label: 'Link label', control: 'text', group: 'Content', when: (c) => c.showBrowse !== false },
+      /* ⚠️ The same card-template picker the sections use, and it REPLACES three controls at once:
+         where the icon sits, whether there is an icon at all, and how the words line up under it.
+         Those were previously a Show-icon toggle in Content and a "Position relative to text" row in
+         an Icon group — two places to answer one question, which can contradict (an icon position
+         chosen for a card set to have no icon). A shape you recognise by looking beats two words. */
+      { key: 'cardTemplate', label: 'Card templates', control: 'templates', tab: 'style', group: 'Style' },
+      /* Kept from the Arrangement pack, which is otherwise dropped below — the gap is real here. */
+      {
+        key: 'gap', label: 'Gap between items', control: 'sliderUnit', tab: 'style', group: 'Arrangement',
+        store: 'style', min: 0, max: 32, unit: 'px',
+      },
     ],
-    packs: ['P1', 'P2', 'P4', 'P6', 'P8'], roles: ['title', 'body', 'meta'],
+    /* ⚠️ P4 and P6 are gone. P4 brought "Divider between items", which cannot mean anything here —
+       these services are a GRID, and there is no gap between rows to rule. P6 brought an Icon group
+       (size, colour, container shape, position) whose position row now duplicates the card template
+       above, and whose remaining three were styling a glyph the template can switch off entirely.
+       The gap was the one control in P4 worth keeping, so it is declared directly rather than
+       dragging a pack in for one field. */
+    packs: ['P1', 'P2', 'P8'], roles: ['title', 'body', 'meta'],
     notes: [{ tone: 'info', text: 'A requester’s favourites, not a browse-all grid — the catalogue itself is a page, not a widget.' }],
     // No `columns` here — it lives in the style store so the two controls share one value.
-    defaults: { title: 'Featured Services', show: 6, showIcon: true, showDesc: false, showBrowse: true, browseLabel: 'Browse catalog' },
+    defaults: { title: 'Featured Services', show: 6, showDesc: false, showBrowse: true, browseLabel: 'Browse catalog', cardTemplate: 'left' },
   },
 
   /* ─────────── §7.10 Action cards ─────────── */
@@ -461,7 +499,11 @@ export const WIDGET_SPECS: WidgetSpec[] = [
             { key: 'bgImage', label: 'Image', control: 'upload', when: (c) => c.fill === 'image' },
             { key: 'borderWidth', label: 'Border', control: 'borderRow', when: (c) => c.fill !== 'none' },
             { key: 'radius', label: 'Corner radius', control: 'radius', when: (c) => c.fill !== 'none' },
-            { key: 'shadowOn', label: 'Shadow', control: 'shadow' },
+            /* ⚠️ No Shadow control. The card already carries the one soft shadow the page's card
+               language uses, and the toggle drove nothing on the canvas — an inert switch in the
+               same accordion as the fill and border that DO work teaches people to distrust the
+               whole group. The key stays on the model, so anything already carrying a shadow keeps
+               rendering it; there is simply no longer a control to set one. */
           ],
         },
         { id: 'spacing', spacing: 'both' },
@@ -476,7 +518,10 @@ export const WIDGET_SPECS: WidgetSpec[] = [
       title, sub, icon, iconPos: 'left', contentAlign: 'start',
       destination: id === 'act_custom' ? 'incident' : id.replace('act_', ''),
       page: 'My Requests', url: '', newTab: true,
-      fill: 'none', borderWidth: 0, borderColor: '#E5E7EB', radius: 8,
+      /* the swatch must state the colour the card would actually paint. Without a bg default the
+         ColorField fell back to its own #3D8BD0 while fillCss fell back to white, so the control
+         showed blue on a white card and the first click appeared to change nothing. */
+      fill: 'none', bg: '#FFFFFF', borderWidth: 0, borderColor: '#E5E7EB', radius: 8,
     },
   })),
 

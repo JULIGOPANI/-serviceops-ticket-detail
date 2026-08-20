@@ -408,7 +408,11 @@ export const FEEDBACK_SPEC: WidgetSpec = {
   gate: { kind: 'permission', setting: 'Allow Requester To Submit Feedback', section: 'Organization' },
   fields: [
     { key: 'title', label: 'Title', control: 'text', group: 'Content' },
-    { key: 'prompt', label: 'Prompt', control: 'text', group: 'Content' },
+    /* ⚠️ Keyed `sub`, labelled Prompt. The inline child node for a widget's second line is
+       `<id>-sub` and it edits the key of that name — under `prompt` the two were the same words in
+       two stores, so the drawer opened blank while the canvas showed text, and typing in either
+       place left the other stale. The LABEL is what the admin reads; the key just has to match. */
+    { key: 'sub', label: 'Prompt', control: 'text', group: 'Content' },
     {
       key: 'scale', label: 'Scale', control: 'segmented', group: 'Content',
       options: [{ value: 'stars', label: 'Stars' }, { value: 'number', label: '1–5' }],
@@ -455,7 +459,7 @@ export const FEEDBACK_SPEC: WidgetSpec = {
     packs: ['P4'],
   },
   defaults: {
-    title: 'How are we doing?', prompt: 'Rate your last resolved request',
+    title: 'How are we doing?', sub: 'Rate your last resolved request',
     scale: 'stars', askFollowUp: false, askWhen: 'always',
     markSize: 20, markFilled: '#F59E0B', markEmpty: '#E5E7EB', ratingAlign: 'left',
     questions: [{ id: 'q0', q: 'What could we have done better?', type: 'choice', options: ['Speed', 'Clarity', 'The fix itself', 'Communication'], required: false }],

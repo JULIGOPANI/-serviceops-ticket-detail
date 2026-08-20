@@ -10,19 +10,21 @@ import { AiSparkle } from './AiSparkle';
 import { SupportPortalPreview } from './SupportPortalPreview';
 import { SupportPortalAddPanel } from './SupportPortalAddPanel';
 import { PortalBrandingPanel } from './PortalBrandingPanel';
+import { PRESETS, isRowAxis, presetOf } from './PortalSectionLayout';
+import type { PresetId } from './PortalSectionLayout';
 import { PortalThemePanel, DEFAULT_THEME, buttonOf, packOf, paletteOf, swatchesOf } from './PortalThemePanel';
 import type { PortalTheme } from './PortalThemePanel';
 import { PortalElementPanel } from './PortalElementPanel';
 import { CanvasProvider } from './PortalCanvas';
 import {
   DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, addColumn, moveIn, nodeById, parseItemId,
-  placedType, registerPlaced,
+  placedType, registerPlaced, colId,
 } from './portalPageModel';
 import { PortalWidgetDrawer } from './PortalWidgetDrawer';
 import { WIDGET_FOR_NODE, WIDGET_FOR_TYPE, specById, structureSpecId } from './portalWidgetSpec';
 import type { Cfg, WidgetSpec } from './portalWidgetSpec';
 import type { CustomSection, NodeStyle, PlacedElement, PortalPageContent, PortalStyles } from './portalPageModel';
-import { PORTAL_ELEMENTS } from './supportPortalData';
+import { PORTAL_ELEMENTS, PORTAL_EMPTY_WIDGETS } from './supportPortalData';
 import { IconPopover } from './PortalIconPicker';
 import type { IconChoice } from './PortalIconPicker';
 import type { PortalPage } from './supportPortalData';
@@ -186,7 +188,12 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
    * One store for every widget instance, fixed page block and dropped element alike, keyed by node
    * id. Defaults live on the spec, so a node that has never been edited holds nothing at all and
    * `cfgFor` composes it — which is what makes Reset to default a one-line delete. */
+  const rowOrderRef = useRef<Record<string, string[]>>(DEFAULT_ROW_ORDER);
+  const widgetCfgRef = useRef<Record<string, Cfg>>({});
   const [widgetCfg, setWidgetCfg] = useState<Record<string, Cfg>>({});
+  /* ⚠️ Declared ABOVE their first assignment. Put after it, the assignment ran against an
+     undefined binding and took the whole builder down on mount. */
+  widgetCfgRef.current = widgetCfg;
 
   /** The widget spec behind a node, whether it is a fixed block or something an admin dropped.
    *  ⚠️ Both routes must land on the SAME spec, or one widget would edit two different ways. */
@@ -198,7 +205,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   /* ⚠️ `-viewall` strips too. The link's label is a key on the WIDGET's config, so its own node has
      to resolve to the widget for reading and writing — the panel it opens is separate (see
      `specForNode`), which is the whole point: same value, different editor. */
-  const ownerOf = (id: string) => parseItemId(id)?.widget ?? id.replace(/-(title|sub|label|viewall|icon)$/, '');
+  const ownerOf = (id: string) => parseItemId(id)?.widget ?? id.replace(/-(title|sub|label|viewall|icon|cl\d+|cv\d+)$/, '');
 
   const specForNode = useCallback((id: string | null): WidgetSpec | undefined => {
     if (!id) return undefined;
@@ -250,12 +257,41 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     return true;
   }, []);
 
+  /* ⚠️ DERIVED, like `hasContent` — the preset row lights from the section's actual shape rather
+     than from a stored id, so a layout changed by the canvas adders and one changed by the preset
+     row cannot disagree about which tile is current. The double underscore marks these as read-only
+     view keys: nothing writes them back. */
+  const sectionShape = useCallback((id: string) => {
+    const sec = sectionsRef.current.find((x) => x.section.id === id)?.section;
+    if (sec) return { __count: Object.keys(sec.items).length, __preset: presetOf(sec.rows), __rowAxis: isRowAxis(sec.rows) };
+    /* ⚠️ A BUILT-IN band, whose shape is a column COUNT on its config rather than a `rows` array.
+       This used to return a hard-coded `{ count: 0, preset: 'cols' }`, which broke the preset row
+       in two visible ways at once: the tile row never lit the preset you were actually on — pick
+       Stacked and the canvas restacked while Columns stayed selected — and `count: 0` meant
+       presetsFor() offered the two-item set, so a three-card band was missing a tile it had earned.
+       The current preset has to be DERIVED from the same number applyPreset writes, or the control
+       is describing a section other than the one in front of you. */
+    const items = rowOrderRef.current[id]?.length ?? 0;
+    if (!items) return { __count: 0, __preset: 'cols' as PresetId, __rowAxis: true };
+    const cols = Number(widgetCfgRef.current[id]?.cols ?? items);
+    const preset: PresetId = cols <= 1 ? 'stack' : cols >= items ? 'cols' : cols === 3 ? 'three' : 'grid';
+    return { __count: items, __preset: preset, __rowAxis: cols > 1 };
+  }, []);
+
   const cfgFor = useCallback((id: string): Cfg => {
     const owner = ownerOf(id);
     return {
       ...(specForNode(owner)?.defaults ?? {}),
       ...(NODE_CFG_SEED[owner] ?? {}),
-      ...(/^sec-\d+$/.test(owner) ? { hasContent: sectionHasContent(owner) } : { hasContent: true }),
+      /* ⚠️ Built-in bands get the shape as well. They were handed a bare `__rowAxis: true` with no
+         `__preset` and no `__count`, so the preset row had nothing to light and nothing to size
+         itself from — the two symptoms above. */
+      ...(/^sec-\d+$/.test(owner)
+        ? { hasContent: sectionHasContent(owner), ...sectionShape(owner) }
+        : { hasContent: true, ...sectionShape(owner) }),
+      /* ⚠️ Whether this widget has any records, so the panel can stand down the controls that only
+         describe records. Arranging nothing is not a setting, it is a control with no referent. */
+      __noData: PORTAL_EMPTY_WIDGETS.has(owner),
       ...(widgetCfg[owner] ?? {}),
     };
   }, [specForNode, widgetCfg, sectionHasContent]);
@@ -271,9 +307,34 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   }, []);
 
   /** Sections the admin has added, each pinned to the block it was inserted after. */
-  const [sections, setSections] = useState<{ afterId: string; section: CustomSection }[]>([]);
+  /* ⚠️ EVERY catalogue element is on the page from the start, two to a section, appended after the
+     last built-in band. This is a design prototype whose whole job is letting someone open a widget,
+     change a field and watch the page answer — and a control you cannot see the effect of is a
+     control nobody can review. Seeding them makes the page long, which is the price of every widget
+     being one click from its own live example instead of needing to be placed first.
+     ⚠️ registerPlaced is called HERE, not at render: it is what lets nodeById() name a dropped
+     element, and the normal add path calls it at ADD time — a seeded element never goes through
+     that path, so without this every seeded node would open a drawer with no identity. */
+  const [sections, setSections] = useState<{ afterId: string; section: CustomSection }[]>(() => {
+    /* ⚠️ ONE element per section, one column wide. Two to a row made each element share its width
+       and its baseline with an unrelated neighbour, so a Divider sat beside a Table and neither was
+       being shown at the size it will really be used at. Full width down a single column is how the
+       portal page itself is built, and it means every element can be selected, resized and styled
+       without its partner moving at the same time. */
+    const pool = PORTAL_ELEMENTS.filter((e) => !e.onPage && !e.hidden);
+    return pool.map((def, i) => {
+      const id = `sec-${i + 1}`;
+      const cid = colId(id, 0);
+      const inst: PlacedElement = { id: `el-${i + 1}`, type: def.id, name: def.name };
+      registerPlaced(inst.id, inst.name, inst.type, cid);
+      return { afterId: 'records', section: { id, rows: [[1]], items: { [cid]: inst } } };
+    });
+  });
   sectionsRef.current = sections;
-  const nextSectionId = useRef(1);
+  const nextSectionId = useRef(sectionsRef.current.length + 1);
+  /* ⚠️ Past the seeded ids. Starting at 1 would mint an `el-1` that already exists, and config and
+     style are keyed by id — the new element would silently wear the seeded one's settings. */
+  const seededElements = sectionsRef.current.reduce((n, x) => n + Object.keys(x.section.items).length, 0);
 
   const addSection = useCallback((afterId: string, rows: number[][]) => {
     const section: CustomSection = { id: `sec-${nextSectionId.current++}`, rows, items: {} };
@@ -299,7 +360,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   const [iconPick, setIconPick] = useState<{ id: string; rect: DOMRect } | null>(null);
   const [placedText, setPlacedText] = useState<Record<string, { title?: string; desc?: string }>>({});
 
-  const nextElementId = useRef(1);
+  const nextElementId = useRef(seededElements + 1);
   /** Builds the instance and registers it so the canvas and panel can describe it. */
   const makeElement = useCallback((type: string, parent: string) => {
     const def = PORTAL_ELEMENTS.find((e) => e.id === type);
@@ -352,6 +413,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   /* ── page order & membership — what the toolbar's move/delete rewrite ── */
   const [blockOrder, setBlockOrder] = useState<string[]>(DEFAULT_BLOCK_ORDER);
   const [rowOrder, setRowOrder] = useState<Record<string, string[]>>(DEFAULT_ROW_ORDER);
+  rowOrderRef.current = rowOrder;
   const [removed, setRemoved] = useState<string[]>([]);
 
   /* Reset to default — every store the canvas reads, back to its seed.
@@ -446,6 +508,46 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   const placedParent = (id: string) => nodeById(id)?.parent;
 
   /** Every column id in a section, in render order — ids run across rows, not per row. */
+  /* ⚠️ A preset RESTRUCTURES, and the widgets come with it. Reading the items out in cell order and
+     writing them back into the new cells in the same order is what makes "3 across → stacked" keep
+     A, B, C as A, B, C — rebuilding the rows alone would leave every item keyed to a column id that
+     no longer exists, which is a section that empties itself when you change its shape.
+     ⚠️ The new shape is sized to the CONTENT, not to the preset's nominal cell count, so nothing is
+     ever dropped: four widgets in "three across" become 3 + 1, not 3 and a deletion. */
+  const applyPreset = useCallback((sectionId: string, preset: PresetId) => {
+    /* ⚠️ A BUILT-IN band is not in `sections` — its shape is a column COUNT on its config, not a
+       `rows` array — so the reflow below found nothing and the preset silently did nothing on the
+       three bands that ship with the page. They are the sections most people will ever touch, so
+       "sections" here has to mean both kinds. One preset, two storage shapes. */
+    if (!/^sec-[0-9]+$/.test(sectionId)) {
+      const n = Object.keys(NODE_CFG_SEED[sectionId] ?? {}).length ? Number(cfgFor(sectionId).cols ?? 3) : 3;
+      const cols = preset === 'stack' ? '1' : preset === 'grid' ? '2' : preset === 'three' ? '3' : String(Math.max(2, n));
+      patchCfg(sectionId, { cols });
+      toast.success(`${PRESETS[preset].title} layout applied`);
+      return;
+    }
+    setSections((prev) => prev.map((entry) => {
+      if (entry.section.id !== sectionId) return entry;
+      const sec = entry.section;
+      const ordered: PlacedElement[] = [];
+      let n = -1;
+      sec.rows.forEach((row) => row.forEach(() => { n += 1; const it = sec.items[colId(sec.id, n)]; if (it) ordered.push(it); }));
+      const rows = PRESETS[preset].rows(Math.max(ordered.length, 1));
+      const items: Record<string, PlacedElement> = {};
+      let i = -1;
+      rows.forEach((row) => row.forEach(() => {
+        i += 1;
+        const el = ordered[i];
+        if (!el) return;
+        const cid = colId(sec.id, i);
+        items[cid] = el;
+        registerPlaced(el.id, el.name, el.type, cid);
+      }));
+      return { ...entry, section: { ...sec, rows, items } };
+    }));
+    toast.success(`${PRESETS[preset].title} layout applied`);
+  }, []);
+
   const columnIds = (s: CustomSection) => {
     const ids: string[] = [];
     let i = 0;
@@ -673,7 +775,10 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
       const grown = addColumn(s.section, index, 'right');
       const newCol = `${secId}-c${index + 1}`;
       const src = s.section.items[col];
-      const items: Record<string, PlacedElement> = { ...s.section.items };
+      /* ⚠️ Read the items off GROWN, not off the original. addColumn now re-keys them for the new
+         column numbering, so spreading the pre-insert map would put every neighbour back under its
+         old key and undo the shift the clone depends on. */
+      const items: Record<string, PlacedElement> = { ...grown.items };
       if (src) {
         const clone = { ...src, id: `el-${nextElementId.current++}` };
         registerPlaced(clone.id, clone.name, clone.type, newCol);
@@ -864,7 +969,8 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   const canvasCtx = {
     selectedId, hoverId, select, setHover: setHoverId, styles, setStyle, setText,
     addSection, addColumnBeside, dropInColumn, dropAtSeam, dropInRow,
-    moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, areSiblings, replaceElement, pickIcon,
+    moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, areSiblings, replaceElement, pickIcon, applyPreset,
+    onWholePage: () => { const on = cfgFor('hero').bgWholePage === true; patchCfg('hero', { bgWholePage: !on }); toast.success(on ? 'Background is banner-only again' : 'Background applied to the whole page'); },
   };
 
   // Title — inline edit, committed on Enter or blur, abandoned on Escape.
@@ -1148,6 +1254,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
                   replaceStyle={replaceStyle}
                   onSelect={select}
                   onReset={() => { replaceStyle(selectedId, {}); setWidgetCfg((m) => { const n = { ...m }; delete n[ownerOf(selectedId)]; return n; }); toast.success('Element reset'); }}
+                  applyPreset={applyPreset}
                   icon={icons[ownerOf(selectedId)]}
                   setIcon={(c) => setIcons((p) => ({ ...p, [ownerOf(selectedId)]: c }))}
                   canDuplicate={canDuplicate(selectedId)}

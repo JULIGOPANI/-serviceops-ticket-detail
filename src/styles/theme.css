@@ -399,3 +399,10 @@ button:not(:disabled),
 .portal-dark .border-[#e5e7eb],
 .portal-dark .border-[#DFE5ED],
 .portal-dark .border-[#E1E6ED] { border-color: #2A3A55; }
+
+/* A packed portal row. share() tells its cards to divide the full width between them, so a full row
+   has NO free space and justify-content can do nothing however it is wired — which is why Content
+   alignment looked dead. Packing drops both the growth AND the one-nth basis so each card takes the
+   width it actually needs, which is what leaves room for centre or space-between to mean anything.
+   !important because share() writes the flex shorthand inline. */
+.portal-row-packed > * { flex: 0 1 auto !important; }

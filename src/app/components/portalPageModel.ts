@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 /* Support Portal builder — the page model.
  *
  * Three things live here and nothing else does:
@@ -139,11 +140,16 @@ export function nodeById(id: string): PortalNodeDef | undefined {
   /* ⚠️ `label` and `sub` belong here too. A KPI's caption and a card's subtext are the same kind
      of thing as a widget heading — words the admin wrote — and leaving them out of this list is why
      they could be seen on the canvas but never edited there. */
-  const listTxt = /^(.+)-(title|sub|label|viewall)$/.exec(id);
+  /* ⚠️ `cl0` / `cv0` are a contact line's LABEL and VALUE. A widget with a fixed set of authored
+     rows needs a node per part, and the four generic suffixes could not name six things. They are
+     numbered rather than named because the rows are positional — line 0 is line 0 whatever it is
+     currently called, which is what lets the label itself be editable. */
+  const listTxt = /^(.+)-(title|sub|label|viewall|cl\d+|cv\d+)$/.exec(id);
   if (listTxt && !/^quick-/.test(id)) {
     return {
       id,
-      name: ({ title: 'Heading', sub: 'Subtext', label: 'Label', viewall: 'Link' } as Record<string, string>)[listTxt[2]],
+      name: (/^cl/.test(listTxt[2]) ? 'Label' : /^cv/.test(listTxt[2]) ? 'Value'
+        : ({ title: 'Heading', sub: 'Subtext', label: 'Label', viewall: 'Link' } as Record<string, string>)[listTxt[2]]),
       kind: 'text',
       parent: listTxt[1],
       content: 'text',
@@ -249,7 +255,11 @@ export const DEFAULT_CONTENT: PortalPageContent = {
 /* ── Style ───────────────────────────────────────────────────────────────── */
 
 /** One side of the spacing matrix. Vertical sides are px, horizontal are % — Duda's defaults. */
-export interface SpacingBox { top: number; right: number; bottom: number; left: number }
+/* ⚠️ Every side is OPTIONAL, and undefined means "untouched", not zero. With four required numbers
+   the matrix had to seed a box of zeros, so the first slider you moved wrote all four — dragging a
+   section's vertical padding silently zeroed its 24px side gutters and threw its content against
+   the page edge. A side nobody has set has no opinion, and the element keeps whatever it rested at. */
+export interface SpacingBox { top?: number; right?: number; bottom?: number; left?: number }
 export const ZERO_BOX: SpacingBox = { top: 0, right: 0, bottom: 0, left: 0 };
 
 /* The five typography ROLES (spec P3). Exposed per role rather than per element, so a widget shows
@@ -274,6 +284,9 @@ export interface NodeStyle {
   align?: 'left' | 'center' | 'right' | 'stretch';
   /** Dragged width as a PERCENTAGE of the parent, 5–100. See the note in `sizeOf`. */
   widthPct?: number;
+  /** Free placement inside the banner, as a % of the band. Own-only, like height and padding. */
+  freeX?: number;
+  freeY?: number;
   /** The second axis. `stretch` fills the row's height, which is what makes short cards match tall
       ones without anybody typing a number. */
   alignY?: 'start' | 'center' | 'end' | 'stretch';
@@ -418,8 +431,11 @@ export interface ElementRenderSpec { kind: NodeKind; bare: boolean }
 
 const CARD_TYPES = new Set([
   'c-services', 'c-categories', 'c-requests', 'c-approvals', 'c-assets', 'c-tasks',
-  'c-announcements', 'c-knowledge', 'c-faq', 'c-contact',
+  'c-announcements', 'c-knowledge', 'c-faq', 'c-contact', 'c-feedback',
   'b-card', 'b-table', 'b-accordion', 'b-text-image',
+  /* ⚠️ Listed, or removing it from SELF_SURFACED changes nothing: renderSpec falls through to a
+     bare default, so the KPI stayed flat by a different route than the one that was fixed. */
+  'x-kpi',
 ]);
 
 /* ⚠️ These two are NOT in CARD_TYPES, deliberately. `Surface` wraps a card-shaped element in a
@@ -427,7 +443,21 @@ const CARD_TYPES = new Set([
    themselves, from their own config, so they came out as a card inside a card: a hard white
    boundary and a ring of padding nobody chose, with the outer one ignoring every fill and radius
    the panel offered. An element that paints its own surface must be bare. */
-const SELF_SURFACED = new Set(['x-action-card', 'x-kpi']);
+/* Every element that renders AS an action card — the page's four fixed destinations plus the
+ * palette's own configurable one.
+ *
+ * ⚠️ AD Self Service was missing from the renderer while its SPEC already promised "the identical
+ * card UI as the other three". The other three are built-in page blocks, so they are drawn by the
+ * preview and looked right; AD Self Service is the only one you can place, so it fell through to
+ * the generic icon-and-title placeholder — no white card, and a Style section writing keys that
+ * branch never read. Naming the set once is what stops the two halves drifting again. */
+export const ACTION_TYPES = new Set(['x-action-card', 'act-incident', 'act-service', 'act-ad', 'act-knowledge']);
+
+/* ⚠️ An action card paints its OWN surface from config, so wrapping it in Surface gives a card
+   inside a card. A KPI does not — its configured body is an icon beside a number, with no box of
+   any kind — so it sits in CARD_TYPES instead. Membership is about whether the element draws a
+   surface, not about which group it sits in. */
+const SELF_SURFACED = ACTION_TYPES;
 
 const TEXT_TYPES = new Set(['b-text', 'b-large-title', 'b-small-title']);
 
@@ -441,6 +471,24 @@ export function renderSpec(type: string): ElementRenderSpec {
 }
 
 /** Column id for the nth column of a section, counted across all its rows. */
+/* True when the element draws its OWN white card, so its padding and its dragged height belong to
+ * THAT card rather than to the wrapper around it.
+ *
+ * ⚠️ Padding on the wrapper is grey space AROUND a card, not breathing room INSIDE it — which is
+ * both why the padding sliders looked like they were insetting the whole widget and why dragging a
+ * section taller clipped the card: the height went on the wrapper, the card kept its own size, and
+ * the overflow box cut it off. The painted box has to own both values. */
+export function paintsOwnSurface(id: string): boolean {
+  /* ⚠️ The built-in quick-action cards too. Their Sel is a bare wrapper and the white card is a div
+     INSIDE it, so padding applied to the wrapper landed between the selection outline and the card
+     — visible as a growing gap around a card that never got roomier, which is not what padding
+     means anywhere else on this page. A placed Action Card was already covered; these three were
+     the same shape of thing reached by a different code path. */
+  if (/^quick-/.test(id)) return true;
+  const t = placedType(id);
+  return !!t && !renderSpec(t).bare;
+}
+
 export const colId = (sectionId: string, index: number) => `${sectionId}-c${index}`;
 
 /** Inserts a column beside `colIndex`, keeping every column in that row equal width. */
@@ -456,5 +504,51 @@ export function addColumn(section: CustomSection, colIndex: number, side: 'left'
     // Equal width is the point of the affordance — reset the weights rather than inheriting them.
     return next.map(() => 1);
   });
-  return { ...section, rows };
+  /* ⚠️ The ITEMS have to move with the columns. Column ids are positional (`-c3` is the fourth
+     column counted across every row), so inserting a column silently renames every column after it
+     — and this function used to return the new `rows` while leaving `items` keyed by the OLD
+     numbering. Everything to the right of the insertion therefore stayed under a key that now
+     belongs to its neighbour, and Duplicate wrote the clone straight over the element beside it:
+     one element gained, one destroyed, no error, no way back. Positional keys are only safe if
+     every insertion re-keys, which is why this belongs here rather than in each caller. */
+  const at = colIndex + (side === 'right' ? 1 : 0);
+  const items: Record<string, PlacedElement> = {};
+  Object.entries(section.items).forEach(([col, el]) => {
+    const n = Number(/-c([0-9]+)$/.exec(col)?.[1] ?? -1);
+    items[n >= at ? colId(section.id, n + 1) : col] = el;
+  });
+  return { ...section, rows, items };
+}
+
+/* The container styling a widget writes through its own CONFIG — fill, background image, border and
+ * radius (spec §7.20/§7.21).
+ *
+ * ⚠️ It lives here, not in the preview, because two different renderers paint action cards — the
+ * built-in quick cards and a dropped Action Card element — and they were painting from two different
+ * places. The panel writes these keys into widget config; the built-in card was reading `styleOf`,
+ * which is the STYLE store, so Fill, Background colour and Image were saved and never shown. One
+ * function, both call sites, no way for them to disagree again. */
+export function fillCss(c: Record<string, unknown>): CSSProperties {
+  const fill = String(c.fill ?? 'none');
+  const width = Number(c.borderWidth ?? 0);
+  const css: CSSProperties = {
+    /* ⚠️ backgroundColor, NOT the `background` shorthand. The shorthand resets backgroundImage,
+       Size and Position, so mixing the two in one object makes React warn and makes the image fill
+       fight the colour fill depending on which rendered last. Long-hand, the four are independent. */
+    backgroundColor: fill === 'color' ? String(c.bg ?? '#FFFFFF') : undefined,
+    backgroundImage: fill === 'image' && c.bgImage ? `url(${String(c.bgImage)})` : undefined,
+    backgroundSize: fill === 'image' ? 'cover' : undefined,
+    backgroundPosition: fill === 'image' ? 'center' : undefined,
+    /* ⚠️ Border and radius only once there IS a fill — the panel gates its own fields the same way,
+       and a 1px rule around a transparent band is a box drawn round nothing. */
+    borderWidth: fill !== 'none' && width ? width : undefined,
+    borderStyle: fill !== 'none' && width ? 'solid' : undefined,
+    borderColor: fill !== 'none' && width ? String(c.borderColor ?? '#E5E7EB') : undefined,
+    borderRadius: fill !== 'none' ? Number(c.radius ?? 0) || undefined : undefined,
+  };
+  /* ⚠️ UNSET keys are dropped, not returned as undefined. Spread over a base object, an explicit
+     undefined DELETES whatever the base set — so a card whose fill is 'none' had its default white
+     background and border stripped by the very function meant to leave them alone. The tell is a
+     lone `border-image: none` left in the inline style where the border used to be. */
+  return Object.fromEntries(Object.entries(css).filter(([, v]) => v !== undefined));
 }
