@@ -899,10 +899,10 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                             because it was the thing setting the width. */}
                         <span className={`min-w-0 flex-1 ${centre ? 'w-full' : ''}`}>
                           <Sel id={`${a.id}-title`}>
-                            <span style={roleStyle(styles, `${a.id}-title`, 'title')} className="block truncate text-[16px] font-semibold text-[#364658]">{String(c.title ?? a.title)}</span>
+                            <span style={{ ...roleStyle(styles, `${a.id}-title`, 'title'), ...(centre ? { textAlign: 'center' as const } : {}) }} className="block truncate text-[16px] font-semibold text-[#364658]">{String(c.title ?? a.title)}</span>
                           </Sel>
                           <Sel id={`${a.id}-sub`}>
-                            <span style={roleStyle(styles, `${a.id}-sub`, 'body')} className="block truncate text-[13px] text-[#7B8FA5]">{String(c.sub ?? a.desc)}</span>
+                            <span style={{ ...roleStyle(styles, `${a.id}-sub`, 'body'), ...(centre ? { textAlign: 'center' as const } : {}) }} className="block truncate text-[13px] text-[#7B8FA5]">{String(c.sub ?? a.desc)}</span>
                           </Sel>
                         </span>
                       </div>

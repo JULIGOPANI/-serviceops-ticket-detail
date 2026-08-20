@@ -416,13 +416,10 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
           ><Globe size={15} /></button>
         </>
       )}
-      {kind === 'section' && (
-        <button
-          className={btn}
-          data-tip="Clear all padding"
-          onClick={() => { setStyle(id, { padding: ZERO_BOX }); toast.success(`Padding cleared on ${name}`); }}
-        ><SquareDashed size={15} /></button>
-      )}
+      {/* ⚠️ No clear-all-padding button. It was a one-way shortcut for something the Spacing panel
+          already does per side, and its glyph said nothing about padding — so it read as an unknown
+          action on a toolbar where every other button is a movement or a duplicate. Zeroing four
+          sides is not common enough to earn a permanent seat next to Delete. */}
       <AlignAxis
         axis="h"
         value={alignH}

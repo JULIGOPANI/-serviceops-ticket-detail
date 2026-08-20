@@ -938,6 +938,11 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
      way Layout and Size were. */
   const DROP_GROUPS = new Set(['Layout', 'Size', 'Arrangement']);
 
+  /* The one group that always sinks to the foot of Design. It describes what a widget does when it
+     has nothing to show — a rare, conditional state — so it must not sit between the fill and the
+     spacing you are actually reading. */
+  const EMPTY_STATE_GROUP = 'Empty state';
+  const emptyStateFields = () => viewFields.filter((f) => f.group === EMPTY_STATE_GROUP && (f.tab ?? 'content') === 'style' && (!f.when || f.when(viewCfg)));
   const groupsFor = (which: 'content' | 'style') => {
     const visible = viewFields.filter((f) => (f.tab ?? 'content') === which
       && !DROP_GROUPS.has(f.group ?? '')
@@ -950,7 +955,11 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
       if (!byGroup[g]) { byGroup[g] = []; order.push(g); }
       byGroup[g].push(f);
     });
-    return order.map((g) => ({ group: g, fields: byGroup[g] }));
+    /* ⚠️ Empty state is EXCLUDED here and rendered after the Spacing block instead — see the
+       Design section. Sorting it last within this list was not enough: Spacing is not a field group,
+       it renders separately afterwards, so "last among the field groups" still left Empty state in
+       the middle of the panel. */
+    return order.filter((g) => g !== EMPTY_STATE_GROUP).map((g) => ({ group: g, fields: byGroup[g] }));
   };
 
   /* Widget-level notes belong to the WIDGET. Repeating "these questions are authored, not fetched"
@@ -1196,6 +1205,8 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
               const pack = ALL_PACKS[pk];
               // Already drawn inside the spec group that shares its title.
               if (!pack || groupsFor('style').some((g) => g.group === pack.title)) return null;
+              /* ⚠️ P8 (Empty state) is drawn AFTER Spacing instead — see below. */
+              if (pk === 'P8') return null;
               return (
                 <Group
                   key={pk}
@@ -1218,6 +1229,18 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
             >
               <SpacingMatrix style={styles[nodeId] ?? {}} onChange={(p) => setStyle(nodeId, p)} />
             </Group>
+            {/* ⚠️ Empty state renders AFTER Spacing, which is why it is filtered out of groupsFor.
+                It is the answer to "what does this show when there is nothing to show" — a state the
+                admin visits once, not while they are laying the widget out. */}
+            {(viewPacks ?? []).includes('P8') && ALL_PACKS.P8 && (
+              <Group
+                title={ALL_PACKS.P8.title}
+                open={openGroups.includes('P8')}
+                onToggle={() => toggleGroup('P8')}
+              >
+                <ALL_PACKS.P8.Render {...packProps} />
+              </Group>
+            )}
           </>
         )}
         </>
