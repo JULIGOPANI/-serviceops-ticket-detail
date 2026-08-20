@@ -486,7 +486,12 @@ export function paintsOwnSurface(id: string): boolean {
      the same shape of thing reached by a different code path. */
   if (/^quick-/.test(id)) return true;
   const t = placedType(id);
-  return !!t && !renderSpec(t).bare;
+  if (!t) return false;
+  /* ⚠️ SELF_SURFACED types count too. They are marked `bare` because they must not be wrapped in
+     the generic Surface — they draw their OWN card — but "bare" was being read as "has no box", so
+     an Action Card's padding went onto the wrapper and appeared outside the card it was supposed to
+     be inside. Bare means nobody wraps it; it does not mean there is nothing to pad. */
+  return ACTION_TYPES.has(t) || !renderSpec(t).bare;
 }
 
 export const colId = (sectionId: string, index: number) => `${sectionId}-c${index}`;

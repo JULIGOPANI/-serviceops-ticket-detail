@@ -395,7 +395,11 @@ function PanelBody({ spec, nodeId, cfg, renderField, openGroups, toggleGroup, st
 
       <SectionLabel>Design</SectionLabel>
       <div>
-        {panel.accordions.filter((a) => !a.when || a.when(cfg)).map((a) => {
+        {/* ⚠️ `size` is dropped here as well. Size already left as a field group (DROP_GROUPS) and as
+            the P2 pack, but the panel model declares it a THIRD way — as an accordion — so it kept
+            appearing on exactly the widgets that use that model. The eight drag handles set size;
+            a slider that does the same thing is the second control this builder keeps growing. */}
+        {panel.accordions.filter((a) => a.id !== 'size').filter((a) => !a.when || a.when(cfg)).map((a) => {
           const key = `acc:${a.id}`;
           const open = openGroups.includes(key) || (a.open && !openGroups.includes(`shut:${a.id}`));
           return (

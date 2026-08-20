@@ -466,6 +466,7 @@ export const WIDGET_SPECS: WidgetSpec[] = [
         { key: 'title', label: 'Title', control: 'text' },
         { key: 'sub', label: 'Subtitle', control: 'text' },
         { key: 'icon', label: 'Icon', control: 'icon' },
+        { key: 'cardTemplate', label: 'Card templates', control: 'templates' },
       ],
       /* The destination is now the admin's, not the widget type's. ⚠️ It gets its OWN section rather
          than a row inside Content: where a card GOES is neither what it says nor how it looks, and
@@ -508,7 +509,10 @@ export const WIDGET_SPECS: WidgetSpec[] = [
         },
         { id: 'spacing', spacing: 'both' },
         { id: 'size', fields: [{ key: 'minHeight', label: 'Height', control: 'sliderUnit', min: 0, max: 400, unit: 'px' }] },
-        { id: 'alignment', fields: [{ key: 'contentAlign', label: 'Alignment', control: 'distribute' }] },
+        /* ⚠️ No Alignment accordion. It moved the WORDS only, so "centre" left the icon where it
+           was and the card came out half-aligned — which is not an arrangement anyone chose. The
+           card template answers the same question properly: it places the icon AND the text, and
+           you recognise the shape by looking instead of reading "centre". */
       ],
     },
     fields: [], packs: [],

@@ -79,7 +79,8 @@ const BTN_SIZE: Record<string, string> = { sm: 'h-7 px-3 text-[12px]', md: 'h-9 
 function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, glyph: React.ReactNode, nodeId: string) {
   if (!cfg) return null;
   /* eslint-disable-next-line react-hooks/rules-of-hooks -- called unconditionally from one caller. */
-  const { enabled, select, pickIcon } = useCanvas();
+  const { enabled, select, pickIcon, styles } = useCanvas();
+  const ownStyle = styles?.[nodeId];
   const T = ({ part, children, ...rest }: { part: string; children: React.ReactNode } & React.ComponentProps<typeof Sel>) =>
     <Sel id={`${nodeId}-${part}`} {...rest}>{children}</Sel>;
 
@@ -145,8 +146,14 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
      config keys — which is what makes AD Self Service identical to Request Service rather than
      merely described as identical. */
   if (ACTION_TYPES.has(type)) {
-    const top = cfg.iconPos === 'top';
-    const centre = cfg.contentAlign === 'center' || (top && (cfg.contentAlign ?? 'start') === 'start');
+    /* The card TEMPLATE decides where the icon sits and whether there is one — the same four
+       shapes the sections and Featured Services use. iconPos remains the fallback for a card that
+       has never had a template picked. */
+    const tpl = String(cfg.cardTemplate ?? (cfg.iconPos === 'top' ? 'top' : 'left'));
+    const top = tpl === 'top';
+    const iconRight = tpl === 'right';
+    const noIcon = tpl === 'none';
+    const centre = top;
     const bw = Number(cfg.borderWidth ?? 0);
     return (
       <div
@@ -159,6 +166,16 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
              wipes what the shorthand set. */
           backgroundColor: '#FFFFFF',
           borderWidth: 1, borderStyle: 'solid', borderColor: '#E5E7EB',
+          /* ⚠️ The node's own padding and dragged height land HERE, on the painted card — Sel
+             withholds both for this node (paintsOwnSurface). The `p-4` class stays, so sides the
+             slider never touched keep their resting 16px instead of collapsing to zero. */
+          ...(() => { const pad = ownStyle?.padding; const h = ownStyle?.height; return {
+            ...(pad?.top !== undefined ? { paddingTop: pad.top } : {}),
+            ...(pad?.bottom !== undefined ? { paddingBottom: pad.bottom } : {}),
+            ...(pad?.left !== undefined ? { paddingLeft: `${pad.left}%` } : {}),
+            ...(pad?.right !== undefined ? { paddingRight: `${pad.right}%` } : {}),
+            ...(h !== undefined ? { minHeight: h } : {}),
+          }; })(),
           /* No radius here — `rounded-lg` on the class list, exactly as the built-in quick cards
              have it, so an untouched card is 10px on both paths. fillCss still overrides it the
              moment a fill is chosen, which is the only time the panel offers the control. */
@@ -167,7 +184,7 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
           minHeight: Number(cfg.minHeight) || undefined,
         }}
         className={`flex h-full gap-3 rounded-lg p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_12px_rgba(16,24,40,0.06)] ${
-          top ? 'flex-col' : 'items-center'
+          top ? 'flex-col' : iconRight ? 'flex-row-reverse items-center' : 'items-center'
         } ${centre ? 'items-center text-center' : ''}`}
       >
         {/* ⚠️ The icon is its own LAYER and opens the picker in place, exactly as the built-in
@@ -175,7 +192,7 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
             you had to know it lived in the panel, which is the knowledge a canvas exists to remove.
             Selecting it and opening the grid are ONE gesture, because an icon has exactly one thing
             to change. */}
-        <Sel id={`${nodeId}-icon`} className="flex-shrink-0">
+        {!noIcon && <Sel id={`${nodeId}-icon`} className="flex-shrink-0">
           <span
             role={enabled ? 'button' : undefined}
             onClick={enabled ? (ev) => { ev.stopPropagation(); select(`${nodeId}-icon`); pickIcon(nodeId, (ev.currentTarget as HTMLElement).getBoundingClientRect()); } : undefined}
@@ -184,7 +201,7 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
           >
             {glyph ?? <Star size={22} />}
           </span>
-        </Sel>
+        </Sel>}
         <span className="min-w-0 flex-1">
           <T part="title" className="block">
             <span className="block truncate text-[16px] font-semibold text-[#364658]">{String(cfg.title ?? 'Action card')}</span>
