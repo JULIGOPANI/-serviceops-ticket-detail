@@ -477,6 +477,8 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
     gap: number;
     /** Each row member's top edge, so a wrapped line can be told apart from this one. */
     tops: number[];
+    /** This element's own track — the ceiling a Fixed resize may not pass. */
+    track: number;
     /** Node ids sharing this row, their starting widths, and where the dragged one sits. */
     siblings: string[]; widths: number[]; index: number;
   } | null>(null);
@@ -511,26 +513,20 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
            at one width falls apart at another. */
         if (horiz && d.fixed) {
           const px = d.corner.includes('w') ? d.w - dx : d.w + dx;
-          /* ⚠️ Siblings ON THIS LINE only. A row wraps, so once one card had been pushed onto a
-             second line the old sum counted its width against the FIRST line's free space — the
-             ceiling collapsed below the 40px floor and every drag after that snapped the card to
-             its minimum with no way back. That is the "it went small suddenly and would not resize
-             again": one stray wrap poisoned every later measurement. */
-          const mine = d.tops[d.index] ?? 0;
-          const line = d.widths.filter((_, j) => j !== d.index && Math.abs((d.tops[j] ?? 0) - mine) < 2);
-          const others = line.reduce((a, b) => a + b, 0);
-          /* ⚠️ One px of slack, and the percentage rounds DOWN. Widths are measured as fractions
-             and stored as a percentage, so rounding to the nearest whole number could ask for ~2px
-             MORE than the row had — and two pixels is all it takes for the last card to wrap, which
-             is what set the trap above. Under-shooting by a fraction is invisible; overshooting is
-             a broken row. */
-          const room = Math.max(MIN_COL, d.parentW - others - d.gap * line.length - 1);
+          /* ⚠️ The ceiling is this card's OWN TRACK, not the row's free space. A fixed row is a grid
+             of equal tracks, so a card cannot borrow width from a neighbour even when the neighbour
+             is not using it — which is the whole promise of Fixed, and it makes the clamp a local
+             fact rather than a sum over siblings that a single wrap could poison.
+             ⚠️ The percentage is OF THE TRACK too, because that is what `width: N%` resolves
+             against inside a grid cell. Measured against the row it would come out four times too
+             small on a four-column band. */
+          const room = Math.max(MIN_COL, d.track - 1);
           const v = Math.max(MIN_COL, Math.min(room, Math.round(px)));
           /* ⚠️ `flex` is cleared in the same write. It is the Fill representation, it is read FIRST
              by `sizeOf`, and a leftover from an earlier Fill drag would win over the width you are
              setting right now — the handle would move and the column would not. */
           setStyle(id, {
-            widthPct: Math.max(1, Math.floor((v / Math.max(d.parentW, 1)) * 1000) / 10),
+            widthPct: Math.max(1, Math.floor((v / Math.max(d.track, 1)) * 1000) / 10),
             flex: undefined,
             width: undefined,
           });
@@ -652,6 +648,16 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
       fixed: rowFixed && row.length > 0,
       gap: rowGap,
       tops: row.map((c) => c.getBoundingClientRect().top),
+      /* ⚠️ From the GRID, when there is one. A fixed row's tracks are equal and independent of what
+         is currently in them, so the ceiling has to come from the track rather than from the
+         element — otherwise shrinking once would lower the ceiling and the card could never grow
+         back, the ratchet this file has already been bitten by twice. */
+      track: (() => {
+        const ps = rowEl ? getComputedStyle(rowEl) : null;
+        const cols = ps?.gridTemplateColumns?.split(' ').filter(Boolean) ?? [];
+        if (cols.length) return parseFloat(cols[Math.min(row.indexOf(el), cols.length - 1)]) || r.width;
+        return r.width;
+      })(),
       parentW: el.parentElement?.getBoundingClientRect().width ?? r.width,
       siblings: row.map((c) => c.dataset.node!),
       widths: row.map((c) => c.getBoundingClientRect().width),
@@ -1511,7 +1517,10 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
           carried (background, stretch, whole-page, padding, delete) is a panel decision, not a
           nudge you make while looking at the page. Its handles stay: size is the one thing you do
           want to judge by eye. */}
-      {on && id !== 'hero' && id !== 'rail' && id !== 'header' && (
+      {/* ⚠️ Product chrome gets no floating toolbar — the banner, the left rail, the top bar and
+          everything the bar contains. Every action on it (move, duplicate, align, delete) is either
+          disabled or a lie over navigation the admin does not own. */}
+      {on && id !== 'hero' && id !== 'rail' && !/^header/.test(id) && (
         <ToolbarSlot toolbarBelow={toolbarBelow}>
           {node.kind === 'text' ? <TextToolbar id={id} /> : <ElementToolbar id={id} kind={node.kind} name={node.name} />}
         </ToolbarSlot>

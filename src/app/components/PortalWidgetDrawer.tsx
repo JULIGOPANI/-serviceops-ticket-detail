@@ -1116,7 +1116,11 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
               {cfg.hidden === true && <Badge>Hidden</Badge>}
               {!open && <Badge>Locked</Badge>}
             </span>
-            <span className="block text-[12px] text-[#7B8FA5]">{spec.name}</span>
+            {/* ⚠️ Only when it ADDS something. "Contact Us / Contact Us" is the same words twice,
+                the second greyed as if it were a description. */}
+            {spec.name.trim().toLowerCase() !== node.name.trim().toLowerCase() && (
+              <span className="block text-[12px] text-[#7B8FA5]">{spec.name}</span>
+            )}
           </span>
           {/* ⚠️ Reset sits with the NAME of what it resets. Above the header it read as a panel
               control — "reset the sidebar" — when it has always been about this one element. */}

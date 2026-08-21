@@ -45,6 +45,9 @@ interface SupportPortalPreviewProps {
      which is what makes "live apply" real — a control that looks right and changes nothing teaches
      people to distrust the panel. */
   cfg?: (id: string) => Record<string, unknown>;
+  /* Writes a widget's config back. Only the header uses it so far — the logo's placement is a drag
+     on the CANVAS, and a drag has to commit where the panel's fields commit or the two disagree. */
+  setCfg?: (id: string, patch: Record<string, unknown>) => void;
 }
 
 /* ── how a widget's config reaches its rendering ─────────────────────────── */
@@ -207,7 +210,16 @@ function AddedSection({ section, icons, placedText, cfg }: { section: CustomSect
           {section.rows.map((row, r) => {
             const total = row.reduce((a, b) => a + b, 0) || 1;
             return (
-            <div key={r} className="flex gap-4" data-resize={resize}>
+            <div
+              key={r}
+              className={resize === 'fixed' && row.length > 1 ? 'gap-4' : 'flex gap-4'}
+              /* ⚠️ Fixed rows are a GRID of equal tracks — see the note on `secGrid`. The class is
+                  swapped rather than overridden because `flex` and `grid` are the same property. */
+              style={resize === 'fixed' && row.length > 1
+                ? { display: 'grid', gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }
+                : undefined}
+              data-resize={resize}
+            >
               {row.map((weight, c) => {
                 index += 1;
                 const id = colId(section.id, index);
@@ -395,10 +407,17 @@ function PortalRail({ cfg = EMPTY_CFG }: { cfg?: Record<string, unknown> }) {
 /** Reordering payload, kept off the element MIME so a nav drag can never land on the canvas. */
 const NAV_MIME = 'text/portal-nav';
 
-function PortalHeader({ cfg = EMPTY_CFG }: { content?: PortalPageContent; cfg?: Record<string, unknown> }) {
+function PortalHeader({ cfg = EMPTY_CFG, onLogoPos }: {
+  content?: PortalPageContent; cfg?: Record<string, unknown>;
+  /** Commits the logo's placement — the bar owns it, so the write goes back up to the bar's config. */
+  onLogoPos?: (p: 'left' | 'center' | 'right') => void;
+}) {
   const { styles, enabled } = useCanvas();
   const [order, setOrder] = useState(['type', 'chat', 'bell', 'keys', 'home', 'info']);
   const [dragKey, setDragKey] = useState<string | null>(null);
+  const [logoDrag, setLogoDrag] = useState(false);
+  /** Where the logo would land if you let go now — drawn as a drop marker in the bar. */
+  const [logoHint, setLogoHint] = useState<'left' | 'center' | 'right' | null>(null);
   const [overKey, setOverKey] = useState<string | null>(null);
   const barHeight = Number(cfg.barHeight ?? 56);
   const iconBtn = 'flex size-8 items-center justify-center rounded text-[#6b7280]';
@@ -407,9 +426,54 @@ function PortalHeader({ cfg = EMPTY_CFG }: { content?: PortalPageContent; cfg?: 
   /* Two units, not ten. The action cluster is ONE selectable block pinned top-right — dragging
      Bell between Home and Help is a freedom nobody wants and a bar nobody can read. What moves is
      the LOGO, against that fixed cluster. */
+  /* ⚠️ Dragged along the BAR, and only the bar. The logo's placement is the one visual decision in
+     this header that is genuinely the admin's, and a dropdown of left/centre/right made you pick a
+     word for something you can see — while the actions, which have to move out of its way, never
+     appeared in the choice at all. Dragging is the whole gesture: pick the logo up, put it where you
+     want it, and the action cluster takes the space that is left.
+     ⚠️ Clamped to three POSITIONS rather than a free x. A logo at 37% of a bar is not a design
+     decision, it is an accident that survives to production — and left / centre / right are the
+     only three placements the actions can be arranged around. Which one you get is decided by where
+     you LET GO, against the bar's own thirds, so the gesture is free and the result is tidy. */
+  const dragLogo = (e: React.MouseEvent) => {
+    if (!enabled) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const bar = (e.currentTarget as HTMLElement).closest('[data-node="header"]') as HTMLElement | null;
+    if (!bar) return;
+    setLogoDrag(true);
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+    const move = (ev: MouseEvent) => {
+      const r = bar.getBoundingClientRect();
+      const t = (ev.clientX - r.left) / Math.max(r.width, 1);
+      setLogoHint(t < 0.34 ? 'left' : t > 0.66 ? 'right' : 'center');
+    };
+    const up = (ev: MouseEvent) => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      setLogoDrag(false);
+      setLogoHint(null);
+      const r = bar.getBoundingClientRect();
+      const t = (ev.clientX - r.left) / Math.max(r.width, 1);
+      const next = t < 0.34 ? 'left' : t > 0.66 ? 'right' : 'center';
+      if (next !== pos) onLogoPos?.(next);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
   const logo = (
     <Sel id="header-logo" className="flex min-w-0 flex-shrink items-center overflow-hidden">
-      {cfg.logoSrc ? <img src={String(cfg.logoSrc)} alt="" className="max-h-7 object-contain" /> : <MotadataLogo />}
+      <span
+        onMouseDown={dragLogo}
+        title={enabled ? 'Drag the logo along the bar' : undefined}
+        className={`flex items-center ${enabled ? (logoDrag ? 'cursor-grabbing' : 'cursor-grab') : ''} ${logoDrag ? 'opacity-60' : ''}`}
+      >
+        {cfg.logoSrc ? <img src={String(cfg.logoSrc)} alt="" className="max-h-7 object-contain" /> : <MotadataLogo />}
+      </span>
     </Sel>
   );
 
@@ -498,9 +562,12 @@ function PortalHeader({ cfg = EMPTY_CFG }: { content?: PortalPageContent; cfg?: 
           clipped when the design panel is dragged wide, but a floating control must escape. */}
       <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
         <span className={iconBtn}><PanelLeft size={18} /></span>
-        {pos === 'left' && <>{logo}{gap}{actions}</>}
-        {pos === 'center' && <>{gap}{logo}{gap}{actions}</>}
-        {pos === 'right' && <>{actions}{gap}{logo}</>}
+        {/* ⚠️ While dragging, the bar shows where the logo WILL sit rather than following the
+            cursor. A logo tracking the pointer would drag the action cluster around with it on
+            every pixel — the thing you are aiming at would keep moving out from under you. */}
+        {(logoHint ?? pos) === 'left' && <>{logo}{gap}{actions}</>}
+        {(logoHint ?? pos) === 'center' && <>{gap}{logo}{gap}{actions}</>}
+        {(logoHint ?? pos) === 'right' && <>{actions}{gap}{logo}</>}
       </div>
     </Sel>
   );
@@ -625,7 +692,7 @@ function Row({ nodeId, children }: { nodeId: string; children: ReactNode }) {
 
 /* ── The page ────────────────────────────────────────────────────────────── */
 
-export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CONTENT, sections = [], icons, placedText, blockOrder = DEFAULT_BLOCK_ORDER, rowOrder = DEFAULT_ROW_ORDER, removed = [], rowExtras, cfg }: SupportPortalPreviewProps) {
+export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CONTENT, sections = [], icons, placedText, blockOrder = DEFAULT_BLOCK_ORDER, rowOrder = DEFAULT_ROW_ORDER, removed = [], rowExtras, cfg, setCfg }: SupportPortalPreviewProps) {
   const { styles, enabled, select, pickIcon } = useCanvas();
   /* Which mode the surrounding theme wrapper is in. Inline styles cannot be answered by the dark
      stylesheet, so the few values that are data rather than utilities read it here. */
@@ -762,6 +829,14 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
     const rowAxis = secRowAxis(id, fallback);
     return rowAxis && String(wc(id).distribute ?? 'start') !== 'start';
   };
+  /* ⚠️ Only on a ROW. A stacked section has one column per row, so there are no tracks to hold
+     still and a grid would be the same layout described a harder way. */
+  const secGrid = (id: string, fallback: number): React.CSSProperties => {
+    if (secResize(id) !== 'fixed' || !secRowAxis(id, fallback)) return {};
+    const n = Math.max(1, secCols(id, fallback));
+    return { display: 'grid', gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` };
+  };
+
   const secBox = (id: string, fallback = 3): React.CSSProperties => ({
     paddingTop: wc(id).padTop === undefined ? undefined : Number(wc(id).padTop) || undefined,
     paddingBottom: wc(id).padBottom === undefined ? undefined : Number(wc(id).padBottom) || undefined,
@@ -870,7 +945,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
          traps you in whatever you touched last. */
       onClick={() => enabled && select(null)}
     >
-      <PortalHeader content={content} cfg={wc("header")} />
+      <PortalHeader content={content} cfg={wc("header")} onLogoPos={(p) => setCfg?.('header', { logoPos: p })} />
 
       <div className="flex min-h-0 flex-1">
         <PortalRail cfg={wc("rail")} />
@@ -961,7 +1036,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
             {/* ⚠️ The hero overlap is the ONE margin that survives: it is a relationship with the
                 banner above it, not spacing of its own, and it only applies while the row is first. */}
             <Sel id="quick" className={`relative z-10 ${SECTION_PAD} ${blockOrder.indexOf("quick") === 0 ? "-mt-[62px]" : ""}`} style={{ order: slot("quick"), ...fillCss(wc('quick')) }}>
-              <RowDrop rowId="quick" resize={secResize("quick")} className={`flex flex-wrap${secPacked("quick", 4) ? " portal-row-packed" : ""}`} style={{ gap: secGap("quick"), ...secBox("quick", 4), ...rowFits(inRow("quick"), "quick") }}>
+              <RowDrop rowId="quick" resize={secResize("quick")} className={`flex flex-wrap${secPacked("quick", 4) ? " portal-row-packed" : ""}`} style={{ gap: secGap("quick"), ...secBox("quick", 4), ...rowFits(inRow("quick"), "quick"), ...secGrid("quick", 4) }}>
                 {quickCards.map((a) => {
                   const c = wc(a.id);
                   /* ⚠️ The CARD's own template wins; the row's is the default it starts from.
@@ -1085,7 +1160,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
             {/* ── Work row ── */}
             {/* ── Work row ── one section, three cards, full width. */}
             <Sel id="work" className={SECTION_PAD} style={{ order: slot("work"), ...fillCss(wc('work')) }}>
-              <RowDrop rowId="work" resize={secResize("work")} className={`flex flex-wrap${secPacked("work", 3) ? " portal-row-packed" : ""}`} style={{ gap: secGap("work"), ...secBox("work", 3), ...rowFits(inRow("work"), "work") }}>
+              <RowDrop rowId="work" resize={secResize("work")} className={`flex flex-wrap${secPacked("work", 3) ? " portal-row-packed" : ""}`} style={{ gap: secGap("work"), ...secBox("work", 3), ...rowFits(inRow("work"), "work"), ...secGrid("work", 3) }}>
               {card('requests', (
                 <CardShell nodeId="requests" titleNodeId="requests-title" title={String(wc('requests').title ?? content.requests.title)} count={visibleRequests.length} cfg={wc('requests')}>
                   <Sel id="requests-list">
@@ -1212,7 +1287,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
 
             {/* ── Records row ── Assets and CIs, in a parent section like every other card. */}
             <Sel id="records" className={SECTION_PAD} style={{ order: slot("records"), ...fillCss(wc('records')) }}>
-              <RowDrop rowId="records" resize={secResize("records")} className={`flex flex-wrap${secPacked("records", 2) ? " portal-row-packed" : ""}`} style={{ gap: secGap("records"), ...secBox("records", 2), ...rowFits(inRow("records"), "records") }}>
+              <RowDrop rowId="records" resize={secResize("records")} className={`flex flex-wrap${secPacked("records", 2) ? " portal-row-packed" : ""}`} style={{ gap: secGap("records"), ...secBox("records", 2), ...rowFits(inRow("records"), "records"), ...secGrid("records", 2) }}>
                 {card('assets', <RecordsCard nodeId="assets" titleFallback={content.assets.title} cfg={wc('assets')} rows={MY_ASSETS} />, secCols("records", content.cols.records), secGap("records"), secGrow("records"))}
                 {/* ⚠️ My CIs stays EMPTY on purpose (§7.4): it is empty on most real instances, so
                     its empty state is the state most requesters will see. Inventing placeholder CIs

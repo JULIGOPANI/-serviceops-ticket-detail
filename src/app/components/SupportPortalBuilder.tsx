@@ -1373,7 +1373,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
             style={themeWrap}
           >
             <CanvasProvider value={{ ...canvasCtx, enabled: true }}>
-              <SupportPortalPreview accent={themeAccent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} />
+              <SupportPortalPreview accent={themeAccent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} setCfg={patchCfg} />
             </CanvasProvider>
           </div>
 
