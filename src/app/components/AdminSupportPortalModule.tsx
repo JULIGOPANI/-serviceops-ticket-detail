@@ -74,7 +74,9 @@ function RowActions({ isDefault, onEditDetails, onCustomize, onPreview, onCopy, 
   const icon = 'text-[#6B7280] transition-colors hover:text-[#3D8BD0]';
 
   return (
-    <div className="flex items-center gap-3">
+    /* gap-4, not the gap-3 the two-icon listings use: four targets in a row need more air between
+       them than two do, and the chevron on Edit already sits tight against its pencil. */
+    <div className="flex items-center gap-4">
       <button
         ref={btnRef}
         onClick={() => setOpen((o) => !o)}
