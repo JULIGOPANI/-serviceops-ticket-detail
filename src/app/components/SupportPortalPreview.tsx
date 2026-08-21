@@ -1064,7 +1064,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                   const iconShape = chosen(styles, a.id, 'iconShape');
                   const iconFill = chosen(styles, a.id, 'iconFill');
                   return (
-                    <Sel key={a.id} id={a.id} className="min-w-0 rounded-lg" style={{ ...share(secCols("quick", content.cols.quick), secGap("quick"), secGrow("quick")) }}>
+                    <Sel key={a.id} id={a.id} className="@container min-w-0 rounded-lg" style={{ ...share(secCols("quick", content.cols.quick), secGap("quick"), secGrow("quick")) }}>
                       <div
                         /* ⚠️ fillCss AFTER st(): the card's Style accordion writes fill / colour /
                            image / border / radius into its CONFIG, and this div was reading only the
@@ -1077,7 +1077,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                            bottom. An inline side beats the class on its own edge and leaves the
                            other three resting where they were, which is what "set one side" means. */
                         style={{ ...st(a.id), ...fillCss(c), ...padCss(a.id), minHeight: Number(c.minHeight) || undefined }}
-                        className={`flex h-full gap-3 rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_12px_rgba(16,24,40,0.06)] ${
+                        className={`flex h-full gap-3 rounded-lg border border-[#E5E7EB] bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_12px_rgba(16,24,40,0.06)] @max-[230px]:gap-2 @max-[230px]:p-3 ${
                           top ? 'flex-col' : iconRight ? 'flex-row-reverse items-center' : 'items-center'
                         } ${centre ? 'items-center text-center' : ''}`}
                       >
@@ -1091,7 +1091,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                             because an icon has exactly one thing to change. */}
                         {/* The whole slot goes, not just the glyph — a hidden icon that still holds
                             its 44px of width is an indent nobody asked for. */}
-                        {!noIcon && <Sel id={`${a.id}-icon`} className="flex-shrink-0">
+                        {!noIcon && <Sel id={`${a.id}-icon`} className="flex-shrink-0 @max-[230px]:scale-90 @max-[160px]:hidden">
                         <span
                           role={enabled ? 'button' : undefined}
                           onClick={enabled ? (ev) => { ev.stopPropagation(); select(`${a.id}-icon`); pickIcon(a.id, (ev.currentTarget as HTMLElement).getBoundingClientRect()); } : undefined}

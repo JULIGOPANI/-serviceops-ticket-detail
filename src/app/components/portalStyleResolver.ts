@@ -324,7 +324,13 @@ const HEADING_SIZE_MAP: Record<string, number> = { PAR: 15, H1: 34, H2: 28, H3: 
 /** The wrapper CSS: P2's outer spacing and width share. */
 export function boxCss(styles: PortalStyles, id: string): React.CSSProperties {
   const css: React.CSSProperties = {};
-  const wp = chosen(styles, id, 'widthPct');
+  /* ⚠️ OWN-only, never inherited. A width is about the thing you dragged: resolved through the
+     chain, a card narrowed to 43% handed that 43% to its own title and subtitle, which then took
+     43% of the column INSIDE the card — so the words shrank a second time and the card looked like
+     it had lost its content. `sizeOf` has always treated width this way and said so; this reader
+     did not, and it is the one the text children go through. Spacing above and below still
+     inherits, because that IS a statement about a block and everything in it. */
+  const wp = styles[id]?.widthPct;
   if (wp !== undefined && wp < 100) { css.width = `${wp}%`; css.maxWidth = '100%'; css.flex = '0 0 auto'; }
   const st = chosen(styles, id, 'spaceTop');
   if (st) css.marginTop = `${st}px`;

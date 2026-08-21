@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { WIDGET_FOR_NODE, WIDGET_FOR_TYPE, specById } from './portalWidgetSpec';
 import type { ReactNode } from 'react';
 import {
   AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical,
@@ -11,7 +12,7 @@ import {
 // ArrowLeft stays in use by the card toolbar's "Move left".
 import { toast } from 'sonner';
 import { AiSparkle } from './AiSparkle';
-import { HEADING_SIZE, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, nodeById, paintsOwnSurface, nodePath, placedIn } from './portalPageModel';
+import { HEADING_SIZE, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, nodeById, paintsOwnSurface, nodePath, placedIn, placedType } from './portalPageModel';
 import { boxCss, containerCss } from './portalStyleResolver';
 import { PORTAL_ELEMENTS, PORTAL_ELEMENT_GROUPS } from './supportPortalData';
 import { elementIcon } from './SupportPortalAddPanel';
@@ -47,6 +48,8 @@ interface CanvasCtx {
   dropAtSeam: (afterId: string, elementType: string) => void;
   /** Moves an element ALREADY on the page onto a seam, into a new section of its own. */
   moveToSeam: (id: string, afterId: string) => void;
+  /** Adds one of a container's own block types inside it — the card's "Extra content" list. */
+  addChildBlock: (id: string, type: string) => void;
   /** Drops into a built-in row, alongside the cards already there. */
   dropInRow: (rowId: string, elementType: string) => void;
   /* ── toolbar actions ── */
@@ -73,7 +76,7 @@ interface CanvasCtx {
 const Ctx = createContext<CanvasCtx>({
   enabled: false, selectedId: null, hoverId: null,
   select: () => {}, setHover: () => {}, styles: {}, setStyle: () => {}, setText: () => {},
-  addSection: () => {}, addColumnBeside: () => {}, dropInColumn: () => {}, dropAtSeam: () => {}, dropInRow: () => {}, moveToSeam: () => {},
+  addSection: () => {}, addColumnBeside: () => {}, dropInColumn: () => {}, dropAtSeam: () => {}, dropInRow: () => {}, moveToSeam: () => {}, addChildBlock: () => {},
   moveNode: () => {}, duplicateNode: () => {}, deleteNode: () => {}, canDuplicate: () => false, addInside: () => {},
   moveTo: () => {}, areSiblings: () => false, replaceElement: () => {}, pickIcon: () => {},
 });
@@ -220,8 +223,40 @@ function AlignAxis({ axis, value, options, open, onToggle, onPick }: {
  * ⚠️ Same catalogue as the Add panel, deliberately — two lists of "everything you can put on a page"
  * would drift the first time one gained an element. Components already on the page are disabled
  * here for the same reason they are there: no portal has two "My Requests".  */
-function ElementPicker({ mode, onPick, onClose }: { mode: 'add' | 'replace'; onPick: (type: string) => void; onClose: () => void }) {
+/** A container's own child block types, read from the widget spec its panel is built from. */
+function childTypesOf(id: string): { type: string; label: string }[] | undefined {
+  const type = placedType(id);
+  const specId = (type && WIDGET_FOR_TYPE[type]) || WIDGET_FOR_NODE[id];
+  return specId ? specById(specId)?.collection?.childTypes : undefined;
+}
+
+function ElementPicker({ mode, onPick, onClose, only }: {
+  mode: 'add' | 'replace'; onPick: (type: string) => void; onClose: () => void;
+  /** A container's own block types. When present this IS the list — see the note below. */
+  only?: { type: string; label: string }[];
+}) {
   const [q, setQ] = useState('');
+  if (only?.length) {
+    return (
+      <>
+        <span className="fixed inset-0 z-[60]" onClick={onClose} />
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute left-1/2 top-[calc(100%+8px)] z-[61] w-[200px] -translate-x-1/2 rounded-lg border border-[#E5E7EB] bg-white p-1.5 shadow-[0_12px_16px_-4px_rgba(16,24,40,0.10),0_4px_6px_-2px_rgba(16,24,40,0.06)]"
+        >
+          {/* ⚠️ No search. Three options do not need one, and a search box over three rows is a
+              control that costs a line to say nothing. */}
+          {only.map((ct) => (
+            <button
+              key={ct.type}
+              onClick={() => onPick(ct.type)}
+              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] text-[#364658] transition-colors hover:bg-[#F5F7FA]"
+            ><Plus size={13} className="text-[#9CA3AF]" /> {ct.label}</button>
+          ))}
+        </div>
+      </>
+    );
+  }
   const groups = PORTAL_ELEMENT_GROUPS.map((g) => ({
     group: g,
     items: PORTAL_ELEMENTS.filter((e) => e.group === g && !e.onPage
@@ -284,7 +319,7 @@ function useNodeDragHandle(id: string) {
 }
 
 function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: string }) {
-  const { styles, setStyle, moveNode, duplicateNode, deleteNode, canDuplicate, addInside, replaceElement, onWholePage } = useCanvas();
+  const { styles, setStyle, moveNode, duplicateNode, deleteNode, canDuplicate, addInside, replaceElement, addChildBlock, onWholePage } = useCanvas();
   const [picking, setPicking] = useState(false);
   const [axis, setAxis] = useState<'h' | 'v' | null>(null);
 
@@ -312,7 +347,8 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
      anything" instead of "can this contain more" put Replace on the Quick Actions row, which has
      room for a fourth card. */
   const occupant = /^sec-[0-9]+-c[0-9]+$/.test(id) ? placedIn(id) : null;
-  const swaps = placed || !!occupant || kind === 'card';
+  const childTypes = childTypesOf(id);
+  const swaps = !childTypes?.length && (placed || !!occupant || kind === 'card');
   const swapTarget = placed ? id : occupant ?? (kind === 'card' ? id : null);
   const dupOk = canDuplicate(id);
 
@@ -390,15 +426,18 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
         <div className="relative">
           <button
             className={btn}
-            data-tip={swaps ? 'Replace widget' : 'Add widget'}
+            data-tip={childTypes?.length ? 'Add a block inside' : swaps ? 'Replace widget' : 'Add widget'}
             onClick={() => setPicking((v) => !v)}
           >{swaps ? <Replace size={15} /> : <Plus size={15} />}</button>
           {picking && (
             <ElementPicker
+              only={swaps ? undefined : childTypes}
               mode={swaps ? 'replace' : 'add'}
               onPick={(type) => {
                 setPicking(false);
-                if (swaps && swapTarget) replaceElement(swapTarget, type); else addInside(id, type);
+                if (childTypes?.length) addChildBlock(id, type);
+                else if (swaps && swapTarget) replaceElement(swapTarget, type);
+                else addInside(id, type);
               }}
               onClose={() => setPicking(false)}
             />

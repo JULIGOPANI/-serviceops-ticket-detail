@@ -155,7 +155,10 @@ export function AdminSupportPortalSettings({ compact = false }: {
      narrow variant of the list would be two things to keep in step. */
   compact?: boolean;
 } = {}) {
-  const [open, setOpen] = useState<string[]>(['request']);   // Request expanded on arrival
+  /* ⚠️ Holds what is SHUT, not what is open. Nine sections all open is the resting state, so the
+     list that has to be remembered is the exceptions — and a section added later is open without
+     anyone remembering to name it here. */
+  const [shut, setShut] = useState<string[]>([]);
   const [toggles, setToggles] = useState<Record<string, boolean>>(() => {
     const t: Record<string, boolean> = {};
     GROUPS.forEach((g) => g.rows.forEach((r) => { if (r.kind === 'toggle') t[r.key] = r.on ?? true; }));
@@ -183,8 +186,13 @@ export function AdminSupportPortalSettings({ compact = false }: {
     .map((g) => ({ ...g, rows: g.title.toLowerCase().includes(query) ? g.rows : g.rows.filter(matches) }))
     .filter((g) => g.rows.length);
 
-  const isOpen = (id: string) => (query ? true : open.includes(id));
-  const toggleGroup = (id: string) => setOpen((o) => (o.includes(id) ? o.filter((x) => x !== id) : [...o, id]));
+  /* ⚠️ Open is the RESTING state. Nine collapsed sections made the panel arrive as a list of nine
+     words: you had to guess which one held the switch you wanted and open it to find out. A section
+     you deliberately close stays closed, and one added later is open without anyone remembering to
+     name it here — which is why the state holds what is SHUT rather than what is open. */
+  const isOpen = (id: string) => (query ? true : !shut.includes(id));
+  const toggleGroup = (id: string) =>
+    setShut((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
   const renderRow = (r: Row) => {
     /* A dependent row is REMOVED when its parent is off, not disabled — the same §2.2 rule the
@@ -243,7 +251,10 @@ export function AdminSupportPortalSettings({ compact = false }: {
   };
 
   return (
-    <div className={compact ? 'px-4 pb-6' : 'px-4 py-6'}>
+    /* ⚠️ A column with its own scroller, so the footer below can stay put. Without the flex column
+       the whole panel scrolled as one and a "sticky" footer had nothing to be sticky inside. */
+    <div className="flex h-full min-h-0 flex-col">
+    <div className={`min-h-0 flex-1 overflow-y-auto ${compact ? 'px-4 pb-6' : 'px-4 py-6'}`}>
       <div className={`mb-4 gap-2 ${compact ? 'flex flex-col' : 'flex items-center gap-3'}`}>
         <div className={compact ? 'relative w-full' : 'relative w-[280px]'}>
           <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
@@ -254,13 +265,7 @@ export function AdminSupportPortalSettings({ compact = false }: {
             className="h-9 w-full rounded border border-[#d1d5db] pl-8 pr-2.5 text-[13px] text-[#364658] outline-none focus:border-[#3D8BD0]"
           />
         </div>
-        <div className={`flex items-center gap-2 ${compact ? '' : 'ml-auto'}`}>
-          <button
-            onClick={() => toast.success('Support portal settings updated')}
-            className={`inline-flex h-9 items-center justify-center rounded bg-[#3D8BD0] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#2d6ca0] ${compact ? 'flex-1' : ''}`}
-          >Update</button>
-          <button className={`inline-flex h-9 items-center justify-center rounded border border-[#DFE5ED] bg-white px-4 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA] ${compact ? 'flex-1' : ''}`}>Cancel</button>
-        </div>
+
       </div>
 
       {shown.map((g) => (
@@ -279,6 +284,17 @@ export function AdminSupportPortalSettings({ compact = false }: {
       {!shown.length && (
         <p className="py-16 text-center text-[13px] text-[#9CA3AF]">No setting matches “{q}”.</p>
       )}
+    </div>
+
+    {/* ⚠️ The same sticky footer Branding uses, for the same reason: these two commit the whole
+        panel, so they cannot be a thing you scroll past on the way in. */}
+    <div className="flex flex-shrink-0 justify-end gap-2 border-t border-[#E5E7EB] px-4 py-3">
+      <button className="inline-flex h-8 items-center rounded border border-[#DFE5ED] bg-white px-3.5 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]">Cancel</button>
+      <button
+        onClick={() => toast.success('Support portal settings updated')}
+        className="inline-flex h-8 items-center rounded bg-[#3D8BD0] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#2d6ca0]"
+      >Update</button>
+    </div>
     </div>
   );
 }

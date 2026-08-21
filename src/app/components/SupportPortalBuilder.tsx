@@ -833,6 +833,26 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   /* A drop on a SEAM builds the element its own section there — the same courtesy dropping a NEW
      element on a seam already gets. Without it the only way to move something out of a crowded
      column was to delete it and drag a fresh one from the library, losing everything it carried. */
+  const addChildBlock = useCallback((id: string, type: string) => {
+    const owner = ownerOf(id);
+    const spec = specForNode(owner);
+    const key = spec?.collection?.key;
+    if (!key) return;
+    const seed = spec!.collection!.seed?.(0) ?? {};
+    setWidgetCfg((prev) => {
+      const cfg = prev[owner] ?? {};
+      const list = ((cfg[key] as Cfg[]) ?? []);
+      /* ⚠️ An ID, minted the same way the panel's Add mints one. Every item in a collection is
+         keyed by it — React's list key, the node id its drawer opens under, and the row the
+         reorder/duplicate/delete actions act on. A child added from the canvas with no id was a
+         child none of those could address. Same shape as `addItem`, so the two doors produce the
+         same item. */
+      const item = { id: `${Date.now().toString(36)}${list.length}`, ...seed, type };
+      return { ...prev, [owner]: { ...cfg, [key]: [...list, item] } };
+    });
+    toast.success(`${type[0].toUpperCase()}${type.slice(1)} added`);
+  }, [specForNode]);
+
   const moveToSeam = useCallback((id: string, afterId: string) => {
     const moving = detachElement(id);
     if (!moving) return;
@@ -1158,7 +1178,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   const canvasCtx = {
     selectedId, hoverId, select, setHover: setHoverId, styles, setStyle, setText,
     addSection, addColumnBeside, dropInColumn, dropAtSeam, dropInRow,
-    moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, moveToSeam, areSiblings, replaceElement, pickIcon, applyPreset,
+    moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, moveToSeam, addChildBlock, areSiblings, replaceElement, pickIcon, applyPreset,
     onWholePage: () => { const on = cfgFor('hero').bgWholePage === true; patchCfg('hero', { bgWholePage: !on }); toast.success(on ? 'Background is banner-only again' : 'Background applied to the whole page'); },
   };
 

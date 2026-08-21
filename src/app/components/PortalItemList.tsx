@@ -52,13 +52,16 @@ interface Props {
      expands in place to edit them; without them it only opens the full drawer. Derived from the
      collection's own fields, so a widget never has to restate what its item is made of. */
   inlineKeys?: [string, string];
+  /** True when the inline editor shows every field the item has — the chevron would then lead to
+      the same two fields one navigation away, so it is dropped. */
+  inlineCoversAll?: boolean;
 }
 
 const inputCls = 'h-9 w-full rounded border border-[#d1d5db] bg-white px-3 text-[13px] text-[#364658] placeholder:text-[#9ca3af] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]';
 
 export function PortalItemList({
   items, label, meta, thumb, onOpen, onChange, addLabel, onAdd, max, hideable, emptyHint, noOpen,
-  noAdd, lockedHide, inlineKeys,
+  noAdd, lockedHide, inlineKeys, inlineCoversAll,
 }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -189,7 +192,9 @@ export function PortalItemList({
                     {/* ⚠️ Hidden when the item has no settings of its own. A chevron that opens an
                         empty drawer is a promise of depth that is not there — the rail's
                         destinations are the product's, so reorder and hide is all there is. */}
-                    {!noOpen && <button onClick={(e) => { e.stopPropagation(); onOpen(item); }} title="Open all settings for this item" className={iconBtn}><ChevronRight size={14} /></button>}
+                    {!noOpen && !inlineCoversAll && (
+                      <button onClick={(e) => { e.stopPropagation(); onOpen(item); }} title="Open all settings for this item" className={iconBtn}><ChevronRight size={14} /></button>
+                    )}
                   </span>
                 </div>
 

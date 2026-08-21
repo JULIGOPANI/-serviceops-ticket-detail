@@ -12,7 +12,7 @@
  *     page-level action.
  */
 
-import { Fragment, useRef, useState } from 'react';
+import { useEffect, Fragment, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   ChevronLeft, ChevronRight, Copy, EyeOff, Layers, List, MoreVertical, PanelLeft, RotateCcw,
@@ -415,13 +415,13 @@ function PanelBody({ spec, nodeId, cfg, renderField, openGroups, toggleGroup, st
             a slider that does the same thing is the second control this builder keeps growing. */}
         {panel.accordions.filter((a) => a.id !== 'size').filter((a) => !a.when || a.when(cfg)).map((a) => {
           const key = `acc:${a.id}`;
-          const open = openGroups.includes(key) || (a.open && !openGroups.includes(`shut:${a.id}`));
+          const open = !openGroups.includes(`shut:${a.id}`);
           return (
             <Group
               key={a.id}
               title={ACCORDION_TITLE[a.id]}
               open={!!open}
-              onToggle={() => toggleGroup(open ? `shut:${a.id}` : key)}
+              onToggle={() => toggleGroup(`shut:${a.id}`)}
               badge={(
                 <>
                   {a.info && <span title={a.info} className="cursor-help text-[#9CA3AF]"><Info size={12} /></span>}
@@ -520,6 +520,11 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
       'Content', '__spacing',
       ...(spec.fields ?? []).map((f) => f.group).filter(Boolean) as string[],
       ...(spec.panel?.accordions ?? []).map((a) => ACCORDION_TITLE[a.id] ?? a.id),
+      /* ⚠️ The COLLECTION's group too — "Items", "Extra content", "Questions". It was the one group
+         name this list never gathered, so the list of things a widget actually contains was the one
+         group that always arrived shut: select an accordion and its three questions were behind a
+         chevron, on a panel where everything else was already open. */
+      ...(spec.collection ? [spec.collection.group] : []),
       ...(spec.packs ?? []),
     ]),
   ];
@@ -533,6 +538,16 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
      inside a scrolling panel is clipped the moment it is taller than the space below its trigger. */
   const [bannerPick, setBannerPick] = useState<BannerPick>(null);
   const [openGroups, setOpenGroupsState] = useState<string[]>(GROUP_MEMORY[spec.id] ?? ALL_GROUPS);
+  /* ⚠️ RE-SEEDED when the selected widget changes. This drawer is ONE component instance that
+     swaps its spec as you click around the page, and `useState` only ever reads its initial value —
+     so `openGroups` kept the group names of whatever you selected FIRST. Every later widget's
+     groups were absent from that list, which reads as "all collapsed": select a card, then an
+     accordion, and the accordion arrives shut with no way to tell why. Keyed on `spec.id` so a
+     widget you deliberately tidied still opens the way you left it. */
+  useEffect(() => {
+    setOpenGroupsState(GROUP_MEMORY[spec.id] ?? ALL_GROUPS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spec.id]);
   const setOpenGroups = (next: string[]) => { GROUP_MEMORY[spec.id] = next; setOpenGroupsState(next); };
   const toggleGroup = (g: string) =>
     setOpenGroups(openGroups.includes(g) ? openGroups.filter((x) => x !== g) : [...openGroups, g]);
@@ -1077,6 +1092,9 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
                        description, so a collection gets inline editing without restating them. */
                     noOpen={col.noOpen}
                     inlineKeys={col.noOpen || col.fields.length < 2 ? undefined : [col.fields[0].key, col.fields[1].key]}
+                    /* An accordion item is a title and a body — both are inline, so the chevron
+                       would open a drawer showing the two fields already in front of you. */
+                    inlineCoversAll={col.fields.length === 2 && !col.subElements?.length ? true : col.fields.length === 2}
                     hideable={col.hideable}
                     noAdd={col.noAdd}
                     /* §7.24 — the logo cannot be hidden, and the action is DISABLED with the reason
