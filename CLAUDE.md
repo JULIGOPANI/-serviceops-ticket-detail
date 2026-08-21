@@ -200,9 +200,9 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
 - **Portal builder — hidden catalogue elements:** `PortalElement.hidden` withholds an element from the palette without deleting it, so its spec and renderer stay and anything already on a page keeps working. ⚠️ Filter BEFORE the search, or a hidden row is still reachable by typing its name; and filter the builder's seed too. Currently hidden (20 Aug 2026): **Spacer**, **Advanced Tabs**, **Media Slider** (the last had 22 of 33 controls inert).
 ## Parked features
 Four Support Portal features are BUILT-OR-PART-BUILT AND SWITCHED OFF, with their full context in
-[future-tasks.md](future-tasks.md): **AI** (rail item commented out in ; the
-real ask is section-scoped AI, not portal-wide generation), **Media Slider** (, hidden —
-22 of 33 controls were inert), **Advanced Tabs** (, hidden — needs a collection spec, copy
+[future-tasks.md](future-tasks.md): **AI** (rail item commented out in `SupportPortalBuilder`; the
+real ask is section-scoped AI, not portal-wide generation), **Media Slider** (`v-slider`, hidden —
+22 of 33 controls were inert), **Advanced Tabs** (`l-tabs`, hidden — needs a collection spec, copy
 Accordion's), and **custom templates** (the gallery and the New-page route exist; save-as-template
 does not). ⚠️ Each is hidden by a FLAG, not deleted — spec, renderer and panel all stay, so
 restoring is one line and an existing page carrying the element keeps working. Read that file before
