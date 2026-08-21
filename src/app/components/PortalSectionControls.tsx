@@ -22,10 +22,18 @@ const CARD_TEMPLATES: { value: string; dir: string; title: string; noIcon?: bool
   { value: 'none', dir: 'flex-row', title: 'Text only', noIcon: true },
 ];
 
-export function TemplatePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+/* ⚠️ `only` narrows the row to the templates a given widget can honestly offer. The IMAGE element
+   drops "Text only": that template hides the picture, and an image with no image is not a variant of
+   an image, it is a Text element wearing the wrong name — with its alt text, its crop and its link
+   all still on screen editing something invisible. An action card keeps it, because a card without
+   an icon is still a card. */
+export function TemplatePicker({ value, onChange, only }: {
+  value: string; onChange: (v: string) => void; only?: readonly string[];
+}) {
+  const list = only?.length ? CARD_TEMPLATES.filter((t) => only.includes(t.value)) : CARD_TEMPLATES;
   return (
     <div className="flex gap-2">
-      {CARD_TEMPLATES.map((t) => {
+      {list.map((t) => {
         const on = value === t.value;
         return (
           <button

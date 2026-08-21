@@ -790,7 +790,14 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
           />
         );
       case 'templates':
-        return <TemplatePicker value={String(v ?? 'left')} onChange={(x) => set(f.key, x)} />;
+        /* A `templates` field may declare `options` to narrow the row — see TemplatePicker. */
+        return (
+          <TemplatePicker
+            value={String(v ?? 'left')}
+            onChange={(x) => set(f.key, x)}
+            only={optionsOf(f) as readonly string[] | undefined}
+          />
+        );
       /* ⚠️ Both render as the SAME joined icon group every other alignment row uses. They used to be
          a recessed pill track, so "Alignment" looked like one control in a text element and a
          different one in an action card — and the difference carried no meaning, since both answer

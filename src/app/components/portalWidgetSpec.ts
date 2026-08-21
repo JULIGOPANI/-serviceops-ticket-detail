@@ -493,6 +493,15 @@ export const WIDGET_SPECS: WidgetSpec[] = [
         },
         { key: 'url', label: 'URL', control: 'text', when: (c) => c.destination === 'url' },
         { key: 'newTab', label: 'Open in a new tab', control: 'toggle', when: (c) => c.destination === 'url' },
+        /* ⚠️ Belongs to the DESTINATION, not to the card — it only means anything once the click
+           lands on the service catalog, so it appears with "Request a service" and is removed with
+           it, the same rule URL and Open-in-a-new-tab already follow. Off by default: a field that
+           has just appeared must not have already changed what the card does. */
+        {
+          key: 'mostUsed', label: 'Most used services', control: 'toggle',
+          when: (c) => c.destination === 'service',
+          help: 'When a requester clicks this card, the services people request most are shown first.',
+        },
       ],
       accordions: [
         {
@@ -526,6 +535,9 @@ export const WIDGET_SPECS: WidgetSpec[] = [
       title, sub, icon, iconPos: 'left', contentAlign: 'start',
       destination: id === 'act_custom' ? 'incident' : id.replace('act_', ''),
       page: 'My Requests', url: '', newTab: true,
+      /* Off by default. A ToggleRow reads an unset key as ON, so a field that has just appeared
+         because you picked a destination would arrive having already changed what the card does. */
+      mostUsed: false,
       /* the swatch must state the colour the card would actually paint. Without a bg default the
          ColorField fell back to its own #3D8BD0 while fillCss fell back to white, so the control
          showed blue on a white card and the first click appeared to change nothing. */
@@ -740,10 +752,13 @@ export const WIDGET_SPECS: WidgetSpec[] = [
          beyond a bare sentence had to go in a Text element underneath and stop being the picture's
          caption at all. */
       { key: 'caption', label: 'Caption', control: 'rich', group: 'Content' },
-      /* ⚠️ The same four templates the action card uses, and for the same reason: where the picture
-         sits relative to its words is the shape of the thing, and you recognise a shape by looking.
-         'none' is Text only — the picture is hidden and the caption carries the block. */
-      { key: 'template', label: 'Card templates', control: 'templates', group: 'Content' },
+      /* ⚠️ THREE of the action card's four templates, and for the same reason it has any: where the
+         picture sits relative to its words is the shape of the thing, and you recognise a shape by
+         looking. "Text only" is the one that does NOT survive here — it hides the picture, and an
+         Image element with no image is not a variant of an image, it is a Text element under the
+         wrong name, with alt text and a crop still on screen describing nothing. Anyone who wants
+         only words already has the Text element. */
+      { key: 'template', label: 'Card templates', control: 'templates', group: 'Content', options: ['left', 'top', 'right'] },
       /* ⚠️ Link is the image's ACTION, not its content. Where a click goes is neither what the
          element shows nor how it looks — the same reason the action cards keep their destination in
          a section of its own rather than buried among titles. */
