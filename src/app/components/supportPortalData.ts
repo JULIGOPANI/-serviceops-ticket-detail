@@ -264,8 +264,15 @@ export interface PortalElement {
   hidden?: boolean;
 }
 
-/* ⚠️ `onPage` mirrors what SupportPortalPreview actually renders. Keep the two in step — a row
- *    claiming "Added" for a block the canvas doesn't show is worse than no badge at all. */
+/* ⚠️ `onPage` mirrors what SupportPortalPreview actually renders as a BUILT-IN band. Keep the two
+   in step: the builder's demo seed lays out one example section per element and skips these, so a
+   flag that has drifted shows the untouched page carrying My Open Requests twice — or missing the
+   example of a block it does not actually have.
+   ⚠️ It no longer governs the PALETTE. Every element is addable, every time; a row that greys out
+   because the page already has one has to stay in step with the page to be truthful, and it never
+   quite did. What a page RENDERS and what an admin may ADD are two questions, and this answers the
+   first. */
+
 export const PORTAL_ELEMENTS: PortalElement[] = [
   /* ── The ServiceOps portal's own blocks, in the two groups they actually divide into ──
    *

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-  Boxes, Check, ChevronsUpDown, ClipboardList, Download, GalleryHorizontal, Gauge, Heading,
+  Boxes, ChevronsUpDown, ClipboardList, Download, GalleryHorizontal, Gauge, Heading,
   HelpCircle, Image as ImageIcon, Images, KeyRound, LayoutGrid, LayoutTemplate, LifeBuoy, Link2, List, Mail,
   Megaphone, Minus, MousePointerClick, MoveVertical, Network, PanelTop, Phone, Rows3, Search, Shapes, Share2,
   ShoppingCart, Smile, Square, Star, Table, Timer, Type, X, Zap,
@@ -11,7 +11,6 @@ import {
 } from './SidebarIcons';
 import { PORTAL_ELEMENT_GROUPS, PORTAL_ELEMENTS } from './supportPortalData';
 import { PortalElementPreview } from './PortalElementPreview';
-import { WIDGET_FOR_TYPE, specById } from './portalWidgetSpec';
 import type { PortalElement, PortalElementGroup } from './supportPortalData';
 
 /* Add → Elements.
@@ -21,10 +20,18 @@ import type { PortalElement, PortalElementGroup } from './supportPortalData';
  * rows of icon-badge + name. The rows reuse the icon-badge treatment the Admin Overview cards use,
  * so this reads as the same product.
  *
- * **Components comes first** on purpose. Those are the blocks a support portal is actually made of;
- * the generic toolkit below them is the long tail. A system component already on the page renders
- * disabled with an "Added" chip — you cannot have two "My Requests" blocks, so the row says so
- * instead of letting an admin build a broken page. */
+ * **Live data comes first** on purpose. Those are the blocks a support portal is actually made of;
+ * the generic toolkit below them is the long tail.
+ *
+ * ⚠️ EVERY row is addable, every time. The library used to grey out anything already on the page and
+ * mark it with a tick, on the rule that "you cannot have two My Requests blocks". That rule was ours,
+ * not the product's: two request lists filtered to different statuses is a reasonable page, and every
+ * placed element already carries its own id and its own config, so a second one is a second widget
+ * rather than a collision. What the rule DID reliably produce was a palette that went progressively
+ * dead as a page got built, and — on any page whose blocks had been rearranged — rows claiming to be
+ * placed that were not. The one element that genuinely cannot exist twice is the AD action card,
+ * because it is a member of the Quick Actions row under a fixed id; `addElement` says so with a
+ * toast at the moment you try, which is the honest place for a limit that has one instance. */
 
 /* Icon registry — data holds strings so the catalogue stays plain. ServiceOps blocks deliberately
    use the product's own sidebar glyphs, so a portal component looks like the module it surfaces. */
@@ -91,16 +98,9 @@ interface Props {
   /** Places the element on the page. Click and drag are the same add — one lands it where the
    *  builder decides, the other where you aimed. */
   onAdd: (elementId: string) => void;
-  /** Catalogue types the page is already carrying, so a single-instance block reads "added". */
-  placedTypes: string[];
-  /* ⚠️ A BLANK portal has none of the built-in blocks, so `onPage` — which states that a component
-     ships as a fixed part of the standard page — is not true of it. Left unqualified, the library
-     greyed out Announcements, My Requests and six others on a page that was visibly empty, telling
-     the admin they had already added things they could see they had not. */
-  blank?: boolean;
 }
 
-export function SupportPortalAddPanel({ onAdd, placedTypes, blank = false }: Props) {
+export function SupportPortalAddPanel({ onAdd }: Props) {
   const [query, setQuery] = useState('');
   /* ⚠️ The anchor is a MEASURED rect, not the element: the list scrolls under a fixed popover, so
      the card has to be placed against where the row is NOW, not where React last thought it was.
@@ -130,22 +130,6 @@ export function SupportPortalAddPanel({ onAdd, placedTypes, blank = false }: Pro
   }, [q]);
 
   const total = groups.reduce((n, g) => n + g.items.length, 0);
-
-  /* ⚠️ Reuse comes from the SPEC (§6's `single` / `many`), not from the palette group. FAQ and Card
-     sit in Components here but are freely repeatable, and greying FAQ out after one use made a
-     second one impossible to place. The group is only the fallback for the elements the
-     specification does not cover.
-     ⚠️ And it is read off what the page actually HOLDS, never off what was clicked — the two
-     drifting apart is exactly how this list came to claim things it had not added. */
-  const isSingle = (e: PortalElement) => {
-    const spec = specById(WIDGET_FOR_TYPE[e.id]);
-    return spec ? spec.reuse === 'single' : e.group === 'Live data' || e.group === 'Actions';
-  };
-  /* ⚠️ An explicit `onPage` marks a row added whatever its reuse rule says. FAQ is repeatable, so
-     the reuse test alone could never grey it — but this page already carries one in the banner, and
-     a palette that offers a second is describing a page other than the one on screen. Reuse governs
-     what an admin PLACES; onPage states what is already there. */
-  const isAdded = (e: PortalElement) => (!blank && !!e.onPage) || (isSingle(e) && placedTypes.includes(e.id));
 
   /** A search can remove the group the tabs are pointing at. */
   useEffect(() => {
@@ -292,33 +276,7 @@ export function SupportPortalAddPanel({ onAdd, placedTypes, blank = false }: Pro
               {group}
             </h3>
             <div className="space-y-2">
-              {items.map((e) => {
-                const done = isAdded(e);
-                if (done) {
-                  return (
-                    <div
-                      key={e.id}
-                      /* ⚠️ An already-placed row still previews. You cannot add it again, but "what
-                         IS My CIs?" is a fair question whether or not the answer is addable — and a
-                         row that goes dead on hover reads as broken rather than as unavailable. */
-                      onMouseEnter={(ev) => setPeek({ id: e.id, rect: ev.currentTarget.getBoundingClientRect() })}
-                      onMouseLeave={() => setPeek((c) => (c?.id === e.id ? null : c))}
-                      title={`${e.name} is already on this page`}
-                      className="flex w-full cursor-not-allowed items-center gap-3 rounded border border-[#F0F2F5] bg-[#FAFBFC] px-3 py-2.5"
-                    >
-                      {/* Icon takes the label's colour, so a row reads as one muted unit. */}
-                      <span className="flex size-8 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#9CA3AF]">
-                        {icon(e.icon)}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-[13px] text-[#9CA3AF]">{e.name}</span>
-                      {/* A tick says "already here" in a fraction of the width the word did. */}
-                      <span className="flex size-5 flex-shrink-0 items-center justify-center rounded-full bg-[#ECFDF3] text-[#22A06B]">
-                        <Check size={13} strokeWidth={2.5} />
-                      </span>
-                    </div>
-                  );
-                }
-                return (
+              {items.map((e) => (
                   <button
                     key={e.id}
                     draggable
@@ -341,8 +299,7 @@ export function SupportPortalAddPanel({ onAdd, placedTypes, blank = false }: Pro
                     </span>
                     <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[#364658] transition-colors group-hover/el:text-[#3D8BD0]">{e.name}</span>
                   </button>
-                );
-              })}
+              ))}
             </div>
           </div>
         ))}

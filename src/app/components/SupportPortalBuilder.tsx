@@ -628,15 +628,6 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     return ids;
   };
 
-  /** Catalogue types the page is already carrying — what makes a single-instance block read "added". */
-  const placedTypes = [
-    ...sections.flatMap((s) => Object.values(s.section.items).map((el) => el.type)),
-    ...Object.values(rowExtras).flatMap((list) => list.map((el) => el.type)),
-    /* ⚠️ The AD card is a member of the Quick Actions row, not a placed element, so it is invisible
-       to both lists above. Without this the palette kept offering a card the page already had. */
-    ...(content.quick.some((q) => q.id === 'quick-ad') ? ['act-ad'] : []),
-  ];
-
   /* Click-to-add. The library is not a catalogue you can only drag out of.
    *
    * ⚠️ Clicking a row used to mark it "added" and place nothing — the worst of both, because the
@@ -1468,7 +1459,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
             {/* A rail panel wins while one is open; otherwise the panel is the element editor,
                 falling back to the "select something" empty state. */}
             {panelKey === 'add' ? (
-              <div className="min-h-0 flex-1"><SupportPortalAddPanel onAdd={addElement} placedTypes={placedTypes} blank={page.start === 'blank'} /></div>
+              <div className="min-h-0 flex-1"><SupportPortalAddPanel onAdd={addElement} /></div>
             ) : active === 'theme' ? (
               <div className="flex min-h-0 flex-1 flex-col"><PortalThemePanel theme={theme} onChange={(patch) => setTheme((t) => ({ ...t, ...patch }))} /></div>
             ) : active === 'branding' ? (
