@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 // ArrowLeft stays in use by the card toolbar's "Move left".
 import { toast } from 'sonner';
-import { AiSparkle } from './AiSparkle';
 import { HEADING_SIZE, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, nodeById, paintsOwnSurface, nodePath, placedIn, placedType } from './portalPageModel';
 import { boxCss, containerCss } from './portalStyleResolver';
 import { PORTAL_ELEMENTS, PORTAL_ELEMENT_GROUPS } from './supportPortalData';
@@ -844,7 +843,6 @@ function TextToolbar({ id }: { id: string }) {
         >{tip.label}</span>
       )}
       <span {...drag} className="flex size-7 cursor-grab items-center justify-center text-[#9CA3AF] active:cursor-grabbing"><GripVertical size={14} /></span>
-      <span className="flex size-7 items-center justify-center"><AiSparkle size={14} /></span>
       <span className="mx-0.5 h-4 w-px bg-[#E5E7EB]" />
 
       <button className={tBtn(s.bold)} data-tip="Bold" onClick={() => setStyle(id, { bold: !s.bold })}><Bold size={14} /></button>
@@ -1331,33 +1329,59 @@ export function AddSectionSeam({ afterId }: { afterId: string }) {
 }
 
 /** The `+` affordances on an empty column: sides insert a sibling column, centre adds an element. */
+/** Add a column — a solid track beside a dashed one waiting to be filled.
+ *
+ * ⚠️ Drawn rather than borrowed from the icon set. Every "+" in a lucide-shaped glyph says *add
+ * something*; this has to say *add a COLUMN*, and the only way a 16px mark says that is by showing
+ * the tracks. The dashed one is the new column, so mirroring the icon on the left button makes it
+ * point the way it will actually grow. */
+function ColumnAddIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="1.2" y="2.2" width="5.2" height="11.6" rx="1.4" />
+      <rect x="9.6" y="2.2" width="5.2" height="11.6" rx="1.4" strokeDasharray="2.2 1.8" />
+      <path d="M12.2 6.4v3.2M10.6 8h3.2" />
+    </svg>
+  );
+}
+
 export function ColumnAdders({ columnId, filled }: { columnId: string; filled?: boolean }) {
   const { addColumnBeside, addInside } = useCanvas();
-  const dot = 'flex size-5 items-center justify-center rounded-full bg-[#3D8BD0] text-white shadow-sm transition-transform hover:scale-110';
+  /* ⚠️ SECONDARY buttons — white, bordered, dark icon — not blue dots. Adding a column is a
+     structural move made while you are looking at content, and three blue dots on a live column
+     competed with the page for attention every time the cursor passed over it. A secondary control
+     is the honest weight for something you reach for occasionally and deliberately. */
+  const side = 'flex size-6 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#1E293B] shadow-sm transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]';
   return (
     <>
       <button
         onClick={(e) => { e.stopPropagation(); addColumnBeside(columnId, 'left'); }}
         title="Add a column to the left"
-        className={`${dot} absolute -left-2.5 top-1/2 z-20 -translate-y-1/2`}
-      ><Plus size={13} /></button>
+        className={`${side} absolute -left-3 top-1/2 z-20 -translate-y-1/2`}
+      ><span className="-scale-x-100"><ColumnAddIcon /></span></button>
+
       {/* The middle one swaps the right panel to the element library — the list you pick from is
           the answer to "add what?", so it takes the panel rather than opening a second surface. */}
       {/* ⚠️ Only on an EMPTY column. On a filled one it would sit on top of the element it is
           offering to replace, and a column holds one thing — so the side adders, which make room
           rather than compete for it, are the whole offer there. */}
+      {/* ⚠️ It is the SAME grey plus the column shows at rest, in the same place. It used to turn
+          blue the instant the column went live, so the one affordance that never changes meaning —
+          "put something here" — was the one that changed appearance under the cursor. The sides
+          say "make room"; the middle says "fill it"; only the sides are new on hover. */}
       {!filled && (
         <button
           onClick={(e) => { e.stopPropagation(); addInside(columnId); }}
           title="Add an element here"
-          className={`${dot} absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2`}
-        ><Plus size={13} /></button>
+          className="absolute left-1/2 top-1/2 z-20 flex size-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#C3CBD6] text-white transition-colors hover:bg-[#3D8BD0]"
+        ><Plus size={14} /></button>
       )}
+
       <button
         onClick={(e) => { e.stopPropagation(); addColumnBeside(columnId, 'right'); }}
         title="Add a column to the right"
-        className={`${dot} absolute -right-2.5 top-1/2 z-20 -translate-y-1/2`}
-      ><Plus size={13} /></button>
+        className={`${side} absolute -right-3 top-1/2 z-20 -translate-y-1/2`}
+      ><ColumnAddIcon /></button>
     </>
   );
 }
