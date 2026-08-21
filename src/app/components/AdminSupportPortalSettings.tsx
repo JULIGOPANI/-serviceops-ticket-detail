@@ -148,7 +148,13 @@ function Radio({ options, value, onChange }: { options: string[]; value: string;
   );
 }
 
-export function AdminSupportPortalSettings() {
+export function AdminSupportPortalSettings({ compact = false }: {
+  /* ⚠️ Rendered inside the builder's 340px rail panel, not on a full admin page. Only the CHROME
+     changes — the padding, and a toolbar that stacks instead of sitting on one line. The settings
+     themselves are the same rows in the same order, because they are the same settings; a second
+     narrow variant of the list would be two things to keep in step. */
+  compact?: boolean;
+} = {}) {
   const [open, setOpen] = useState<string[]>(['request']);   // Request expanded on arrival
   const [toggles, setToggles] = useState<Record<string, boolean>>(() => {
     const t: Record<string, boolean> = {};
@@ -237,9 +243,9 @@ export function AdminSupportPortalSettings() {
   };
 
   return (
-    <div className="px-4 py-6">
-      <div className="mb-4 flex items-center gap-3">
-        <div className="relative w-[280px]">
+    <div className={compact ? 'px-4 pb-6' : 'px-4 py-6'}>
+      <div className={`mb-4 gap-2 ${compact ? 'flex flex-col' : 'flex items-center gap-3'}`}>
+        <div className={compact ? 'relative w-full' : 'relative w-[280px]'}>
           <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
           <input
             value={q}
@@ -248,12 +254,12 @@ export function AdminSupportPortalSettings() {
             className="h-9 w-full rounded border border-[#d1d5db] pl-8 pr-2.5 text-[13px] text-[#364658] outline-none focus:border-[#3D8BD0]"
           />
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className={`flex items-center gap-2 ${compact ? '' : 'ml-auto'}`}>
           <button
             onClick={() => toast.success('Support portal settings updated')}
-            className="inline-flex h-9 items-center rounded bg-[#3D8BD0] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#2d6ca0]"
+            className={`inline-flex h-9 items-center justify-center rounded bg-[#3D8BD0] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#2d6ca0] ${compact ? 'flex-1' : ''}`}
           >Update</button>
-          <button className="inline-flex h-9 items-center rounded border border-[#DFE5ED] bg-white px-4 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]">Cancel</button>
+          <button className={`inline-flex h-9 items-center justify-center rounded border border-[#DFE5ED] bg-white px-4 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA] ${compact ? 'flex-1' : ''}`}>Cancel</button>
         </div>
       </div>
 

@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   ArrowLeft, ChevronLeft, Eye, RotateCcw,
-  Palette, PanelRight, Paintbrush, Pencil, Plus, Redo2, Undo2, X,
+  Palette, PanelRight, Paintbrush, Pencil, Plus, Redo2, SlidersHorizontal, Undo2, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { AiSparkle } from './AiSparkle';
 import { SupportPortalPreview } from './SupportPortalPreview';
+import { AdminSupportPortalSettings } from './AdminSupportPortalSettings';
 import { SupportPortalAddPanel } from './SupportPortalAddPanel';
 import { PortalBrandingPanel } from './PortalBrandingPanel';
 import { PRESETS, isRowAxis, presetOf } from './PortalSectionLayout';
@@ -51,7 +52,7 @@ interface SupportPortalBuilderProps {
   onExit: () => void;
 }
 
-type RailKey = 'add' | 'theme' | 'branding' | 'ai';
+type RailKey = 'add' | 'theme' | 'branding' | 'settings' | 'ai';
 
 const RAIL: { key: RailKey; label: string; icon: (on: boolean) => ReactNode }[] = [
   /* ⚠️ "Widgets", not "Add". The rail names PLACES, not verbs — Theme, Branding, Templates are all
@@ -59,6 +60,10 @@ const RAIL: { key: RailKey; label: string; icon: (on: boolean) => ReactNode }[] 
   { key: 'add', label: 'Widgets', icon: () => <Plus size={18} /> },
   { key: 'theme', label: 'Theme', icon: () => <Paintbrush size={18} /> },
   { key: 'branding', label: 'Branding', icon: () => <Palette size={18} /> },
+  /* ⚠️ BELOW Branding, and inside the portal rather than beside the listing. What a requester may
+     DO on this portal is a property of this portal — the same kind of statement as its theme and
+     its logo — so it belongs on the rail with them. */
+  { key: 'settings', label: 'Settings', icon: () => <SlidersHorizontal size={18} /> },
   { key: 'ai', label: 'AI', icon: (on) => <AiSparkle size={18} className={on ? '' : 'opacity-90'} /> },
 ];
 
@@ -83,6 +88,10 @@ const PANEL_COPY: Record<RailKey, { title: string; body: string }> = {
        per-page override that has never existed. */
     title: 'Branding',
     body: 'The organisation identity, shared by every portal.',
+  },
+  settings: {
+    title: 'Settings',
+    body: 'What a requester can do on this portal.',
   },
   ai: {
     title: 'Build with AI',
@@ -140,10 +149,19 @@ function PanelEmptyState({ active }: { active: RailKey | null }) {
 
 /* ── Builder ─────────────────────────────────────────────────────────────── */
 
-export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit }: SupportPortalBuilderProps) {
+export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit, openOn, onOpenConsumed }: SupportPortalBuilderProps & {
+  /* Which rail panel to land on. The listing's "Portal settings" action opens the portal AT its
+     settings rather than at the canvas — asking for settings and being given a blank widget library
+     is the builder answering a different question from the one you pressed. */
+  openOn?: RailKey;
+  onOpenConsumed?: () => void;
+}) {
   const [width, setWidth] = useState(MIN_W);
   const [collapsed, setCollapsed] = useState(false);
-  const [active, setActive] = useState<RailKey | null>(null);
+  const [active, setActive] = useState<RailKey | null>(openOn ?? null);
+  /* ⚠️ Consumed ONCE, on mount. Left standing, every later close of the panel would be undone by the
+     next render and the rail item could never be switched off. */
+  useEffect(() => { if (openOn) onOpenConsumed?.(); }, []);
   const [preview, setPreview] = useState(false);
   /* The portal's own style system. It lives HERE rather than in the panel because the canvas has to
      paint with it — a theme panel that only changed itself would be a colour picker with no page. */
@@ -1415,6 +1433,8 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
               <div className="flex min-h-0 flex-1 flex-col"><PortalThemePanel theme={theme} onChange={(patch) => setTheme((t) => ({ ...t, ...patch }))} /></div>
             ) : active === 'branding' ? (
               <div className="min-h-0 flex-1"><PortalBrandingPanel /></div>
+            ) : active === 'settings' ? (
+              <div className="min-h-0 flex-1 overflow-y-auto"><AdminSupportPortalSettings compact /></div>
             ) : active ? (
               <div className="min-h-0 flex-1 overflow-y-auto"><PanelEmptyState active={active} /></div>
             ) : selectedId && specForNode(selectedId) ? (

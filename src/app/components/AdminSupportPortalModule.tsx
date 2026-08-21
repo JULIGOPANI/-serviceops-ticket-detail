@@ -6,7 +6,6 @@ import {
   Eye, MoreVertical, RotateCcw, Settings, Trash2, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { AdminSupportPortalSettings } from './AdminSupportPortalSettings';
 import { Pagination } from './Pagination';
 import { SupportPortalBuilder } from './SupportPortalBuilder';
 import { SupportPortalTemplateGallery } from './SupportPortalTemplateGallery';
@@ -219,7 +218,6 @@ type Scope = 'All' | 'Published' | 'Draft';
  * a requester may DO on it. They are the same subject, so splitting them across the sidebar would
  * make an admin remember which of two identically-named rows holds the switch they want. */
 export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boolean) => void }) {
-  const [tab, setTab] = useState<'customization' | 'settings'>('customization');
   /* ⚠️ Starts with ONE page, not empty. Every tenant already has a support portal — the requester
      is landing somewhere today — so an empty state here would claim the portal does not exist and
      invite the admin to "create" the thing they are actually editing. The default page is a System
@@ -230,6 +228,10 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
   const [gallery, setGallery] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  /* Set when the row menu asked for settings rather than the canvas — the builder opens on that
+     panel instead of the widget library. Cleared as soon as it has been handed over, so returning
+     to the same portal later opens where a portal normally opens. */
+  const [openSettings, setOpenSettings] = useState(false);
   /* Which portals are switched on. Absent means ON — a portal you have never touched is live. */
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   const isOn = (p: PortalPage) => p.id === DEFAULT_PORTAL_PAGE.id || enabled[p.id] !== false;
@@ -285,6 +287,8 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
   if (editing) {
     return (
       <SupportPortalBuilder
+          openOn={openSettings ? 'settings' : undefined}
+          onOpenConsumed={() => setOpenSettings(false)}
         page={editing}
         accent={accentFor(editing)}
         onRename={(name) => patch(editing.id, { name: uniquePageName(pages.filter((p) => p.id !== editing.id), name) })}
@@ -338,35 +342,16 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
     </div>
   );
 
-  /* The strip sits above whichever pane is showing, in the tab styling the detail pages use. */
-  const tabs = (
-    <div className="flex items-center gap-2.5 border-b border-[#e5e7eb] px-4">
-      {([['customization', 'Customization'], ['settings', 'Settings']] as const).map(([id, label]) => (
-        <button
-          key={id}
-          onClick={() => setTab(id)}
-          className={`px-2 py-3 text-[13px] font-medium transition-colors border-b-2 ${
-            tab === id
-              ? 'border-[#3D8BD0] text-[#3D8BD0]'
-              : 'border-transparent text-[#64748B] hover:border-[#CBD5E1] hover:bg-[#f9fafb] hover:text-[#364658]'
-          }`}
-        >{label}</button>
-      ))}
-    </div>
-  );
-
-  /* ⚠️ The head sits ABOVE the tabs and does NOT change with them. Customization and Settings are
-     two views of ONE subject, so a title that rewrote itself per tab would read as two different
-     pages sharing a nav row — and saying which view you are in is the strip's job, not the title's. */
+  /* ⚠️ No tab strip. Support Portal is ONE destination showing ONE thing — the portals you have —
+     and a portal's own settings live inside it, on the builder's rail beside Theme and Branding.
+     The two used to sit as sibling tabs, which put a list of portals and one portal's behaviour on
+     the same nav row at two different scopes. */
   const shell = (body: ReactNode) => (
     <>
       <div className="px-4 pt-6">{head}</div>
-      {tabs}
       {body}
     </>
   );
-
-  if (tab === 'settings') return shell(<AdminSupportPortalSettings />);
 
   // ── empty state ── no page has been built yet, so there is nothing to search or filter.
   if (pages.length === 0) {
@@ -532,7 +517,7 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
                       isDefault={p.id === DEFAULT_PORTAL_PAGE.id}
                       onCustomize={() => setEditingId(p.id)}
                       onPreview={() => toast.success(`Opening ${p.name} in preview`)}
-                      onSettings={() => setTab('settings')}
+                      onSettings={() => { setEditingId(p.id); setOpenSettings(true); }}
                       onDuplicate={() => duplicate(p)}
                       onReset={() => toast.success(`${p.name} layout reset to the ServiceOps default`)}
                       onDelete={() => setConfirmId(p.id)}
