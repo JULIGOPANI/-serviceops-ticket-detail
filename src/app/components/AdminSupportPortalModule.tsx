@@ -130,8 +130,8 @@ function NewPageMenu({ onScratch, onTemplate, size = 'default' }: {
   const options = [
     {
       key: 'scratch',
-      title: 'Customize from scratch',
-      desc: 'Open a blank portal page and build it block by block.',
+      title: 'Create Support Portal',
+      desc: 'Start with a blank page and build it block by block.',
       Icon: PenLine,
       run: onScratch,
     },
@@ -328,7 +328,8 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
   );
 
   const head = (
-    <div className="mb-5">
+    <div className="mb-4 flex items-start gap-4">
+      <div className="min-w-0 flex-1">
       <h1 className="text-[20px] font-semibold text-[#364658]">Support Portal Customization</h1>
       <p className="mt-1 text-[13px] leading-[1.6] text-[#7B8FA5]">
         Design the pages your requesters land on — build one from scratch or start from a template.{' '}
@@ -337,6 +338,10 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
           className="inline-flex items-center gap-1 text-[13px] font-medium text-[#3D8BD0] hover:underline"
         >View Docs <ExternalLink size={12} /></button>
       </p>
+      </div>
+      {/* ⚠️ Aligned to the TITLE's line, not centred against the two-line block. Centred it floated
+          between the heading and the sentence under it, belonging to neither. */}
+      <div className="flex-shrink-0 pt-0.5"><NewPageMenu onScratch={startBlank} onTemplate={() => setGallery(true)} /></div>
     </div>
   );
 
@@ -396,15 +401,7 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
   return (
     <>
       {shell(
-      <div className="px-4 py-6">
-        {/* ⚠️ No search and no scope tabs. A tenant has one or two portals: searching a single row
-            is a control that can only ever confirm what is already on screen, and All / Published /
-            Drafts split a list that does not need splitting — the Status column says which is which
-            in the same row as the name. The CTA is all this row has left to carry. */}
-        <div className="mb-3 flex items-center">
-          <div className="ml-auto"><NewPageMenu onScratch={startBlank} onTemplate={() => setGallery(true)} /></div>
-        </div>
-
+      <div className="px-4 pb-6">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px]">
             <thead className="border-b border-[#e5e7eb]">
