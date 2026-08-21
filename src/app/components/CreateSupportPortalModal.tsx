@@ -35,6 +35,99 @@ const input = 'h-9 w-full rounded border border-[#d1d5db] px-2.5 text-[13px] tex
 
 const Req = () => <span className="text-[#EF4444]"> *</span>;
 
+/** The five things a portal is, asked once and reused by Create and by Edit details. */
+export function PortalDetailsFields({ value, onChange }: {
+  value: PortalDetails; onChange: (next: PortalDetails) => void;
+}) {
+  const set = (k: keyof PortalDetails, v: string | boolean) => onChange({ ...value, [k]: v });
+  return (
+    <>
+      {/* Two columns, as in the product: what the portal IS on the left, who it belongs to and how
+          people sign in on the right. */}
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+        <div>
+          <label className={label}>Support Portal Name<Req /></label>
+          <input className={input} value={value.name} onChange={(e) => set('name', e.target.value)} placeholder="Support Portal Name" />
+        </div>
+        <div>
+          <label className={label}>Company<Req /></label>
+          <select className={`${input} app-select`} value={value.company} onChange={(e) => set('company', e.target.value)}>
+            <option value="">Select</option>
+            {COMPANIES.map((x) => <option key={x} value={x}>{x}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={label}>Support Portal URL<Req /></label>
+          <input className={input} value={value.url} onChange={(e) => set('url', e.target.value)} placeholder="Support Portal URL" />
+        </div>
+        <div>
+          <label className={label}>Identity Provider</label>
+          <select className={`${input} app-select`} value={value.idp} onChange={(e) => set('idp', e.target.value)}>
+            {IDPS.map((x) => <option key={x} value={x}>{x}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* ⚠️ Removed, not greyed, until a provider is chosen — enforcing SSO with no SSO configured
+          is a switch with nothing behind it, and the same rule the Branding panel follows. */}
+      {value.idp !== IDPS[0] && (
+        <div className="mt-6">
+          <label className={label}>Enforce to authenticate with Single Sign-On Only</label>
+          <button
+            role="switch"
+            aria-checked={value.ssoOnly}
+            onClick={() => set('ssoOnly', !value.ssoOnly)}
+            className={`relative mt-1 inline-flex h-[18px] w-[34px] items-center rounded-full transition-colors ${value.ssoOnly ? 'bg-[#3D8BD0]' : 'bg-[#CBD5E1]'}`}
+          >
+            <span className={`inline-block size-[14px] rounded-full bg-white transition-transform ${value.ssoOnly ? 'translate-x-[18px]' : 'translate-x-[2px]'}`} />
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Name, Company and URL are required — see the note on Create's Save. */
+export const detailsReady = (d: PortalDetails) => !!(d.name.trim() && d.company.trim() && d.url.trim());
+
+/* Edit details — the same five questions, on a portal that already exists.
+ *
+ * ⚠️ It opens IMMEDIATELY after a Copy. A duplicate inherits everything including the URL, and two
+ * portals cannot answer on one address — so rather than creating a quiet conflict and waiting for
+ * someone to find it, the copy asks for the details that have to differ at the moment it is made. */
+export function EditPortalDetailsModal({ title, initial, onClose, onSave }: {
+  title: string;
+  initial: PortalDetails;
+  onClose: () => void;
+  onSave: (d: PortalDetails) => void;
+}) {
+  const [d, setD] = useState<PortalDetails>(initial);
+  const ready = detailsReady(d);
+  return createPortal(
+    <div className="fixed inset-0 z-[10000] flex items-start justify-center bg-[#0F172A]/40 p-6 pt-[10vh]">
+      <div className="flex w-full max-w-[880px] flex-col overflow-hidden rounded-lg bg-white shadow-[0_24px_48px_-12px_rgba(16,24,40,0.25)]">
+        <div className="flex items-center gap-3 border-b border-[#E5E7EB] px-5 py-3.5">
+          <h2 className="flex-1 text-[16px] font-semibold text-[#364658]">{title}</h2>
+          <button onClick={onClose} className="flex size-8 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6]"><X size={18} /></button>
+        </div>
+        <div className="px-5 py-5"><PortalDetailsFields value={d} onChange={setD} /></div>
+        <div className="flex justify-end gap-2 border-t border-[#E5E7EB] px-5 py-3">
+          <button onClick={onClose} className="inline-flex h-9 items-center rounded border border-[#DFE5ED] bg-white px-4 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]">Cancel</button>
+          <button
+            onClick={() => ready && onSave(d)}
+            disabled={!ready}
+            title={ready ? undefined : 'Name, Company and URL are required'}
+            className={`inline-flex h-9 items-center rounded px-4 text-[13px] font-medium text-white transition-colors ${
+              ready ? 'bg-[#3D8BD0] hover:bg-[#2d6ca0]' : 'cursor-not-allowed bg-[#B6C2D5]'
+            }`}
+          >Save</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 /** The two-dot progress marker. Says which step you are on and whether the other is reachable. */
 function Steps({ step, canGoBack, onBack }: { step: 1 | 2; canGoBack: boolean; onBack: () => void }) {
   const rows: { n: 1 | 2; title: string }[] = [
@@ -93,11 +186,10 @@ export function CreateSupportPortalModal({ onClose, onSaveDetails, onScratch, on
   const [route, setRoute] = useState<'none' | 'template'>('none');
   const [category, setCategory] = useState<string>('All');
 
-  const set = (k: keyof PortalDetails, v: string | boolean) => setD((p) => ({ ...p, [k]: v }));
   /* ⚠️ Save is DISABLED until the three required fields are filled, rather than validating after
      the click. A button that can only tell you what is wrong once you press it makes you press it
      to find out. */
-  const ready = d.name.trim() && d.company.trim() && d.url.trim();
+  const ready = detailsReady(d);
 
   const save = () => {
     if (!ready) return;
@@ -121,48 +213,7 @@ export function CreateSupportPortalModal({ onClose, onSaveDetails, onScratch, on
         {step === 1 ? (
           <>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-              {/* Two columns, as in the product: what the portal IS on the left, who it belongs to
-                  and how people sign in on the right. */}
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                <div>
-                  <label className={label}>Support Portal Name<Req /></label>
-                  <input className={input} value={d.name} onChange={(e) => set('name', e.target.value)} placeholder="Support Portal Name" />
-                </div>
-                <div>
-                  <label className={label}>Company<Req /></label>
-                  <select className={`${input} app-select`} value={d.company} onChange={(e) => set('company', e.target.value)}>
-                    <option value="">Select</option>
-                    {COMPANIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className={label}>Support Portal URL<Req /></label>
-                  <input className={input} value={d.url} onChange={(e) => set('url', e.target.value)} placeholder="Support Portal URL" />
-                </div>
-                <div>
-                  <label className={label}>Identity Provider</label>
-                  <select className={`${input} app-select`} value={d.idp} onChange={(e) => set('idp', e.target.value)}>
-                    {IDPS.map((x) => <option key={x} value={x}>{x}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {/* ⚠️ Removed, not greyed, until a provider is chosen — enforcing SSO with no SSO
-                  configured is a switch with nothing behind it, and the same rule the Branding
-                  panel already follows. */}
-              {d.idp !== IDPS[0] && (
-                <div className="mt-6">
-                  <label className={label}>Enforce to authenticate with Single Sign-On Only</label>
-                  <button
-                    role="switch"
-                    aria-checked={d.ssoOnly}
-                    onClick={() => set('ssoOnly', !d.ssoOnly)}
-                    className={`relative mt-1 inline-flex h-[18px] w-[34px] items-center rounded-full transition-colors ${d.ssoOnly ? 'bg-[#3D8BD0]' : 'bg-[#CBD5E1]'}`}
-                  >
-                    <span className={`inline-block size-[14px] rounded-full bg-white transition-transform ${d.ssoOnly ? 'translate-x-[18px]' : 'translate-x-[2px]'}`} />
-                  </button>
-                </div>
-              )}
+              <PortalDetailsFields value={d} onChange={setD} />
             </div>
 
             <div className="flex flex-shrink-0 justify-end gap-2 border-t border-[#E5E7EB] px-5 py-3">

@@ -2,12 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ChevronDown, Copy, ExternalLink, LayoutTemplate, MonitorSmartphone, PenLine, Plus, Search,
-  Eye, Link2 as LinkIcon, MoreVertical, RotateCcw, Settings, Trash2, X,
+  ChevronDown, Copy, ExternalLink, LayoutTemplate, MonitorSmartphone, Pencil, PenLine, Plus,
+  Eye, SlidersHorizontal, Trash2, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { portalLink, portalSlug } from '../routes';
-import { CreateSupportPortalModal } from './CreateSupportPortalModal';
+import { portalSlug } from '../routes';
+import { CreateSupportPortalModal, EditPortalDetailsModal } from './CreateSupportPortalModal';
 import type { PortalDetails } from './CreateSupportPortalModal';
 import { Pagination } from './Pagination';
 import { SupportPortalBuilder } from './SupportPortalBuilder';
@@ -17,28 +17,37 @@ import {
 } from './supportPortalData';
 import type { PortalPage, PortalTemplate } from './supportPortalData';
 
-/* One row's actions. A kebab rather than a rail of icons: five verbs, two of which ("Duplicate
-   layout", "Reset layout to default") are phrases no glyph says, so an icon row would need a
-   tooltip per item to be readable at all. */
-function RowMenu({ isDefault, onCopyLink, onCustomize, onPreview, onSettings, onDuplicate, onReset, onDelete }: {
+/* One row's actions, as an icon rail — the same Action column every other listing in this product
+   uses (see `SoftwareLicensesTable`).
+ *
+ * ⚠️ Edit is TWO things, so it is one icon with a menu rather than two icons. "Edit details" changes
+ * what the portal IS — its name, its address, how people sign in — and "Customise portal" changes
+ * what is ON it. They are both editing, they are never done at the same moment, and no pair of
+ * glyphs tells those apart; a chevron on the pencil says there is a choice without spending a
+ * second slot in the rail on it.
+ *
+ * ⚠️ Three kebab items did NOT survive the move, deliberately: Portal settings and Reset layout are
+ * both reachable inside the builder (the rail's Settings item, and the theme panel's reset), and
+ * Copy link duplicates the URL column, which is already a working link to the same place. An icon
+ * for each would have been three glyphs standing for phrases no glyph says. */
+function RowActions({ isDefault, onEditDetails, onCustomize, onPreview, onCopy, onDelete }: {
   isDefault: boolean;
-  onCopyLink: () => void;
-  onCustomize: () => void; onPreview: () => void; onSettings: () => void;
-  onDuplicate: () => void; onReset: () => void; onDelete: () => void;
+  onEditDetails: () => void; onCustomize: () => void;
+  onPreview: () => void; onCopy: () => void; onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   /* ⚠️ PORTALLED to the body with fixed positioning. The table sits in an `overflow-x-auto`
      wrapper, so an absolutely-positioned menu inside it is clipped to the row — the first
-     build showed a 6px sliver of white under the kebab and nothing else. Measured on open and
-     re-measured on scroll/resize so it stays with its button. */
+     build showed a 6px sliver of white under the button and nothing else. Measured on open and
+     re-measured on scroll/resize so it stays with its trigger. */
   const [at, setAt] = useState<{ top: number; left: number } | null>(null);
   const place = () => {
     const r = btnRef.current?.getBoundingClientRect();
     if (!r) return;
-    const W = 210;
-    setAt({ top: r.bottom + 4, left: Math.max(8, Math.min(r.right - W, window.innerWidth - W - 8)) });
+    const W = 184;
+    setAt({ top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - W - 8)) });
   };
   useEffect(() => {
     if (!open) return;
@@ -62,39 +71,35 @@ function RowMenu({ isDefault, onCopyLink, onCustomize, onPreview, onSettings, on
 
   const item = 'flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[#364658] transition-colors hover:bg-[#F5F7FA]';
   const run = (fn: () => void) => () => { setOpen(false); fn(); };
+  const icon = 'text-[#6B7280] transition-colors hover:text-[#3D8BD0]';
 
   return (
-    <div className="flex justify-start">
+    <div className="flex items-center gap-3">
       <button
         ref={btnRef}
         onClick={() => setOpen((o) => !o)}
-        title="More actions"
-        className="flex size-8 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]"
-      ><MoreVertical size={16} /></button>
+        title="Edit"
+        className={`flex items-center gap-0.5 ${icon} ${open ? 'text-[#3D8BD0]' : ''}`}
+      ><Pencil size={15} /><ChevronDown size={11} /></button>
+      <button onClick={onPreview} title="Preview" className={icon}><Eye size={15} /></button>
+      {/* ⚠️ "Copy", not "Duplicate layout" — it copies the whole portal, details included, and then
+          asks for the details that cannot be shared (see the handler). */}
+      <button onClick={onCopy} title="Copy" className={icon}><Copy size={15} /></button>
+      <button
+        onClick={onDelete}
+        disabled={isDefault}
+        title={isDefault ? 'The default portal cannot be deleted — requesters have to land somewhere' : 'Delete'}
+        className={isDefault ? 'cursor-not-allowed text-[#D7DDE5]' : 'text-[#DC2626] transition-colors hover:text-[#b91c1c]'}
+      ><Trash2 size={15} /></button>
+
       {open && at && createPortal(
         <div
           ref={ref}
           style={{ position: 'fixed', top: at.top, left: at.left }}
-          className="z-[10000] w-[210px] overflow-hidden rounded-md border border-[#E5E7EB] bg-white py-1 shadow-lg"
+          className="z-[10000] w-[184px] overflow-hidden rounded-md border border-[#E5E7EB] bg-white py-1 shadow-lg"
         >
-          <button onClick={run(onCustomize)} className={item}><PenLine size={14} /> Customize</button>
-          <button onClick={run(onPreview)} className={item}><Eye size={14} /> Preview</button>
-          {/* Sits with Customize and Preview — the three things you do WITH this portal, as opposed
-              to the four below the rule that change what it is. */}
-          <button onClick={run(onCopyLink)} className={item}><LinkIcon size={14} /> Copy link</button>
-          <button onClick={run(onSettings)} className={item}><Settings size={14} /> Portal settings</button>
-          <div className="my-1 h-px bg-[#E5E7EB]" />
-          <button onClick={run(onDuplicate)} className={item}><Copy size={14} /> Duplicate layout</button>
-          <button onClick={run(onReset)} className={item}><RotateCcw size={14} /> Reset layout to default</button>
-          {/* ⚠️ Not in the reference screen, but a duplicated portal with no way to remove it is a
-              dead row. Disabled WITH the reason on the default rather than hidden. */}
-          <div className="my-1 h-px bg-[#E5E7EB]" />
-          <button
-            onClick={run(onDelete)}
-            disabled={isDefault}
-            title={isDefault ? 'The default portal cannot be deleted — requesters have to land somewhere' : undefined}
-            className={`${item} ${isDefault ? 'cursor-not-allowed text-[#C4CDD8] hover:bg-transparent' : 'text-[#EF4444] hover:bg-[#FEF3F2]'}`}
-          ><Trash2 size={14} /> Delete</button>
+          <button onClick={run(onEditDetails)} className={item}><SlidersHorizontal size={14} /> Edit details</button>
+          <button onClick={run(onCustomize)} className={item}><PenLine size={14} /> Customise portal</button>
         </div>,
         document.body,
       )}
@@ -340,14 +345,30 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
     const copy: PortalPage = {
       ...src,
       id: nextPageId(pages),
-      name: uniquePageName(pages, `${src.name} copy`),
+      /* ⚠️ Seeded as close to the original as the uniqueness rule allows — the admin asked for the
+         same details, and the popup that opens next is where a different name is chosen. */
+      name: uniquePageName(pages, src.name),
       // A copy is never live until it is published on its own merit.
       status: 'Draft',
       modifiedAt: now,
       modifiedBy: CURRENT_USER,
     };
     setPages((prev) => [copy, ...prev]);
-    toast.success(`“${src.name}” duplicated`);
+    return copy;
+  };
+
+  /* Which portal's details are being asked for. `null` while nothing is open. */
+  const [detailsId, setDetailsId] = useState<string | null>(null);
+
+  /* Copy → the whole portal, then immediately ask for the details that cannot be shared.
+   *
+   * ⚠️ The copy inherits EVERYTHING, address included, and two portals cannot answer on one URL.
+   * Rather than minting a quiet conflict and waiting for somebody to trip over it, the copy opens
+   * its own details straight away — the one moment the admin already knows a change is needed. */
+  const copyPortal = (src: PortalPage) => {
+    const copy = duplicate(src);
+    setDetailsId(copy.id);
+    toast.success(`“${src.name}” copied — give the copy its own name and address`);
   };
 
   // ── builder ───────────────────────────────────────────────────────────────
@@ -369,6 +390,20 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
     );
   }
 
+
+  /* ⚠️ A portal is a PATH on the tenant's domain, not a domain of its own. The first pass built
+     'support.<slug>.com', which reads like every portal owns a hostname somebody would have to
+     register. The default page is the site root; everything else hangs off it. */
+  const portalUrl = (p: PortalPage) => {
+    /* ⚠️ The ADDRESS the admin typed wins. Deriving it from the name is only a suggestion for a
+       portal nobody has addressed yet — once Edit details has been saved, a listing that keeps
+       showing a name-derived path is telling them the field they filled in did nothing. */
+    if (p.url) return p.url;
+    if (p.id === DEFAULT_PORTAL_PAGE.id) return 'support.acme.com';
+    const slug = p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return 'support.acme.com/' + (slug || p.id.toLowerCase());
+  };
+
   const overlays = (
     <>
       {creating && (
@@ -386,6 +421,31 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
           onStartBlank={startBlank}
         />
       )}
+      {detailsId && (() => {
+        const target = pages.find((p) => p.id === detailsId);
+        if (!target) return null;
+        return (
+          <EditPortalDetailsModal
+            title={`Edit details — ${target.name}`}
+            initial={{
+              name: target.name,
+              company: target.company ?? '',
+              url: target.url ?? portalUrl(target),
+              idp: target.idp ?? 'None — use ServiceOps login',
+              ssoOnly: target.ssoOnly ?? false,
+            }}
+            onClose={() => setDetailsId(null)}
+            onSave={(d) => {
+              patch(target.id, {
+                name: uniquePageName(pages.filter((p) => p.id !== target.id), d.name),
+                company: d.company, url: d.url, idp: d.idp, ssoOnly: d.ssoOnly,
+              });
+              setDetailsId(null);
+              toast.success(`“${d.name}” details saved`);
+            }}
+          />
+        );
+      })()}
       {confirmId && (() => {
         const target = pages.find((p) => p.id === confirmId);
         if (!target) return null;
@@ -475,14 +535,6 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
   const totalPages = Math.ceil(rows.length / perPage) || 1;
   const pageRows = rows.slice((page - 1) * perPage, page * perPage);
 
-  /* ⚠️ A portal is a PATH on the tenant's domain, not a domain of its own. The first pass built
-     'support.<slug>.com', which reads like every portal owns a hostname somebody would have to
-     register. The default page is the site root; everything else hangs off it. */
-  const portalUrl = (p: PortalPage) => {
-    if (p.id === DEFAULT_PORTAL_PAGE.id) return 'support.acme.com';
-    const slug = p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    return 'support.acme.com/' + (slug || p.id.toLowerCase());
-  };
 
 
   return (
@@ -493,7 +545,7 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
           <table className="w-full min-w-[860px]">
             <thead className="border-b border-[#e5e7eb]">
               <tr>
-                {['Portal name', 'URL', 'Status', 'Enabled', ''].map((h, i) => (
+                {['Portal name', 'URL', 'Status', 'Enabled', 'Action'].map((h, i) => (
                   <th key={h || i} className="whitespace-nowrap px-4 py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658]">{h}</th>
                 ))}
               </tr>
@@ -561,20 +613,12 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
                     </button>
                   </td>
                   <td className="px-4 py-3">
-                    <RowMenu
+                    <RowActions
                       isDefault={p.id === DEFAULT_PORTAL_PAGE.id}
-                      onCopyLink={() => {
-                        const link = portalLink(portalSlug(p.name, p.id));
-                        navigator.clipboard?.writeText(link).then(
-                          () => toast.success('Link copied — it opens this portal'),
-                          () => toast.error('Could not copy the link'),
-                        );
-                      }}
+                      onEditDetails={() => setDetailsId(p.id)}
                       onCustomize={() => setEditingId(p.id)}
                       onPreview={() => toast.success(`Opening ${p.name} in preview`)}
-                      onSettings={() => { setEditingId(p.id); setOpenSettings(true); }}
-                      onDuplicate={() => duplicate(p)}
-                      onReset={() => toast.success(`${p.name} layout reset to the ServiceOps default`)}
+                      onCopy={() => copyPortal(p)}
                       onDelete={() => setConfirmId(p.id)}
                     />
                   </td>

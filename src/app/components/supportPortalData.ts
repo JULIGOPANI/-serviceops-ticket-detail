@@ -134,6 +134,13 @@ export const DEFAULT_PORTAL_PAGE: PortalPage = {
   modifiedAt: 'Mon, Aug 17, 2026 09:14 AM',
   modifiedBy: 'Juli Gopani',
   dirty: true,
+  /* ⚠️ The seeded portal answers the SAME questions Create asks, so Edit details opens on a filled
+     record rather than a form with a disabled Save. A default that cannot satisfy its own required
+     fields reads as a broken row, not as a portal nobody has finished. */
+  company: 'Acme Corporation',
+  url: 'support.acme.com',
+  idp: 'None — use ServiceOps login',
+  ssoOnly: false,
 };
 
 /* The listing says WHEN in relative terms, because "2 days ago" is the question an admin is
