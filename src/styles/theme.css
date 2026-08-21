@@ -378,27 +378,98 @@ button:not(:disabled),
 }
 
 /* ── Support Portal dark theme ───────────────────────────────────────────────
-   The preview is built from Tailwind utilities, so dark mode repaints by ANSWERING
-   those utilities inside the themed wrapper rather than by threading a mode flag
-   through every block. A class selector beats a utility on specificity, which is
-   what makes this hold without !important. */
+   The preview is built from Tailwind utilities, so dark mode repaints by ANSWERING those utilities
+   inside the themed wrapper rather than by threading a mode flag through every block. A class
+   selector beats a utility on specificity, which is what makes this hold without !important.
+
+   ⚠️ EVERY bracket class must be ESCAPED — `.bg-\[\#F1F5F9\]`, not `.bg-\[\#F1F5F9\]`. Unescaped,
+   the browser parses `\[\#F1F5F9\]` as an attribute selector, decides it is invalid and drops the
+   WHOLE RULE silently. That is why the first pass appeared to work: `.bg-white` has no brackets and
+   was the only selector in the file actually matching, so cards went dark while every id pill,
+   status chip, hairline and muted label kept its light value.
+
+   ⚠️ Dark is not the light palette on a dark page. A 10%-tint status pill is a pale wash on white
+   and a glare on #16233A, so the tints are restated at dark-surface strength and their text lifted
+   to the bright end of the same hue — a status still reads as its colour without becoming the
+   loudest thing on the page. */
 .portal-dark { color-scheme: dark; }
-.portal-dark .bg-white { background-color: #16233A; }
-.portal-dark .bg-[#F7F9FC],
-.portal-dark .bg-[#F9FAFB],
-.portal-dark .bg-[#F1F5F9],
-.portal-dark .bg-[#F5F7FA] { background-color: #1C2B45; }
-.portal-dark .text-[#0F172A],
-.portal-dark .text-[#1E293B],
-.portal-dark .text-[#364658],
-.portal-dark .text-[#475467] { color: #E8EEF6; }
-.portal-dark .text-[#5B7A99],
-.portal-dark .text-[#64748B],
-.portal-dark .text-[#7B8FA5] { color: #9FB3C8; }
-.portal-dark .border-[#E5E7EB],
-.portal-dark .border-[#e5e7eb],
-.portal-dark .border-[#DFE5ED],
-.portal-dark .border-[#E1E6ED] { border-color: #2A3A55; }
+
+/* Surfaces — a card, an inset panel and the page are three depths, not one colour at three opacities. */
+.portal-dark .bg-white,
+.portal-dark .bg-\[\#FCFDFE\],
+.portal-dark .bg-\[\#F5F9FD\] { background-color: #16233A; }
+.portal-dark .bg-\[\#F7F9FC\],
+.portal-dark .bg-\[\#F9FAFB\],
+.portal-dark .bg-\[\#F1F5F9\],
+.portal-dark .bg-\[\#F5F7FA\],
+.portal-dark .bg-\[\#EEF2F6\],
+.portal-dark .bg-\[\#F0F2F5\],
+.portal-dark .bg-\[\#F4F6FA\],
+.portal-dark .bg-\[\#F3F4F6\] { background-color: #22334F; }
+.portal-dark .bg-\[\#EBF5FF\],
+.portal-dark .bg-\[\#E8F1FB\],
+.portal-dark .bg-\[\#e8f4fd\] { background-color: #1B3654; }
+
+/* Text */
+.portal-dark .text-\[\#05122C\],
+.portal-dark .text-\[\#0F172A\],
+.portal-dark .text-\[\#1E293B\],
+.portal-dark .text-\[\#364658\],
+.portal-dark .text-\[\#475467\] { color: #E8EEF6; }
+.portal-dark .text-\[\#5B7A99\],
+.portal-dark .text-\[\#64748B\],
+.portal-dark .text-\[\#7B8FA5\] { color: #9FB3C8; }
+.portal-dark .text-\[\#9CA3AF\],
+.portal-dark .text-\[\#94A3BE\],
+.portal-dark .text-\[\#B6C2D5\] { color: #8FA3BA; }
+
+/* Edges — including the hairline BETWEEN list rows, a different utility from the card border and
+   the one whose absence made every list read as one unseparated block. */
+.portal-dark .border-\[\#E5E7EB\],
+.portal-dark .border-\[\#e5e7eb\],
+.portal-dark .border-\[\#DFE5ED\],
+.portal-dark .border-\[\#E1E6ED\],
+.portal-dark .border-\[\#F0F2F5\],
+.portal-dark .border-\[\#EEF2F6\],
+.portal-dark .border-\[\#D9E0EA\],
+.portal-dark .border-\[\#d1d5db\],
+.portal-dark .border-\[\#CBD5E1\] { border-color: #2A3A55; }
+.portal-dark .divide-\[\#e5e7eb\] > * + *,
+.portal-dark .divide-\[\#E5E7EB\] > * + * { border-color: #2A3A55; }
+
+/* Status tints, restated for a dark surface. */
+.portal-dark .bg-\[\#ECFDF3\] { background-color: #12351F; }
+.portal-dark .text-\[\#22A06B\] { color: #4ADE80; }
+.portal-dark .bg-\[\#FEF6E7\],
+.portal-dark .bg-\[\#FEF3C7\],
+.portal-dark .bg-\[\#FFFAEB\] { background-color: #3A2A0A; }
+.portal-dark .text-\[\#B54708\],
+.portal-dark .text-\[\#B45309\],
+.portal-dark .text-\[\#92400E\] { color: #FBBF24; }
+.portal-dark .bg-\[\#FEF3F2\],
+.portal-dark .bg-\[\#FEE2E2\] { background-color: #3A1717; }
+.portal-dark .text-\[\#EF4444\],
+.portal-dark .text-\[\#B91C1C\] { color: #F87171; }
+.portal-dark .bg-\[\#EDE9FE\] { background-color: #2B2350; }
+.portal-dark .text-\[\#6D28D9\],
+.portal-dark .text-\[\#7C3AED\] { color: #C4B5FD; }
+.portal-dark .bg-\[\#DBEAFE\] { background-color: #12325A; }
+.portal-dark .text-\[\#1D4ED8\],
+.portal-dark .text-\[\#2563EB\] { color: #93C5FD; }
+
+/* The accent — the CTA, the links and the selected states move together or none of them look like
+   they belong to the same portal. */
+.portal-dark .bg-\[\#3D8BD0\] { background-color: var(--portal-accent, #3D8BD0); }
+.portal-dark .text-\[\#3D8BD0\] { color: #7FC0F5; }
+.portal-dark .border-\[\#3D8BD0\] { border-color: #7FC0F5; }
+
+/* ⚠️ The ONE !important. `fillCss` writes a card's white background as an INLINE style from its own
+   config, and an inline declaration outranks any class — so a widget whose fill an admin had
+   touched stayed white in dark while its untouched neighbours went dark. Scoped as tightly as it
+   can be: only a node painting the default white, only inside a dark portal. */
+.portal-dark [data-node][style*="background-color: rgb(255, 255, 255)"],
+.portal-dark [data-node][style*="background-color: #FFFFFF"],
+.portal-dark [data-node][style*="background-color: #ffffff"] { background-color: #16233A !important; }
 
 /* A packed portal row. share() tells its cards to divide the full width between them, so a full row
    has NO free space and justify-content can do nothing however it is wired — which is why Content
@@ -415,3 +486,4 @@ button:not(:disabled),
 .portal-caption a { color: #3D8BD0; text-decoration: underline; }
 .portal-caption p { margin: 0; }
 .portal-caption p + p { margin-top: 0.35rem; }
+

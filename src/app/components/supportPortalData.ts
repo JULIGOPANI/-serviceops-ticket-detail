@@ -183,6 +183,26 @@ export const REQUEST_STATUS_TONE: Record<string, { fg: string; bg: string }> = {
   'Reopened': { fg: '#DC2626', bg: '#FEF3F2' },
 };
 
+/* ⚠️ The SAME statuses restated for a dark surface. A 10% tint is a pale wash on white and a glare
+   on #16233A, so the fill drops to a deep version of its own hue and the text lifts to the bright
+   end of it — the pill still reads as "amber" or "green", which is the only job it has, without
+   becoming the loudest thing on a dark page. Chosen by mode rather than filtered, because a filter
+   would shift every hue by the same amount and the point of these is that they differ. */
+export const REQUEST_STATUS_TONE_DARK: Record<string, { fg: string; bg: string }> = {
+  'Open': { fg: '#FBBF24', bg: '#3A2A0A' },
+  'In Progress': { fg: '#93C5FD', bg: '#12325A' },
+  'Pending': { fg: '#C4B5FD', bg: '#2B2350' },
+  'On Hold': { fg: '#9FB3C8', bg: '#22334F' },
+  'Resolved': { fg: '#4ADE80', bg: '#12351F' },
+  'Closed': { fg: '#9FB3C8', bg: '#22334F' },
+  'Reopened': { fg: '#F87171', bg: '#3A1717' },
+};
+
+/** The tone for a status in the mode that is on. One lookup, so no call site can pick the wrong set. */
+export const statusTone = (status: string, dark = false) =>
+  (dark ? REQUEST_STATUS_TONE_DARK : REQUEST_STATUS_TONE)[status]
+  ?? (dark ? { fg: '#9FB3C8', bg: '#22334F' } : { fg: '#64748B', bg: '#F1F5F9' });
+
 export const PORTAL_APPROVALS: PortalApproval[] = [
   {
     id: 'INC-192', subject: 'Wrong configuration details', reason: 'Peer review requested',

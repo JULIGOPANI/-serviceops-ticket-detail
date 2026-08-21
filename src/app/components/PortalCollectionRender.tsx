@@ -18,7 +18,7 @@ import { chosen, roleStyle } from './portalStyleResolver';
 import { IconFrameBox } from './PortalIconFrame';
 import type { IconFrame } from './PortalIconFrame';
 import type { Cfg } from './portalWidgetSpec';
-import { PORTAL_APPROVALS, PORTAL_ARTICLES, PORTAL_OPEN_REQUESTS, REQUEST_STATUS_TONE } from './supportPortalData';
+import { PORTAL_APPROVALS, PORTAL_ARTICLES, PORTAL_OPEN_REQUESTS, statusTone } from './supportPortalData';
 
 type Item = Cfg & { id: string; hidden?: boolean };
 
@@ -1128,7 +1128,8 @@ function RequestsRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
   return (
     <LiveCard nodeId={nodeId} cfg={cfg} title="My Open Requests" count={rows.length} rows={
       rows.map((r) => {
-        const tone = REQUEST_STATUS_TONE[r.status] ?? { fg: '#64748B', bg: '#F1F5F9' };
+        /* Same mode-aware tone the built-in card uses — a copy must not glow where the original does not. */
+        const tone = statusTone(r.status, typeof document !== 'undefined' && !!document.querySelector('.portal-dark'));
         return (
           <div key={r.id} className={liveRow}>
             <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">

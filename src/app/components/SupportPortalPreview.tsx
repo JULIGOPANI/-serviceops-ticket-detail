@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   Bell, Check, Info, Keyboard, KeyRound, House, MessageSquare, MessagesSquare, Plus, PanelLeft,
@@ -10,7 +10,7 @@ import {
   IconRequest, IconChange, IconAssets, IconCMDB, IconKnowledge, IconMyApproval, IconMyTeam, IconTask,
 } from './SidebarIcons';
 import {
-  PORTAL_APPROVALS, PORTAL_ARTICLES, PORTAL_OPEN_REQUESTS, REQUEST_STATUS_TONE,
+  PORTAL_APPROVALS, PORTAL_ARTICLES, PORTAL_OPEN_REQUESTS, statusTone,
 } from './supportPortalData';
 import { AddSectionSeam, ColumnAdders, Sel, draggedElement, styleOf, useCanvas } from './PortalCanvas';
 import { PAGE_ID, chosen, roleStyle } from './portalStyleResolver';
@@ -627,6 +627,16 @@ function Row({ nodeId, children }: { nodeId: string; children: ReactNode }) {
 
 export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CONTENT, sections = [], icons, placedText, blockOrder = DEFAULT_BLOCK_ORDER, rowOrder = DEFAULT_ROW_ORDER, removed = [], rowExtras, cfg }: SupportPortalPreviewProps) {
   const { styles, enabled, select, pickIcon } = useCanvas();
+  /* Which mode the surrounding theme wrapper is in. Inline styles cannot be answered by the dark
+     stylesheet, so the few values that are data rather than utilities read it here. */
+  const [darkMode, setDarkMode] = useState(false);
+  useEffect(() => {
+    const read = () => setDarkMode(!!document.querySelector('.portal-dark'));
+    read();
+    const mo = new MutationObserver(read);
+    mo.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class'] });
+    return () => mo.disconnect();
+  }, []);
   const st = (id: string) => styleOf(styles, id);
   /* A node's OWN padding and dragged height, for the elements that paint their own card and
      therefore have to apply both themselves. Vertical is px, horizontal is %, as everywhere else. */
@@ -1082,7 +1092,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                     <ListBody nodeId="requests">
                       {visibleRequests.map((r) => {
                         const c = wc('requests');
-                        const tone = REQUEST_STATUS_TONE[r.status] ?? { fg: '#64748B', bg: '#F1F5F9' };
+                        const tone = statusTone(r.status, darkMode);
                         /* ⚠️ Statuses is a DISPLAY toggle, not a row filter: unticking one hides
                            that badge from the rows carrying it, and the request stays listed.
                            Filtering rows out would put "Rows to show" and the status list in a

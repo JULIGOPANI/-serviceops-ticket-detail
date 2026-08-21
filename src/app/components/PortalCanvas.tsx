@@ -1194,7 +1194,7 @@ export function AddSectionSeam({ afterId }: { afterId: string }) {
      handle. Drawing it across the page every time the pointer crossed a section made the canvas
      flash a thick line on every move, for a grip nobody had reached for. It appears only once you
      are actually at the seam, beside the CTA — where dragging it is the next thing you'd do. */
-  const withinSection = !!hoverId && nodePath(hoverId).some((n) => n.id === afterId);
+  const withinSection = hoverId === afterId;
   const showPill = hover || picking || withinSection || !!live;
   const showLine = hover || picking || !!live;
 
@@ -1511,7 +1511,7 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
           carried (background, stretch, whole-page, padding, delete) is a panel decision, not a
           nudge you make while looking at the page. Its handles stay: size is the one thing you do
           want to judge by eye. */}
-      {on && id !== 'hero' && (
+      {on && id !== 'hero' && id !== 'rail' && id !== 'header' && (
         <ToolbarSlot toolbarBelow={toolbarBelow}>
           {node.kind === 'text' ? <TextToolbar id={id} /> : <ElementToolbar id={id} kind={node.kind} name={node.name} />}
         </ToolbarSlot>

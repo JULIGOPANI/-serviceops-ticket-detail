@@ -19,6 +19,9 @@ export interface PortalTheme {
   mode: 'light' | 'dark';
   paletteId: string;
   packId: string;
+  /** Per-role overrides on top of the pack — see FONT_FACES. */
+  headingFont?: string;
+  bodyFont?: string;
   buttonId: string;
   /** Overrides on top of the palette — the Custom section and any hand-edited swatch. */
   custom?: Record<string, string>;
@@ -93,6 +96,29 @@ export const FONT_PACKS = [
   { id: 'plex', name: 'IBM Plex', heading: '"IBM Plex Sans", sans-serif', body: '"IBM Plex Sans", sans-serif', note: 'Technical, with a strong mono companion.' },
 ];
 
+/* ⚠️ The two faces are chosen SEPARATELY. A pairing list made the easy half of the decision for you
+   and took the other half away — "Merriweather & Inter" was the only route to a serif heading, and
+   it brought Inter along whether or not that was the body you wanted. A pack still SEEDS both, so
+   picking a theme style still sets a sensible pair; from there each is its own field. */
+export const FONT_FACES = [
+  { id: 'inter', name: 'Inter', css: 'Inter, sans-serif', note: 'Neutral and highly legible.' },
+  { id: 'poppins', name: 'Poppins', css: 'Poppins, sans-serif', note: 'Geometric and friendly.' },
+  { id: 'source', name: 'Source Sans 3', css: '"Source Sans 3", sans-serif', note: 'Humanist. Good at small sizes.' },
+  { id: 'merri', name: 'Merriweather', css: 'Merriweather, serif', note: 'Serif. Editorial and calm.' },
+  { id: 'roboto', name: 'Roboto', css: 'Roboto, sans-serif', note: 'Tight and compact.' },
+  { id: 'plex', name: 'IBM Plex Sans', css: '"IBM Plex Sans", sans-serif', note: 'Technical and even.' },
+];
+
+/** The face a theme is using for each role — its own choice if it has one, else the pack's. */
+export const faceOf = (t: PortalTheme, role: 'heading' | 'body') => {
+  const own = role === 'heading' ? t.headingFont : t.bodyFont;
+  const found = own && FONT_FACES.find((f) => f.id === own);
+  if (found) return found;
+  const pack = FONT_PACKS.find((f) => f.id === t.packId) ?? FONT_PACKS[0];
+  const css = role === 'heading' ? pack.heading : pack.body;
+  return FONT_FACES.find((f) => f.css === css) ?? FONT_FACES[0];
+};
+
 export const BUTTON_STYLES = [
   { id: 'solid', name: 'Solid', radius: 6, cls: 'text-white' },
   { id: 'rounded', name: 'Rounded', radius: 999, cls: 'text-white' },
@@ -164,7 +190,10 @@ function Dropdown({ label, value, children, open, onToggle }: {
             {/* Click anywhere else to dismiss — a popover that only closes from its own trigger is
                 a modal pretending not to be one. */}
             <span className="fixed inset-0 z-[70]" onClick={onToggle} />
-            <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[71] max-h-[330px] overflow-y-auto rounded-lg border border-[#E5E7EB] bg-white p-1.5 shadow-[0_12px_24px_-6px_rgba(16,24,40,0.18)]">
+            {/* ⚠️ As tall as the panel allows. At 330px the list showed two and a half cards, so
+                comparing eight styles meant scrolling a window smaller than the thing being
+                compared — and the card you were judging against had already scrolled away. */}
+            <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[71] max-h-[calc(100vh-220px)] overflow-y-auto rounded-lg border border-[#E5E7EB] bg-white p-2 shadow-[0_12px_24px_-6px_rgba(16,24,40,0.18)]">
               {children}
             </div>
           </>
@@ -177,7 +206,7 @@ function Dropdown({ label, value, children, open, onToggle }: {
 const Row = ({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) => (
   <button
     onClick={onClick}
-    className={`mb-1 block w-full rounded-md border-2 p-2.5 text-left transition-colors last:mb-0 ${
+    className={`mb-2.5 block w-full rounded-md border-2 p-3 text-left transition-colors last:mb-0 ${
       on ? 'border-[#3D8BD0] bg-[#F5F9FD]' : 'border-transparent bg-[#F7F9FC] hover:bg-[#F1F5F9]'
     }`}
   >{children}</button>
@@ -190,7 +219,7 @@ function StylePreview({ packId, buttonId, accent }: { packId: string; buttonId: 
   const bare = b.id === 'outline';
   const soft = b.id === 'soft';
   return (
-    <span className="flex items-center gap-2.5 rounded-md bg-[#EAF2FB] px-3 py-2.5">
+    <span className="flex items-center gap-2.5 rounded-md px-3 py-2.5" style={{ background: `${accent}1F` }}>
       <span className="min-w-0 flex-1">
         <span style={{ fontFamily: f.heading }} className="block truncate text-[15px] font-bold text-[#0F172A]">Heading</span>
         <span style={{ fontFamily: f.body }} className="block truncate text-[12px] text-[#7B8FA5]">Paragraph text</span>
@@ -208,12 +237,31 @@ function StylePreview({ packId, buttonId, accent }: { packId: string; buttonId: 
   );
 }
 
+/** Light / dark, as one control. Exported because it renders on the panel's TITLE row — it governs
+ *  every field below it, so it cannot belong to any one of them. */
+export function ThemeModeToggle({ mode, onChange }: { mode: 'light' | 'dark'; onChange: (m: 'light' | 'dark') => void }) {
+  return (
+    <span className="flex flex-shrink-0 items-center gap-0.5 rounded bg-[#F1F5F9] p-0.5">
+      {([['light', Sun], ['dark', Moon]] as const).map(([m, Ic]) => (
+        <button
+          key={m}
+          onClick={() => onChange(m)}
+          title={m === 'light' ? 'Light mode' : 'Dark mode'}
+          className={`flex size-6 items-center justify-center rounded transition-colors ${
+            mode === m ? 'bg-white text-[#364658] shadow-[0_1px_2px_rgba(16,24,40,0.06)]' : 'text-[#9CA3AF] hover:text-[#364658]'
+          }`}
+        ><Ic size={13} /></button>
+      ))}
+    </span>
+  );
+}
+
 /* ── the panel ────────────────────────────────────────────────────────────── */
 
 type Tab = 'primary' | 'secondary' | 'neutral';
 
 export function PortalThemePanel({ theme, onChange }: { theme: PortalTheme; onChange: (patch: Partial<PortalTheme>) => void }) {
-  const [openList, setOpenList] = useState<'style' | 'font' | null>(null);
+  const [openList, setOpenList] = useState<'style' | 'heading' | 'body' | null>(null);
   const [tab, setTab] = useState<Tab>('primary');
   const style = styleOfTheme(theme);
   const pack = packOf(theme);
@@ -226,7 +274,13 @@ export function PortalThemePanel({ theme, onChange }: { theme: PortalTheme; onCh
      a glitch rather than a change. Overrides clear with it: picking a style means "give me this
      one", not "this one, still wearing the four colours I hand-edited an hour ago". */
   const applyStyle = (st: (typeof THEME_STYLES)[number]) => {
-    onChange({ paletteId: st.paletteId, packId: st.packId, buttonId: st.buttonId, custom: {} });
+    /* ⚠️ The two face overrides clear WITH the style, for the same reason the colour overrides do:
+       picking a style means "give me this one", not "this one still wearing the heading face I
+       hand-picked an hour ago". */
+    onChange({
+      paletteId: st.paletteId, packId: st.packId, buttonId: st.buttonId, custom: {},
+      headingFont: undefined, bodyFont: undefined,
+    });
     setOpenList(null);
     toast.success(`${st.name} applied`);
   };
@@ -259,51 +313,50 @@ export function PortalThemePanel({ theme, onChange }: { theme: PortalTheme; onCh
         })}
       </Dropdown>
 
-      <Dropdown
-        label="Fonts"
-        value={pack.name}
-        open={openList === 'font'}
-        onToggle={() => setOpenList((o) => (o === 'font' ? null : 'font'))}
-      >
-        {FONT_PACKS.map((f) => (
-          <Row key={f.id} on={f.id === pack.id} onClick={() => { onChange({ packId: f.id }); setOpenList(null); toast.success(`${f.name} applied`); }}>
-            {/* ⚠️ Set IN the faces it applies. A font list rendered in the UI's own font is a list of
-                words, not a list of fonts.
-                ⚠️ The NAME rides on the heading's line, not under the sample. Below, it read as a
-                third line of the specimen — a caption competing with the two lines that are the
-                actual preview — and it pushed every row 18px taller, so fewer pairings fitted in the
-                popover at once, which is the one thing a comparison list must not cost you. */}
-            <span className="flex items-baseline gap-2">
-              <span style={{ fontFamily: f.heading }} className="min-w-0 flex-1 truncate text-[17px] font-semibold text-[#364658]">HEADING</span>
-              <span className="flex flex-shrink-0 items-center gap-1 text-[11px] font-medium text-[#7B8FA5]">
-                {f.name}
-                {f.id === pack.id && <Check size={12} className="text-[#3D8BD0]" />}
-              </span>
-            </span>
-            <span style={{ fontFamily: f.body }} className="mt-0.5 block text-[12px] text-[#5B7A99]">This is your paragraph.</span>
-          </Row>
-        ))}
-      </Dropdown>
+      {/* ⚠️ TWO fields, one per role. The pairing list made half the decision for you and removed
+          the other half — the only route to a serif heading also imposed Inter as the body. Each
+          list is still set in the face it applies, because a font list rendered in the UI's own
+          font is a list of words rather than a list of fonts. */}
+      {([['heading', 'Heading font'], ['body', 'Body font']] as const).map(([role, label]) => {
+        const cur = faceOf(theme, role);
+        return (
+          <Dropdown
+            key={role}
+            label={label}
+            value={cur.name}
+            open={openList === role}
+            onToggle={() => setOpenList((o) => (o === role ? null : role))}
+          >
+            {FONT_FACES.map((f) => (
+              <Row
+                key={f.id}
+                on={f.id === cur.id}
+                onClick={() => {
+                  onChange(role === 'heading' ? { headingFont: f.id } : { bodyFont: f.id });
+                  setOpenList(null);
+                  toast.success(`${f.name} applied to ${role === 'heading' ? 'headings' : 'body text'}`);
+                }}
+              >
+                <span className="flex items-baseline gap-2">
+                  <span
+                    style={{ fontFamily: f.css }}
+                    className={`min-w-0 flex-1 truncate text-[#364658] ${role === 'heading' ? 'text-[17px] font-semibold' : 'text-[14px]'}`}
+                  >{role === 'heading' ? 'Heading' : 'This is your paragraph.'}</span>
+                  <span className="flex flex-shrink-0 items-center gap-1 text-[11px] font-medium text-[#7B8FA5]">
+                    {f.name}
+                    {f.id === cur.id && <Check size={12} className="text-[#3D8BD0]" />}
+                  </span>
+                </span>
+                <span className="mt-0.5 block text-[11px] text-[#9CA3AF]">{f.note}</span>
+              </Row>
+            ))}
+          </Dropdown>
+        );
+      })}
 
       {/* ── Colours ── */}
       <div className="mt-5 flex items-center gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-[#7B8FA5]">Colours</span>
-        {/* ⚠️ Mode sits ON the palette, because mode is a fact ABOUT the palette — every swatch below
-            carries a light and a dark value, and this switch says which of the two you are looking
-            at. Higher up the panel it read as "preview the page in dark", which is a different
-            promise from "edit the dark colours". */}
-        <span className="ml-auto flex items-center gap-0.5 rounded bg-[#F1F5F9] p-0.5">
-          {([['light', Sun], ['dark', Moon]] as const).map(([m, Ic]) => (
-            <button
-              key={m}
-              onClick={() => onChange({ mode: m })}
-              title={m === 'light' ? 'Light mode' : 'Dark mode'}
-              className={`flex size-6 items-center justify-center rounded transition-colors ${
-                theme.mode === m ? 'bg-white text-[#364658] shadow-[0_1px_2px_rgba(16,24,40,0.06)]' : 'text-[#9CA3AF] hover:text-[#364658]'
-              }`}
-            ><Ic size={13} /></button>
-          ))}
-        </span>
       </div>
 
       {/* ⚠️ mt-3.5, not mt-2. The tabs sat almost on the heading, so the two read as one control and

@@ -187,7 +187,7 @@ export const SECTION_SPEC: WidgetSpec = {
       {
         id: 'layout', open: true,
         fields: [
-          { key: 'preset', label: 'Presets', control: 'sectionPreset' },
+          { key: 'preset', label: 'Presets', control: 'sectionPreset', when: (c) => Number(c.__count ?? 0) > 1 },
           /* ⚠️ On the PARENT, not on each column — the same reason Card templates sits here. How a
              row redistributes is a property of the row: two columns in one section answering that
              question differently is not a layout, it is an argument. Every section gets it, empty
@@ -202,9 +202,9 @@ export const SECTION_SPEC: WidgetSpec = {
               { value: 'fill', label: 'Fill items' },
               { value: 'fixed', label: 'Fixed items' },
             ],
-            help: 'Fill — dragging one column re-flows its siblings so the row always fills the section. Fixed — every column keeps its own width, and dragging one leaves the others exactly where they are.' },
-          { key: 'distribute', label: 'Content alignment', control: 'distribute' },
-          { key: 'valign', label: '', control: 'valign' },
+            info: 'Fill — dragging one column re-flows its siblings so the row always fills the section. Fixed — every column keeps its own width, and dragging one leaves the others exactly where they are.' },
+          { key: 'distribute', label: 'Content alignment', control: 'distribute', when: (c) => Number(c.__count ?? 0) > 1 },
+          { key: 'valign', label: '', control: 'valign', when: (c) => Number(c.__count ?? 0) > 1 },
         ],
       },
       {
@@ -286,12 +286,7 @@ export const RAIL_SPEC: WidgetSpec = {
      that appears on every screen of the portal look unlike the product it belongs to. The single
      visual decision that is genuinely theirs is WHERE the icons sit, so that is the only one here,
      and it lives with the destinations it arranges rather than in a styling section of its own. */
-  fields: [
-    {
-      key: 'railIconPos', label: 'Icon position', control: 'segmented', group: 'Icons',
-      options: [{ value: 'top', label: 'Top' }, { value: 'middle', label: 'Middle' }, { value: 'bottom', label: 'Bottom' }],
-    },
-  ],
+  fields: [],
   packs: [],
   noDelete: true,
   /* §7.23 — order and visibility are the admin's; the destinations are the product's. So the list
@@ -303,13 +298,17 @@ export const RAIL_SPEC: WidgetSpec = {
   }],
   collection: {
     key: 'items', group: 'Destinations', addLabel: '', emptyHint: '',
+    /* ⚠️ FLAT. This panel is one list and nothing else, so wrapping it in a collapsible group put a
+       header and a chevron above the only thing there is to see — and left it possible to close the
+       panel's entire content while the panel stayed open. */
+    flat: true,
     noAdd: true, hideable: true, noOpen: true,
     label: (it) => String(it.name ?? ''),
     meta: (it) => String(it.route ?? ''),
     seed: () => ({}),
     fields: [],
   },
-  defaults: { items: RAIL_ITEMS, railIconPos: 'top' },
+  defaults: { items: RAIL_ITEMS },
 };
 
 /* ── §7.24 Top bar ───────────────────────────────────────────────────────── */

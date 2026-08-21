@@ -67,6 +67,8 @@ export interface WidgetField {
   /** The collapsible group it sits in. Groups with no visible fields are never rendered. */
   group?: string;
   help?: string;
+  /** Help that sits in an ⓘ beside the label rather than as a paragraph under the control. */
+  info?: string;
   min?: number;
   max?: number;
   step?: number;
@@ -141,6 +143,8 @@ export interface CollectionSpec {
   /* ⚠️ §7.23/§7.24 — the rail's destinations and the bar's items belong to the PRODUCT. The admin
      orders and hides them; there is nothing to add and nothing to delete. */
   noAdd?: boolean;
+  /** Render the list WITHOUT its accordion — for a panel whose entire content is this list. */
+  flat?: boolean;
   /** Parts that always exist rather than items you create (§7.20's Banner). */
   fixed?: { key: string; name: string }[];
 }
@@ -356,14 +360,14 @@ export const WIDGET_SPECS: WidgetSpec[] = [
          seeded FROM — the link below still points at it — but a portal may legitimately want to say
          "Service desk" instead of "Email", or publish a different number to requesters. */
       { key: 'showEmail', label: 'Show email', control: 'toggle', group: 'Content' },
-      { key: 'cl0', label: 'Email — label', control: 'text', group: 'Content', when: (c) => c.showEmail !== false },
-      { key: 'cv0', label: 'Email — value', control: 'text', group: 'Content', when: (c) => c.showEmail !== false },
+      { key: 'cl0', label: 'Email label', control: 'text', group: 'Content', when: (c) => c.showEmail !== false },
+      { key: 'cv0', label: 'Email address', control: 'text', group: 'Content', when: (c) => c.showEmail !== false },
       { key: 'showPhone', label: 'Show phone', control: 'toggle', group: 'Content' },
-      { key: 'cl1', label: 'Phone — label', control: 'text', group: 'Content', when: (c) => c.showPhone !== false },
-      { key: 'cv1', label: 'Phone — value', control: 'text', group: 'Content', when: (c) => c.showPhone !== false },
+      { key: 'cl1', label: 'Phone label', control: 'text', group: 'Content', when: (c) => c.showPhone !== false },
+      { key: 'cv1', label: 'Phone number', control: 'text', group: 'Content', when: (c) => c.showPhone !== false },
       { key: 'showHours', label: 'Show hours', control: 'toggle', group: 'Content' },
-      { key: 'cl2', label: 'Hours — label', control: 'text', group: 'Content', when: (c) => c.showHours !== false },
-      { key: 'cv2', label: 'Hours — value', control: 'text', group: 'Content', when: (c) => c.showHours !== false },
+      { key: 'cl2', label: 'Hours label', control: 'text', group: 'Content', when: (c) => c.showHours !== false },
+      { key: 'cv2', label: 'Opening hours', control: 'text', group: 'Content', when: (c) => c.showHours !== false },
     ],
     /* ⚠️ No P6. Contact Us has no icon of its own — the group was styling a glyph that is not on
        the widget, which is a control with nothing to act on. P4 goes with the global removal. */

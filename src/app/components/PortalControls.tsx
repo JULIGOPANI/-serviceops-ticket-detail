@@ -22,8 +22,12 @@ import {
 export const inputCls =
   'h-9 w-full rounded border border-[#d1d5db] bg-white px-3 text-[13px] text-[#364658] placeholder:text-[#9ca3af] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]';
 
-export function Field({ label, help, children, action, divider, tight }: {
+export function Field({ label, help, info, children, action, divider, tight }: {
   label?: string; help?: string; children: ReactNode; action?: ReactNode;
+  /* ⚠️ Help that lives in an ⓘ rather than under the control. For an explanation you need ONCE —
+     the difference between two modes — where a permanent paragraph repeats itself under every
+     section down the whole page.  stays for anything you need while USING the field. */
+  info?: string;
   /* A hairline and real air above this field. Two icon rows stacked with the same 16px gap read as
      one control with eight buttons — the rule is what says they are two separate questions. */
   divider?: boolean;
@@ -39,7 +43,10 @@ export function Field({ label, help, children, action, divider, tight }: {
     <div className={divider ? 'mt-5 border-t border-[#E5E7EB] pt-5' : `${tight ? 'mt-1.5' : 'mt-4'} first:mt-0`}>
       {label && (
         <div className="mb-1 flex items-center justify-between gap-2">
-          <span className="text-[12px] font-normal text-[#7B8FA5]">{label}</span>
+          <span className="flex min-w-0 items-center gap-1 text-[12px] font-normal text-[#7B8FA5]">
+            {label}
+            {info && <Info size={12} className="flex-shrink-0 cursor-help text-[#9CA3AF]" title={info} />}
+          </span>
           {action}
         </div>
       )}

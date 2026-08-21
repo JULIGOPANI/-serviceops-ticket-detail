@@ -215,6 +215,16 @@ function TableContentField({ rows, onChange }: { rows: string[][]; onChange: (g:
 /** 9-point placement (§7.20 Banner content, §7.18 slide content). */
 const NINE = ['top left', 'top', 'top right', 'left', 'center', 'right', 'bottom left', 'bottom', 'bottom right'];
 
+/* A collection group that can render WITHOUT its accordion. A panel whose entire content is one
+   list should show the list — the header and chevron above it only offered to hide everything the
+   panel had. */
+function FlatOrGroup({ flat, title, open, onToggle, badge, children }: {
+  flat?: boolean; title: string; open: boolean; onToggle: () => void; badge?: ReactNode; children: ReactNode;
+}) {
+  if (!flat) return <Group title={title} open={open} onToggle={onToggle} badge={badge}>{children}</Group>;
+  return <div className="mt-4 first:mt-0">{children}</div>;
+}
+
 function NinePoint({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="grid w-[84px] grid-cols-3 gap-1">
@@ -910,7 +920,7 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
           key={f.key}
           label={f.label}
           on={cfg[f.key] !== false}
-          help={f.help}
+          help={f.help} info={f.info}
           onChange={(x) => set(f.key, x)}
         />
       );
@@ -934,7 +944,7 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
       <Field
         key={f.key}
         label={f.label}
-        help={f.help}
+        help={f.help} info={f.info}
         divider={f.divider}
         tight={afterToggle}
       >
@@ -1039,7 +1049,8 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
   const collectionBlock = (
     <>
               {col && (!col.when || col.when(cfg)) && (
-                <Group
+                <FlatOrGroup
+                  flat={col.flat === true}
                   title={col.group}
                   open={openGroups.includes(col.group)}
                   onToggle={() => toggleGroup(col.group)}
@@ -1079,7 +1090,7 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
                     onAdd={() => addItem()}
                   />
                   {col.bulkAdd && <BulkAdd onFiles={(srcs) => bulkAdd(srcs)} />}
-                </Group>
+                </FlatOrGroup>
               )}
     </>
   );
@@ -1169,9 +1180,17 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
         {(
           <>
             {groupsFor('content').map(({ group, fields }) => (
-              <Group key={group} title={group} open={openGroups.includes(group)} onToggle={() => toggleGroup(group)}>
-                {fields.map(renderField)}
-              </Group>
+              /* ⚠️ A lone group named after its section renders BARE. "CONTENT" above "Content"
+                 said the same word twice, and the chevron beneath the eyebrow offered to collapse
+                 the whole section it had just introduced. Only when it is the ONLY group: with two
+                 or more, the names are telling you which is which and have to stay. */
+              groupsFor('content').length === 1 && /^content$/i.test(group) ? (
+                <div key={group}>{fields.map(renderField)}</div>
+              ) : (
+                <Group key={group} title={group} open={openGroups.includes(group)} onToggle={() => toggleGroup(group)}>
+                  {fields.map(renderField)}
+                </Group>
+              )
             ))}
             {/* The §4 collection, when this widget has one and the state calls for it. */}
             {/* ⚠️ No Parts list. Every part is already reachable by CLICKING it on the canvas —

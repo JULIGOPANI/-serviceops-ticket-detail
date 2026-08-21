@@ -13,7 +13,7 @@ import { SupportPortalAddPanel } from './SupportPortalAddPanel';
 import { PortalBrandingPanel } from './PortalBrandingPanel';
 import { PRESETS, isRowAxis, presetOf } from './PortalSectionLayout';
 import type { PresetId } from './PortalSectionLayout';
-import { PortalThemePanel, DEFAULT_THEME, buttonOf, packOf, paletteOf, swatchesOf } from './PortalThemePanel';
+import { PortalThemePanel, DEFAULT_THEME, buttonOf, packOf, paletteOf, swatchesOf, faceOf, ThemeModeToggle } from './PortalThemePanel';
 import type { PortalTheme } from './PortalThemePanel';
 import { PortalElementPanel } from './PortalElementPanel';
 import { CanvasProvider } from './PortalCanvas';
@@ -1242,10 +1242,10 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      shown in its swatch strip — a palette you cannot trust to be the palette. */
   const themeAccent = themeSw[3];
   const themeWrap = {
-    fontFamily: packOf(theme).body,
+    fontFamily: faceOf(theme, 'body').css,
     background: themeSw[0],
     color: themeSw[4],
-    '--portal-heading': packOf(theme).heading,
+    '--portal-heading': faceOf(theme, 'heading').css,
     '--portal-accent': themeAccent,
     '--portal-btn-radius': `${buttonOf(theme).radius}px`,
   } as React.CSSProperties;
@@ -1346,9 +1346,13 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
             title="Put every block, style and setting back to the page's default"
             className="ml-1 inline-flex h-8 items-center rounded border border-[#DFE5ED] bg-white px-3 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
           >Reset to default</button>
+          {/* ⚠️ The same bordered secondary as Reset to default. It was the only bare-text control in a
+              row of three, so the bar read as two buttons and a word rather than as a set of
+              actions — and the least destructive of the three looked the least like something you
+              could press. */}
           <button
             onClick={() => setPreview(true)}
-            className="inline-flex h-8 items-center rounded px-3 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F3F4F6]"
+            className="ml-1 inline-flex h-8 items-center rounded border border-[#DFE5ED] bg-white px-3 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
           >Preview</button>
           <button
             onClick={onPublish}
@@ -1418,7 +1422,17 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
                 floating above it. A rail panel still needs its own title, so it keeps one line. */}
             {panelKey && (
               <div className="flex-shrink-0 px-4 pb-2.5 pt-3.5">
-                <p className="text-[13px] font-semibold text-[#364658]">{PANEL_COPY[panelKey].title}</p>
+                <div className="flex items-center gap-2">
+                  <p className="flex-1 text-[13px] font-semibold text-[#364658]">{PANEL_COPY[panelKey].title}</p>
+                  {/* ⚠️ Light / dark rides on the THEME panel's title, not down beside the palette.
+                      Every field in this panel means something different depending on which mode is
+                      on, so it is the panel's switch rather than the colour section's — and three
+                      fields below the fold it read as "edit the dark colours" instead of "show me
+                      this portal in dark". */}
+                  {panelKey === 'theme' && (
+                    <ThemeModeToggle mode={theme.mode} onChange={(m) => setTheme((t) => ({ ...t, mode: m }))} />
+                  )}
+                </div>
                 {PANEL_COPY[panelKey].body && (
                   <p className="mt-0.5 text-[12px] leading-[1.5] text-[#7B8FA5]">{PANEL_COPY[panelKey].body}</p>
                 )}

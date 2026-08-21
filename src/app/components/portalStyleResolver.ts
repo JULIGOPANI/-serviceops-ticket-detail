@@ -181,7 +181,11 @@ export function roleStyle(styles: PortalStyles, nodeId: string, role: TypeRole):
   const css: React.CSSProperties = {
     fontSize: `${Math.round((ROLE_BASE_PX[role] * size) / 100)}px`,
     fontWeight: weight === 'bold' ? 700 : weight === 'medium' ? 500 : 400,
-    color: g('color') as string,
+    /* ⚠️ Emitted ONLY when a human picked it. The theme's own colour is set on the canvas
+       wrapper and inherits down; an inline default here overrode it on every heading and every row,
+       so switching to dark repainted the page and left all of its TEXT at the light value — dark
+       cards carrying dark type. The same rule textAlign already follows, for the same reason. */
+    color: resolveType(styles, nodeId, role, 'color').source === 'theme' ? undefined : (g('color') as string),
     /* ⚠️ Only when somebody CHOSE it. See the note above roleStyle. */
     textAlign: align.source === 'theme' ? undefined : (align.value as React.CSSProperties['textAlign']),
     lineHeight: lh === 'tight' ? 1.25 : lh === 'relaxed' ? 1.75 : 1.5,

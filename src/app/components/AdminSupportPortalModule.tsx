@@ -227,7 +227,6 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
   const [editingId, setEditingId] = useState<string | null>(null);
   const [gallery, setGallery] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
   /* Set when the row menu asked for settings rather than the canvas — the builder opens on that
      panel instead of the widget library. Cleared as soon as it has been handed over, so returning
      to the same portal later opens where a portal normally opens. */
@@ -235,7 +234,6 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
   /* Which portals are switched on. Absent means ON — a portal you have never touched is live. */
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   const isOn = (p: PortalPage) => p.id === DEFAULT_PORTAL_PAGE.id || enabled[p.id] !== false;
-  const [scope, setScope] = useState<Scope>('All');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
 
@@ -381,18 +379,9 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
   }
 
   // ── listing ───────────────────────────────────────────────────────────────
-  const q = search.trim().toLowerCase();
-  const rows = pages.filter((p) =>
-    (scope === 'All' || p.status === scope)
-    && (!q || [p.name, p.modifiedBy, p.status].some((f) => f.toLowerCase().includes(q))));
+  const rows = pages;
   const totalPages = Math.ceil(rows.length / perPage) || 1;
   const pageRows = rows.slice((page - 1) * perPage, page * perPage);
-
-  const counts: Record<Scope, number> = {
-    All: pages.length,
-    Published: pages.filter((p) => p.status === 'Published').length,
-    Draft: pages.filter((p) => p.status === 'Draft').length,
-  };
 
   /* ⚠️ A portal is a PATH on the tenant's domain, not a domain of its own. The first pass built
      'support.<slug>.com', which reads like every portal owns a hostname somebody would have to
@@ -408,36 +397,11 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
     <>
       {shell(
       <div className="px-4 py-6">
-        <div className="mb-3 flex flex-wrap items-center gap-3">
-          <div className="relative w-[280px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" size={15} />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Search"
-              className={inputCls}
-            />
-            {search && (
-              <button onClick={() => { setSearch(''); setPage(1); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9ca3af] hover:text-[#364658]"><X size={15} /></button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            {(['All', 'Published', 'Draft'] as Scope[]).map((s) => (
-              <button
-                key={s}
-                onClick={() => { setScope(s); setPage(1); }}
-                className={`inline-flex h-9 items-center gap-1.5 rounded px-3 text-[13px] font-medium transition-colors ${
-                  scope === s ? 'bg-[#3D8BD0] text-white' : 'border border-[#DFE5ED] bg-white text-[#364658] hover:bg-[#F5F7FA]'
-                }`}
-              >
-                {s === 'Draft' ? 'Drafts' : s}
-                <span className={`text-[12px] ${scope === s ? 'text-white/75' : 'text-[#9CA3AF]'}`}>{counts[s]}</span>
-              </button>
-            ))}
-          </div>
-
+        {/* ⚠️ No search and no scope tabs. A tenant has one or two portals: searching a single row
+            is a control that can only ever confirm what is already on screen, and All / Published /
+            Drafts split a list that does not need splitting — the Status column says which is which
+            in the same row as the name. The CTA is all this row has left to carry. */}
+        <div className="mb-3 flex items-center">
           <div className="ml-auto"><NewPageMenu onScratch={startBlank} onTemplate={() => setGallery(true)} /></div>
         </div>
 
@@ -453,7 +417,7 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
             <tbody className="divide-y divide-[#e5e7eb] bg-white">
               {pageRows.length === 0 ? (
                 <tr><td colSpan={5} className="px-4 py-12 text-center text-[13px] text-[#9CA3AF]">
-                  No portal pages match this filter.
+                  No portals yet.
                 </td></tr>
               ) : pageRows.map((p) => (
                 <tr key={p.id} className="transition-colors hover:bg-[#f9fafb]">
