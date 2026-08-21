@@ -286,15 +286,11 @@ export function AdminSupportPortalSettings({ compact = false }: {
       )}
     </div>
 
-    {/* ⚠️ The same sticky footer Branding uses, for the same reason: these two commit the whole
-        panel, so they cannot be a thing you scroll past on the way in. */}
-    <div className="flex flex-shrink-0 justify-end gap-2 border-t border-[#E5E7EB] px-4 py-3">
-      <button className="inline-flex h-8 items-center rounded border border-[#DFE5ED] bg-white px-3.5 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]">Cancel</button>
-      <button
-        onClick={() => toast.success('Support portal settings updated')}
-        className="inline-flex h-8 items-center rounded bg-[#3D8BD0] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#2d6ca0]"
-      >Update</button>
-    </div>
+    {/* ⚠️ NO footer actions. Every other panel in this builder applies as you change it, so two
+        buttons committing "the whole panel" promised a transaction the rest of the surface does not
+        have — and left you wondering whether the switch you had just flipped had taken. Branding
+        keeps its footer because branding reaches every login screen and every other portal; a
+        portal's own settings do not. */}
     </div>
   );
 }

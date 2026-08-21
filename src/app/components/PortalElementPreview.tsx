@@ -157,33 +157,23 @@ const FALLBACK: Preview = {
   variants: [{ name: 'Block', art: stack(<>{bar('58%', 9, 'bg-[#6A6A6E]')}{bar('100%', 6, 'bg-[#3A3A3E]')}{bar('84%', 6, 'bg-[#3A3A3E]')}</>) }],
 };
 
-const CARD_W = 268;
+const CARD_W = 300;
 
 export function PortalElementPreview({ elementId, anchor }: { elementId: string; anchor: DOMRect }) {
   const preview = PREVIEWS[elementId] ?? FALLBACK;
-  const [i, setI] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(anchor.top);
 
-  /* Reset to the first variant whenever the hovered row changes — arriving mid-carousel on a new
-     element means the first thing you see is not that element's primary form. */
-  useEffect(() => setI(0), [elementId]);
-
-  useEffect(() => {
-    if (preview.variants.length < 2) return;
-    const t = setInterval(() => setI((n) => (n + 1) % preview.variants.length), 1400);
-    return () => clearInterval(t);
-  }, [preview.variants.length, elementId]);
-
-  /* ⚠️ Measured AFTER render and clamped to the viewport. The card's height depends on how long the
-     reason is, so a fixed estimate puts short ones too low and clips tall ones off the bottom. */
+  /* ⚠️ Measured AFTER render and clamped to the viewport. The card's height depends on how many
+     variants it holds and how long the reason is, so a fixed estimate puts short ones too low and
+     clips tall ones off the bottom. */
   useEffect(() => {
     const h = ref.current?.offsetHeight ?? 200;
     const wanted = anchor.top + anchor.height / 2 - h / 2;
     setTop(Math.max(12, Math.min(wanted, window.innerHeight - h - 12)));
-  }, [anchor.top, anchor.height, elementId, preview.why]);
+  }, [anchor.top, anchor.height, elementId, preview.why, preview.variants.length]);
 
-  const v = preview.variants[Math.min(i, preview.variants.length - 1)];
+  const many = preview.variants.length > 1;
 
   return createPortal(
     /* Portalled to the body: the library scrolls, so a popover inside it is clipped the moment it is
@@ -194,36 +184,34 @@ export function PortalElementPreview({ elementId, anchor }: { elementId: string;
       style={{ top, left: Math.max(12, anchor.left - CARD_W - 12), width: CARD_W }}
       className="pointer-events-none fixed z-[10002] overflow-hidden rounded-xl bg-[#1C1C1F] shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)]"
     >
-      {/* The stage — a dotted ground so the sketch reads as "on a page", with the element framed
+      {/* The stage — a dotted ground so the sketches read as "on a page", with each variant framed
           the way the canvas frames a selection. */}
       <div
-        className="relative flex h-[132px] items-center justify-center px-5"
+        className="relative px-4 py-4"
         style={{
           backgroundImage: 'radial-gradient(circle, #3A3A3E 1px, transparent 1px)',
           backgroundSize: '10px 10px',
         }}
       >
-        <div className="w-full rounded-lg border border-white/85 bg-[#232326] px-3.5 py-3">
-          {v.art}
+        <div className="flex flex-col gap-2.5">
+          {preview.variants.map((v) => (
+            <div key={v.name}>
+              {/* ⚠️ The name sits ABOVE its own sketch, not in a shared caption. With every variant
+                  on screen at once a single label could only ever name one of them, and the reader
+                  would have to guess which. A lone variant needs no label — the row you are hovering
+                  already said what it is. */}
+              {many && (
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-white/40">{v.name}</p>
+              )}
+              <div className="w-full rounded-lg border border-white/85 bg-[#232326] px-3.5 py-3">
+                {v.art}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
       <div className="px-4 pb-3.5 pt-3">
-        {preview.variants.length > 1 && (
-          <div className="mb-2 flex items-center gap-2">
-            <span className="text-[11px] font-medium text-white/90">{v.name}</span>
-            {/* Dots earn their place: they say "there are four of these" in the first second,
-                before the carousel has had time to show a second one. */}
-            <span className="ml-auto flex items-center gap-1">
-              {preview.variants.map((x, n) => (
-                <span
-                  key={x.name}
-                  className={`block size-1.5 rounded-full transition-colors ${n === i ? 'bg-white' : 'bg-white/25'}`}
-                />
-              ))}
-            </span>
-          </div>
-        )}
         <p className="text-[12px] leading-[1.5] text-white/55">{preview.why}</p>
       </div>
     </div>,

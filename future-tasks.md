@@ -1,7 +1,9 @@
 # Support Portal — parked features
 
-Four features that are **built or part-built and deliberately switched off**, so the work is not
-thrown away and nobody has to start from scratch when they come back.
+Five things that are **built or part-built and deliberately switched off**, so the work is not
+thrown away and nobody has to start from scratch when they come back. Four are features; the fifth
+(§5) is a UI recipe that was working well and was taken out of one surface for a reason that does
+not apply everywhere.
 
 Nothing here is a proposal. Every item names the files, the flag that hides it, the styling that is
 already decided, and the specific reason it was parked — so the next session can pick one up and
@@ -176,7 +178,90 @@ cleanup but was never finished.
 
 ---
 
-## Rules that apply to all four
+---
+
+## 5 · The carousel hover card — a reusable recipe
+
+**Status:** built, then deliberately taken OUT of the widget library (21 Aug 2026) — the library
+now shows every variant at once, because comparing four button styles is the whole question there
+and a carousel makes you wait for each one.
+
+**The idea is worth keeping.** It is the right shape for any surface where there is genuinely *one
+thing at a time* to show — a single element's states over time, a step sequence, a before/after — and
+it was working well. What follows is the prompt to rebuild it, plus every value already tuned, so it
+comes back in one pass instead of being redesigned.
+
+### Where the code was
+
+`PortalElementPreview.tsx`. Git history has the carousel version; `PREVIEWS` (the `Record<elementId,
+{ why, variants[] }>` catalogue) and the primitive helpers `box` / `row` / `stack` / `bar` / `dot` /
+`pill` are all still there and unchanged — only the render and the cycling were replaced.
+
+### The prompt
+
+> Build a hover preview card that cycles through an element's variants.
+>
+> **Trigger and placement.** Hovering a row in a list opens a dark card to its **left**. Portal it
+> to `document.body` with `position: fixed` — the list scrolls, so a popover rendered inside it is
+> clipped the moment it is taller than the space beside its row. Give the card
+> `pointer-events-none`, or it steals the hover that is keeping it open. Measure its height **after
+> render** and clamp to the viewport (`Math.max(12, Math.min(wanted, innerHeight - h - 12))`) — the
+> height depends on how long the copy is, so a fixed estimate puts short cards too low and clips
+> tall ones off the bottom.
+>
+> **What is inside, in this order.** A **stage**: a dotted ground (`radial-gradient(circle, #3A3A3E
+> 1px, transparent 1px)` at `10px 10px`) so the sketch reads as *on a page*, with the variant framed
+> in a `rounded-lg border border-white/85 bg-[#232326]` box — the same framing the canvas uses for a
+> selection. Then a **caption row**: the current variant's name on the left, progress dots on the
+> right. Then **one line on WHY you would reach for this element** rather than the one above it in
+> the list.
+>
+> **The art is a wireframe, not a screenshot.** Grey bars and dots on a dark ground, built from a
+> handful of primitives (`bar(width, height, colour)`, `dot(size)`, `row`, `stack`, `box`, `pill`).
+> A name is the worst possible description of a visual element — "Text", "List" and "Card" all sound
+> plausible for the same job — and a sketch answers *what shape does this leave on my page* in the
+> time it takes to hover. Accent anything meaningful in `#5B8DEF`; everything else stays grey.
+>
+> **The cycling.** `setInterval` every **1400ms**, `(n + 1) % variants.length`. Reset to variant 0
+> whenever the hovered row changes — arriving mid-carousel on a new element means the first thing
+> you see is not that element's primary form. Skip the interval entirely when there is only one
+> variant.
+>
+> **The dots earn their place** — they say *"there are four of these"* in the first second, before
+> the carousel has had time to show a second one. `size-1.5 rounded-full`, `bg-white` for the
+> current one and `bg-white/25` for the rest, with a colour transition.
+>
+> **Every row gets a card, including disabled ones.** Falling back to nothing would feel broken on
+> exactly the rows people are least sure about, and a row is often disabled *because* it is already
+> placed — which is a thing worth being able to look at.
+
+### Values already tuned — do not re-derive
+
+| | |
+|---|---|
+| Card width | `268px` (carousel) · `300px` (all-at-once) |
+| Card | `rounded-xl bg-[#1C1C1F] shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)]` |
+| Stage height | `132px`, centred, `px-5` |
+| Dot grid | `#3A3A3E`, 1px dots at `10px 10px` |
+| Frame | `rounded-lg border border-white/85 bg-[#232326] px-3.5 py-3` |
+| Variant name | `text-[11px] font-medium text-white/90` |
+| Reason line | `text-[12px] leading-[1.5] text-white/55` |
+| Accent | `#5B8DEF` · bars `#6A6A6E` / `#4A4A4E` · muted `#3A3A3E` |
+| Interval | `1400ms` |
+| Offset | `left: anchor.left - CARD_W - 12`, clamped to ≥ 12 |
+| z-index | `10002` |
+
+### ⚠️ When NOT to use it
+
+A carousel shows one thing at a time, so it costs the reader the ability to **compare**. If the
+question the surface answers is *"which of these do I want"* — four button styles, two accordion
+states — show them together and skip this entirely. That is exactly why the widget library stopped
+using it. Reach for the carousel when the variants are **the same thing over time** (states, steps,
+a progression), not **alternatives to choose between**.
+
+---
+
+## Rules that apply to all of these
 
 These are hard-won and cost real debugging time. They are not style preferences.
 

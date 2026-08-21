@@ -991,8 +991,14 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
      spacing you are actually reading. */
   const EMPTY_STATE_GROUP = 'Empty state';
   const emptyStateFields = () => viewFields.filter((f) => f.group === EMPTY_STATE_GROUP && (f.tab ?? 'content') === 'style' && (!f.when || f.when(viewCfg)));
-  const groupsFor = (which: 'content' | 'style') => {
-    const visible = viewFields.filter((f) => (f.tab ?? 'content') === which
+  const groupsFor = (which: 'content' | 'style' | 'action') => {
+    /* ⚠️ 'action' is a SECTION, not a tab: its fields still declare `tab: 'content'` because that
+       is which half of the drawer they belong to — Content and Action are both authored, Design is
+       styled. The section is chosen by the field's GROUP being "Action", which is why Content has
+       to exclude that group or the same fields would render twice. */
+    const wantAction = which === 'action';
+    const visible = viewFields.filter((f) => (f.tab ?? 'content') === (wantAction ? 'content' : which)
+      && ((f.group === 'Action') === wantAction)
       && !DROP_GROUPS.has(f.group ?? '')
       && !(cfg.__noData === true && f.group === 'Arrangement')
       && (!f.when || f.when(viewCfg)));
@@ -1240,6 +1246,25 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
         {/* Design owns the spec groups AND every pack, plus the shared Spacing block. */}
         {/* ⚠️ The whole Design section is DROPPED when a widget has nothing to put in it. An empty
             heading over a Spacing block is a section that exists to hold a label. */}
+        {/* ⚠️ ACTION sits between Content and Design — what the thing SAYS, then where it GOES,
+            then how it LOOKS. It is dropped entirely when a widget has no destination, so the
+            heading never appears over nothing. Rendered bare when it is one group named "Action",
+            for the same reason Content is. */}
+        {groupsFor('action').length > 0 && (
+          <>
+            <SectionLabel>Action</SectionLabel>
+            {groupsFor('action').map(({ group, fields }) => (
+              groupsFor('action').length === 1 && /^action$/i.test(group) ? (
+                <div key={group}>{fields.map(renderField)}</div>
+              ) : (
+                <Group key={group} title={group} open={openGroups.includes(group)} onToggle={() => toggleGroup(group)}>
+                  {fields.map(renderField)}
+                </Group>
+              )
+            ))}
+          </>
+        )}
+
         {/* ⚠️ Design is dropped ENTIRELY — heading and body — when a widget has nothing to style.
             Gating only the heading left the shared Spacing block floating under Content, which reads
             as a content setting and is the one thing it is not. */}

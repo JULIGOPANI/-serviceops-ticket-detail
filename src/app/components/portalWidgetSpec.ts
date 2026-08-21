@@ -547,7 +547,7 @@ export const WIDGET_SPECS: WidgetSpec[] = [
       },
       { key: 'icon', label: 'Icon', control: 'icon', group: 'Content' },
       {
-        key: 'action', label: 'Opens', control: 'select', group: 'Content',
+        key: 'action', label: 'Opens', control: 'select', group: 'Action',
         /* ⚠️ File Download, Click to Call, Click to Mail and Share were separate palette entries.
            They are not separate ELEMENTS — they are one button with a different destination, which
            is exactly the duplication the note below warns about. Folded in here and removed from the
@@ -559,23 +559,23 @@ export const WIDGET_SPECS: WidgetSpec[] = [
         ],
       },
       {
-        key: 'shareVia', label: 'Share via', control: 'chips', group: 'Content', when: (c) => c.action === 'share',
+        key: 'shareVia', label: 'Share via', control: 'chips', group: 'Action', when: (c) => c.action === 'share',
         options: ['Email', 'Copy link', 'Teams', 'Slack', 'WhatsApp'],
         help: 'Shares the portal page the button sits on.',
       },
-      { key: 'url', label: 'URL', control: 'text', group: 'Content', when: (c) => c.action === 'url' },
-      { key: 'newTab', label: 'Open in a new tab', control: 'toggle', group: 'Content', when: (c) => c.action === 'url' },
+      { key: 'url', label: 'URL', control: 'text', group: 'Action', when: (c) => c.action === 'url' },
+      { key: 'newTab', label: 'Open in a new tab', control: 'toggle', group: 'Action', when: (c) => c.action === 'url' },
       {
-        key: 'page', label: 'Page', control: 'select', group: 'Content', when: (c) => c.action === 'page',
+        key: 'page', label: 'Page', control: 'select', group: 'Action', when: (c) => c.action === 'page',
         options: ['My Requests', 'Service Catalog', 'Knowledge', 'My Approvals', 'My Assets', 'Report an issue'],
       },
-      { key: 'file', label: 'File', control: 'upload', group: 'Content', when: (c) => c.action === 'download' },
+      { key: 'file', label: 'File', control: 'upload', group: 'Action', when: (c) => c.action === 'download' },
       {
-        key: 'fileName', label: 'Shown as', control: 'text', group: 'Content', when: (c) => c.action === 'download',
+        key: 'fileName', label: 'Shown as', control: 'text', group: 'Action', when: (c) => c.action === 'download',
         help: 'Leave blank to use the uploaded file’s own name.',
       },
-      { key: 'email', label: 'Send to', control: 'text', group: 'Content', when: (c) => c.action === 'email' },
-      { key: 'phone', label: 'Number', control: 'text', group: 'Content', when: (c) => c.action === 'phone' },
+      { key: 'email', label: 'Send to', control: 'text', group: 'Action', when: (c) => c.action === 'email' },
+      { key: 'phone', label: 'Number', control: 'text', group: 'Action', when: (c) => c.action === 'phone' },
       /* ── The two tabs ──────────────────────────────────────────────────────
        *
        * A real switch, built from the field engine rather than new drawer machinery: §2.2 already
