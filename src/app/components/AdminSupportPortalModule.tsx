@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ChevronDown, Copy, ExternalLink, LayoutTemplate, MonitorSmartphone, PenLine, Plus, Search,
-  Eye, MoreVertical, RotateCcw, Settings, Trash2, X,
+  Eye, Link2 as LinkIcon, MoreVertical, RotateCcw, Settings, Trash2, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { portalLink, portalSlug } from '../routes';
 import { Pagination } from './Pagination';
 import { SupportPortalBuilder } from './SupportPortalBuilder';
 import { SupportPortalTemplateGallery } from './SupportPortalTemplateGallery';
@@ -17,8 +18,9 @@ import type { PortalPage, PortalTemplate } from './supportPortalData';
 /* One row's actions. A kebab rather than a rail of icons: five verbs, two of which ("Duplicate
    layout", "Reset layout to default") are phrases no glyph says, so an icon row would need a
    tooltip per item to be readable at all. */
-function RowMenu({ isDefault, onCustomize, onPreview, onSettings, onDuplicate, onReset, onDelete }: {
+function RowMenu({ isDefault, onCopyLink, onCustomize, onPreview, onSettings, onDuplicate, onReset, onDelete }: {
   isDefault: boolean;
+  onCopyLink: () => void;
   onCustomize: () => void; onPreview: () => void; onSettings: () => void;
   onDuplicate: () => void; onReset: () => void; onDelete: () => void;
 }) {
@@ -75,6 +77,9 @@ function RowMenu({ isDefault, onCustomize, onPreview, onSettings, onDuplicate, o
         >
           <button onClick={run(onCustomize)} className={item}><PenLine size={14} /> Customize</button>
           <button onClick={run(onPreview)} className={item}><Eye size={14} /> Preview</button>
+          {/* Sits with Customize and Preview — the three things you do WITH this portal, as opposed
+              to the four below the rule that change what it is. */}
+          <button onClick={run(onCopyLink)} className={item}><LinkIcon size={14} /> Copy link</button>
           <button onClick={run(onSettings)} className={item}><Settings size={14} /> Portal settings</button>
           <div className="my-1 h-px bg-[#E5E7EB]" />
           <button onClick={run(onDuplicate)} className={item}><Copy size={14} /> Duplicate layout</button>
@@ -217,7 +222,13 @@ type Scope = 'All' | 'Published' | 'Draft';
  * ⚠️ TABS, not two nav rows. Customization decides what the portal LOOKS like; Settings decides what
  * a requester may DO on it. They are the same subject, so splitting them across the sidebar would
  * make an admin remember which of two identically-named rows holds the switch they want. */
-export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boolean) => void }) {
+export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalChange }: {
+  onBuilder?: (open: boolean) => void;
+  /** A portal named in the URL — opened on arrival, so a shared link lands ON that portal. */
+  openPortal?: string;
+  /** Reports which portal is open, so the address bar names it. */
+  onOpenPortalChange?: (slug: string | undefined) => void;
+}) {
   /* ⚠️ Starts with ONE page, not empty. Every tenant already has a support portal — the requester
      is landing somewhere today — so an empty state here would claim the portal does not exist and
      invite the admin to "create" the thing they are actually editing. The default page is a System
@@ -241,6 +252,36 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
 
   // The admin shell collapses its sidebar while the canvas is open.
   useEffect(() => { onBuilder?.(!!editing); }, [editing, onBuilder]);
+
+  /* ⚠️ Matched on the SLUG first and the id second. The slug is what a shared link carries because
+     it is readable, but a portal that has since been renamed would strand every link built from its
+     old name — so the id keeps working as a fallback that can never change. */
+  const findPortal = useCallback(
+    (key: string) => pages.find((p) => portalSlug(p.name, p.id) === key || p.id.toLowerCase() === key.toLowerCase()),
+    [pages],
+  );
+
+  /* The URL opens a portal — but only when the URL CHANGES.
+     ⚠️ The obvious guard, "open it unless it is already open", is what made the back arrow dead:
+     closing sets `editingId` to null, this effect then sees a URL still naming the portal and an
+     editingId that no longer matches, and re-opens it on the very next render. Consuming each slug
+     once means the URL drives state on ARRIVAL, and state drives the URL from then on — one
+     direction each, which is the only arrangement where the two cannot fight. */
+  const consumed = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (openPortal === consumed.current) return;
+    consumed.current = openPortal;
+    if (!openPortal) return;
+    const hit = findPortal(openPortal);
+    if (hit) setEditingId(hit.id);
+  }, [openPortal, findPortal]);
+
+  /* …and the open portal names the URL. One direction each, so they cannot fight. */
+  useEffect(() => {
+    const open = pages.find((p) => p.id === editingId);
+    onOpenPortalChange?.(open ? portalSlug(open.name, open.id) : undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId, pages]);
 
   const create = (name: string, source: string) => {
     const now = formatPortalStamp(new Date());
@@ -433,8 +474,8 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <a
-                      href={portalUrl(p)}
-                      onClick={(e) => e.preventDefault()}
+                      href={`#/admin/support-portal/${portalSlug(p.name, p.id)}`}
+                      title={`Open ${p.name}`}
                       className="text-[13px] text-[#7B8FA5] hover:text-[#3D8BD0] hover:underline"
                     >{portalUrl(p)}</a>
                   </td>
@@ -476,6 +517,13 @@ export function AdminSupportPortalModule({ onBuilder }: { onBuilder?: (open: boo
                   <td className="px-4 py-3">
                     <RowMenu
                       isDefault={p.id === DEFAULT_PORTAL_PAGE.id}
+                      onCopyLink={() => {
+                        const link = portalLink(portalSlug(p.name, p.id));
+                        navigator.clipboard?.writeText(link).then(
+                          () => toast.success('Link copied — it opens this portal'),
+                          () => toast.error('Could not copy the link'),
+                        );
+                      }}
                       onCustomize={() => setEditingId(p.id)}
                       onPreview={() => toast.success(`Opening ${p.name} in preview`)}
                       onSettings={() => { setEditingId(p.id); setOpenSettings(true); }}

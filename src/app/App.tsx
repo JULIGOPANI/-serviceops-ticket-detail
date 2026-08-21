@@ -21,7 +21,7 @@ import { AdminPage } from './components/AdminPage';
 import { DrawerStackProvider } from './components/DrawerStack';
 import { GlobalSearch } from './components/GlobalSearch';
 import { Toaster } from 'sonner';
-import { formatHash, parseHash } from './routes';
+import { formatHash, parseHash, titleFor } from './routes';
 import type { Page, Route } from './routes';
 
 export default function App() {
@@ -46,6 +46,13 @@ export default function App() {
     const canonical = formatHash(route);
     if (window.location.hash !== canonical) window.history.replaceState(null, '', canonical);
   }, [route]);
+
+  /* Name the tab after the screen. Without this every tab, bookmark and history entry reads
+     "Ticket Listing & Full Detail page" whatever you are looking at.
+     ⚠️ This CANNOT fix a chat-app link preview: an unfurl is generated server-side, and the
+     fragment is never sent to the server — so a crawler only ever sees index.html's static
+     <title>. That one is now the product name, which at least reads correctly for every link. */
+  useEffect(() => { document.title = titleFor(route); }, [route]);
 
   const go = (next: Route) => {
     const hash = formatHash(next);
@@ -85,7 +92,9 @@ export default function App() {
         <AdminPage
           onNavigate={navigate}
           moduleSlug={route.admin}
+          portalSlug={route.portal}
           onModuleChange={(slug) => go({ page: 'admin', admin: slug })}
+          onPortalChange={(portal) => go({ page: 'admin', admin: 'support-portal', portal })}
         />
       )}
       {/* Mounted once, inside the drawer host, so search works on every page and can open any

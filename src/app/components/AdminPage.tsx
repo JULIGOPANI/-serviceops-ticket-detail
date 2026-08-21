@@ -44,9 +44,12 @@ interface AdminPageProps {
   moduleSlug?: string;
   /** Reports where the admin navigated itself, so the address bar follows the pane. */
   onModuleChange?: (slug: string | undefined) => void;
+  /** Which portal is open inside the Support Portal module, and a way to report a change back. */
+  portalSlug?: string;
+  onPortalChange?: (slug: string | undefined) => void;
 }
 
-export function AdminPage({ onNavigate, moduleSlug, onModuleChange }: AdminPageProps) {
+export function AdminPage({ onNavigate, moduleSlug, onModuleChange, portalSlug, onPortalChange }: AdminPageProps) {
   const [active, setActive] = useState('Overview');
   const [query, setQuery] = useState('');
   // Only the first section starts open, mirroring the live admin.
@@ -170,7 +173,11 @@ export function AdminPage({ onNavigate, moduleSlug, onModuleChange }: AdminPageP
             </div>
           ) : module === 'Support Portal Customization' ? (
             <div className="min-h-0 flex-1 overflow-y-auto bg-white">
-              <AdminSupportPortalModule onBuilder={setBuilderOpen} />
+              <AdminSupportPortalModule
+                onBuilder={setBuilderOpen}
+                openPortal={portalSlug}
+                onOpenPortalChange={onPortalChange}
+              />
             </div>
           ) : (
             <AdminOverview
