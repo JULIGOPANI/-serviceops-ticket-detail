@@ -198,6 +198,16 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
 - **Portal builder — `fillCss` is the one container-styling reader (`portalPageModel`):** the panel writes `fill`/`bg`/`bgImage`/`borderWidth`/`radius` into widget CONFIG; the built-in quick cards were reading `styleOf` (the STYLE store), so every one of those controls saved a value the canvas never looked at. One function, both renderers. ⚠️ Use `backgroundColor`, never the `background` shorthand — the shorthand resets backgroundImage/Size/Position, so the image fill and the colour fill fight depending on render order. ⚠️ It omits UNSET keys entirely: spread over a base object, an explicit `undefined` DELETES what the base set, which is how a card with fill `none` lost its own default white background (the tell is a lone `border-image: none` in the inline style).
 - **Portal builder — child text nodes:** `nodeById` describes any `<id>-title|sub|label|viewall` (plus `cl<n>`/`cv<n>` for Contact Us line label/value) as a text node, and `ownerOf` strips the suffix so the value reads and writes on the WIDGET's config. Wrapping a heading in `<Sel id={`${nodeId}-title`}>` is all that is needed to make it inline-editable. ⚠️ The suffix IS the node identity — two children claiming `-sub` are one node, so a Title element's eyebrow takes `-label` and its subtitle takes `-sub`. ⚠️ The child spec edits the key its suffix names, so a widget whose second line was keyed `prompt` opened a BLANK drawer while the canvas showed text; Feedback is keyed `sub` and merely LABELLED "Prompt".
 - **Portal builder — hidden catalogue elements:** `PortalElement.hidden` withholds an element from the palette without deleting it, so its spec and renderer stay and anything already on a page keeps working. ⚠️ Filter BEFORE the search, or a hidden row is still reachable by typing its name; and filter the builder's seed too. Currently hidden (20 Aug 2026): **Spacer**, **Advanced Tabs**, **Media Slider** (the last had 22 of 33 controls inert).
+## Parked features
+Four Support Portal features are BUILT-OR-PART-BUILT AND SWITCHED OFF, with their full context in
+[future-tasks.md](future-tasks.md): **AI** (rail item commented out in ; the
+real ask is section-scoped AI, not portal-wide generation), **Media Slider** (, hidden —
+22 of 33 controls were inert), **Advanced Tabs** (, hidden — needs a collection spec, copy
+Accordion's), and **custom templates** (the gallery and the New-page route exist; save-as-template
+does not). ⚠️ Each is hidden by a FLAG, not deleted — spec, renderer and panel all stay, so
+restoring is one line and an existing page carrying the element keeps working. Read that file before
+touching any of them; it names the files, the styling already decided, and why each was parked.
+
 ## Deployment
 Repo: https://github.com/zenichakalasiya/serviceops-ticket-detail
 Live URL: https://zenichakalasiya.github.io/serviceops-ticket-detail/
