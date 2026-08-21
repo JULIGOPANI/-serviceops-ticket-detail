@@ -10,7 +10,7 @@
 
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, ImageOff, ShoppingCart, Star } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronsRight, ImageOff, ShoppingCart, Star } from 'lucide-react';
 import { Sel, useCanvas } from './PortalCanvas';
 import { itemNodeId, subNodeId } from './portalPageModel';
 import type { PortalStyles } from './portalPageModel';
@@ -18,6 +18,7 @@ import { chosen, roleStyle } from './portalStyleResolver';
 import { IconFrameBox } from './PortalIconFrame';
 import type { IconFrame } from './PortalIconFrame';
 import type { Cfg } from './portalWidgetSpec';
+import { PORTAL_APPROVALS, PORTAL_ARTICLES, PORTAL_OPEN_REQUESTS, REQUEST_STATUS_TONE } from './supportPortalData';
 
 type Item = Cfg & { id: string; hidden?: boolean };
 
@@ -1070,7 +1071,155 @@ function TextImageRender({ cfg }: { nodeId: string; cfg: Cfg }) {
   );
 }
 
+/* The five live-data widgets, drawn the way the page's own blocks are drawn.
+ *
+ * ⚠️ NO card of its own. `Surface` (PortalPlacedElement) already gives a data widget the white box,
+ * the border, the radius and the 16px — drawing another here is what made a copied My Requests
+ * come out as a hard-bounded card sitting inside the real one.
+ *
+ * ⚠️ `@container`, matching CardShell: these are resized by dragging their own edge, so the header
+ * responds to the CARD's width and never to the window. The title truncates, the count and the link
+ * hold their size, and the "View all" words drop below 240px so the row stays one line.
+ *
+ * The heading and the View-all label are their own nodes, so a copy is editable exactly where the
+ * original is — clicking the words edits the words. */
+function LiveCard({ nodeId, cfg, title, count, rows }: {
+  nodeId: string; cfg: Cfg; title: string; count: number; rows: ReactNode;
+}) {
+  const { styles } = useCanvas();
+  const plain = cfg.countStyle === 'plain';
+  return (
+    <div className="@container flex min-w-0 flex-col">
+      <div className="flex items-center gap-2 pb-2.5">
+        <Sel id={`${nodeId}-title`} className="min-w-0 flex-1 px-0.5">
+          <span style={roleStyle(styles, nodeId, 'title')} className="block truncate text-[15px] font-semibold text-[#364658]">
+            {String(cfg.title ?? title)}
+          </span>
+        </Sel>
+        {cfg.showCount !== false && (plain
+          ? <span className="flex-shrink-0 text-[12px] font-medium text-[#7B8FA5]">{count}</span>
+          : (
+            <span className="inline-flex h-[18px] min-w-[18px] flex-shrink-0 items-center justify-center rounded bg-[#EEF2F6] px-1.5 text-[11px] font-semibold text-[#64748B]">
+              {count}
+            </span>
+          ))}
+        {cfg.showViewAll !== false && (
+          <span style={roleStyle(styles, nodeId, 'link')} className="flex flex-shrink-0 items-center gap-1 text-[#7B8FA5]">
+            <Sel id={`${nodeId}-viewall`} className="hidden px-0.5 @min-[240px]:inline-block">
+              <span className="text-[12px] font-medium">{String(cfg.viewAllLabel ?? 'View all')}</span>
+            </Sel>
+            <ChevronsRight size={16} />
+          </span>
+        )}
+      </div>
+      <div className="min-h-0 min-w-0 flex-1">{rows}</div>
+    </div>
+  );
+}
+
+/* ⚠️ Every row is `min-w-0` with a truncating subject and non-shrinking chips. Narrowed, a row
+   whose longest unbreakable word set a min-content floor pushed the whole card wider than the
+   column it was in — so the card stopped obeying the width its section asked for. */
+const liveRow = 'border-t border-[#F0F2F5] py-2.5 first:border-t-0';
+const livePill = 'max-w-full flex-shrink truncate whitespace-nowrap rounded-sm bg-[#F1F5F9] px-1.5 py-0.5 text-[12px] font-medium text-[#475467]';
+
+function RequestsRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
+  const rows = PORTAL_OPEN_REQUESTS.slice(0, Number(cfg.show ?? 5));
+  return (
+    <LiveCard nodeId={nodeId} cfg={cfg} title="My Open Requests" count={rows.length} rows={
+      rows.map((r) => {
+        const tone = REQUEST_STATUS_TONE[r.status] ?? { fg: '#64748B', bg: '#F1F5F9' };
+        return (
+          <div key={r.id} className={liveRow}>
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+              {cfg.showId !== false && <span className={livePill}>{r.id}</span>}
+              <span className="min-w-0 flex-1 truncate text-[13px] text-[#364658]">{r.subject}</span>
+              <span
+                className="flex-shrink-0 whitespace-nowrap rounded-sm px-2 py-0.5 text-[12px] font-medium"
+                style={{ color: tone.fg, background: tone.bg }}
+              >{r.status}</span>
+            </div>
+            {cfg.showDate !== false && <div className="mt-1 text-[12px] text-[#7B8FA5]">{r.at}</div>}
+          </div>
+        );
+      })
+    } />
+  );
+}
+
+function ApprovalsRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
+  const rows = PORTAL_APPROVALS.slice(0, Number(cfg.show ?? 5));
+  return (
+    <LiveCard nodeId={nodeId} cfg={cfg} title="Pending Approvals" count={rows.length} rows={
+      rows.map((a) => (
+        <div key={a.id} className={liveRow}>
+          <div className="min-w-0 truncate text-[13px] text-[#364658]">{a.id}: {a.subject}</div>
+          <div className="mt-0.5 min-w-0 truncate text-[12px] text-[#7B8FA5]">{a.reason}</div>
+          <div className="mt-1 min-w-0 truncate text-[12px] text-[#7B8FA5]">{a.at}</div>
+        </div>
+      ))
+    } />
+  );
+}
+
+function KnowledgeRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
+  const rows = PORTAL_ARTICLES.slice(0, Number(cfg.show ?? 5));
+  return (
+    <LiveCard nodeId={nodeId} cfg={cfg} title="Most Read" count={rows.length} rows={
+      rows.map((k) => (
+        <div key={k.id} className={liveRow}>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+            <span className={livePill}>{k.id}</span>
+            <span className="min-w-0 flex-1 truncate text-[13px] text-[#364658]">{k.title}</span>
+          </div>
+          <div className="mt-1 min-w-0 truncate text-[12px] text-[#7B8FA5]">{k.at}</div>
+        </div>
+      ))
+    } />
+  );
+}
+
+const PLACED_ASSETS = [
+  { id: 'AST-3', name: 'Dell Latitude 5440', type: 'Laptop' },
+  { id: 'AST-1', name: 'Dell UltraSharp U2723QE', type: 'Monitor' },
+  { id: 'AST-7', name: 'Logitech MX Master 3S', type: 'Mouse' },
+  { id: 'AST-12', name: 'Jabra Evolve2 65', type: 'Headset' },
+  { id: 'AST-9', name: 'iPhone 14', type: 'Mobile' },
+];
+
+function AssetsRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
+  const rows = PLACED_ASSETS.slice(0, Number(cfg.show ?? 5));
+  return (
+    <LiveCard nodeId={nodeId} cfg={cfg} title="My Assets" count={rows.length} rows={
+      rows.map((a) => (
+        <div key={a.id} className={`${liveRow} flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1`}>
+          <span className={livePill}>{a.id}</span>
+          <span className="min-w-0 flex-1 truncate text-[13px] text-[#364658]">{a.name}</span>
+          <span className="flex-shrink-0 whitespace-nowrap text-[12px] text-[#9CA3AF]">{a.type}</span>
+        </div>
+      ))
+    } />
+  );
+}
+
+/* ⚠️ My CIs is EMPTY BY DESIGN (§7.4) — it is empty on most real instances, so its empty state is
+   the state most requesters see, and a truthful copy of it is empty too. */
+function CisRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
+  return (
+    <LiveCard nodeId={nodeId} cfg={cfg} title="My CIs" count={0} rows={
+      <div className="flex items-center justify-center rounded border border-dashed border-[#E5E7EB] py-7 text-[13px] text-[#9CA3AF]">
+        No Data Found
+      </div>
+    } />
+  );
+}
+
 export const COLLECTION_RENDERERS: Record<string, (p: { nodeId: string; cfg: Cfg }) => ReactNode> = {
+  'c-requests': RequestsRender,
+  'c-approvals': ApprovalsRender,
+  'c-knowledge': KnowledgeRender,
+  'c-assets': AssetsRender,
+  'c-cis': CisRender,
   'b-text-image': TextImageRender,
   'b-list': ListRender,
   'l-divider': DividerRender,

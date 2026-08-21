@@ -31,6 +31,8 @@ export interface PortalNodeDef {
   id: string;
   /** Shown in the canvas chip and as the panel title. */
   name: string;
+  /** Text nodes only: its value is HTML, so inline editing commits markup and Enter breaks a line. */
+  rich?: boolean;
   kind: NodeKind;
   /** Parent node id — drives the chip's ❯ step-up and the panel breadcrumb. */
   parent?: string;
@@ -144,6 +146,10 @@ export function nodeById(id: string): PortalNodeDef | undefined {
      rows needs a node per part, and the four generic suffixes could not name six things. They are
      numbered rather than named because the rows are positional — line 0 is line 0 whatever it is
      currently called, which is what lets the label itself be editable. */
+  /* An image's caption. Its own node, so clicking the words under a picture edits THE WORDS —
+     before this the caption was reachable only from the image's panel, three fields down. */
+  const cap = /^(.+)-caption$/.exec(id);
+  if (cap) return { id, name: 'Caption', kind: 'text', rich: true, parent: cap[1], content: 'text' };
   const listTxt = /^(.+)-(title|sub|label|viewall|cl\d+|cv\d+)$/.exec(id);
   if (listTxt && !/^quick-/.test(id)) {
     return {
@@ -438,7 +444,7 @@ export interface ElementRenderSpec { kind: NodeKind; bare: boolean }
 
 const CARD_TYPES = new Set([
   'c-services', 'c-categories', 'c-requests', 'c-approvals', 'c-assets', 'c-tasks',
-  'c-announcements', 'c-knowledge', 'c-faq', 'c-contact', 'c-feedback',
+  'c-announcements', 'c-knowledge', 'c-faq', 'c-contact',
   'b-card', 'b-table', 'b-accordion', 'b-text-image',
   /* ⚠️ Listed, or removing it from SELF_SURFACED changes nothing: renderSpec falls through to a
      bare default, so the KPI stayed flat by a different route than the one that was fixed. */
@@ -492,6 +498,11 @@ export function paintsOwnSurface(id: string): boolean {
      means anywhere else on this page. A placed Action Card was already covered; these three were
      the same shape of thing reached by a different code path. */
   if (/^quick-/.test(id)) return true;
+  /* ⚠️ The banner SEARCH too. Its Sel is a bare wrapper and the white field is a div inside it, so
+     padding landed between the selection outline and the box — visible as a growing blue gutter
+     around a search bar that never got roomier — and a dragged height grew the wrapper while the
+     field stayed 44px. Both belong to the thing that is painted. */
+  if (id === 'hero-search') return true;
   const t = placedType(id);
   if (!t) return false;
   /* ⚠️ SELF_SURFACED types count too. They are marked `bare` because they must not be wrapped in

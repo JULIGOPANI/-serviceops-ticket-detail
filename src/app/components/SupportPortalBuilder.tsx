@@ -205,7 +205,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   /* ⚠️ `-viewall` strips too. The link's label is a key on the WIDGET's config, so its own node has
      to resolve to the widget for reading and writing — the panel it opens is separate (see
      `specForNode`), which is the whole point: same value, different editor. */
-  const ownerOf = (id: string) => parseItemId(id)?.widget ?? id.replace(/-(title|sub|label|viewall|icon|cl\d+|cv\d+)$/, '');
+  const ownerOf = (id: string) => parseItemId(id)?.widget ?? id.replace(/-(title|sub|label|viewall|icon|search|caption|cl\d+|cv\d+)$/, '');
 
   const specForNode = useCallback((id: string | null): WidgetSpec | undefined => {
     if (!id) return undefined;
@@ -214,7 +214,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
        the one thing you aimed at is the one thing you cannot edit. Config and panel resolve
        differently here on purpose. */
     const own = structureSpecId(id);
-    if (['card_title', 'card_sub', 'card_icon', 'list_title', 'list_label', 'list_link'].includes(own ?? '')) return specById(own);
+    if (['card_title', 'card_sub', 'card_icon', 'list_title', 'list_label', 'list_link', 'search', 'image_caption'].includes(own ?? '')) return specById(own);
 
     const owner = ownerOf(id);
     const direct = WIDGET_FOR_NODE[owner];
@@ -237,7 +237,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
        action cards, so only it gets the picker — offering a card layout on a section with no cards
        is a control that cannot do anything. Seeded per NODE because the section SPEC is shared by
        every band and every added section. */
-    quick: { cols: '3', hasCards: true },
+    quick: { cols: '4', hasCards: true },
     work: { cols: '3' },
     records: { cols: '2' },
   };
@@ -263,7 +263,17 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      view keys: nothing writes them back. */
   const sectionShape = useCallback((id: string) => {
     const sec = sectionsRef.current.find((x) => x.section.id === id)?.section;
-    if (sec) return { __count: Object.keys(sec.items).length, __preset: presetOf(sec.rows), __rowAxis: isRowAxis(sec.rows) };
+    if (sec) {
+      /* ⚠️ Same substitution the preset itself makes, or the tile ROW and the tile ACTION disagree:
+         an empty two-row section reported 0 and was offered the two-item tile set, so the shape it
+         already had was not among the shapes it could be given. */
+      const cells = sec.rows.reduce((a, r) => a + r.length, 0);
+      return {
+        __count: Math.max(Object.keys(sec.items).length, cells),
+        __preset: presetOf(sec.rows),
+        __rowAxis: isRowAxis(sec.rows),
+      };
+    }
     /* ⚠️ A BUILT-IN band, whose shape is a column COUNT on its config rather than a `rows` array.
        This used to return a hard-coded `{ count: 0, preset: 'cols' }`, which broke the preset row
        in two visible ways at once: the tile row never lit the preset you were actually on — pick
@@ -291,12 +301,47 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
         : { hasContent: true, ...sectionShape(owner) }),
       /* ⚠️ Whether this widget has any records, so the panel can stand down the controls that only
          describe records. Arranging nothing is not a setting, it is a control with no referent. */
+      /* ⚠️ The ROW's card template, seeded so the card's own picker opens on the shape it is
+         actually wearing. widgetCfg[owner] is spread after this, so a card that has chosen its
+         own still wins — this only fills the gap before it chooses. */
+      ...(/^quick-/.test(owner) ? { cardTemplate: widgetCfgRef.current.quick?.cardTemplate ?? 'left' } : {}),
       __noData: PORTAL_EMPTY_WIDGETS.has(owner),
       ...(widgetCfg[owner] ?? {}),
     };
   }, [specForNode, widgetCfg, sectionHasContent]);
 
   const patchCfg = useCallback((id: string, patch: Cfg) => {
+    /* ⚠️ Responsive behaviour CLEARS the widths already dragged onto this section's first-layer
+       columns. Fill stores a share of the row (`flex`) and Fixed stores a width of its own
+       (`widthPct`); a value left behind by the other mode is read by the wrong rule and the row
+       either collapses or overflows. Redistributing is also the truthful answer to "what does this
+       row do now" — the rule it distributes by is exactly what you changed.
+       ⚠️ The columns are found in the DOM rather than from state, because a section's first layer
+       has three different shapes — an added section's `rows`, a built-in band's card list, and
+       whatever has been dropped alongside them — and the rendered page is the one place all three
+       agree. A direct child is one whose nearest `[data-node]` ancestor is this section. */
+    if (patch.resize !== undefined) {
+      const host = document.querySelector(`[data-node="${id}"]`);
+      const cols = host
+        ? [...host.querySelectorAll<HTMLElement>('[data-node]')]
+            .filter((k) => k.parentElement?.closest('[data-node]') === host)
+            .map((k) => k.dataset.node!)
+        : [];
+      if (cols.length) {
+        setStyles((prev) => {
+          const next = { ...prev };
+          let touched = false;
+          cols.forEach((c) => {
+            const s = next[c];
+            if (!s || (s.flex === undefined && s.widthPct === undefined && s.width === undefined)) return;
+            const { flex, widthPct, width, ...rest } = s;
+            next[c] = rest;
+            touched = true;
+          });
+          return touched ? next : prev;
+        });
+      }
+    }
     setWidgetCfg((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }, []);
 
@@ -371,6 +416,9 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
   /** Elements dropped straight into a built-in row (Quick Actions, Cards Row, Records Row). */
   const [rowExtras, setRowExtras] = useState<Record<string, PlacedElement[]>>({});
+  /* ⚠️ Read by `detachElement`, which must know what it is holding BEFORE the state settles. */
+  const rowExtrasRef = useRef<Record<string, PlacedElement[]>>({});
+  rowExtrasRef.current = rowExtras;
 
   const dropInRow = useCallback((rowId: string, type: string) => {
     const el = makeElement(type, rowId);
@@ -532,7 +580,8 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
       const ordered: PlacedElement[] = [];
       let n = -1;
       sec.rows.forEach((row) => row.forEach(() => { n += 1; const it = sec.items[colId(sec.id, n)]; if (it) ordered.push(it); }));
-      const rows = PRESETS[preset].rows(Math.max(ordered.length, 1));
+      const cells = sec.rows.reduce((a, r) => a + r.length, 0);
+      const rows = PRESETS[preset].rows(Math.max(ordered.length, cells, 1));
       const items: Record<string, PlacedElement> = {};
       let i = -1;
       rows.forEach((row) => row.forEach(() => {
@@ -651,11 +700,28 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      ⚠️ Detach must clear BOTH homes for the same reason delete does — a column and a built-in row
      are two different stores, and an element that half-moves is an element that gets duplicated. */
   const detachElement = useCallback((id: string): PlacedElement | null => {
+    /* ⚠️ Found from the REFS, not from inside the state updaters. The updaters were where `taken`
+       used to be assigned, and React only runs an updater eagerly when that hook's queue is empty —
+       so detaching from a SECTION happened to work and detaching from a built-in ROW returned null.
+       The caller then bailed out after the element had already been removed: it vanished off the
+       page with no toast and no home. Reading first and writing second cannot half-move anything. */
     let taken: PlacedElement | null = null;
+    for (const sec of sectionsRef.current) {
+      const col = Object.keys(sec.section.items).find((c) => sec.section.items[c].id === id);
+      if (col) { taken = sec.section.items[col]; break; }
+    }
+    if (!taken) {
+      const rows = rowExtrasRef.current;
+      const hit = Object.keys(rows).find((r) => rows[r].some((e) => e.id === id));
+      if (hit) taken = rows[hit].find((e) => e.id === id) ?? null;
+    }
+    if (!taken) return null;
+
+    /* Clear BOTH homes — a column and a built-in row are two different stores, and an element that
+       half-moves is an element that gets duplicated. */
     setSections((prev) => prev.map((sec) => {
       const col = Object.keys(sec.section.items).find((c) => sec.section.items[c].id === id);
       if (!col) return sec;
-      taken = sec.section.items[col];
       const items = { ...sec.section.items };
       delete items[col];
       return { ...sec, section: { ...sec.section, items } };
@@ -663,7 +729,6 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     setRowExtras((prev) => {
       const hit = Object.keys(prev).find((r) => prev[r].some((e) => e.id === id));
       if (!hit) return prev;
-      taken = taken ?? prev[hit].find((e) => e.id === id) ?? null;
       return { ...prev, [hit]: prev[hit].filter((e) => e.id !== id) };
     });
     return taken;
@@ -705,31 +770,96 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   }, [detachElement, select]);
 
   /** Drag-to-reorder: lift `source` out of its list and drop it at `target`'s index. */
+  /* ⚠️ Resolve a dragged or dropped node to the thing that can actually BE placed.
+     A drag aims at what you can see, and what you can see is usually a CHILD: a card's title, an
+     image's caption, a widget's heading. None of those has a home of its own — they are parts of
+     the element that owns them — so a drop on one used to fall through every branch below and end
+     at "Drop it on a column, or on something in the same row", which is an error message about a
+     rule the person had not broken. Walking up to the owner makes "I dragged the words" mean "move
+     the thing the words belong to", which is the only reading that can be honoured. */
+  const placeable = useCallback((id: string): string => {
+    let cur = id;
+    for (let i = 0; i < 6; i += 1) {
+      if (/^el-\d+$/.test(cur) || /^sec-\d+(-c\d+)?$/.test(cur) || listOf(cur)) return cur;
+      const parent = nodeById(cur)?.parent;
+      if (!parent || parent === cur) break;
+      cur = parent;
+    }
+    return cur;
+  }, [listOf]);
+
+  /** Where a node lives: a section column, or a built-in row. Null for a page-level band. */
+  const homeOf = useCallback((id: string): { kind: 'col' | 'row'; id: string } | null => {
+    if (/^sec-\d+-c\d+$/.test(id)) return { kind: 'col', id };
+    if (/^el-\d+$/.test(id)) {
+      const p = nodeById(id)?.parent;
+      if (p && /^sec-\d+-c\d+$/.test(p)) return { kind: 'col', id: p };
+      if (p && rowOrderRef.current[p]) return { kind: 'row', id: p };
+    }
+    const row = listOf(id);
+    if (row && row !== 'block' && row !== 'section') return { kind: 'row', id: row };
+    return null;
+  }, [listOf]);
+
+  /* Moving a placed element into a built-in row — Quick Actions, the work row, the records row.
+     ⚠️ Detach first, in both stores: an element that half-moves is an element that gets duplicated. */
+  const moveIntoRow = useCallback((id: string, rowId: string) => {
+    const moving = detachElement(id);
+    if (!moving) return;
+    setRowExtras((prev) => ({ ...prev, [rowId]: [...(prev[rowId] ?? []), moving] }));
+    registerPlaced(moving.id, moving.name, moving.type, rowId);
+    select(id);
+    toast.success(`${moving.name} moved`);
+  }, [detachElement, select]);
+
+  /* A drop on a SEAM builds the element its own section there — the same courtesy dropping a NEW
+     element on a seam already gets. Without it the only way to move something out of a crowded
+     column was to delete it and drag a fresh one from the library, losing everything it carried. */
+  const moveToSeam = useCallback((id: string, afterId: string) => {
+    const moving = detachElement(id);
+    if (!moving) return;
+    const section: CustomSection = { id: `sec-${nextSectionId.current++}`, rows: [[1]], items: {} };
+    const col = colId(section.id, 0);
+    section.items[col] = moving;
+    registerPlaced(moving.id, moving.name, moving.type, col);
+    setSections((prev) => [...prev, { afterId, section }]);
+    select(id);
+    toast.success(`${moving.name} moved to a new section`);
+  }, [detachElement, select]);
+
   const moveTo = useCallback((source: string, target: string) => {
+    /* Both ends resolve to something placeable first — see the note on `placeable`. */
+    const src = placeable(source);
+    const dst = placeable(target);
+    if (src === dst) return;
+
     /* ⚠️ A placed element is not confined to the list it started in. Reordering handles siblings;
        everything else is a RELOCATION, which is what dragging across sections has to mean — the
        old code refused it with "drop it on something in the same row", so the only way to move an
        element between sections was to delete it and build it again. */
-    if (/^el-[0-9]+$/.test(source)) {
-      const destCol = /^sec-[0-9]+-c[0-9]+$/.test(target)
-        ? target
-        : /^el-[0-9]+$/.test(target)
-          ? (nodeById(target)?.parent ?? null)
-          : null;
-      if (destCol && /^sec-[0-9]+-c[0-9]+$/.test(destCol)) { relocateElement(source, destCol); return; }
+    if (/^el-[0-9]+$/.test(src)) {
+      const home = homeOf(dst);
+      /* A column takes it directly; landing on an occupant swaps the two. */
+      if (home?.kind === 'col') { relocateElement(src, home.id); return; }
+      /* A built-in card, or the row it sits in — join that row rather than refusing. This is the
+         "find a column on its own" case: you aimed at a place on the page, not at a slot. */
+      if (home?.kind === 'row') { moveIntoRow(src, home.id); return; }
     }
-    const list = listOf(source);
-    if (!list || list !== listOf(target)) {
-      toast.error('Drop it on a column, or on something in the same row');
+    const list = listOf(src);
+    if (!list || list !== listOf(dst)) {
+      /* ⚠️ Nothing left to try, so say what WOULD work rather than restating the rule that failed.
+         Every other route above is now open, so reaching here means the two really have no common
+         ground — a page band dropped onto a card, say. */
+      toast.error('Drop it on a section, a column, or a seam between blocks');
       return;
     }
     const reorder = (arr: string[]) => {
-      const from = arr.indexOf(source);
-      const to = arr.indexOf(target);
+      const from = arr.indexOf(src);
+      const to = arr.indexOf(dst);
       if (from < 0 || to < 0) return arr;
       const next = [...arr];
       next.splice(from, 1);
-      next.splice(to, 0, source);
+      next.splice(to, 0, src);
       return next;
     };
     if (list === 'block') setBlockOrder(reorder);
@@ -741,12 +871,50 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
       });
     } else setRowOrder((o) => ({ ...o, [list]: reorder(o[list]) }));
     toast.success('Moved');
-  }, [listOf, relocateElement]);
+  }, [listOf, relocateElement, placeable, homeOf, moveIntoRow]);
 
   /** Only things with their own identity can be cloned; a fixed page band has none. */
-  const canDuplicate = useCallback((id: string) => /^sec-\d+$/.test(id) || /^el-\d+$/.test(id), []);
+  /** The palette type that renders the same widget as a fixed page block, so it can be cloned. */
+  const CLONE_TYPE: Record<string, string> = {
+    requests: 'c-requests', approvals: 'c-approvals', knowledge: 'c-knowledge',
+    assets: 'c-assets', cis: 'c-cis',
+    'quick-incident': 'act-incident', 'quick-service': 'act-service',
+    'quick-knowledge': 'act-knowledge', 'quick-ad': 'act-ad',
+  };
+
+  const canDuplicate = useCallback(
+    (id: string) => /^sec-\d+$/.test(id) || /^el-\d+$/.test(id) || !!CLONE_TYPE[id],
+    [],
+  );
 
   const duplicateNode = useCallback((id: string) => {
+    /* A fixed page block — clone it as a placed element of the equivalent palette type, into the
+       row it already sits in, carrying everything that makes it look like itself. */
+    const cloneType = CLONE_TYPE[id];
+    if (cloneType) {
+      const row = Object.keys(rowOrderRef.current).find((r) => rowOrderRef.current[r].includes(id));
+      if (!row) return;
+      const el = makeElement(cloneType, row);
+      setRowExtras((prev) => ({ ...prev, [row]: [...(prev[row] ?? []), el] }));
+      /* ⚠️ The config, the style and the words are copied TOO. Cloning the placement alone produced
+         a card wearing the widget's factory defaults beside one the admin had spent ten minutes on,
+         which reads as the button having done the wrong thing rather than half of the right one. */
+      setWidgetCfg((prev) => ({ ...prev, [el.id]: { ...prev[id] } }));
+      setStyles((prev) => {
+        const next = { ...prev };
+        if (prev[id]) next[el.id] = { ...prev[id] };
+        /* Its child text nodes carry their own styles under their own ids. */
+        ['-title', '-sub', '-viewall', '-icon'].forEach((suffix) => {
+          if (prev[id + suffix]) next[el.id + suffix] = { ...prev[id + suffix] };
+        });
+        return next;
+      });
+      setPlacedText((prev) => (prev[id] ? { ...prev, [el.id]: { ...prev[id] } } : prev));
+      setIcons((prev) => (prev[id] ? { ...prev, [el.id]: prev[id] } : prev));
+      select(el.id);
+      toast.success(`${el.name} copied`);
+      return;
+    }
     if (/^sec-\d+$/.test(id)) {
       setSections((prev) => {
         const found = prev.find((s) => s.section.id === id);
@@ -883,6 +1051,9 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
    * ⚠️ `-title` / `-sub` suffixes are card text nodes; `ownerOf` already strips them for config, so
    * the same rule decides the KEY here. */
   const setText = useCallback((id: string, text: string) => {
+    /* An image's caption — markup, on the image's own config, which is the key its panel writes. */
+    const cap = /^(.+)-caption$/.exec(id);
+    if (cap) { patchCfg(cap[1], { caption: text }); return; }
     const card = /^(.*)-(title|sub)$/.exec(id);
     if (card) { patchCfg(card[1], { [card[2] === 'title' ? 'title' : 'sub']: text }); return; }
 
@@ -969,7 +1140,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   const canvasCtx = {
     selectedId, hoverId, select, setHover: setHoverId, styles, setStyle, setText,
     addSection, addColumnBeside, dropInColumn, dropAtSeam, dropInRow,
-    moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, areSiblings, replaceElement, pickIcon, applyPreset,
+    moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, moveToSeam, areSiblings, replaceElement, pickIcon, applyPreset,
     onWholePage: () => { const on = cfgFor('hero').bgWholePage === true; patchCfg('hero', { bgWholePage: !on }); toast.success(on ? 'Background is banner-only again' : 'Background applied to the whole page'); },
   };
 
@@ -1026,6 +1197,9 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
       window.removeEventListener('mouseup', up);
     };
   }, []);
+
+  /* See the note on the panel below — the library is the resting state, not an empty page. */
+  const panelKey: RailKey | null = active ?? (selectedId ? null : 'add');
 
   const openPanel = (key: RailKey) => {
     /* ⚠️ Clicking the LIT item closes the panel outright — the rail is the switch, so it has to
@@ -1215,23 +1389,27 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
         {/* Design panel */}
         {!collapsed && (
           <aside style={{ width }} className="flex flex-shrink-0 flex-col border-l border-[#e5e7eb] bg-white">
+            {/* ⚠️ DERIVED, not a second piece of state. With nothing selected and no rail panel open
+                the panel shows the Widgets library — on arrival and again every time you deselect.
+                Holding it in state would mean every path that clears a selection had to remember to
+                put the library back, and the first one that forgot would leave a blank panel. */}
             {/* ⚠️ NO header bar. It carried a close button and a divider above every panel — a second
                 way to dismiss something the rail already dismisses, and a rule across the top that
                 separated the panel from the one thing naming what you had selected. Reset is the only
                 action that belonged here, and it belongs BESIDE the name of the thing it resets, not
                 floating above it. A rail panel still needs its own title, so it keeps one line. */}
-            {active && (
+            {panelKey && (
               <div className="flex-shrink-0 px-4 pb-2.5 pt-3.5">
-                <p className="text-[13px] font-semibold text-[#364658]">{PANEL_COPY[active].title}</p>
-                {PANEL_COPY[active].body && (
-                  <p className="mt-0.5 text-[12px] leading-[1.5] text-[#7B8FA5]">{PANEL_COPY[active].body}</p>
+                <p className="text-[13px] font-semibold text-[#364658]">{PANEL_COPY[panelKey].title}</p>
+                {PANEL_COPY[panelKey].body && (
+                  <p className="mt-0.5 text-[12px] leading-[1.5] text-[#7B8FA5]">{PANEL_COPY[panelKey].body}</p>
                 )}
               </div>
             )}
 
             {/* A rail panel wins while one is open; otherwise the panel is the element editor,
                 falling back to the "select something" empty state. */}
-            {active === 'add' ? (
+            {panelKey === 'add' ? (
               <div className="min-h-0 flex-1"><SupportPortalAddPanel onAdd={addElement} placedTypes={placedTypes} /></div>
             ) : active === 'theme' ? (
               <div className="flex min-h-0 flex-1 flex-col"><PortalThemePanel theme={theme} onChange={(patch) => setTheme((t) => ({ ...t, ...patch }))} /></div>

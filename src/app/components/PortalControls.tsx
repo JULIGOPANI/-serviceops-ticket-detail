@@ -14,7 +14,7 @@ import type { ReactNode } from 'react';
 import {
   AlignCenter, AlignLeft, AlignRight, Bold, Check, ChevronDown, Eraser,
   IndentDecrease, IndentIncrease, Info, Italic, Link2, List, ListOrdered, Quote, Redo2, Strikethrough,
-  TriangleAlert, Underline, Undo2, Upload, X,
+  Images, TriangleAlert, Underline, Undo2, Upload, X,
 } from 'lucide-react';
 
 /* ── shared chrome ───────────────────────────────────────────────────────── */
@@ -664,10 +664,15 @@ export function GridPicker({ rows, cols, onChange, max = 10 }: {
 
 const CHECKER = 'linear-gradient(45deg, #EEF2F6 25%, transparent 25%), linear-gradient(-45deg, #EEF2F6 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #EEF2F6 75%), linear-gradient(-45deg, transparent 75%, #EEF2F6 75%)';
 
-export function UploadZone({ value, onChange, accept = 'image/*', hint = 'PNG, JPG, SVG or WebP' }: {
+export function UploadZone({ value, onChange, accept = 'image/*', hint = 'PNG, JPG, SVG or WebP', gallery }: {
   value?: string; onChange: (dataUrl?: string) => void; accept?: string; hint?: string;
+  /* ⚠️ BANNER only. Every other slot on this panel is a logo, a favicon or a picture the admin
+     already has — there is nothing to offer them a gallery OF. The banner is the one image most
+     portals never get, because nobody on the team makes artwork. */
+  gallery?: (anchor: DOMRect, chooseFile: () => void) => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
+  const chooseRef = useRef<HTMLButtonElement>(null);
   const [over, setOver] = useState(false);
 
   const read = (file?: File) => {
@@ -695,10 +700,17 @@ export function UploadZone({ value, onChange, accept = 'image/*', hint = 'PNG, J
             there — a logo, a banner, a favicon — so the move people make is swapping one for
             another, and offering "remove" put the destructive verb on the common action. */}
         <div className="mt-2 flex items-center gap-2">
+          {gallery && (
+            <button
+              ref={chooseRef}
+              onClick={() => gallery(chooseRef.current!.getBoundingClientRect(), () => ref.current?.click())}
+              className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded border border-[#DFE5ED] bg-white text-[12px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
+            ><Images size={13} /> Choose</button>
+          )}
           <button
             onClick={() => ref.current?.click()}
             className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded border border-[#DFE5ED] bg-white text-[12px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
-          ><Upload size={13} /> Replace image</button>
+          ><Upload size={13} /> Replace</button>
           <button
             onClick={() => onChange(undefined)}
             title="Remove image"
@@ -712,6 +724,13 @@ export function UploadZone({ value, onChange, accept = 'image/*', hint = 'PNG, J
 
   return (
     <>
+      {gallery && (
+        <button
+          ref={chooseRef}
+          onClick={() => gallery(chooseRef.current!.getBoundingClientRect(), () => ref.current?.click())}
+          className="mb-2 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded border border-[#DFE5ED] bg-white text-[12px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
+        ><Images size={13} /> Choose a ready-made banner</button>
+      )}
       <button
         onClick={() => ref.current?.click()}
         onDragOver={(e) => { e.preventDefault(); setOver(true); }}

@@ -250,7 +250,6 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
      carries the "Request Service" ACTION CARD, which is a different widget with a fixed
      destination. Flagging this one as placed made Featured Services unreachable. */
   { id: 'c-services', name: 'Most Used Services', icon: 'services', group: 'Custom', keywords: 'catalog request service favourites featured' },
-  { id: 'c-feedback', name: 'Feedback', icon: 'feedback', group: 'Custom', keywords: 'rating csat survey stars' },
   /* Placed: the FAQ block already sits in the banner area of this portal, so the palette shows it
      as added rather than offering a second one. */
   { id: 'c-faq', name: 'FAQ', icon: 'faq', group: 'Custom', onPage: true, keywords: 'questions help answers' },
@@ -282,7 +281,7 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
   { id: 'b-spacer', name: 'Spacer', icon: 'spacer', group: 'Basic', keywords: 'gap whitespace', hidden: true }, // hidden 20 Aug 2026
   { id: 'b-table', name: 'Table', icon: 'table', group: 'Basic', keywords: 'grid rows columns data' },
   { id: 'b-accordion', name: 'Accordion', icon: 'accordion', group: 'Basic', keywords: 'collapse faq expand' },
-  { id: 'b-text-image', name: 'Text with Image', icon: 'textImage', group: 'Basic', keywords: 'media split' },
+  { id: 'b-text-image', name: 'Text with Image', icon: 'textImage', group: 'Basic', keywords: 'media split', hidden: true },
   { id: 'b-card', name: 'Card', icon: 'card', group: 'Basic', keywords: 'tile panel' },
 
   // ── Visual ──

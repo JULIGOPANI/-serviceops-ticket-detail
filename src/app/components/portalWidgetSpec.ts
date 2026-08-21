@@ -659,7 +659,10 @@ export const WIDGET_SPECS: WidgetSpec[] = [
       { key: 'numberColor', label: 'Number colour', control: 'color', tab: 'style', group: 'Tile' },
       { key: 'labelColor', label: 'Label colour', control: 'color', tab: 'style', group: 'Tile' },
     ],
-    packs: ['P1', 'P2', 'P6'], roles: ['title', 'meta'],
+    /* ⚠️ No P6. That pack is the Icon accordion, and a count tile shows one glyph at one size in
+       one corner — four controls dressing it sat in the same panel as the number they are not
+       about. The icon itself is still chosen in Content, and Layout still says where it goes. */
+    packs: ['P1', 'P2'], roles: ['title', 'meta'],
     /* ⚠️ §8.4 rule 1 — never render an inert control, and never silently drop one either. On a
        source with no status filter the chips are REPLACED by this note, so the absence is explained
        rather than looking like a field that failed to load. */
@@ -728,7 +731,15 @@ export const WIDGET_SPECS: WidgetSpec[] = [
         warnWhenBlank: 'No alt text yet — screen-reader users will hear nothing where this image is.',
         when: (c) => !!c.src,
       },
-      { key: 'caption', label: 'Caption', control: 'text', group: 'Content' },
+      /* ⚠️ A RICH caption, not a single-line input. A caption is prose — it carries a source, a
+         link, an emphasised word — and the one-line field could hold none of that, so anything
+         beyond a bare sentence had to go in a Text element underneath and stop being the picture's
+         caption at all. */
+      { key: 'caption', label: 'Caption', control: 'rich', group: 'Content' },
+      /* ⚠️ The same four templates the action card uses, and for the same reason: where the picture
+         sits relative to its words is the shape of the thing, and you recognise a shape by looking.
+         'none' is Text only — the picture is hidden and the caption carries the block. */
+      { key: 'template', label: 'Card templates', control: 'templates', group: 'Content' },
       /* ⚠️ Link is the image's ACTION, not its content. Where a click goes is neither what the
          element shows nor how it looks — the same reason the action cards keep their destination in
          a section of its own rather than buried among titles. */
@@ -738,22 +749,18 @@ export const WIDGET_SPECS: WidgetSpec[] = [
       // ── Style — the image's own box, using the shared components ──
       { key: 'borderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Style' },
       { key: 'radius', label: 'Corner radius', control: 'radius', tab: 'style', group: 'Style' },
-      { key: 'shadowOn', label: 'Shadow', control: 'shadow', tab: 'style', group: 'Style' },
-
-      {
-        key: 'align', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Alignment',
-        options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Right' }],
-      },
+      /* ⚠️ No Shadow, and no Alignment accordion. Shadow was four controls for an effect a support
+         portal almost never wants, in the same group as the border and radius that decide how the
+         picture reads. Alignment moved the figure only — the card template now says where the
+         picture sits, and the floating toolbar aligns the words. */
     ],
     /* ⚠️ No P5 Media. Ratio, fit and focal point crop the picture — that is a decision about the
        IMAGE FILE, and it belongs with the file rather than beside a border slider. P2 stays: Size
        and Spacing are the same rows every other element gets. */
     packs: ['P2'], roles: ['meta'],
     defaults: {
-      src: '', alt: '', caption: '', link: '', newTab: true,
+      src: '', alt: '', caption: '', link: '', newTab: true, template: 'top',
       borderWidth: 0, borderColor: '#E5E7EB', radius: 8,
-      shadowOn: false, shadowColor: '#0F172A', shadowType: 'outer', shadowPos: 'bottom',
-      align: 'left',
     },
   },
 ];
@@ -778,6 +785,7 @@ export const STRUCTURE_FOR_NODE: Record<string, string> = {
   rail: 'rail',
   header: 'navbar',
   'header-logo': 'logo',
+  'hero-search': 'search',
   // The three built-in bands are sections like any other.
   quick: 'section',
   work: 'section',
@@ -787,6 +795,8 @@ export const STRUCTURE_FOR_NODE: Record<string, string> = {
 /** Matches the dynamic ids too: `sec-3` is a Section, `sec-3-c0` a Column. */
 export function structureSpecId(nodeId: string): string | undefined {
   if (STRUCTURE_FOR_NODE[nodeId]) return STRUCTURE_FOR_NODE[nodeId];
+  /* An image's caption, matched before everything so the words under a picture open the words. */
+  if (/-caption$/.test(nodeId)) return 'image_caption';
   /* A card's own words, matched before the card itself so clicking the title opens the TITLE. */
   if (/^quick-[a-z]+-title$/.test(nodeId)) return 'card_title';
   if (/^quick-[a-z]+-sub$/.test(nodeId)) return 'card_sub';
@@ -847,7 +857,6 @@ export const WIDGET_FOR_TYPE: Record<string, string> = {
   'b-table': 'table',
   'v-slider': 'media_slider',
   'v-gallery': 'photo_gallery',
-  'c-feedback': 'feedback',
   // The new-element panels (NEW-ELEMENT-PANELS-SPEC) resolve through the same map.
   ...PANEL_FOR_TYPE,
 };

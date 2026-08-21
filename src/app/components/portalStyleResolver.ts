@@ -177,11 +177,13 @@ export function roleStyle(styles: PortalStyles, nodeId: string, role: TypeRole):
   const weight = g('weight');
   const lh = g('lineHeight');
   const maxLines = (g('maxLines') as number) ?? 0;
+  const align = resolveType(styles, nodeId, role, 'align');
   const css: React.CSSProperties = {
     fontSize: `${Math.round((ROLE_BASE_PX[role] * size) / 100)}px`,
     fontWeight: weight === 'bold' ? 700 : weight === 'medium' ? 500 : 400,
     color: g('color') as string,
-    textAlign: g('align') as React.CSSProperties['textAlign'],
+    /* ⚠️ Only when somebody CHOSE it. See the note above roleStyle. */
+    textAlign: align.source === 'theme' ? undefined : (align.value as React.CSSProperties['textAlign']),
     lineHeight: lh === 'tight' ? 1.25 : lh === 'relaxed' ? 1.75 : 1.5,
   };
   const font = g('font') as string;

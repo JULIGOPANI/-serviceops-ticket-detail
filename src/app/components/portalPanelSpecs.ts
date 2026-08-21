@@ -311,6 +311,19 @@ export const CARD_ICON_SPEC: WidgetSpec = {
   defaults: {},
 };
 
+/* ⚠️ A RICH field, not `text`. This is the same writing surface the image's own panel offers, on
+   the same config key — so editing the caption inline, from its own panel, or from the image's
+   panel are three routes to one edit rather than three places for it to disagree. */
+export const IMAGE_CAPTION_SPEC: WidgetSpec = {
+  id: 'image_caption', name: 'Caption', group: 'Basic', reuse: 'many', family: 'flat',
+  panel: {
+    content: [{ key: 'caption', label: 'Caption', control: 'rich' }],
+    accordions: [{ id: 'spacing', spacing: 'both' }],
+  },
+  fields: [], packs: [],
+  defaults: {},
+};
+
 export const LIST_TITLE_SPEC = textSpec('list_title', 'Heading', 'title');
 export const LIST_LABEL_SPEC = textSpec('list_label', 'Label', 'label');
 export const LIST_LINK_SPEC = textSpec('list_link', 'Link label', 'viewAllLabel');
@@ -318,6 +331,7 @@ export const LIST_LINK_SPEC = textSpec('list_link', 'Link label', 'viewAllLabel'
 export const PANEL_SPECS: WidgetSpec[] = [
   DIVIDER_SPEC, SPACER_SPEC, TITLE_LG_SPEC, TITLE_SM_SPEC, ICON_SPEC, SHAPE_SPEC,
   CARD_TITLE_SPEC, CARD_SUB_SPEC, CARD_ICON_SPEC, LIST_TITLE_SPEC, LIST_LABEL_SPEC, LIST_LINK_SPEC,
+  IMAGE_CAPTION_SPEC,
 ];
 
 /** Palette element → panel spec. Separate from WIDGET_FOR_TYPE only for readability. */

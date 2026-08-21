@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { Upload, X } from 'lucide-react';
+import { useState } from 'react';
+import { X } from 'lucide-react';
 import { toast } from 'sonner';
 
 /* The table's content, edited as a SHEET.
@@ -35,39 +35,12 @@ export function trimGrid(g: Grid): Grid {
 const fit = (g: Grid): Grid =>
   Array.from({ length: SIZE }, (_, r) => Array.from({ length: SIZE }, (_, c) => g[r]?.[c] ?? ''));
 
-/** True when a grid carries anything the cap would have to discard. */
-const overflows = (g: Grid) => g.length > SIZE || g.some((r) => r.length > SIZE);
-
-/* ⚠️ A real CSV split, not `line.split(',')`. Quoted fields containing commas are the normal case
-   in exported data — "Doe, Jane" — and a naive split turns one column into two for that row only,
-   which is worse than refusing the file. */
-function parseCsv(text: string): Grid {
-  const rows: Grid = [];
-  let row: string[] = [];
-  let cell = '';
-  let quoted = false;
-  for (let i = 0; i < text.length; i += 1) {
-    const ch = text[i];
-    if (quoted) {
-      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i += 1; }
-      else if (ch === '"') quoted = false;
-      else cell += ch;
-    } else if (ch === '"') quoted = true;
-    else if (ch === ',') { row.push(cell); cell = ''; }
-    else if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
-    else if (ch !== '\r') cell += ch;
-  }
-  if (cell || row.length) { row.push(cell); rows.push(row); }
-  return rows;
-}
-
 export function PortalTableContent({ value, onApply, onClose }: {
   value: Grid;
   onApply: (g: Grid) => void;
   onClose: () => void;
 }) {
   const [grid, setGrid] = useState<Grid>(() => fit(value));
-  const fileRef = useRef<HTMLInputElement>(null);
 
 
 
@@ -83,24 +56,6 @@ export function PortalTableContent({ value, onApply, onClose }: {
     });
   };
 
-  const load = (file: File) => {
-    if (!/\.csv$/i.test(file.name)) { toast.error('That is not a .csv file'); return; }
-    const fr = new FileReader();
-    fr.onload = () => {
-      const parsed = parseCsv(String(fr.result));
-      if (!parsed.length) { toast.error('That file had no rows in it'); return; }
-      /* ⚠️ A file bigger than the sheet is CLIPPED AND SAID SO. Silently dropping the eleventh
-         column is the kind of loss someone finds a week later, and refusing the whole file for one
-         extra column is worse — the first ten are almost always the ones they wanted. */
-      const clipped = overflows(parsed);
-      setGrid(fit(parsed));
-      toast[clipped ? 'error' : 'success'](clipped
-        ? `Loaded the first ${SIZE} rows and columns — a table stops at ${SIZE} × ${SIZE}`
-        : `${parsed.length} rows loaded — review them, then Apply`);
-    };
-    fr.readAsText(file);
-  };
-
   /* ⚠️ `min-w-0`, no fixed width. A 180px cell is what left the dead strip; sharing the row means
      ten columns land exactly on the dialog's edge however wide it is. */
   const cell = 'h-9 min-w-0 border-b border-r border-[#E5E7EB] px-2 text-[13px] text-[#364658] focus:relative focus:z-10 focus:outline-none focus:ring-2 focus:ring-[#3D8BD0]';
@@ -110,30 +65,23 @@ export function PortalTableContent({ value, onApply, onClose }: {
       <div className="flex max-h-[92vh] w-[920px] max-w-full flex-col rounded-lg bg-white shadow-2xl">
         <div className="flex items-center justify-between gap-4 border-b border-[#e5e7eb] px-5 py-3">
           <h2 className="text-[15px] font-semibold text-[#364658]">Table content</h2>
-          <button onClick={onClose} className="flex size-8 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6]"><X size={18} /></button>
+          {/* ⚠️ Clear All sits with the ✕ in the heading row, not above the sheet. It acts on the
+              WHOLE table, which is what the title names — down beside the "type into the sheet"
+              line it read as advice about the sentence above it, and it sat where the eye goes to
+              start typing rather than where you go to act on the thing as a whole. It stays a link
+              rather than a button: it throws away every row, and it must not look like the controls
+              that add them. */}
+          <div className="ml-auto flex items-center gap-3">
+            <button
+              onClick={() => { setGrid(fit([])); toast.success('Cleared — nothing is saved until you Apply'); }}
+              className="text-[13px] font-medium text-[#3D8BD0] hover:underline"
+            >Clear All</button>
+            <button onClick={onClose} className="flex size-8 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6]"><X size={18} /></button>
+          </div>
         </div>
 
         <div className="flex items-center justify-between gap-4 px-5 py-2.5">
-          <div>
-            <p className="text-[13px] text-[#64748B]">Type into the sheet, or upload a CSV to replace what is here. A table stops at {SIZE} × {SIZE}.</p>
-            {/* ⚠️ Clear All is a LINK, not a button. It throws away every row, and it must not look
-                like the thing beside it that adds them. */}
-            <button
-              onClick={() => { setGrid(fit([])); toast.success('Cleared — nothing is saved until you Apply'); }}
-              className="mt-1 text-[13px] font-medium text-[#3D8BD0] hover:underline"
-            >Clear All</button>
-          </div>
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="inline-flex h-9 flex-shrink-0 items-center gap-2 rounded bg-[#3D8BD0] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#2d6ca0]"
-          ><Upload size={15} /> Upload CSV</button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) load(f); e.target.value = ''; }}
-          />
+          <p className="text-[13px] text-[#64748B]">Type into the sheet. A table stops at {SIZE} × {SIZE}.</p>
         </div>
 
         {/* ⚠️ No scroll container. The whole sheet is 10 × 10 and it fits, so a scroll box would only

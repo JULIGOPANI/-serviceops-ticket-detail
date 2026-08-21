@@ -77,14 +77,17 @@ function useListChrome(id: string) {
  * Every section takes an element, not just the ones an admin added — otherwise "add anything
  * anywhere" is only true in half the page. A drop lands in that row alongside the cards already
  * there, sharing the row the same way they do. */
-function RowDrop({ rowId, className, style, children }: {
+function RowDrop({ rowId, className, style, resize, children }: {
   rowId: string; className: string; style?: React.CSSProperties; children: ReactNode;
+  /** 'fill' | 'fixed' — read back by the resize handles off this element. */
+  resize?: string;
 }) {
   const { dropInRow } = useCanvas();
   const [over, setOver] = useState(false);
   return (
     <div
       style={style}
+      data-resize={resize}
       onDragOver={(e) => { if (e.dataTransfer.types.includes('text/portal-element')) { e.preventDefault(); setOver(true); } }}
       onDragLeave={() => setOver(false)}
       onDrop={(e) => {
@@ -181,6 +184,10 @@ export { fillCss };
 function AddedSection({ section, icons, placedText, cfg }: { section: CustomSection; icons?: Record<string, IconChoice | undefined>; placedText?: Record<string, { title?: string; desc?: string }>; cfg?: (id: string) => Record<string, unknown> }) {
   const { styles, selectedId, hoverId } = useCanvas();
   let index = -1;
+  /* An added section answers Responsive behaviour exactly as a built-in band does — it is the same
+     Section spec, so an empty section you just dropped in has the control from its first column. */
+  const resize = String(cfg?.(section.id)?.resize ?? 'fill');
+  const ROW_GAP = 16;
   return (
     <Sel id={section.id} className={SECTION_PAD} style={fillCss(cfg?.(section.id) ?? {})}>
       {/* ⚠️ A section paints NOTHING by default — no white card, no border, no radius.
@@ -197,8 +204,10 @@ function AddedSection({ section, icons, placedText, cfg }: { section: CustomSect
           every padding value was applied once around the section and once again inside it. */}
       <div>
         <div className="flex flex-col gap-4">
-          {section.rows.map((row, r) => (
-            <div key={r} className="flex gap-4">
+          {section.rows.map((row, r) => {
+            const total = row.reduce((a, b) => a + b, 0) || 1;
+            return (
+            <div key={r} className="flex gap-4" data-resize={resize}>
               {row.map((weight, c) => {
                 index += 1;
                 const id = colId(section.id, index);
@@ -214,18 +223,124 @@ function AddedSection({ section, icons, placedText, cfg }: { section: CustomSect
                   || (!!hoverId && nodePath(hoverId).some((n) => n.id === id));
                 const item = section.items[id];
                 return (
-                  <Sel key={c} id={id} className="flex-1" style={{ flex: weight }}>
+                  /* ⚠️ Fixed columns need a real BASIS, not `flex: weight`. That shorthand is
+                     "grow by weight from a basis of zero" — turn grow off and a column with a zero
+                     basis is a column of zero width, so every one of them would vanish the moment
+                     the section was switched. Written as the share it already had, the switch is
+                     invisible, which is the point. */
+                  <Sel
+                    key={c}
+                    id={id}
+                    className="min-w-0"
+                    style={{ flex: `${resize === 'fixed' ? 0 : weight} ${resize === 'fixed' ? 0 : 1} calc((100% - ${(row.length - 1) * ROW_GAP}px) * ${weight / total})` }}
+                  >
                     <ColumnBody id={id} item={item} live={live} icons={icons} placedText={placedText} cfg={cfg} />
                   </Sel>
                 );
               })}
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </Sel>
   );
 }
+
+/* The banner search — a real control, not a picture of one.
+ *
+ * ⚠️ Every setting on its panel does something you can see. Placeholder is the prompt; Scope paints
+ * the pill that says what the search looks through AND decides which results come back; "Show
+ * suggestions as they type" is the dropdown. A settings panel whose switches only store values is
+ * worse than no panel: it teaches people the whole surface is decorative.
+ *
+ * ⚠️ On the CANVAS the field is read-only, because a click there has to mean "select this element"
+ * — you are arranging a page, not searching it. In Preview and on the live portal it is a real
+ * input. The scope pill shows in both, so the setting is legible while you are choosing it. */
+function HeroSearch({ cfg, fallback, style }: {
+  cfg: Record<string, unknown>; fallback: string; style: React.CSSProperties;
+}) {
+  const { enabled, styles } = useCanvas();
+  /* ⚠️ Padding and height are applied HERE, on the white field, because `paintsOwnSurface` makes
+     Sel withhold them. `h-11` becomes a MINIMUM so a dragged height can grow the box and the
+     contents stay centred in it rather than being pinned to the top. */
+  const own = styles['hero-search'] ?? {};
+  const p = own.padding;
+  const box: React.CSSProperties = {
+    ...style,
+    minHeight: own.height ?? 44,
+    ...(p?.top !== undefined ? { paddingTop: p.top } : {}),
+    ...(p?.bottom !== undefined ? { paddingBottom: p.bottom } : {}),
+    ...(p?.left !== undefined ? { paddingLeft: `${p.left}%` } : {}),
+    ...(p?.right !== undefined ? { paddingRight: `${p.right}%` } : {}),
+  };
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+  const scope = String(cfg.searchScope ?? 'knowledge');
+  const suggestOn = cfg.searchSuggestions !== false;
+  const hits = q.trim()
+    ? SEARCH_SUGGESTIONS
+      .filter((s) => (scope === 'knowledge' ? s.kind === 'Knowledge' : true))
+      .filter((s) => s.title.toLowerCase().includes(q.trim().toLowerCase()))
+      .slice(0, 5)
+    : [];
+  return (
+    <div className="relative">
+      <div style={box} className="flex items-center gap-2 bg-white px-4">
+        {/* ⚠️ Truncate, never wrap. Narrowed, the placeholder broke onto a second line and pushed
+            the search box to double height — the one control on the page whose shape people
+            recognise. Content inside a resized element gives way to the element's size. */}
+        {enabled ? (
+          <span className="min-w-0 flex-1 truncate text-left text-[14px] text-[#9CA3AF]">
+            {String(cfg.searchPlaceholder ?? fallback)}
+          </span>
+        ) : (
+          <input
+            value={q}
+            onChange={(e) => { setQ(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+            placeholder={String(cfg.searchPlaceholder ?? fallback)}
+            className="min-w-0 flex-1 truncate bg-transparent text-left text-[14px] text-[#364658] outline-none placeholder:text-[#9CA3AF]"
+          />
+        )}
+        {/* The pill is what makes Scope a visible setting rather than a stored one. */}
+        <span className="flex-shrink-0 rounded-sm bg-[#F1F5F9] px-2 py-0.5 text-[11px] font-medium text-[#64748B]">
+          {scope === 'knowledge' ? 'Knowledge' : 'All'}
+        </span>
+        <Search size={18} className="flex-shrink-0 text-[#64748B]" />
+      </div>
+      {!enabled && suggestOn && open && hits.length > 0 && (
+        <div className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded border border-[#E5E7EB] bg-white py-1 text-left shadow-lg">
+          {hits.map((s) => (
+            <button
+              key={s.title}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { setQ(s.title); setOpen(false); }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-[#F5F7FA]"
+            >
+              <Search size={13} className="flex-shrink-0 text-[#9CA3AF]" />
+              <span className="min-w-0 flex-1 truncate text-[13px] text-[#364658]">{s.title}</span>
+              <span className="flex-shrink-0 text-[11px] text-[#9CA3AF]">{s.kind}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* What the banner search offers back. Knowledge entries are the ones an "only knowledge" scope
+   keeps, so switching the setting visibly changes the results rather than only the pill. */
+const SEARCH_SUGGESTIONS: { title: string; kind: string }[] = [
+  { title: 'How to Reset Your Password', kind: 'Knowledge' },
+  { title: 'Connecting to Company VPN', kind: 'Knowledge' },
+  { title: 'Reporting a Hardware Fault', kind: 'Knowledge' },
+  { title: 'Request a new laptop', kind: 'Service' },
+  { title: 'Report an incident', kind: 'Service' },
+  { title: 'INC-187 Cannot Create KB Article', kind: 'Request' },
+  { title: 'AST-13 DESKTOP-5JPPI6F', kind: 'Asset' },
+];
 
 /* ── Chrome ──────────────────────────────────────────────────────────────── */
 
@@ -526,6 +641,23 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
       ...(h !== undefined ? { minHeight: h } : {}),
     };
   };
+  /* ⚠️ A card given its OWN padding or height stops being stretched to the row's height.
+     Without this, padding ONE action card made every card in the row grow with it: a row is
+     `align-items: stretch`, so the tallest child sets the height and the rest follow it. The other
+     cards' padding never changed — they just became as tall as the one that did — but on screen
+     that is indistinguishable from "the padding applied to all three", which is exactly how it was
+     reported. `align-self` is the standard flexbox answer to "this one item is sized differently":
+     the card you edited grows, its neighbours keep the height their own content asks for, and an
+     untouched row still renders as the tidy equal-height row it always did. */
+  const hasOwnSize = (id: string) => !!styles[id]?.padding || styles[id]?.height !== undefined;
+  /* Once ANY member of a row has been sized by hand, the row stops stretching its cards to a common
+     height and each one takes the height its own content asks for. An untouched row still renders as
+     the tidy equal-height row it always did — this only fires after somebody has said one card is
+     different. ⚠️ An explicit Columns-alignment on the section always wins: it is the more specific
+     decision, and silently overriding a control the admin set is worse than the stretch was. */
+  const rowFits = (ids: string[], sectionId: string): React.CSSProperties =>
+    (wc(sectionId).valign === undefined && ids.some(hasOwnSize) ? { alignItems: 'flex-start' } : {});
+
   /** A widget's resolved config, or its rendering defaults when the builder passes none. */
   const wc = (id: string) => cfg?.(id) ?? EMPTY_CFG;
   /* §7.22 — the page layer. Its primary colour drives the hero gradient, so a preset visibly
@@ -535,12 +667,19 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
 
   /* A row member's DEFAULT share, before anyone drags it. Rows are flex rather than grid so a
      resize can hand shares around between siblings; grid tracks would ignore them. */
-  const share = (cols: number, gap = 16): React.CSSProperties => ({ flex: `1 1 calc((100% - ${(cols - 1) * gap}px) / ${cols})` });
+  /* ⚠️ `grow` is what Fixed items turns off — and ONLY grow. The basis stays exactly what it was,
+     so switching a row to Fixed changes nothing on screen: the columns hold the widths they already
+     had, and from that point only what you drag moves. A mode that visibly rearranged the page the
+     moment you chose it would be read as having done something wrong. */
+  const share = (cols: number, gap = 16, grow = 1): React.CSSProperties => ({ flex: `${grow} ${grow} calc((100% - ${(cols - 1) * gap}px) / ${cols})` });
 
   /* §7.21 — a section owns its column count, its gap and the air above and below it. Read through
      the widget config so the drawer's sliders move the real band. */
   const secCols = (id: string, fallback: number) => Number(wc(id).cols ?? fallback);
   const secGap = (id: string) => Number(wc(id).colGap ?? 16);
+  /* §Responsive behaviour — how this section's first-layer columns share their row. */
+  const secResize = (id: string) => String(wc(id).resize ?? 'fill');
+  const secGrow = (id: string) => (secResize(id) === 'fixed' ? 0 : 1);
   /* ⚠️ Padding is applied only when it has actually been SET. A spec default here would silently
      add space to every band the day the control shipped — the same reason `containerCss` skips
      theme-sourced values. */
@@ -558,10 +697,33 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
      `background-image` already on the box in place, so picking a colour painted UNDER the artwork
      and came out as a tinted photograph — which is not what choosing "Colour" means. Setting
      `backgroundImage: 'none'` explicitly is what makes the two tabs mutually exclusive. */
+  /* ⚠️ Every image setting resolves HERE, in one place. Fit, focal point, tiling and the darkening
+     shade are four separate questions and they were all previously hard-coded to "cover, centre,
+     no shade" — the panel could store them and the band ignored them.
+     ⚠️ The shade is a gradient layered ABOVE the artwork in the same `background-image`, not an
+     overlay element: an extra div would sit between the band and its own heading, and the heading
+     has to stay on top of the thing darkening the picture behind it. */
+  const heroFit = String(heroCfg.bannerFit ?? 'cover');
+  const heroShade = Number(heroCfg.bannerShade ?? 0) / 100;
+  /* ⚠️ The keys are the NinePoint control's own values — 'top left', with a SPACE. Written as
+     'top-left' the lookup missed on every corner and silently fell back to centre, so the focal
+     point stored a value and the band never moved. */
+  const NINE: Record<string, string> = {
+    'top left': 'left top', top: 'center top', 'top right': 'right top',
+    left: 'left center', center: 'center center', right: 'right center',
+    'bottom left': 'left bottom', bottom: 'center bottom', 'bottom right': 'right bottom',
+  };
   const heroBg: React.CSSProperties = heroCfg.bgKind === 'color'
     ? { background: String(heroCfg.bannerColor ?? '#3D8BD0'), backgroundImage: 'none' }
     : heroImg
-      ? { backgroundImage: `url(${heroImg})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+      ? {
+        backgroundImage: heroShade > 0
+          ? `linear-gradient(rgba(0,0,0,${heroShade}),rgba(0,0,0,${heroShade})), url("${heroImg}")`
+          : `url("${heroImg}")`,
+        backgroundSize: heroFit === 'stretch' ? '100% 100%' : heroFit === 'auto' ? 'auto' : heroFit,
+        backgroundPosition: NINE[String(heroCfg.bannerPos ?? 'center')] ?? 'center center',
+        backgroundRepeat: heroFit === 'auto' && heroCfg.bannerRepeat === true ? 'repeat' : 'no-repeat',
+      }
       : { background: `linear-gradient(135deg, ${pageAccent} 0%, #050B18 100%)` };
 
   const heroLine = (nodeId: string): React.CSSProperties => {
@@ -649,15 +811,15 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
   /* Order and removal are handled HERE, once, for every card on the page.
      CSS `order` reorders flex siblings without moving the JSX, which keeps a move action to one
      number instead of a structural rewrite of the page body. */
-  const card = (id: string, body: ReactNode, cols?: number, gap = 16) => {
+  const card = (id: string, body: ReactNode, cols?: number, gap = 16, grow = 1) => {
     if (removed.includes(id)) return null;
     const row = Object.keys(rowOrder).find((r) => rowOrder[r].includes(id));
     if (row && !rowOrder[row].includes(id)) return null;
     const order = row ? rowOrder[row].indexOf(id) : 0;
-    return cardInner(id, body, cols, order, gap);
+    return cardInner(id, body, cols, order, gap, grow);
   };
 
-  const cardInner = (id: string, body: ReactNode, cols: number | undefined, order: number, gap = 16) => (
+  const cardInner = (id: string, body: ReactNode, cols: number | undefined, order: number, gap = 16, grow = 1) => (
     /* ⚠️ No overflow-hidden here. The chip sits at -top-4 and the toolbar at -top-11, both OUTSIDE
        the wrapper — clipping it silently removes the card's hover outline and quick actions. */
     /* ⚠️ `min-w-0` is what makes the row honour its column count. Without it a card's widest
@@ -668,7 +830,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
        but this call site spread only the flex share and the order — so padding, margin, width and
        height set on a card were stored and never read, and the controls looked inert while working
        perfectly. Spread before order, which is this row own concern and must win. */
-    <Sel id={id} className="min-w-0 rounded-lg border border-[#E5E7EB] bg-white" style={{ ...(cols ? share(cols, gap) : {}), order }}>
+    <Sel id={id} className="min-w-0 rounded-lg border border-[#E5E7EB] bg-white" style={{ ...(cols ? share(cols, gap, grow) : {}), order }}>
       {/* No overflow-hidden: a card must be free to grow past a dragged height rather than clip
           its own rows. The radius is on the Sel wrapper, which keeps the corners. */}
       <div style={st(id)} className="rounded-lg">{body}</div>
@@ -765,19 +927,11 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                     className="mt-5 w-full"
                     style={{ maxWidth: `${Number(wc('hero').searchWidth ?? 70)}%`, marginLeft: 'auto', marginRight: 'auto' }}
                   >
-                    <div
+                    <HeroSearch
+                      cfg={wc('hero')}
+                      fallback={content.hero.placeholder}
                       style={{ borderRadius: Number(wc('hero').searchRadius ?? 4), ...st('hero-search') }}
-                      className="flex h-11 items-center gap-2 bg-white px-4"
-                    >
-                      {/* ⚠️ Truncate, never wrap. Narrowed, the placeholder broke onto a second line
-                          and pushed the search box to double height — the one control on the page
-                          whose shape people recognise. Content inside a resized element has to give
-                          way to the element's size, not fight it. */}
-                      <span className="min-w-0 flex-1 truncate text-left text-[14px] text-[#9CA3AF]">
-                        {String(wc('hero').searchPlaceholder ?? content.hero.placeholder)}
-                      </span>
-                      <Search size={18} className="text-[#64748B]" />
-                    </div>
+                    />
                   </Sel>
                 )}
               </div>
@@ -797,14 +951,12 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
             {/* ⚠️ The hero overlap is the ONE margin that survives: it is a relationship with the
                 banner above it, not spacing of its own, and it only applies while the row is first. */}
             <Sel id="quick" className={`relative z-10 ${SECTION_PAD} ${blockOrder.indexOf("quick") === 0 ? "-mt-[62px]" : ""}`} style={{ order: slot("quick"), ...fillCss(wc('quick')) }}>
-              <RowDrop rowId="quick" className={`flex flex-wrap${secPacked("quick", 4) ? " portal-row-packed" : ""}`} style={{ gap: secGap("quick"), ...secBox("quick", 4) }}>
+              <RowDrop rowId="quick" resize={secResize("quick")} className={`flex flex-wrap${secPacked("quick", 4) ? " portal-row-packed" : ""}`} style={{ gap: secGap("quick"), ...secBox("quick", 4), ...rowFits(inRow("quick"), "quick") }}>
                 {quickCards.map((a) => {
                   const c = wc(a.id);
-                  /* ⚠️ The SECTION's Card template is the row's shape and wins over the card's own
-                     iconPos — that is the whole point of choosing it on the parent, so a row of
-                     cards can't disagree. The card keeps iconPos as its fallback for a section that
-                     has never had a template picked. */
-                        const tpl = String(wc('quick').cardTemplate ?? c.iconPos ?? 'left');
+                  /* ⚠️ The CARD's own template wins; the row's is the default it starts from.
+                     Read the other way round the card's picker was dead — see the note in fixB. */
+                  const tpl = String(c.cardTemplate ?? wc('quick').cardTemplate ?? c.iconPos ?? 'left');
                   const cardImage = isImageChoice(icons?.[a.id]) ? icons![a.id]!.src : null;
                   const top = tpl === 'top';
                   const iconRight = tpl === 'right';
@@ -827,7 +979,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                   const iconShape = chosen(styles, a.id, 'iconShape');
                   const iconFill = chosen(styles, a.id, 'iconFill');
                   return (
-                    <Sel key={a.id} id={a.id} className="min-w-0 rounded-lg" style={share(secCols("quick", content.cols.quick), secGap("quick"))}>
+                    <Sel key={a.id} id={a.id} className="min-w-0 rounded-lg" style={{ ...share(secCols("quick", content.cols.quick), secGap("quick"), secGrow("quick")) }}>
                       <div
                         /* ⚠️ fillCss AFTER st(): the card's Style accordion writes fill / colour /
                            image / border / radius into its CONFIG, and this div was reading only the
@@ -899,10 +1051,10 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                             because it was the thing setting the width. */}
                         <span className={`min-w-0 flex-1 ${centre ? 'w-full' : ''}`}>
                           <Sel id={`${a.id}-title`}>
-                            <span style={{ ...roleStyle(styles, `${a.id}-title`, 'title'), ...(centre ? { textAlign: 'center' as const } : {}) }} className="block truncate text-[16px] font-semibold text-[#364658]">{String(c.title ?? a.title)}</span>
+                            <span style={{ ...roleStyle(styles, `${a.id}-title`, 'title'), ...(centre && !styles[`${a.id}-title`]?.align ? { textAlign: 'center' as const } : {}) }} className="block truncate text-[16px] font-semibold text-[#364658]">{String(c.title ?? a.title)}</span>
                           </Sel>
                           <Sel id={`${a.id}-sub`}>
-                            <span style={{ ...roleStyle(styles, `${a.id}-sub`, 'body'), ...(centre ? { textAlign: 'center' as const } : {}) }} className="block truncate text-[13px] text-[#7B8FA5]">{String(c.sub ?? a.desc)}</span>
+                            <span style={{ ...roleStyle(styles, `${a.id}-sub`, 'body'), ...(centre && !styles[`${a.id}-sub`]?.align ? { textAlign: 'center' as const } : {}) }} className="block truncate text-[13px] text-[#7B8FA5]">{String(c.sub ?? a.desc)}</span>
                           </Sel>
                         </span>
                       </div>
@@ -911,7 +1063,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                 })}
 
                 {(rowExtras?.['quick'] ?? []).map((el) => (
-                  <Sel key={el.id} id={el.id} style={share(secCols("quick", content.cols.quick), secGap("quick"))}>
+                  <Sel key={el.id} id={el.id} style={share(secCols("quick", content.cols.quick), secGap("quick"), secGrow("quick"))}>
                     <PortalPlacedElement item={el} icon={icons?.[el.id]} text={placedText?.[el.id]} cfg={wc(el.id)} />
                   </Sel>
                 ))}
@@ -923,7 +1075,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
             {/* ── Work row ── */}
             {/* ── Work row ── one section, three cards, full width. */}
             <Sel id="work" className={SECTION_PAD} style={{ order: slot("work"), ...fillCss(wc('work')) }}>
-              <RowDrop rowId="work" className={`flex flex-wrap${secPacked("work", 3) ? " portal-row-packed" : ""}`} style={{ gap: secGap("work"), ...secBox("work", 3) }}>
+              <RowDrop rowId="work" resize={secResize("work")} className={`flex flex-wrap${secPacked("work", 3) ? " portal-row-packed" : ""}`} style={{ gap: secGap("work"), ...secBox("work", 3), ...rowFits(inRow("work"), "work") }}>
               {card('requests', (
                 <CardShell nodeId="requests" titleNodeId="requests-title" title={String(wc('requests').title ?? content.requests.title)} count={visibleRequests.length} cfg={wc('requests')}>
                   <Sel id="requests-list">
@@ -942,7 +1094,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                         const stacked = c.rowLayout === 'stacked';
                         return (
                           <Row key={r.id} nodeId="requests">
-                            <div className={stacked ? '' : 'flex items-center gap-2.5'}>
+                            <div className={stacked ? '' : 'flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1'}>
                               {c.showId !== false && !below && <IdPill>{r.id}</IdPill>}
                               <span style={roleStyle(styles, 'requests', 'body')} className={`min-w-0 ${stacked ? 'block' : 'flex-1 truncate'} text-[13px] text-[#364658]`}>{r.subject}</span>
                               {statusOn && (
@@ -960,7 +1112,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                     </ListBody>
                   </Sel>
                 </CardShell>
-              ), secCols("work", content.cols.work), secGap("work"))}
+              ), secCols("work", content.cols.work), secGap("work"), secGrow("work"))}
 
               {card('approvals', (
                 <CardShell nodeId="approvals" titleNodeId="approvals-title" title={String(wc('approvals').title ?? content.approvals.title)} count={visibleApprovals.length} cfg={wc('approvals')}>
@@ -989,7 +1141,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                     ))}
                   </ListBody>
                 </CardShell>
-              ), secCols("work", content.cols.work), secGap("work"))}
+              ), secCols("work", content.cols.work), secGap("work"), secGrow("work"))}
 
               {card('knowledge', (
                 <CardShell nodeId="knowledge" titleNodeId="knowledge-title" title={String(wc('knowledge').title ?? content.knowledge.title)} count={visibleArticles.length} cfg={wc('knowledge')}>
@@ -1036,10 +1188,10 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                     })}
                   </ListBody>
                 </CardShell>
-              ), secCols("work", content.cols.work), secGap("work"))}
+              ), secCols("work", content.cols.work), secGap("work"), secGrow("work"))}
 
                 {(rowExtras?.['work'] ?? []).map((el) => (
-                  <Sel key={el.id} id={el.id} style={share(secCols("work", content.cols.work), secGap("work"))}>
+                  <Sel key={el.id} id={el.id} style={share(secCols("work", content.cols.work), secGap("work"), secGrow("work"))}>
                     <PortalPlacedElement item={el} icon={icons?.[el.id]} text={placedText?.[el.id]} cfg={wc(el.id)} />
                   </Sel>
                 ))}
@@ -1050,15 +1202,15 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
 
             {/* ── Records row ── Assets and CIs, in a parent section like every other card. */}
             <Sel id="records" className={SECTION_PAD} style={{ order: slot("records"), ...fillCss(wc('records')) }}>
-              <RowDrop rowId="records" className={`flex flex-wrap${secPacked("records", 2) ? " portal-row-packed" : ""}`} style={{ gap: secGap("records"), ...secBox("records", 2) }}>
-                {card('assets', <RecordsCard nodeId="assets" titleFallback={content.assets.title} cfg={wc('assets')} rows={MY_ASSETS} />, secCols("records", content.cols.records), secGap("records"))}
+              <RowDrop rowId="records" resize={secResize("records")} className={`flex flex-wrap${secPacked("records", 2) ? " portal-row-packed" : ""}`} style={{ gap: secGap("records"), ...secBox("records", 2), ...rowFits(inRow("records"), "records") }}>
+                {card('assets', <RecordsCard nodeId="assets" titleFallback={content.assets.title} cfg={wc('assets')} rows={MY_ASSETS} />, secCols("records", content.cols.records), secGap("records"), secGrow("records"))}
                 {/* ⚠️ My CIs stays EMPTY on purpose (§7.4): it is empty on most real instances, so
                     its empty state is the state most requesters will see. Inventing placeholder CIs
                     would make the widget look like something it usually is not. */}
-                {card('cis', <EmptyCard nodeId="cis" title={String(wc('cis').title ?? content.cis.title)} cfg={wc('cis')} />, secCols("records", content.cols.records), secGap("records"))}
+                {card('cis', <EmptyCard nodeId="cis" title={String(wc('cis').title ?? content.cis.title)} cfg={wc('cis')} />, secCols("records", content.cols.records), secGap("records"), secGrow("records"))}
 
                 {(rowExtras?.['records'] ?? []).map((el) => (
-                  <Sel key={el.id} id={el.id} style={share(secCols("records", content.cols.records), secGap("records"))}>
+                  <Sel key={el.id} id={el.id} style={share(secCols("records", content.cols.records), secGap("records"), secGrow("records"))}>
                     <PortalPlacedElement item={el} icon={icons?.[el.id]} text={placedText?.[el.id]} cfg={wc(el.id)} />
                   </Sel>
                 ))}

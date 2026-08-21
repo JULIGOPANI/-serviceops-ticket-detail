@@ -116,9 +116,10 @@ export const CARD_SPEC: WidgetSpec = {
   id: 'card', name: 'Card', group: 'Content', reuse: 'many', family: 'collection',
   fields: [
     {
-      /* ⚠️ Layout and Shape moved to DESIGN. Where the image sits and what it is cropped to are
-         how the card LOOKS, not what it says — Content is the picture and the words. */
-      key: 'template', label: 'Layout', control: 'templates', tab: 'style', group: 'Card',
+      /* ⚠️ Layout is in CONTENT, beside the picture and the words it arranges — the same place the
+         action card keeps its templates. Shape stays in Design: how a picture is CROPPED is a look,
+         but where it sits is the shape of the thing you are filling in. */
+      key: 'template', label: 'Card templates', control: 'templates', group: 'Card properties',
       help: 'Where the image sits is the real question, so pick it by looking rather than by reading.',
       /* ⚠️ Leaving Icon top while the shape is Banner would strand a full-width bar beside the
          title. The shape falls back to Circle and the drawer SAYS it did — a silent repair is how

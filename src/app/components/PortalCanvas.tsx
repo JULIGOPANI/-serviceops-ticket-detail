@@ -45,6 +45,8 @@ interface CanvasCtx {
   dropInColumn: (columnId: string, elementType: string) => void;
   /** Drops onto a seam — builds a new one-column section there and puts the element in it. */
   dropAtSeam: (afterId: string, elementType: string) => void;
+  /** Moves an element ALREADY on the page onto a seam, into a new section of its own. */
+  moveToSeam: (id: string, afterId: string) => void;
   /** Drops into a built-in row, alongside the cards already there. */
   dropInRow: (rowId: string, elementType: string) => void;
   /* ── toolbar actions ── */
@@ -71,7 +73,7 @@ interface CanvasCtx {
 const Ctx = createContext<CanvasCtx>({
   enabled: false, selectedId: null, hoverId: null,
   select: () => {}, setHover: () => {}, styles: {}, setStyle: () => {}, setText: () => {},
-  addSection: () => {}, addColumnBeside: () => {}, dropInColumn: () => {}, dropAtSeam: () => {}, dropInRow: () => {},
+  addSection: () => {}, addColumnBeside: () => {}, dropInColumn: () => {}, dropAtSeam: () => {}, dropInRow: () => {}, moveToSeam: () => {},
   moveNode: () => {}, duplicateNode: () => {}, deleteNode: () => {}, canDuplicate: () => false, addInside: () => {},
   moveTo: () => {}, areSiblings: () => false, replaceElement: () => {}, pickIcon: () => {},
 });
@@ -270,6 +272,17 @@ function ElementPicker({ mode, onPick, onClose }: { mode: 'add' | 'replace'; onP
 /* Light toolbar for everything that isn't text. Icons only: Content and Style both live in the
    right panel, so a "Design" pill here would be a second door to a room you are already in.
    Every button does the thing it says — nothing here is a placeholder. */
+/** The drag props a toolbar grip needs. Shared, so the light and dark bars cannot drift apart. */
+function useNodeDragHandle(id: string) {
+  return {
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      e.dataTransfer.setData(MOVE_MIME, id);
+      e.dataTransfer.effectAllowed = 'move';
+    },
+  };
+}
+
 function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: string }) {
   const { styles, setStyle, moveNode, duplicateNode, deleteNode, canDuplicate, addInside, replaceElement, onWholePage } = useCanvas();
   const [picking, setPicking] = useState(false);
@@ -362,8 +375,7 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
       )}
       {/* The grip drags the element itself — pick it up here, drop it on a sibling to reorder. */}
       <span
-        draggable
-        onDragStart={(e) => { e.dataTransfer.setData(MOVE_MIME, id); e.dataTransfer.effectAllowed = 'move'; }}
+        {...useNodeDragHandle(id)}
         data-tip="Drag to move"
         className="flex size-7 cursor-grab items-center justify-center text-[#9CA3AF] active:cursor-grabbing"
       ><GripVertical size={14} /></span>
@@ -395,7 +407,7 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
       )}
       <button
         className={dupOk ? btn : btnOff}
-        data-tip={dupOk ? 'Duplicate' : 'This block is part of the page layout and can’t be duplicated'}
+        data-tip={dupOk ? 'Copy' : 'This block is part of the page layout and can’t be copied'}
         onClick={() => dupOk && duplicateNode(id)}
       ><Copy size={14} /></button>
       {/* ⚠️ The BANNER's three, and only the banner's. It is the one block with a background image,
@@ -404,11 +416,6 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
           already has opens the element library, which is where Text and Button come from. */}
       {id === 'hero' && (
         <>
-          <button
-            className={btn}
-            data-tip="Stretch the image to cover the banner"
-            onClick={() => { setStyle(id, { bgSize: styles[id]?.bgSize === 'contain' ? 'cover' : 'contain' }); toast.success(styles[id]?.bgSize === 'contain' ? 'Image covers the banner' : 'Whole image shown'); }}
-          ><Maximize2 size={15} /></button>
           <button
             className={btn}
             data-tip="Also use this background behind the whole page"
@@ -451,6 +458,9 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
  * pill sets vertical padding, the left pill horizontal. That split is deliberate — an element's size
  * and the space inside it are different intentions, so they get different-looking grips, and the
  * magenta guides + live badge appear only for spacing, where you need to see what you are setting. */
+/** The narrowest a dragged column may become — below this it stops being a column you can aim at. */
+const MIN_COL = 40;
+
 function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HTMLDivElement | null> }) {
   const { styles, setStyle } = useCanvas();
   const [live, setLive] = useState<{ kind: 'size' | 'padY' | 'padX' | 'gap'; label: string } | null>(null);
@@ -461,6 +471,12 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
     maxH: number;
     /** True when the parent lays its children out in a line, so widths are shares of it. */
     inRow: boolean;
+    /** The row is set to Fixed items: this column resizes alone, inside the room the row has left. */
+    fixed: boolean;
+    /** One gap between two columns — the clamp counts only the gaps on this element's own line. */
+    gap: number;
+    /** Each row member's top edge, so a wrapped line can be told apart from this one. */
+    tops: number[];
     /** Node ids sharing this row, their starting widths, and where the dragged one sits. */
     siblings: string[]; widths: number[]; index: number;
   } | null>(null);
@@ -484,7 +500,42 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
            the drag down the flex-share path: it wrote `flex` on all three, which does nothing in a
            block container, and dragging the heading's edge appeared completely dead. A share only
            means something when the parent actually lays its children out in a line. */
-        if (horiz && d.inRow && d.siblings.length > 1) {
+        /* ── Fixed items ── the column takes a width of its OWN and nothing else moves.
+           ⚠️ Clamped to the room the row has LEFT: its own width minus what its siblings already
+           hold and the gaps between them. Without that clamp, growing a fixed column has to come
+           from somewhere — either a sibling shrinks (which is the thing Fixed promises will not
+           happen) or the row overflows the section (which is the other thing). So it grows into
+           free space and stops when there is none, and shrinking is what creates more.
+           ⚠️ Stored as a PERCENTAGE of the row, like every other dragged width here: a px value
+           stays put when the panel beside it is dragged or the section is restyled, so a row built
+           at one width falls apart at another. */
+        if (horiz && d.fixed) {
+          const px = d.corner.includes('w') ? d.w - dx : d.w + dx;
+          /* ⚠️ Siblings ON THIS LINE only. A row wraps, so once one card had been pushed onto a
+             second line the old sum counted its width against the FIRST line's free space — the
+             ceiling collapsed below the 40px floor and every drag after that snapped the card to
+             its minimum with no way back. That is the "it went small suddenly and would not resize
+             again": one stray wrap poisoned every later measurement. */
+          const mine = d.tops[d.index] ?? 0;
+          const line = d.widths.filter((_, j) => j !== d.index && Math.abs((d.tops[j] ?? 0) - mine) < 2);
+          const others = line.reduce((a, b) => a + b, 0);
+          /* ⚠️ One px of slack, and the percentage rounds DOWN. Widths are measured as fractions
+             and stored as a percentage, so rounding to the nearest whole number could ask for ~2px
+             MORE than the row had — and two pixels is all it takes for the last card to wrap, which
+             is what set the trap above. Under-shooting by a fraction is invisible; overshooting is
+             a broken row. */
+          const room = Math.max(MIN_COL, d.parentW - others - d.gap * line.length - 1);
+          const v = Math.max(MIN_COL, Math.min(room, Math.round(px)));
+          /* ⚠️ `flex` is cleared in the same write. It is the Fill representation, it is read FIRST
+             by `sizeOf`, and a leftover from an earlier Fill drag would win over the width you are
+             setting right now — the handle would move and the column would not. */
+          setStyle(id, {
+            widthPct: Math.max(1, Math.floor((v / Math.max(d.parentW, 1)) * 1000) / 10),
+            flex: undefined,
+            width: undefined,
+          });
+          setLive({ kind: 'size', label: `${v}px` });
+        } else if (horiz && d.inRow && d.siblings.length > 1) {
           const total = d.widths.reduce((a, b) => a + b, 0);
           const i = d.index;
           const floor = 60;
@@ -493,7 +544,10 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
           const othersTotal = total - d.widths[i];
           d.siblings.forEach((sib, j) => {
             const w = j === i ? target : othersTotal > 0 ? (d.widths[j] / othersTotal) * rest : rest / (d.siblings.length - 1);
-            setStyle(sib, { flex: Math.round(w) });
+            /* ⚠️ `widthPct` cleared alongside — it is the Fixed representation, and `sizeOf` reads
+               `flex` first only for as long as nothing else claims the width. A column that was
+               dragged while the row was Fixed has to rejoin the row when it goes back to Fill. */
+            setStyle(sib, { flex: Math.round(w), widthPct: undefined, width: undefined });
           });
           setLive({ kind: 'size', label: `${Math.round((target / total) * 100)}% of row` });
         } else if (horiz) {
@@ -523,7 +577,7 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
         }
         if (Object.keys(patch).length) {
           setStyle(id, patch);
-          if (!horiz || d.siblings.length <= 1) {
+          if ((!horiz || d.siblings.length <= 1) && !d.fixed) {
             setLive({ kind: 'size', label: `${patch.width ?? Math.round(d.w)} × ${patch.height ?? Math.round(d.h)}` });
           }
         }
@@ -570,6 +624,13 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
       band = band.parentElement?.closest('[data-node]') as HTMLElement | null;
     }
     const bandRect = band?.getBoundingClientRect();
+    /* ⚠️ The mode is read off the ROW's own DOM node, not out of the widget config. The handles sit
+       inside the canvas and have no idea which section they are in; the row does, it is rendered
+       from that config, and reading it here means the drag and the page cannot disagree about which
+       rule is in force. Same reason `inRow` is measured rather than looked up. */
+    const rowEl = el.parentElement;
+    const rowFixed = rowEl?.dataset.resize === 'fixed';
+    const rowGap = rowEl ? parseFloat(getComputedStyle(rowEl).columnGap || '0') || 0 : 0;
     drag.current = {
       kind, corner, x: e.clientX, y: e.clientY, w: r.width, h: r.height,
       pad: styles[id]?.padding ?? ZERO_BOX,
@@ -588,6 +649,9 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
         const ps = el.parentElement ? getComputedStyle(el.parentElement) : null;
         return !!ps && (ps.display === 'flex' || ps.display === 'inline-flex') && !ps.flexDirection.startsWith('column');
       })(),
+      fixed: rowFixed && row.length > 0,
+      gap: rowGap,
+      tops: row.map((c) => c.getBoundingClientRect().top),
       parentW: el.parentElement?.getBoundingClientRect().width ?? r.width,
       siblings: row.map((c) => c.dataset.node!),
       widths: row.map((c) => c.getBoundingClientRect().width),
@@ -703,6 +767,7 @@ function useToolbarTip() {
 }
 
 function TextToolbar({ id }: { id: string }) {
+  const drag = useNodeDragHandle(id);
   const { tip, setTip, readTip } = useToolbarTip();
   const { styles, setStyle, setText } = useCanvas();
   const [pop, setPop] = useState<'link' | 'ph' | null>(null);
@@ -733,7 +798,7 @@ function TextToolbar({ id }: { id: string }) {
           className="pointer-events-none absolute top-full z-[80] mt-1.5 max-w-[220px] -translate-x-1/2 whitespace-nowrap rounded bg-[#1F2937] px-2 py-1 text-[11px] leading-[16px] text-white shadow-[0_4px_10px_rgba(16,24,40,0.18)]"
         >{tip.label}</span>
       )}
-      <span className="flex size-7 cursor-grab items-center justify-center text-[#9CA3AF]"><GripVertical size={14} /></span>
+      <span {...drag} className="flex size-7 cursor-grab items-center justify-center text-[#9CA3AF] active:cursor-grabbing"><GripVertical size={14} /></span>
       <span className="flex size-7 items-center justify-center"><AiSparkle size={14} /></span>
       <span className="mx-0.5 h-4 w-px bg-[#E5E7EB]" />
 
@@ -1069,7 +1134,7 @@ function LayoutTile({ rows }: { rows: number[][] }) {
 /* The seam between two sections: an invisible strip that becomes a blue bar on hover, carrying the
    "+ Add Section" pill and a drag grip for stretching the section above it. */
 export function AddSectionSeam({ afterId }: { afterId: string }) {
-  const { enabled, addSection, setStyle, dropAtSeam, hoverId } = useCanvas();
+  const { enabled, addSection, setStyle, dropAtSeam, moveToSeam, hoverId } = useCanvas();
   const [hover, setHover] = useState(false);
   const [picking, setPicking] = useState(false);
   const [live, setLive] = useState<number | null>(null);
@@ -1140,15 +1205,22 @@ export function AddSectionSeam({ afterId }: { afterId: string }) {
       onMouseLeave={() => setHover(false)}
       /* Dropping on the seam builds its own section — an element doesn't have to be aimed into an
          existing one, which would make adding anything a two-step job. */
-      onDragOver={(e) => { if (draggedElement(e) !== null || e.dataTransfer.types.includes('text/portal-element')) { e.preventDefault(); setDropping(true); } }}
+      /* ⚠️ A seam takes an element being MOVED as well as one being added. "Drop it anywhere and
+         it finds a home" has to include the gap between two blocks — that is the most obvious place
+         to aim at when what you want is "put it here, on its own". */
+      onDragOver={(e) => {
+        const t = e.dataTransfer.types;
+        if (t.includes('text/portal-element') || t.includes(MOVE_MIME)) { e.preventDefault(); setDropping(true); }
+      }}
       onDragLeave={() => setDropping(false)}
       onDrop={(e) => {
-        const type = draggedElement(e);
         setDropping(false);
-        if (!type) return;
+        const moving = draggedNode(e);
+        const type = draggedElement(e);
+        if (!moving && !type) return;
         e.preventDefault();
         e.stopPropagation();
-        dropAtSeam(afterId, type);
+        if (moving) moveToSeam(moving, afterId); else dropAtSeam(afterId, type!);
       }}
       className={`relative z-30 -my-1 h-3 ${dropping ? 'z-40' : ''}`}
     >
@@ -1460,12 +1532,16 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
           contentEditable
           suppressContentEditableWarning
           onBlur={(e) => {
-            const next = (e.currentTarget.textContent ?? '').trim();
-            setText(id, next);
+            /* ⚠️ A RICH node commits its markup. Reading textContent here would throw away the
+               bold, the link and the list the moment you clicked away — the formatting would apply
+               while you looked at it and vanish when you stopped. */
+            const el = e.currentTarget as HTMLElement;
+            setText(id, node.rich ? el.innerHTML : (el.textContent ?? '').trim());
           }}
           onKeyDown={(e) => {
-            // Enter commits rather than inserting a line break — these are labels, not paragraphs.
-            if (e.key === 'Enter') { e.preventDefault(); (e.currentTarget as HTMLElement).blur(); }
+            /* Enter commits a LABEL and breaks a line in a PARAGRAPH. A caption is prose; a heading
+               is not, and inserting a line break into one is never what Enter meant there. */
+            if (e.key === 'Enter' && !node.rich) { e.preventDefault(); (e.currentTarget as HTMLElement).blur(); }
             if (e.key === 'Escape') (e.currentTarget as HTMLElement).blur();
           }}
           className="outline-none"

@@ -6,7 +6,7 @@ import type { PlacedElement } from './portalPageModel';
 import { COLLECTION_RENDERERS } from './PortalCollectionRender';
 import { useCanvas } from './PortalCanvas';
 import { containerCss } from './portalStyleResolver';
-import { shadowCss } from './PortalBoxControls';
+
 import { LineMark } from './PortalLineStyles';
 import { Sel } from './PortalCanvas';
 import type { LineStyle } from './PortalLineStyles';
@@ -256,30 +256,50 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
 
   if (type === 'v-image') {
     const src = String(cfg.src ?? '');
-    if (!src) return null;
+    const caption = String(cfg.caption ?? '');
+    /* ⚠️ The four templates the action card uses, meaning the same four things: where the picture
+       sits relative to its words. 'top' is the default — a picture with its caption underneath is
+       what a caption IS — and 'none' is Text only, where the caption carries the block on its own. */
+    const tpl = String(cfg.template ?? 'top');
+    const stacked = tpl === 'top' || tpl === 'none';
     const bw = Number(cfg.borderWidth ?? 0);
+    /* ⚠️ Nothing to draw only when there is NEITHER a picture nor words. A caption written
+       before the file is uploaded used to render nothing at all, so the text you had just typed
+       vanished and the element looked broken rather than unfinished. */
+    if (!src && !caption) return null;
+    const picture = tpl === 'none' || !src ? null : (
+      <img
+        src={src}
+        /* ⚠️ The alt text IS what the browser shows when the file will not load, so it is the
+           same value doing both jobs — not a caption and not a tooltip. */
+        alt={String(cfg.alt ?? '')}
+        style={{
+          borderRadius: Number(cfg.radius ?? 8),
+          ...(bw > 0 ? { border: `${bw}px solid ${String(cfg.borderColor ?? '#E5E7EB')}` } : {}),
+        }}
+        className="block w-full object-cover"
+      />
+    );
+    /* ⚠️ RICH, so it is rendered as markup and edited in the panel's writing surface. A caption
+       carrying a link or an emphasised word had nowhere to live while this was one line of text. */
+    /* ⚠️ NOT wrapped in an inner div any more. Sel turns a selected text node into the
+       contentEditable itself, and an element whose only child is a `dangerouslySetInnerHTML` div
+       gives the caret a box it cannot leave — you could type, and the markup you typed was thrown
+       away because the editable surface and the rendered one were two different elements. Rendering
+       the HTML straight into Sel's own child makes the thing you edit the thing you see. */
+    const words = caption ? (
+      <T part="caption" className="portal-caption min-w-0 flex-1 text-[12px] leading-[1.55] text-[#7B8FA5]">
+        <span dangerouslySetInnerHTML={{ __html: caption }} />
+      </T>
+    ) : null;
     return (
-      /* Alignment sits on the FIGURE, not the image: a full-width picture has nothing to align, so
-         what actually moves is the figure once a width has been set on it. */
-      <figure className="m-0" style={{ textAlign: (cfg.align as never) ?? 'left' }}>
-        <img
-          src={src}
-          /* ⚠️ The alt text IS what the browser shows when the file will not load, so it is the
-             same value doing both jobs — not a caption and not a tooltip. */
-          alt={String(cfg.alt ?? '')}
-          style={{
-            borderRadius: Number(cfg.radius ?? 8),
-            ...(bw > 0 ? { border: `${bw}px solid ${String(cfg.borderColor ?? '#E5E7EB')}` } : {}),
-            boxShadow: shadowCss({
-              on: cfg.shadowOn === true,
-              color: String(cfg.shadowColor ?? '#0F172A'),
-              type: (cfg.shadowType as 'outer' | 'inner') ?? 'outer',
-              pos: String(cfg.shadowPos ?? 'bottom'),
-            }),
-          }}
-          className="inline-block w-full object-cover"
-        />
-        {!!cfg.caption && <figcaption className="mt-1.5 text-[12px] text-[#7B8FA5]"><T part="caption">{String(cfg.caption)}</T></figcaption>}
+      <figure className={`m-0 flex min-w-0 gap-2.5 ${
+        stacked ? 'flex-col' : tpl === 'right' ? 'flex-row-reverse items-start' : 'flex-row items-start'
+      }`}>
+        {/* ⚠️ Side by side the picture takes a SHARE, not its natural width — an image beside text
+            with no basis takes the whole row and leaves the caption a column of single letters. */}
+        {picture && <span className={stacked ? 'block min-w-0' : 'block w-2/5 min-w-0 flex-shrink-0'}>{picture}</span>}
+        {words}
       </figure>
     );
   }

@@ -43,6 +43,7 @@ import { IconFramePicker } from './PortalIconFrame';
 import type { IconFrame } from './PortalIconFrame';
 import type { LineStyle } from './PortalLineStyles';
 import { SpacingMatrix } from './SpacingMatrix';
+import { PortalBannerPicker } from './PortalBannerPicker';
 import { ColorField } from './PortalColorPicker';
 import { IconField } from './PortalIconPicker';
 import type { IconChoice } from './PortalIconPicker';
@@ -53,6 +54,9 @@ import type { Cfg, WidgetField, WidgetSpec } from './portalWidgetSpec';
    in a row should not have to re-open the same drawer each time. Module-level on purpose — it is
    session state about a KIND of thing, not about one node. */
 const GROUP_MEMORY: Record<string, string[]> = {};
+
+/* Which banner slot has its gallery open, and how to fall back to the file picker from inside it. */
+type BannerPick = { anchor: DOMRect; chooseFile: () => void; key: string } | null;
 
 /* §7.19 — one item per file, appended in selection order. Adding 12 photos one at a time is not a
    workflow anybody completes. */
@@ -515,6 +519,9 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
      clicking things open to find out what was in them. A styling panel is read by scanning, and you
      cannot scan what is collapsed. The per-widget memory still wins, so anything you deliberately
      shut stays shut for that widget type. */
+  /* The banner gallery is opened FROM a field and rendered at the drawer's root — a popover mounted
+     inside a scrolling panel is clipped the moment it is taller than the space below its trigger. */
+  const [bannerPick, setBannerPick] = useState<BannerPick>(null);
   const [openGroups, setOpenGroupsState] = useState<string[]>(GROUP_MEMORY[spec.id] ?? ALL_GROUPS);
   const setOpenGroups = (next: string[]) => { GROUP_MEMORY[spec.id] = next; setOpenGroupsState(next); };
   const toggleGroup = (g: string) =>
@@ -627,7 +634,10 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
            and still cannot say how many are on without you counting fills. */
         return <MultiSelect value={(v as string[]) ?? []} options={(optionsOf(f) as string[]) ?? REQUEST_STATUSES} onChange={(x) => set(f.key, x)} placeholder="No statuses — the list will be empty" />;
       case 'select':
-        return <SelectField value={(v as string) ?? ''} options={optionsOf(f) as string[]} onChange={(x) => set(f.key, x)} />;
+        /* ⚠️ NOT cast to `string[]`. SelectField already accepts {value,label} pairs, and a field
+           whose stored token should differ from its wording (`fixed` → "Fixed items") has no other
+           way to say so — the cast was quietly promising every select was a list of bare words. */
+        return <SelectField value={(v as string) ?? ''} options={optionsOf(f) as string[] | { value: string; label: string }[]} onChange={(x) => set(f.key, x)} />;
       case 'segmented': {
         const opts = optionsOf(f) as { value: string; label: string }[];
         /* ⚠️ An ALIGNMENT segmented renders as joined icon buttons, everywhere, detected by its
@@ -645,6 +655,15 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
         return <ColorField value={(v as string) ?? '#3D8BD0'} onChange={(x) => set(f.key, x)} />;
       case 'upload':
         return <UploadZone value={v as string} onChange={(x) => set(f.key, x ?? '')} />;
+      /* The banner's slot: the same zone, plus the gallery route. */
+      case 'bannerUpload':
+        return (
+          <UploadZone
+            value={v as string}
+            onChange={(x) => set(f.key, x ?? '')}
+            gallery={(anchor, chooseFile) => setBannerPick({ anchor, chooseFile, key: f.key })}
+          />
+        );
       case 'icon':
         return <IconField value={icon} onChange={setIcon} />;
       case 'chipEditor':
@@ -1250,6 +1269,15 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
         </>
         )}
       </div>
+      {bannerPick && (
+        <PortalBannerPicker
+          anchor={bannerPick.anchor}
+          value={cfg[bannerPick.key] as string | undefined}
+          onPick={(b) => setCfg({ [bannerPick.key]: b.src })}
+          onUpload={bannerPick.chooseFile}
+          onClose={() => setBannerPick(null)}
+        />
+      )}
     </div>
   );
 }

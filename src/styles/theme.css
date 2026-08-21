@@ -406,3 +406,12 @@ button:not(:disabled),
    width it actually needs, which is what leaves room for centre or space-between to mean anything.
    !important because share() writes the flex shorthand inline. */
 .portal-row-packed > * { flex: 0 1 auto !important; }
+
+/* A rich image caption is authored markup, so it needs the same list and heading rules the
+   contenteditable surfaces get — Tailwind preflight strips them, and a caption written as a
+   bulleted list would otherwise render as three unmarked lines. */
+.portal-caption ul { list-style: disc; padding-left: 1.25rem; }
+.portal-caption ol { list-style: decimal; padding-left: 1.25rem; }
+.portal-caption a { color: #3D8BD0; text-decoration: underline; }
+.portal-caption p { margin: 0; }
+.portal-caption p + p { margin-top: 0.35rem; }

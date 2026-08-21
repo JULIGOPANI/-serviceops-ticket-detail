@@ -10,6 +10,44 @@ import type { WidgetSpec } from './portalWidgetSpec';
 
 /* ── §7.20 Banner ────────────────────────────────────────────────────────── */
 
+/* §7.20's search sub-element — its own layer, so clicking the search bar edits the SEARCH.
+ *
+ * ⚠️ It writes the BANNER's config keys (ownerOf strips -search), because there is one search
+ * and one set of settings for it. Two stores would let the banner's "Show the search bar" and this
+ * panel's disagree about whether there is a search at all.
+ * ⚠️ "Show the search bar" is repeated here on purpose — it is not a duplicate control, it is the
+ * same control in the place you are standing when you decide you do not want it. Hiding it here
+ * would mean going back to the banner to switch off the thing you have selected. */
+export const SEARCH_SPEC: WidgetSpec = {
+  id: 'search', name: 'Search', group: 'Structure', reuse: 'single', family: 'flat',
+  panel: {
+    content: [
+      { key: 'searchPlaceholder', label: 'Placeholder', control: 'text' },
+      {
+        key: 'searchScope', label: 'Scope', control: 'segmented',
+        options: [{ value: 'knowledge', label: 'Knowledge' }, { value: 'all', label: 'All' }],
+        help: 'What the banner search looks through.',
+      },
+      { key: 'searchSuggestions', label: 'Show suggestions as they type', control: 'toggle' },
+      { key: 'showSearch', label: 'Show the search bar', control: 'toggle' },
+    ],
+    accordions: [
+      {
+        id: 'style', open: true,
+        fields: [
+          { key: 'searchWidth', label: 'Width', control: 'slider', min: 40, max: 100, unit: '%' },
+          { key: 'searchRadius', label: 'Corner radius', control: 'radius' },
+        ],
+      },
+      { id: 'spacing', spacing: 'both' },
+    ],
+  },
+  /* Nothing in the palette can put the banner's search back, so removing it is the toggle above. */
+  noDelete: true,
+  fields: [], packs: [],
+  defaults: { searchPlaceholder: 'How can we help you?', searchScope: 'knowledge', searchSuggestions: true, showSearch: true, searchWidth: 70, searchRadius: 4 },
+};
+
 export const HERO_SPEC: WidgetSpec = {
   id: 'hero', name: 'Banner', group: 'Structure', reuse: 'single', family: 'collection',
   fields: [
@@ -28,8 +66,40 @@ export const HERO_SPEC: WidgetSpec = {
       options: [{ value: 'image', label: 'Image' }, { value: 'color', label: 'Colour' }],
     },
     {
-      key: 'bannerImage', label: 'Banner image', control: 'upload', tab: 'style', group: 'Banner',
+      key: 'bannerImage', label: 'Banner image', control: 'bannerUpload', tab: 'style', group: 'Banner',
       when: (c) => (c.bgKind ?? 'image') === 'image',
+    },
+    /* ⚠️ FOUR fits, not the two the canvas toolbar used to toggle. Cover and Contain answer
+       different questions from Stretch and Original, and a banner is the one band where all four
+       come up: a photograph wants Cover, a logo-ish graphic wants Contain, a gradient made at the
+       wrong ratio wants Stretch, and a tile wants Original. The toolbar's Maximise button is gone —
+       it wrote the same idea in a second place and could only ever say two of the four. */
+    {
+      key: 'bannerFit', label: 'Image fit', control: 'select', tab: 'style', group: 'Banner',
+      when: (c) => (c.bgKind ?? 'image') === 'image',
+      options: [
+        { value: 'cover', label: 'Cover — fill the band, crop the overflow' },
+        { value: 'contain', label: 'Fit — show all of it, letterbox the rest' },
+        { value: 'stretch', label: 'Stretch — distort to the exact band' },
+        { value: 'auto', label: 'Original size' },
+      ],
+    },
+    /* Which part survives the crop. Only Cover and Original can crop, so only they are asked. */
+    {
+      key: 'bannerPos', label: 'Focal point', control: 'nine', tab: 'style', group: 'Banner',
+      when: (c) => (c.bgKind ?? 'image') === 'image' && c.bannerFit !== 'stretch' && c.bannerFit !== 'contain',
+    },
+    {
+      key: 'bannerRepeat', label: 'Tile the image', control: 'toggle', tab: 'style', group: 'Banner',
+      when: (c) => (c.bgKind ?? 'image') === 'image' && c.bannerFit === 'auto',
+      help: 'Repeats a small graphic across the band instead of showing it once.',
+    },
+    /* ⚠️ The one control that decides whether the heading can be read. It is here rather than in a
+       contrast panel because darkening the artwork is what people actually reach for, and a warning
+       with no lever beside it is a warning nobody can act on. */
+    {
+      key: 'bannerShade', label: 'Darken for text', control: 'slider', tab: 'style', group: 'Banner',
+      min: 0, max: 80, unit: '%', when: (c) => (c.bgKind ?? 'image') === 'image',
     },
     {
       key: 'bannerColor', label: 'Banner colour', control: 'color', tab: 'style', group: 'Banner',
@@ -68,6 +138,7 @@ export const HERO_SPEC: WidgetSpec = {
     fullBleed: false,
     height: 260, contentAlign: 'center', contentMaxWidth: 70,
     bgKind: 'image', bannerColor: '#3D8BD0', bgWholePage: false,
+    bannerFit: 'cover', bannerPos: 'center', bannerRepeat: false, bannerShade: 0,
     headingColor: '#FFFFFF', searchWidth: 70, searchRadius: 4,
     // §7.20's search sub-element.
     searchScope: 'knowledge', searchSuggestions: true,
@@ -117,6 +188,21 @@ export const SECTION_SPEC: WidgetSpec = {
         id: 'layout', open: true,
         fields: [
           { key: 'preset', label: 'Presets', control: 'sectionPreset' },
+          /* ⚠️ On the PARENT, not on each column — the same reason Card templates sits here. How a
+             row redistributes is a property of the row: two columns in one section answering that
+             question differently is not a layout, it is an argument. Every section gets it, empty
+             ones included, because a section's first column is resizable the moment it exists.
+             ⚠️ Switching modes CLEARS the widths already dragged onto this section's columns (see
+             `patchCfg` in the builder). Fill stores a share of the row and Fixed stores a width of
+             its own; a value left behind by the other mode is read by the wrong rule, which collapses
+             or overflows the row. Redistributing is also the honest answer to "what does this row do
+             now" — you changed the rule it distributes by. */
+          { key: 'resize', label: 'Responsive behaviour', control: 'select',
+            options: [
+              { value: 'fill', label: 'Fill items' },
+              { value: 'fixed', label: 'Fixed items' },
+            ],
+            help: 'Fill — dragging one column re-flows its siblings so the row always fills the section. Fixed — every column keeps its own width, and dragging one leaves the others exactly where they are.' },
           { key: 'distribute', label: 'Content alignment', control: 'distribute' },
           { key: 'valign', label: '', control: 'valign' },
         ],
@@ -146,7 +232,7 @@ export const SECTION_SPEC: WidgetSpec = {
   /* ⚠️ `bg` needs a default of its own. Without one the panel's colour field fell back to its
      control default while the canvas fell back to white — so the swatch said one colour and the
      band painted another, and the fill looked broken when it was only unset. */
-  defaults: { name: 'New section', cardTemplate: 'left', colGap: 16, fill: 'none', bg: '#FFFFFF', borderWidth: 0, borderColor: '#E5E7EB', radius: 8, minHeight: 0 },
+  defaults: { name: 'New section', cardTemplate: 'left', resize: 'fill', colGap: 16, fill: 'none', bg: '#FFFFFF', borderWidth: 0, borderColor: '#E5E7EB', radius: 8, minHeight: 0 },
 };
 
 /** L2 — a column owns its width and the alignment of the blocks inside it. Nothing else (§7.21). */
@@ -309,5 +395,5 @@ export const NAVBAR_SPEC: WidgetSpec = {
 };
 
 export const STRUCTURE_SPECS: WidgetSpec[] = [
-  HERO_SPEC, SECTION_SPEC, COLUMN_SPEC, PAGE_SPEC, RAIL_SPEC, NAVBAR_SPEC, LOGO_SPEC,
+  HERO_SPEC, SEARCH_SPEC, SECTION_SPEC, COLUMN_SPEC, PAGE_SPEC, RAIL_SPEC, NAVBAR_SPEC, LOGO_SPEC,
 ];
