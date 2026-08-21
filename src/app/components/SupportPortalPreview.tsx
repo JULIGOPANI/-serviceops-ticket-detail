@@ -132,9 +132,15 @@ function ColumnBody({ id, item, live, icons, placedText, cfg }: { id: string; it
       /* ⚠️ No styleOf here either — Sel applies the node style once, above. */
       /* ⚠️ justify comes from the column's OWN setting. It was hard-coded to `justify-center`, so the
          spec's "Align the blocks inside" (Top / Middle / Bottom) wrote a value nothing read and every
-         column centred its contents whatever you picked. */
+         column centred its contents whatever you picked.
+         ⚠️ …but ONLY once there are blocks to align. An empty column's `+` is not content, it is the
+         offer to add some, and "Align the blocks inside: Top" was pinning it to the ceiling of a box
+         it is asking you to fill — so it sat in a corner of a large empty rectangle instead of in
+         the middle of it. With nothing inside, the setting has nothing to act on and the placeholder
+         is centred both ways, which is also where the live column's own centre button appears. */
       className={`relative flex h-full flex-col ${
-        ({ start: 'justify-start', center: 'justify-center', end: 'justify-end' } as Record<string, string>)[String(cfg?.(id)?.blockAlign ?? 'center')] ?? 'justify-center'
+        !item ? 'justify-center'
+          : ({ start: 'justify-start', center: 'justify-center', end: 'justify-end' } as Record<string, string>)[String(cfg?.(id)?.blockAlign ?? 'center')] ?? 'justify-center'
       } rounded transition-colors ${
         item ? '' : 'min-h-[120px] items-center border border-dashed'
       } ${over ? 'border-[#3D8BD0] bg-[#EBF5FF]' : item ? '' : 'border-[#C3CBD6]'}`}

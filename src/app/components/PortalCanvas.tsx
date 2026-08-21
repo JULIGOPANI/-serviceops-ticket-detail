@@ -1332,15 +1332,20 @@ export function AddSectionSeam({ afterId }: { afterId: string }) {
 /** Add a column — a solid track beside a dashed one waiting to be filled.
  *
  * ⚠️ Drawn rather than borrowed from the icon set. Every "+" in a lucide-shaped glyph says *add
- * something*; this has to say *add a COLUMN*, and the only way a 16px mark says that is by showing
+ * something*; this has to say *add a COLUMN*, and the only way a small mark says that is by showing
  * the tracks. The dashed one is the new column, so mirroring the icon on the left button makes it
- * point the way it will actually grow. */
-function ColumnAddIcon({ size = 15 }: { size?: number }) {
+ * point the way it will actually grow.
+ *
+ * ⚠️ Artwork supplied by the designer — a 24-unit box with a NARROW solid track and a WIDER dashed
+ * one. The first attempt drew two equal tracks at 16 units, which read as a busy grid rather than
+ * "here, and one more beside it": at this size the difference between the two columns has to be the
+ * loudest thing in the glyph. Keep the geometry; only the rendered size varies. */
+function ColumnAddIcon({ size = 16 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="1.2" y="2.2" width="5.2" height="11.6" rx="1.4" />
-      <rect x="9.6" y="2.2" width="5.2" height="11.6" rx="1.4" strokeDasharray="2.2 1.8" />
-      <path d="M12.2 6.4v3.2M10.6 8h3.2" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="3" width="6.5" height="18" rx="1.5" />
+      <rect x="12.5" y="3" width="8.5" height="18" rx="1.5" strokeDasharray="3 2.6" />
+      <path d="M16.75 10v4M14.75 12h4" />
     </svg>
   );
 }
@@ -1358,22 +1363,22 @@ export function ColumnAdders({ columnId, filled }: { columnId: string; filled?: 
         onClick={(e) => { e.stopPropagation(); addColumnBeside(columnId, 'left'); }}
         title="Add a column to the left"
         className={`${side} absolute -left-3 top-1/2 z-20 -translate-y-1/2`}
-      ><span className="-scale-x-100"><ColumnAddIcon /></span></button>
+      ><span className="-scale-x-100"><ColumnAddIcon size={15} /></span></button>
 
       {/* The middle one swaps the right panel to the element library — the list you pick from is
           the answer to "add what?", so it takes the panel rather than opening a second surface. */}
       {/* ⚠️ Only on an EMPTY column. On a filled one it would sit on top of the element it is
           offering to replace, and a column holds one thing — so the side adders, which make room
           rather than compete for it, are the whole offer there. */}
-      {/* ⚠️ It is the SAME grey plus the column shows at rest, in the same place. It used to turn
-          blue the instant the column went live, so the one affordance that never changes meaning —
-          "put something here" — was the one that changed appearance under the cursor. The sides
-          say "make room"; the middle says "fill it"; only the sides are new on hover. */}
+      {/* ⚠️ BLUE while the column is live, grey at rest — the three affordances arrive together and
+          look like one set. The rest state's grey plus is a hint that something can go here; once
+          the column is under the cursor all three are armed, and a middle button still painted like
+          the hint would be the only live control on the column that did not look live. */}
       {!filled && (
         <button
           onClick={(e) => { e.stopPropagation(); addInside(columnId); }}
           title="Add an element here"
-          className="absolute left-1/2 top-1/2 z-20 flex size-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#C3CBD6] text-white transition-colors hover:bg-[#3D8BD0]"
+          className="absolute left-1/2 top-1/2 z-20 flex size-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#3D8BD0] text-white shadow-sm transition-colors hover:bg-[#2d6ca0]"
         ><Plus size={14} /></button>
       )}
 
@@ -1381,7 +1386,7 @@ export function ColumnAdders({ columnId, filled }: { columnId: string; filled?: 
         onClick={(e) => { e.stopPropagation(); addColumnBeside(columnId, 'right'); }}
         title="Add a column to the right"
         className={`${side} absolute -right-3 top-1/2 z-20 -translate-y-1/2`}
-      ><ColumnAddIcon /></button>
+      ><ColumnAddIcon size={15} /></button>
     </>
   );
 }
