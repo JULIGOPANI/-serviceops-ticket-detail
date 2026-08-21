@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   Bell, Check, Info, Keyboard, KeyRound, House, MessageSquare, MessagesSquare, Plus, PanelLeft,
-  RotateCcw, Search, ShoppingCart, Type, X, ChevronsRight,
+  RotateCcw, Search, ShoppingCart, Type, X, ChevronsRight, LayoutGrid,
 } from 'lucide-react';
 import { MotadataLogo } from './Header';
 import { AiSparkle } from './AiSparkle';
@@ -41,6 +41,11 @@ interface SupportPortalPreviewProps {
   removed?: string[];
   /** Elements dropped into a built-in row, rendered after that row's own cards. */
   rowExtras?: Record<string, PlacedElement[]>;
+  /* ⚠️ A BLANK portal — started from scratch rather than from a template. The product's own chrome
+     stays (the top bar and the left rail are undeletable navigation; a portal with no way to reach
+     My Requests is not a portal) and everything that is PAGE CONTENT goes: no banner, no action
+     cards, no data widgets, no seeded sections. What is left says so and offers the first block. */
+  blank?: boolean;
   /* Resolved widget config per node (spec §9). Every field in the drawer reads back through this,
      which is what makes "live apply" real — a control that looks right and changes nothing teaches
      people to distrust the panel. */
@@ -407,6 +412,10 @@ function PortalRail({ cfg = EMPTY_CFG }: { cfg?: Record<string, unknown> }) {
 /** Reordering payload, kept off the element MIME so a nav drag can never land on the canvas. */
 const NAV_MIME = 'text/portal-nav';
 
+/** The four built-in anchors a section can be attached to. A blank page renders none of them, so
+ *  it collects everything anchored to any of them under its own single seam. */
+const BUILT_IN_ANCHORS = new Set(['hero', 'quick', 'work', 'records']);
+
 function PortalHeader({ cfg = EMPTY_CFG, onLogoPos }: {
   content?: PortalPageContent; cfg?: Record<string, unknown>;
   /** Commits the logo's placement — the bar owns it, so the write goes back up to the bar's config. */
@@ -692,7 +701,7 @@ function Row({ nodeId, children }: { nodeId: string; children: ReactNode }) {
 
 /* ── The page ────────────────────────────────────────────────────────────── */
 
-export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CONTENT, sections = [], icons, placedText, blockOrder = DEFAULT_BLOCK_ORDER, rowOrder = DEFAULT_ROW_ORDER, removed = [], rowExtras, cfg, setCfg }: SupportPortalPreviewProps) {
+export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CONTENT, sections = [], icons, placedText, blockOrder = DEFAULT_BLOCK_ORDER, rowOrder = DEFAULT_ROW_ORDER, removed = [], rowExtras, cfg, setCfg, blank = false }: SupportPortalPreviewProps) {
   const { styles, enabled, select, pickIcon } = useCanvas();
   /* Which mode the surrounding theme wrapper is in. Inline styles cannot be answered by the dark
      stylesheet, so the few values that are data rather than utilities read it here. */
@@ -884,7 +893,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
           under the hero but never under the section you had just added, and the CTA a section
           offers on hover had nowhere to appear. The seam's `afterId` is the section itself, which
           is also what makes `addSection` splice the next one in directly below it. */}
-      {sections.filter((s) => s.afterId === id).map((s) => (
+      {sections.filter((s) => (blank ? BUILT_IN_ANCHORS.has(s.afterId) : s.afterId === id)).map((s) => (
         <Fragment key={s.section.id}>
           <AddedSection section={s.section} icons={icons} placedText={placedText} cfg={cfg} />
           <div className="px-6"><AddSectionSeam afterId={s.section.id} /></div>
@@ -957,6 +966,30 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
           className="min-w-0 flex-1 bg-[#F4F6FA]"
           style={heroCfg.bgWholePage === true ? { ...heroBg, backgroundAttachment: 'fixed' } : undefined}
         >
+          {/* ⚠️ On a blank portal the whole content area is replaced by ONE empty state and its
+              seam. Rendering the bands and hiding them individually would leave four invisible
+              anchors on the page, each still offering "+ Add Section" on hover — an empty page that
+              answers four different places you never put anything. */}
+          {blank ? (
+            <div className={sections.length ? 'px-6 py-8' : 'flex min-h-[420px] flex-col justify-center px-6 py-16'}>
+              {sections.length === 0 && (
+              <div className="mx-auto flex w-full max-w-[520px] flex-col items-center rounded-xl border border-dashed border-[#D9E0EA] bg-white/70 px-6 py-12 text-center">
+                <span className="flex size-14 items-center justify-center rounded-full bg-[#EBF5FF] text-[#3D8BD0]">
+                  <LayoutGrid size={26} strokeWidth={1.6} />
+                </span>
+                <p className="mt-4 text-[15px] font-semibold text-[#364658]">Your portal is empty</p>
+                <p className="mt-1.5 max-w-[360px] text-[13px] leading-[1.6] text-[#7B8FA5]">
+                  Add a section, then drop widgets into it — or pick one from the Widgets panel and
+                  drag it straight onto the page.
+                </p>
+              </div>
+              )}
+              {/* The one anchor a blank page has. Everything added lands after it, and every added
+                  section then carries a seam of its own. */}
+              <div className={sections.length ? '' : 'mt-6'}>{after('hero')}</div>
+            </div>
+          ) : (
+          <>
           {/* ── Hero ── */}
           {/* Full bleed ignores the page's side inset (§7.20); the 9-point picker places the
               content block, and the heading colour is the one the contrast guard measures. */}
@@ -1304,6 +1337,8 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
 
             {after('records')}
           </div>
+          </>
+          )}
         </div>
       </div>
 

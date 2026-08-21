@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { portalLink, portalSlug } from '../routes';
+import { CreateSupportPortalModal } from './CreateSupportPortalModal';
+import type { PortalDetails } from './CreateSupportPortalModal';
 import { Pagination } from './Pagination';
 import { SupportPortalBuilder } from './SupportPortalBuilder';
 import { SupportPortalTemplateGallery } from './SupportPortalTemplateGallery';
@@ -237,6 +239,7 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
   const [pages, setPages] = useState<PortalPage[]>([DEFAULT_PORTAL_PAGE]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [gallery, setGallery] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   /* Set when the row menu asked for settings rather than the canvas — the builder opens on that
      panel instead of the widget library. Cleared as soon as it has been handed over, so returning
@@ -271,7 +274,7 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
   useEffect(() => {
     if (openPortal === consumed.current) return;
     consumed.current = openPortal;
-    if (!openPortal) return;
+    if (!openPortal) { setEditingId(null); return; }
     const hit = findPortal(openPortal);
     if (hit) setEditingId(hit.id);
   }, [openPortal, findPortal]);
@@ -283,7 +286,7 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId, pages]);
 
-  const create = (name: string, source: string) => {
+  const create = (name: string, source: string, extra: Partial<PortalPage> = {}) => {
     const now = formatPortalStamp(new Date());
     const created: PortalPage = {
       id: nextPageId(pages),
@@ -294,9 +297,30 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
       audience: 'All requesters',
       modifiedAt: now,
       modifiedBy: CURRENT_USER,
+      ...extra,
     };
     setPages((prev) => [created, ...prev]);
-    setEditingId(created.id);
+    return created;
+  };
+
+  /* Step 1 → the portal exists. It is NOT opened yet: step 2 is still on screen asking what goes
+     on it, and swapping the canvas in underneath that question would answer it for them. */
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const saveDetails = (dt: PortalDetails) => {
+    const created = create(dt.name, 'Blank layout', {
+      company: dt.company, url: dt.url, idp: dt.idp, ssoOnly: dt.ssoOnly,
+    });
+    setDraftId(created.id);
+    toast.success(`${created.name} created — choose how to start it`);
+  };
+
+  /** Step 2 → what the new portal starts with, then open it. */
+  const startWith = (start: 'blank' | 'template', source: string) => {
+    if (!draftId) return;
+    setPages((prev) => prev.map((p) => (p.id === draftId ? { ...p, start, source } : p)));
+    setCreating(false);
+    setEditingId(draftId);
+    setDraftId(null);
   };
 
   const patch = (id: string, changes: Partial<PortalPage>) =>
@@ -304,8 +328,12 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
       ? { ...p, ...changes, modifiedAt: formatPortalStamp(new Date()), modifiedBy: CURRENT_USER }
       : p)));
 
-  const startBlank = () => { setGallery(false); create('New page', 'Blank layout'); };
-  const useTemplate = (t: PortalTemplate) => { setGallery(false); create(t.name, t.name); };
+  /* ⚠️ The DEFAULT template is `null`, and it is the only one that produces a non-blank page today:
+     it IS the standard portal, which is what the builder renders when `start` is not 'blank'. The
+     seven designed templates still record their own name in `source`, so the listing can say where
+     a page came from even while they share one starting layout. */
+  const startBlank = () => startWith('blank', 'Blank layout');
+  const useTemplate = (t: PortalTemplate | null) => startWith('template', t ? t.name : 'Default portal');
 
   const duplicate = (src: PortalPage) => {
     const now = formatPortalStamp(new Date());
@@ -343,6 +371,14 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
 
   const overlays = (
     <>
+      {creating && (
+        <CreateSupportPortalModal
+          onClose={() => { setCreating(false); setDraftId(null); }}
+          onSaveDetails={saveDetails}
+          onScratch={startBlank}
+          onTemplate={useTemplate}
+        />
+      )}
       {gallery && (
         <SupportPortalTemplateGallery
           onClose={() => setGallery(false)}
@@ -382,7 +418,12 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
       </div>
       {/* ⚠️ Aligned to the TITLE's line, not centred against the two-line block. Centred it floated
           between the heading and the sentence under it, belonging to neither. */}
-      <div className="flex-shrink-0 pt-0.5"><NewPageMenu onScratch={startBlank} onTemplate={() => setGallery(true)} /></div>
+      <div className="flex-shrink-0 pt-0.5">
+        <button
+          onClick={() => setCreating(true)}
+          className="inline-flex h-9 items-center gap-1.5 rounded bg-[#3D8BD0] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#2d6ca0]"
+        ><Plus size={15} /> Create support portal</button>
+      </div>
     </div>
   );
 
@@ -412,7 +453,12 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
               Requesters currently see the default ServiceOps portal. Build a page to change what
               they land on — start blank, or pick a template and edit it.
             </p>
-            <div className="mt-5"><NewPageMenu size="large" onScratch={startBlank} onTemplate={() => setGallery(true)} /></div>
+            <div className="mt-5">
+              <button
+                onClick={() => setCreating(true)}
+                className="inline-flex h-9 items-center gap-1.5 rounded bg-[#3D8BD0] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#2d6ca0]"
+              ><Plus size={15} /> Create support portal</button>
+            </div>
             <button
               onClick={() => setGallery(true)}
               className="mt-3 text-[13px] font-medium text-[#3D8BD0] hover:underline"

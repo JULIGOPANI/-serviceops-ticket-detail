@@ -24,6 +24,16 @@ export interface PortalPage {
   modifiedBy: string;
   /** Edited since it was last published — the amber chip on the listing. */
   dirty?: boolean;
+  /* ⚠️ How the page was STARTED, not merely which template it resembles. `source` is prose for the
+     listing; this is the fact the builder acts on — a blank portal must not seed the default page's
+     banner, cards and widgets, and nothing else can tell it apart. */
+  start?: 'blank' | 'template';
+  /* Step 1 of Create Support Portal. Held on the record because they are facts about the PORTAL,
+     not about its layout — the Branding panel shows the same values once it is open. */
+  company?: string;
+  url?: string;
+  idp?: string;
+  ssoOnly?: boolean;
 }
 
 export type TemplateLayout = 'classic' | 'spotlight' | 'catalog' | 'knowledge' | 'minimal' | 'status';

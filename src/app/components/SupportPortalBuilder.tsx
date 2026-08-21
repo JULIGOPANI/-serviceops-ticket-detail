@@ -386,6 +386,10 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
        being shown at the size it will really be used at. Full width down a single column is how the
        portal page itself is built, and it means every element can be selected, resized and styled
        without its partner moving at the same time. */
+    /* ⚠️ A BLANK portal seeds NOTHING. The example sections exist so an untouched page shows what
+       the palette can do; on a page somebody asked to be empty they are the opposite of that — the
+       first thing you would have to do is delete fifteen sections you did not add. */
+    if (page.start === 'blank') return [];
     const pool = PORTAL_ELEMENTS.filter((e) => !e.onPage && !e.hidden);
     return pool.map((def, i) => {
       const id = `sec-${i + 1}`;
@@ -1293,7 +1297,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
         <div className={`min-h-0 flex-1 overflow-y-auto ${themeClass}`} style={themeWrap}>
           {/* Preview must behave like the real portal — selection off. */}
           <CanvasProvider value={{ ...canvasCtx, enabled: false, selectedId: null, hoverId: null, select: () => {}, setHover: () => {} }}>
-            <SupportPortalPreview accent={themeAccent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} />
+            <SupportPortalPreview accent={themeAccent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} blank={page.start === 'blank'} />
           </CanvasProvider>
         </div>
       </div>
@@ -1395,7 +1399,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
             style={themeWrap}
           >
             <CanvasProvider value={{ ...canvasCtx, enabled: true }}>
-              <SupportPortalPreview accent={themeAccent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} setCfg={patchCfg} />
+              <SupportPortalPreview accent={themeAccent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} setCfg={patchCfg} blank={page.start === 'blank'} />
             </CanvasProvider>
           </div>
 
@@ -1464,7 +1468,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
             {/* A rail panel wins while one is open; otherwise the panel is the element editor,
                 falling back to the "select something" empty state. */}
             {panelKey === 'add' ? (
-              <div className="min-h-0 flex-1"><SupportPortalAddPanel onAdd={addElement} placedTypes={placedTypes} /></div>
+              <div className="min-h-0 flex-1"><SupportPortalAddPanel onAdd={addElement} placedTypes={placedTypes} blank={page.start === 'blank'} /></div>
             ) : active === 'theme' ? (
               <div className="flex min-h-0 flex-1 flex-col"><PortalThemePanel theme={theme} onChange={(patch) => setTheme((t) => ({ ...t, ...patch }))} /></div>
             ) : active === 'branding' ? (

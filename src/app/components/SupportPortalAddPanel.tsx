@@ -93,9 +93,14 @@ interface Props {
   onAdd: (elementId: string) => void;
   /** Catalogue types the page is already carrying, so a single-instance block reads "added". */
   placedTypes: string[];
+  /* ⚠️ A BLANK portal has none of the built-in blocks, so `onPage` — which states that a component
+     ships as a fixed part of the standard page — is not true of it. Left unqualified, the library
+     greyed out Announcements, My Requests and six others on a page that was visibly empty, telling
+     the admin they had already added things they could see they had not. */
+  blank?: boolean;
 }
 
-export function SupportPortalAddPanel({ onAdd, placedTypes }: Props) {
+export function SupportPortalAddPanel({ onAdd, placedTypes, blank = false }: Props) {
   const [query, setQuery] = useState('');
   /* ⚠️ The anchor is a MEASURED rect, not the element: the list scrolls under a fixed popover, so
      the card has to be placed against where the row is NOW, not where React last thought it was.
@@ -140,7 +145,7 @@ export function SupportPortalAddPanel({ onAdd, placedTypes }: Props) {
      the reuse test alone could never grey it — but this page already carries one in the banner, and
      a palette that offers a second is describing a page other than the one on screen. Reuse governs
      what an admin PLACES; onPage states what is already there. */
-  const isAdded = (e: PortalElement) => !!e.onPage || (isSingle(e) && placedTypes.includes(e.id));
+  const isAdded = (e: PortalElement) => (!blank && !!e.onPage) || (isSingle(e) && placedTypes.includes(e.id));
 
   /** A search can remove the group the tabs are pointing at. */
   useEffect(() => {

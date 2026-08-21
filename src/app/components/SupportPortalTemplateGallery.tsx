@@ -22,7 +22,7 @@ const R = ({ x, y, w, h, fill, o = 1, r = 1.5 }: { x: number; y: number; w: numb
   <rect x={x} y={y} width={w} height={h} rx={r} fill={fill} opacity={o} />
 );
 
-function TemplateThumb({ layout, accent }: { layout: TemplateLayout; accent: string }) {
+export function TemplateArt({ layout, accent }: { layout: TemplateLayout; accent: string }) {
   const g = '#D8DEE7';
   const g2 = '#EAEEF3';
   return (
@@ -161,7 +161,7 @@ export function SupportPortalTemplateGallery({ onClose, onUse, onStartBlank }: G
                         }`}
                       >
                         <span className="relative block h-[150px] w-full overflow-hidden border-b border-[#E5E7EB] bg-[#F7F9FC]">
-                          <TemplateThumb layout={t.layout} accent={t.accent} />
+                          <TemplateArt layout={t.layout} accent={t.accent} />
                           {on && (
                             <span className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-[#3D8BD0] text-white"><Check size={13} /></span>
                           )}
@@ -186,7 +186,7 @@ export function SupportPortalTemplateGallery({ onClose, onUse, onStartBlank }: G
             <aside className="flex w-[300px] flex-shrink-0 flex-col border-l border-[#e5e7eb] bg-[#FCFDFE]">
               <div className="min-h-0 flex-1 overflow-y-auto p-5">
                 <div className="h-[124px] w-full overflow-hidden rounded border border-[#E5E7EB]">
-                  <TemplateThumb layout={selected.layout} accent={selected.accent} />
+                  <TemplateArt layout={selected.layout} accent={selected.accent} />
                 </div>
                 <h3 className="mt-3.5 text-[15px] font-semibold text-[#364658]">{selected.name}</h3>
                 <p className="mt-1.5 text-[13px] leading-[1.6] text-[#64748B]">{selected.desc}</p>
