@@ -283,7 +283,7 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
   { id: 'act-knowledge', name: 'Knowledge', icon: 'knowledge', group: 'Actions', onPage: true, keywords: 'articles help search' },
 
   { id: 'l-tabs', name: 'Advanced Tabs', icon: 'tabs', group: 'Basic', hidden: true }, // hidden 20 Aug 2026
-  { id: 'l-divider', name: 'Divider', icon: 'divider', group: 'Basic', keywords: 'vertical horizontal v/h separator rule' },
+  { id: 'l-divider', name: 'Divider', icon: 'divider', group: 'Basic', keywords: 'vertical horizontal v/h separator rule', hidden: true }, // hidden 21 Aug 2026
 
   /* ⚠️ File Download, Click to Call, Click to Mail and Share are NOT here. They are Button
      ACTIONS (§7.11's 'Opens' list), not elements — one button with a different destination. A
