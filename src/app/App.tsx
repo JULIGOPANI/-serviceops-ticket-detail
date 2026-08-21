@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TicketListPage } from './components/TicketListPage';
 import { ProblemListPage } from './components/ProblemListPage';
 import { ChangeListPage } from './components/ChangeListPage';
@@ -21,16 +21,45 @@ import { AdminPage } from './components/AdminPage';
 import { DrawerStackProvider } from './components/DrawerStack';
 import { GlobalSearch } from './components/GlobalSearch';
 import { Toaster } from 'sonner';
-
-type Page = 'request' | 'problem' | 'change' | 'release' | 'hardware-assets' | 'software-assets' | 'non-it-assets' | 'consumable-assets' | 'software-licenses' | 'contracts' | 'purchases' | 'cmdb' | 'patches' | 'patch-deployments' | 'endpoints' | 'vulnerabilities' | 'detected-cves' | 'bom' | 'admin';
+import { formatHash, parseHash } from './routes';
+import type { Page, Route } from './routes';
 
 export default function App() {
-  const [activePage, setActivePage] = useState<Page>('request');
-  const navigate = (page: string) => setActivePage(page as Page);
+  /* The URL is the source of truth for which screen is open — see routes.ts for why it lives in
+     the hash. State is seeded from it so a shared link lands on the right screen with no flash of
+     the default page. */
+  const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
+  const activePage = route.page;
+
+  // Back/forward, and any hash we write ourselves, both arrive here — one way in.
+  useEffect(() => {
+    const onHash = () => setRoute(parseHash(window.location.hash));
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  /* Keep the address bar naming the screen you are actually looking at — it stamps a bare load,
+     and rewrites anything unrecognised to the route it fell back to (#/nonsense showing the
+     request list is exactly the lie this whole scheme exists to prevent). replaceState, not
+     assignment: correcting a URL must not leave a history entry you can press Back into. */
+  useEffect(() => {
+    const canonical = formatHash(route);
+    if (window.location.hash !== canonical) window.history.replaceState(null, '', canonical);
+  }, [route]);
+
+  const go = (next: Route) => {
+    const hash = formatHash(next);
+    // Assigning fires hashchange, which sets the state; an identical hash fires nothing, so that
+    // case updates directly rather than silently doing nothing.
+    if (window.location.hash !== hash) window.location.hash = hash;
+    else setRoute(next);
+  };
+  const navigate = (page: string) => go({ page: page as Page });
+
   // A software asset id requested from elsewhere (e.g. the Software License "Managed Softwares" card),
   // consumed by the Software Assets list page to auto-open that asset's detail drawer.
   const [pendingSoftwareAssetId, setPendingSoftwareAssetId] = useState<string | null>(null);
-  const openSoftwareAsset = (id: string) => { setPendingSoftwareAssetId(id); setActivePage('software-assets'); };
+  const openSoftwareAsset = (id: string) => { setPendingSoftwareAssetId(id); go({ page: 'software-assets' }); };
 
   return (
     <DrawerStackProvider activePage={activePage}>
@@ -52,7 +81,13 @@ export default function App() {
       {activePage === 'vulnerabilities' && <VulnerabilitiesListPage onNavigate={navigate} />}
       {activePage === 'detected-cves' && <DetectedCvesListPage onNavigate={navigate} />}
       {activePage === 'bom' && <BomInventoryListPage onNavigate={navigate} />}
-      {activePage === 'admin' && <AdminPage onNavigate={navigate} />}
+      {activePage === 'admin' && (
+        <AdminPage
+          onNavigate={navigate}
+          moduleSlug={route.admin}
+          onModuleChange={(slug) => go({ page: 'admin', admin: slug })}
+        />
+      )}
       {/* Mounted once, inside the drawer host, so search works on every page and can open any
           module's real detail drawer as a tab. */}
       <GlobalSearch activePage={activePage} onNavigate={navigate} />

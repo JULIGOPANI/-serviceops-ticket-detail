@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { adminRouteBySlug, adminSlugFor } from '../routes';
 import { Header } from './Header';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminOverview } from './AdminOverview';
@@ -37,7 +38,15 @@ const CARD_MODULES: Record<string, string> = {
  * The sidebar and the Overview share one section list, and selecting in the sidebar scrolls the
  * Overview rather than swapping the pane — the whole point of a hub is that it is one surface. */
 
-export function AdminPage({ onNavigate }: { onNavigate: (page: string) => void }) {
+interface AdminPageProps {
+  onNavigate: (page: string) => void;
+  /** Module slug from the URL (#/admin/<slug>), or undefined for the Overview. */
+  moduleSlug?: string;
+  /** Reports where the admin navigated itself, so the address bar follows the pane. */
+  onModuleChange?: (slug: string | undefined) => void;
+}
+
+export function AdminPage({ onNavigate, moduleSlug, onModuleChange }: AdminPageProps) {
   const [active, setActive] = useState('Overview');
   const [query, setQuery] = useState('');
   // Only the first section starts open, mirroring the live admin.
@@ -59,7 +68,7 @@ export function AdminPage({ onNavigate }: { onNavigate: (page: string) => void }
   /** Level-2 module inside the active section, when one is selected. Drives the nav highlight. */
   const [activeCard, setActiveCard] = useState<string | null>(null);
 
-  const select = (title: string, card?: string) => {
+  const applySelect = (title: string, card?: string) => {
     const cardModule = card ? CARD_MODULES[`${title}/${card}`] : undefined;
     // A nav row that opens nothing must not stay highlighted while the Overview shows behind it.
     const opensSomething = !!cardModule || (!!card && MODULE_TITLES.includes(title));
@@ -98,6 +107,32 @@ export function AdminPage({ onNavigate }: { onNavigate: (page: string) => void }
     });
   };
 
+  /* The slug this shell last put in the URL. Without it the address bar's answer comes straight
+     back down as `moduleSlug` and re-runs the selection on every render. */
+  const pushedRef = useRef<string | undefined>(undefined);
+
+  /** Everything the user clicks goes through here, so the URL can never lag behind the pane. */
+  const select = (title: string, card?: string) => {
+    applySelect(title, card);
+    const slug = adminSlugFor(title, card);
+    pushedRef.current = slug;
+    onModuleChange?.(slug);
+  };
+
+  /* Deep link → open that module on arrival, and follow browser back/forward within admin.
+     A slug with no screen behind it is already filtered out by routes.ts, so this only ever
+     resolves to something real. */
+  useEffect(() => {
+    if (moduleSlug === pushedRef.current) return;
+    pushedRef.current = moduleSlug;
+    const r = moduleSlug ? adminRouteBySlug(moduleSlug) : undefined;
+    if (r) { applySelect(r.section, r.card); return; }
+    setModule(null);
+    setActive('Overview');
+    setActiveCard(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moduleSlug]);
+
   return (
     <div className="flex h-screen flex-col bg-[#F7F9FC]">
       {/* The product header STAYS while the builder is open — the logo, global search and the
@@ -121,6 +156,9 @@ export function AdminPage({ onNavigate }: { onNavigate: (page: string) => void }
                   setBomScreen(s);
                   const card = Object.keys(BOM_SCREEN_FOR).find((k) => BOM_SCREEN_FOR[k] === s);
                   setActiveCard(card ?? null);
+                  const slug = adminSlugFor('BOM Management', card);
+                  pushedRef.current = slug;
+                  onModuleChange?.(slug);
                 }}
               />
             </div>
