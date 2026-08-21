@@ -51,6 +51,12 @@ than importing a look from elsewhere.
 Values below are the ones actually in use, ordered by frequency. There are no other greys — if you
 need one, it is already in this list.
 
+> **Hex case.** This guide writes hex uppercase throughout. The codebase is mixed — uppercase
+> dominates (`#E5E7EB` 1680 vs 547) but a few high-traffic classes are lowercase, notably the ID
+> pill `bg-[#e8f4fd]` and the input border `border-[#d1d5db]`. Case is cosmetic to CSS, but
+> Tailwind treats `bg-[#E8F4FD]` and `bg-[#e8f4fd]` as two different classes and emits both. Pick
+> one case per project and stay on it; when editing this codebase, match the file you are in.
+
 ### 1.1 Text
 
 | Role | Hex | Use |
@@ -753,7 +759,6 @@ Per-person colors come from the record: `#6366F1` `#10B981` `#F59E0B` `#EC4899` 
             text-[#7B8FA5]">⌘K</kbd>
 ```
 
----
 
 ### 8.9 Sentiment badge — the one `rounded-full` badge
 
@@ -842,6 +847,8 @@ Submitted Approval Planning Implementation
 
 A heavier scrim than a drawer's `bg-black/40`, plus a blur, because the point is to remove
 everything except one element.
+
+---
 
 ## 9. Tables & grids
 
@@ -1573,6 +1580,7 @@ missed when restyling.
 | Audit trail entry, day group, toolbar | 16.12 |
 | Avatar | 8.7 |
 | Badge — status, count, severity | 8.3, 8.4 |
+| Badge — sentiment (rounded-full) | 8.9 |
 | Bullet (AI key point) | 5.4 |
 | Button — primary, secondary, tertiary, destructive, icon, split, close | 4 |
 | Card — content, clickable, KPI, donut, list-preview, inset | 10 |
@@ -1602,12 +1610,17 @@ missed when restyling.
 | Minimised drawer rail | 16.2 |
 | Modal | 15 |
 | Module-specific tabs (all 17 modules) | 16.14 |
+| Numbered step marker | 8.12 |
 | Pagination | 18 |
+| Progress bar (single value) | 8.10 |
 | Relations grid + filter pills | 16.11 |
 | Scrollbars | 19.5 |
 | Segmented toggle | 11.2 |
 | Settings nav (3 levels) | 17.3 |
 | Skeleton | 19.2 |
+| Spotlight overlay (product tour) | 8.14 |
+| Stacked status bar | 8.11 |
+| Stage / stepper bar | 8.13 |
 | SLA status card | 16.6 |
 | Status dot | 8.1 |
 | Table / grid | 9 |
