@@ -16,49 +16,31 @@ import { Field, SelectField, Segmented, TextField, ToggleRow } from './PortalCon
  * upload sits in the element's own Content section — an image you can see is an image you should be
  * able to click. */
 
-/** A read-only row: the value is a fact about the tenant, not a setting. */
+/* A read-only row: the value is a fact about the tenant, not a setting.
+ *
+ * ⚠️ It renders inside `Field`, like every other row here. It used to carry its own `mb-4` while
+ * `Field` spaces with `mt-4 first:mt-0` — bottom margin against top margin, so the very first pair
+ * on the panel (Portal name → Company) had NO gap at all while a Field following a hand-spaced row
+ * got a double one. One wrapper owning the rhythm is the only way that cannot come back. */
 function ReadOnly({ label, value }: { label: string; value: string }) {
   return (
-    <div className="mb-4">
-      <p className="mb-1 text-[12px] text-[#7B8FA5]">{label}</p>
+    <Field label={label}>
       {/* ⚠️ Shown, not hidden. Which company and which URL this portal answers on is the first thing
           anyone needs to confirm they are editing the right one — and a disabled field says "this is
           decided elsewhere" far better than an absence does. */}
       <div className="flex h-9 w-full items-center rounded border border-[#E5E7EB] bg-[#F7F9FC] px-2.5 text-[13px] text-[#7B8FA5]">
         {value}
       </div>
-    </div>
+    </Field>
   );
 }
 
-/** A field whose value falls back to the org-wide setting until this portal overrides it. */
-function Inherited({ label, value, onChange, placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder: string;
-}) {
-  /* ⚠️ The badge is the whole point of the row. Without it an inherited value and an overridden one
-     look identical — you cannot tell whether you are seeing the global default or a decision
-     somebody already made here, which is exactly the question this screen has to answer. */
-  const own = value.trim().length > 0;
-  return (
-    <div className="mb-4">
-      <p className="mb-1 flex items-center gap-1.5">
-        <span className="text-[12px] text-[#7B8FA5]">{label}</span>
-        {!own && <span className="rounded bg-[#F1F5F9] px-1.5 py-0.5 text-[10px] font-medium text-[#7B8FA5]">Inherited</span>}
-      </p>
-      <TextField value={value} onChange={onChange} placeholder={placeholder} />
-    </div>
-  );
-}
-
+/* ⚠️ NO rule under a section head. A heading and the fields beneath it are one block, and a hairline
+   between them cuts the title away from what it is titling — the line lands where the relationship
+   is strongest instead of where the sections actually divide. The space above (`mt-7`) is what
+   separates one section from the last. */
 const Head = ({ children }: { children: React.ReactNode }) => (
-  <p className="mb-3 mt-6 border-b border-[#E5E7EB] pb-2 text-[13px] font-semibold text-[#364658]">{children}</p>
-);
-
-const Note = ({ children }: { children: React.ReactNode }) => (
-  <div className="mt-4 flex gap-2 rounded-lg bg-[#F7F9FC] p-3">
-    <Info size={14} className="mt-0.5 flex-shrink-0 text-[#9CA3AF]" />
-    <p className="text-[12px] leading-[1.55] text-[#7B8FA5]">{children}</p>
-  </div>
+  <p className="mb-1 mt-7 text-[13px] font-semibold text-[#364658]">{children}</p>
 );
 
 export function PortalBrandingPanel() {
@@ -98,12 +80,12 @@ export function PortalBrandingPanel() {
           value="https://support.acme.com"
         />
 
-        <Inherited
-          label="Support Portal Title"
-          value={v.title}
-          onChange={(x) => set('title', x)}
-          placeholder="Support Portal"
-        />
+        {/* ⚠️ No "Inherited" badge. It marked a row whose value still came from the org-wide
+            setting, but it appeared and vanished as you typed — a label that moves while you use the
+            field, on a panel where the placeholder already shows what the value falls back to. */}
+        <Field label="Support Portal Title">
+          <TextField value={v.title} onChange={(x) => set('title', x)} placeholder="Support Portal" />
+        </Field>
 
         <Field label="Landing Page for Guest Users">
           <Segmented
@@ -250,32 +232,13 @@ export function PortalBrandingPanel() {
             options={['None — use ServiceOps login', 'Azure AD', 'Okta', 'Google Workspace', 'SAML 2.0']}
           />
         </Field>
-        {/* ⚠️ Stated even while it cannot apply. The SSO-only switch is absent until a provider is
-            chosen, and an absent control explains nothing — this says why it is missing and what
-            brings it back, which is the difference between a rule and a dead end. */}
-        <Note>
-          Choose an identity provider before you can enforce SSO-only sign-in. Clearing the provider
-          turns this back off, as it does in the product.
-        </Note>
-
         <Head>Contact shown on the portal</Head>
-        <Inherited
-          label="Support Email"
-          value={v.email}
-          onChange={(x) => set('email', x)}
-          placeholder="servicedesk@acme.com"
-        />
-        <Inherited
-          label="Support Contact No."
-          value={v.phone}
-          onChange={(x) => set('phone', x)}
-          placeholder="+91 79 4040 0000"
-        />
-
-        <Note>
-          Helpdesk Name, Technician Portal Title and Login Screen Preference apply to the whole
-          product and stay in <span className="font-medium text-[#364658]">Organization › Branding</span>.
-        </Note>
+        <Field label="Support Email">
+          <TextField value={v.email} onChange={(x) => set('email', x)} placeholder="servicedesk@acme.com" />
+        </Field>
+        <Field label="Support Contact No.">
+          <TextField value={v.phone} onChange={(x) => set('phone', x)} placeholder="+91 79 4040 0000" />
+        </Field>
       </div>
 
       {/* ⚠️ A STICKY footer, unlike the rest of the builder. Everything else on this canvas applies

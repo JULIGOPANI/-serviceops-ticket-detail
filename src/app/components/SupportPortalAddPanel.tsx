@@ -232,7 +232,13 @@ export function SupportPortalAddPanel({ onAdd }: Props) {
           /* scrollbar-hide (theme.css), not the arbitrary utilities — the global
              `.overflow-x-auto` auto-hide rules are declared later and win on source order,
              so `[scrollbar-width:none]` here was silently doing nothing. */
-          className="scrollbar-hide flex flex-shrink-0 cursor-grab select-none gap-1.5 overflow-x-auto border-b border-[#F0F2F5] px-4 pb-3 active:cursor-grabbing"
+          /* ⚠️ The product's INLINE tab treatment, the one every detail page uses: an underline on
+             the active tab sitting on the strip's own rule, `gap-2.5`, and the same hover. They were
+             pills — a second tab language in a product that already has one, and pills read as
+             filters (a set you pick from) where these are places you go. So the strip keeps its
+             bottom rule and loses its `pb-3`: the tab's own `border-b-2` has to touch that rule or
+             the underline floats above the line it belongs to. */
+          className="scrollbar-hide flex flex-shrink-0 cursor-grab select-none items-center gap-2.5 overflow-x-auto border-b border-[#e5e7eb] px-4 active:cursor-grabbing"
         >
           {groups.map(({ group }) => {
             const on = group === activeGroup;
@@ -245,8 +251,12 @@ export function SupportPortalAddPanel({ onAdd }: Props) {
                   if (drag.current?.moved) return;
                   goToGroup(group);
                 }}
-                className={`h-7 flex-shrink-0 rounded px-2.5 text-[12px] font-medium transition-colors ${
-                  on ? 'bg-[#3D8BD0] text-white' : 'border border-[#DFE5ED] bg-white text-[#364658] hover:bg-[#F5F7FA]'
+                /* 13px, not the detail page's 14 — every other line in this panel is 11–13, and a
+                   14px tab row would be the largest type on the surface it is a navigation for.
+                   Everything else about the recipe is identical. */
+                className={`flex-shrink-0 whitespace-nowrap border-b-2 px-2 py-3 text-[13px] font-medium transition-colors ${
+                  on ? 'border-[#3D8BD0] text-[#3D8BD0]'
+                    : 'border-transparent text-[#6b7280] hover:border-[#CBD5E1] hover:bg-[#F5F7FA] hover:text-[#364658]'
                 }`}
               >{group}</button>
             );
