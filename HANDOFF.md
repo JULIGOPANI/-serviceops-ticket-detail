@@ -1,121 +1,94 @@
-# Handoff — 2026-08-21 18:15
+# Handoff — 2026-08-24 00:19
 
 ## Read first
-Everything this session touched is in **CLAUDE.md's Support Portal bullets** — five of
-them were rewritten in place:
+Three **CLAUDE.md** bullets were rewritten in place this session — start there:
 
-- *"the entry point, the two tabs, and the listing"* — the new **Action column** and
-  what did NOT survive the kebab.
-- The **Create modal** bullet — `PortalDetailsFields` / `detailsReady` /
-  `EditPortalDetailsModal` are now shared between Create and Edit details.
-- *"Blue column adders belong to the SELECTED column only"* — the empty column's `+`,
-  its hover colour, and the new glyph.
-- *"widget fields — dynamic options and consequences (§2.2)"* — `templates` fields can
-  now declare an allow-list, and `when` gates belong to what they depend on.
-- *"click-to-add, the seam's two affordances…"* — the **Added tick is gone**; every
-  widget is addable, every time.
+- *"Support Portal builder — Add panel, canvas selection, and the element editor"* — the
+  group tab strip now uses the product's inline underline treatment, and why it is 13px
+  rather than the detail page's 14.
+- *"Support Portal — Branding and the logo"* — one spacing rhythm, no rule under a
+  section head, no Inherited badge, no info cards.
+- *"Support Portal — element preview on hover"* — rewritten end to end. It carries the
+  group-shape rules and the Tailwind-literal trap that would otherwise cost an hour.
 
 ## What we worked on this session
-The **Support Portal admin module** — the listing's row actions, and four builder
-fixes from the designer's review. Everything was verified in Chrome before commit and
-each batch was pushed to `main` on its own.
+Three rounds of designer review on the **Support Portal builder**: the Widgets panel's
+tab styling, the Branding panel's spacing and chrome, and a full rebuild of the element
+hover previews. Everything was measured in Chrome before commit; two commits pushed.
 
 ## Completed
-- **Action column on the Support Portal listing** (`AdminSupportPortalModule.tsx`) —
-  the kebab is replaced by the icon rail every other listing uses: **Edit ▾ · Preview ·
-  Copy · Delete**, `size={15}`, `#6B7280 → #3D8BD0`, red on delete, `gap-4`.
-  Edit carries a two-item menu (*Edit details* / *Customise portal*), portalled to
-  `document.body` so the table's `overflow-x-auto` cannot clip it. Delete stays
-  disabled with its reason on the default portal.
-- **Copy duplicates the whole portal and opens Edit details on the copy immediately.**
-  The copy inherits every detail including the URL; two portals cannot answer on one
-  address, so it asks at the moment a change is already known to be needed.
-- **`PortalDetailsFields` + `detailsReady` + `EditPortalDetailsModal`** extracted from
-  `CreateSupportPortalModal.tsx` — Create step 1 and Edit details are now literally the
-  same five fields. `DEFAULT_PORTAL_PAGE` seeded with company/url/idp/ssoOnly so Edit
-  opens on a filled record.
-- **`portalUrl()` returns the address the admin typed** (`p.url`) and only derives one
-  from the name for a portal nobody has addressed yet.
-- **Empty column's `+` centres both ways** (`SupportPortalPreview.tsx` — `!item`
-  forces `justify-center`, ignoring `blockAlign`) and **goes blue while the column is
-  live** (`ColumnAdders` in `PortalCanvas.tsx`). Resting and live plus now land on the
-  same pixel, so hovering does not move it.
-- **`ColumnAddIcon` redrawn from the designer's artwork** — narrow solid track beside a
-  wider dashed one, source kept at `src/assets/add-column.svg`.
-- **Image element offers three card templates, not four.** `TemplatePicker` takes an
-  `only` allow-list; a `templates` field may declare `options`.
-- **Action card gained a `mostUsed` toggle** in its ACTION section, gated on
-  `destination === 'service'`, seeded `false` in the spec defaults.
-- **The widget library greys out nothing.** `isAdded` / `isSingle` / `placedTypes` all
-  removed, along with the panel's `placedTypes` and `blank` props.
+- **Widget library tabs use the product's inline tab treatment**
+  (`SupportPortalAddPanel.tsx`). They were pills. Now `px-2 py-3 border-b-2`, `gap-2.5`,
+  active `#3D8BD0` underline, inactive `#6b7280` with `hover:bg-[#F5F7FA]
+  hover:border-[#CBD5E1]` — measured identical to `TicketDrawer`'s tab row except the
+  font size. The strip lost its `pb-3` so a tab's underline touches the strip's own rule.
+- **Branding panel spacing fixed** (`PortalBrandingPanel.tsx`). `ReadOnly` carried its
+  own `mb-4` while `Field` spaces with `mt-4 first:mt-0`, so Portal name → Company had
+  **no gap** and a `Field` after a hand-spaced row got a double one. Every row goes
+  through `Field` now; measured, all five rows sit **74px** apart.
+- **`Head` lost its `border-b`** (now `mb-1 mt-7`), the **`Inherited` badge is gone**
+  (component deleted), and **both grey ⓘ `Note` cards are gone** (component deleted).
+  `Info` stays — the Help Icon tooltip still uses it.
+- **All 21 element hover previews rebuilt** (`PortalElementPreview.tsx`, a full
+  rewrite). One sketch per element, each matching that element's real renderer; none
+  falls through to the generic block. Heights now 170–261px (Text was 457px, is 215px).
+  - **Text** shows real words — heading, body, caption.
+  - **Button** is a **2×2 grid** of four real buttons at the sketch's full width.
+  - Shared shapes: `listCard()` for Live data, `actionCard()` for Actions.
+  - The element's own palette glyph is passed in as an `icon` **prop** from the panel.
 
 ## In progress
-Nothing mid-flight. Working tree clean, all five commits pushed, Pages green.
+Nothing mid-flight. Working tree clean, both commits pushed.
 
 ## Next steps
-- **Optional, and only if the designer asks:** make the **AD Self Service** action card
-  repeatable. It is the one element that still refuses a second instance, because
-  `quick-ad` is a fixed key in `WIDGET_FOR_NODE`. Doing it properly means unique ids
-  through `content.quick`, `rowOrder`, the cfg store and `ownerOf`, plus a prefix
-  fallback in the spec lookup. `addElement` currently refuses with a toast; a second
-  AD-style card is built from the generic **Action Card** element instead.
-- **Kill the stale dev server on port 5173** — it is serving an old build (its tab
-  still reads "Ticket Listing & Full Detail page") and will mislead anyone who opens
-  it. This session verified on a fresh server at **5180**.
-- The four parked Support Portal features are still parked — see
+- **Optional:** make the **AD Self Service** action card repeatable. It is the one
+  element that still refuses a second instance — `quick-ad` is a fixed key in
+  `WIDGET_FOR_NODE`, so a second would have no spec and open nothing. Doing it properly
+  means unique ids through `content.quick`, `rowOrder`, the cfg store and `ownerOf`,
+  plus a prefix fallback in the spec lookup. `addElement` refuses with a toast today.
+- **Kill the stale dev server on port 5173** — it serves an old build (tab title still
+  reads "Ticket Listing & Full Detail page"). This session verified on **5180**.
+- The four parked Support Portal features stay parked — read
   [future-tasks.md](future-tasks.md) before touching AI, Media Slider, Advanced Tabs or
   custom templates.
 
 ## Decisions made
-- **Edit is one icon with a menu, not two icons.** *Edit details* changes what the
-  portal IS; *Customise portal* changes what is ON it. Both are editing, never done in
-  the same moment, and no pair of glyphs separates them — a chevron on the pencil says
-  there is a choice without spending a second slot in the rail.
-- **Three kebab items were dropped and should not come back.** Portal settings and
-  Reset layout are both reachable inside the builder; Copy link duplicates the URL
-  column, which is already a working link.
-- **The copy's name is seeded `uniquePageName(pages, src.name)`**, i.e. as close to
-  identical as the uniqueness rule allows — not `"X copy"`. The designer asked for the
-  details to be the same; the popup that opens next is where a different name is chosen.
-- **`blockAlign` does not apply to an empty column.** That setting is about blocks, and
-  an empty column has none — the `+` is the offer to add some, so it centres.
-- **The centre `+` is blue while live, grey at rest** — reversing an earlier deliberate
-  choice, on request. All three affordances arrive together on hover, and a middle
-  button still painted like the resting hint was the only live control that did not
-  look live.
-- **"Text only" leaves the Image element** because it hides the picture; an Image with
-  no image is a Text element under the wrong name, with alt text and a crop still on
-  screen describing nothing. The action card keeps it — a card without an icon is still
-  a card.
-- **`mostUsed` ships OFF.** `ToggleRow` reads an unset key as ON, so a field that has
-  only just appeared because you picked a destination must not arrive having already
-  changed what the card does.
-- **The single-instance palette rule was ours, not the product's.** Two request lists
-  filtered to different statuses is a reasonable page, and every placed element carries
-  its own id and config, so a second is a second widget rather than a collision. What
-  the rule reliably produced was a palette that went dead as a page got built.
-- **`onPage` stays on the catalogue** even though the palette no longer reads it — the
-  demo seed still needs it to skip components the page renders as built-in bands. What
-  a page RENDERS and what an admin may ADD are two questions.
+- **Widget tabs are 13px, not the detail page's 14.** Every other line in that panel is
+  11–13px, so a 14px tab row would be the largest type on the surface it navigates.
+  Everything else about the recipe is identical.
+- **Pills were saying the wrong thing.** A pill reads as a filter — a set you pick from
+  — where these are places you go.
+- **A section head owns no rule.** A heading and its fields are one block; a hairline
+  between them cuts the title from what it titles. The space *above* separates sections.
+- **One sketch per element, never a stack of variants.** Four stacked wireframes doubled
+  the card's height and made the reader scan a column to find the one they meant. Where
+  an element has a real range, the range goes *inside* the sketch.
+- **The four Action previews are deliberately identical.** They ARE the same card on the
+  page — the icon and the words are the whole difference. A sketch that invented four
+  shapes to look more interesting would be lying.
+- **Basic elements sit on the page ground with no card.** Not a stylistic choice:
+  `renderSpec()` marks them `bare`, and it is the clearest signal of "adds a block" vs
+  "puts content on your page". `b-card` is the one exception, which is why its sketch is
+  the one with a border.
+- **The preview's icon is a prop, not an import.** `SupportPortalAddPanel` imports
+  `PortalElementPreview`, so reaching back for `elementIcon` would be a cycle. One
+  registry, one direction.
 
 ## Gotchas & notes
-- **`overlays` is JSX built during render**, so any helper it calls must be declared
-  ABOVE it. `portalUrl` sat 130 lines below and was a TDZ crash esbuild could not see —
-  it had to be hoisted. Same class of bug as the `tabs` const noted in CLAUDE.md.
-- **A `mk()`-style edit script must call `.save()`.** One did not this session, so the
-  `PortalDetailsFields` insert silently never reached disk while the build stayed
-  green — rollup only caught it at the import (`"EditPortalDetailsModal" is not
-  exported`). Check the file, not the exit code.
-- **`node -e` in this Bash tool eats backticks.** A CLAUDE.md edit containing
-  `` `ColumnAddIcon` `` was shell-interpreted into "command not found". Write the script
-  with the Write tool and run the file — same root cause as the heredoc/backslash note
-  in CLAUDE.md.
-- **Synthetic `elementFromPoint` clicks are unreliable for canvas selection.** The
-  innermost `Sel` kept winning. What works: find the `outline-offset-1` wrappers
-  containing the text you want and `dispatchEvent(new MouseEvent('click',
-  {bubbles:true}))` on the WRAPPER itself, walking the index from 0 (Section) up to the
-  element. There is no step-up arrow on the hover chip any more.
-- **The dev server on 5174 died mid-session and 5173 is stale.** Verify on a fresh
-  `npm run dev -- --port <n>`; the stale server's tab title is the tell.
-- `npm run build` is **esbuild only** — it is not a typecheck. Everything here was
-  confirmed by measuring in Chrome DevTools, not by the green tick.
+- ⚠️ **Tailwind scans SOURCE TEXT for class names.** A class built by interpolation —
+  `` `bg-[${ACCENT}]` `` — never appears in the file, so the utility is never generated
+  and the element silently renders unstyled. Nine of them were in the first draft of
+  `PortalElementPreview`. Write accent classes out literally.
+- ⚠️ **`ToggleRow` reads an unset key as ON** (`cfg[key] !== false`), so any new toggle
+  that should ship off needs an explicit `false` in the spec defaults.
+- **Vite HMR did not pick up the preview rewrite** — the old variant labels kept
+  rendering until a hard reload (`ignoreCache`). Hard-refresh before judging a rewritten
+  component; this has now bitten twice on this file family.
+- **`take_screenshot` intermittently times out** on this page; calling it a second time
+  succeeds. Not a page fault.
+- **Synthetic canvas clicks:** `elementFromPoint` selects the innermost `Sel`. To reach a
+  container, find the `outline-offset-1` wrappers containing the text and
+  `dispatchEvent(new MouseEvent('click', {bubbles:true}))` on the **wrapper**, walking
+  the index from 0 (Section) upward. There is no step-up arrow on the hover chip.
+- `npm run build` is **esbuild only** — not a typecheck. Everything above was confirmed
+  by measuring in Chrome DevTools, not by the green tick.
