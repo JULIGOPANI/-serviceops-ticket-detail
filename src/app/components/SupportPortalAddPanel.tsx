@@ -314,7 +314,16 @@ export function SupportPortalAddPanel({ onAdd }: Props) {
           </div>
         ))}
       </div>
-      {peek && <PortalElementPreview elementId={peek.id} anchor={peek.rect} />}
+      {/* The glyph is handed DOWN rather than imported back up — this file already imports the
+          preview, so reaching into its registry from there would be a cycle. One registry, one
+          direction. */}
+      {peek && (
+        <PortalElementPreview
+          elementId={peek.id}
+          icon={icon(PORTAL_ELEMENTS.find((e) => e.id === peek.id)?.icon ?? '')}
+          anchor={peek.rect}
+        />
+      )}
     </div>
   );
 }
