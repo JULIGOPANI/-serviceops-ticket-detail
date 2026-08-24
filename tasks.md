@@ -6,7 +6,7 @@ These are the six changes that were interrupted when the bad commit was removed.
 source of truth — `npm run tasks` regenerates the live page from it, so the two can never disagree.
 I work them one at a time: build, verify in the browser, mark done here, publish.
 
-Updated: 2026-08-24 18:20
+Updated: 2026-08-24 18:22
 
 ## 1. Left rail — remove the hide (eye) icon
 - **Status:** done
@@ -36,12 +36,13 @@ Updated: 2026-08-24 18:20
 - **Verified:** Checked on both panel models: Hero → Banner/Search/Spacing shut; My Requests → Header/Style/Spacing/Empty state shut; Section → Layout/Style/Spacing shut. Content open in all three.
 
 ## 4. Action Card — remove "A page in this portal"
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalWidgetSpec.ts` → the action-card `destination` options
 - **You asked:** remove that option from the On-click-go-to dropdown.
 - **How I check it:** open an Action Card's Action section — the dropdown lists Report an incident,
   Request a service, AD self service, Knowledge, External link. The Page picker it used to reveal
   goes too; a field whose parent option no longer exists can never appear.
+- **Verified:** Dropdown lists exactly: Report an incident, Request a service, AD self service, Knowledge, External link. No Page picker appears for any of them.
 
 ## 5. KPI — remove "Feedback you owe us"
 - **Status:** todo

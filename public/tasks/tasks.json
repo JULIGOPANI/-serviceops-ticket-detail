@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-24 18:20",
-  "builtAt": "2026-08-24T12:50:31.118Z",
+  "stamp": "2026-08-24 18:22",
+  "builtAt": "2026-08-24T12:52:10.103Z",
   "tasks": [
     {
       "n": 1,
@@ -38,11 +38,12 @@
     {
       "n": 4,
       "title": "Action Card — remove \"A page in this portal\"",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalWidgetSpec.ts` → the action-card `destination` options",
         "You asked": "remove that option from the On-click-go-to dropdown.",
-        "How I check it": "open an Action Card's Action section — the dropdown lists Report an incident, Request a service, AD self service, Knowledge, External link. The Page picker it used to reveal goes too; a field whose parent option no longer exists can never appear."
+        "How I check it": "open an Action Card's Action section — the dropdown lists Report an incident, Request a service, AD self service, Knowledge, External link. The Page picker it used to reveal goes too; a field whose parent option no longer exists can never appear.",
+        "Verified": "Dropdown lists exactly: Report an incident, Request a service, AD self service, Knowledge, External link. No Page picker appears for any of them."
       }
     },
     {

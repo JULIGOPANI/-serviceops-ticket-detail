@@ -483,14 +483,13 @@ export const WIDGET_SPECS: WidgetSpec[] = [
             { value: 'service', label: 'Request a service' },
             { value: 'ad', label: 'AD self service' },
             { value: 'knowledge', label: 'Knowledge' },
-            { value: 'page', label: 'A page in this portal' },
             { value: 'url', label: 'External link' },
           ],
         },
-        {
-          key: 'page', label: 'Page', control: 'select', when: (c) => c.destination === 'page',
-          options: ['My Requests', 'Service Catalog', 'Knowledge', 'My Approvals', 'My Assets', 'Report an issue'],
-        },
+        /* ⚠️ "A page in this portal" is gone, and the Page picker it revealed goes with it. A
+           dependent field whose parent option no longer exists is a control nothing can ever
+           reveal — it survives in the spec looking like a feature and behaves like a bug. The four
+           named destinations are what an action card is for; anything else is an External link. */
         { key: 'url', label: 'URL', control: 'text', when: (c) => c.destination === 'url' },
         { key: 'newTab', label: 'Open in a new tab', control: 'toggle', when: (c) => c.destination === 'url' },
         /* ⚠️ Belongs to the DESTINATION, not to the card — it only means anything once the click
@@ -534,7 +533,7 @@ export const WIDGET_SPECS: WidgetSpec[] = [
     defaults: {
       title, sub, icon, iconPos: 'left', contentAlign: 'start',
       destination: id === 'act_custom' ? 'incident' : id.replace('act_', ''),
-      page: 'My Requests', url: '', newTab: true,
+      url: '', newTab: true,
       /* Off by default. A ToggleRow reads an unset key as ON, so a field that has just appeared
          because you picked a destination would arrive having already changed what the card does. */
       mostUsed: false,
