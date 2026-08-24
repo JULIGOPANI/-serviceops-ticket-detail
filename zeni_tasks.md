@@ -37,5 +37,6 @@
 
 -i am thinking that for this complex thinking we can just simply split - the row into columns from the rows and which will have the same height any widget is placed. and if user deletes any column inside the section then anoither section rearrange it's position to left side with it's default height.
 
-24.now let's come to the table widget - in table widget remove the whole configuration of table as per now and give it to edit table's data as Word is giving you can see that in attached image. 1st Word gives the column selection from the 10x10 rows and column, and after adding the data in column from the inline cell selection as you can see in image with inline text floating toolbar. 
--> so give
+24.now let's come to the table widget - in table widget remove the whole configuration of table as per now and give it to edit table's data as Word is giving you can see that in attached image. 1st Word gives the column selection from the 10x10 rows and column, and after adding the data in column from the inline cell selection as you can see in image with inline text floating toolbar. ![alt text](image-23.png) ![alt text](image-24.png) ![alt text](image-25.png) ![alt text](image-26.png) ![alt text](image-27.png) ![alt text](image-28.png)
+
+-> so see all attached image and you will get idea how out table should looks like and how i can manage each row and colunmn, i can drag them smoothly, i can 
