@@ -470,6 +470,7 @@ export const WIDGET_SPECS: WidgetSpec[] = [
         { key: 'title', label: 'Title', control: 'text' },
         { key: 'sub', label: 'Subtitle', control: 'text' },
         { key: 'icon', label: 'Icon', control: 'icon' },
+        /* The only place this is chosen now (see SECTION_SPEC). */
         { key: 'cardTemplate', label: 'Card templates', control: 'templates' },
       ],
       /* The destination is now the admin's, not the widget type's. ⚠️ It gets its OWN section rather

@@ -147,7 +147,12 @@ export const SECTION_SPEC: WidgetSpec = {
          Card templates is chosen HERE, on the parent, so every card in the row shares a shape. A
          row of cards that do not agree reads as an accident, which is why the card has no Layout
          accordion. */
-      { key: 'cardTemplate', label: 'Card templates', control: 'templates', when: (c) => c.hasCards === true },
+      /* ⚠️ Card templates is NOT here any more — it lives on each action card's own panel.
+         It sat on the parent so every card in a row would share a shape, and a row of cards that do
+         not agree does read as an accident. Per-card is the deliberate trade: the row can now hold
+         four different shapes, and whoever builds it owns that. The section's `cardTemplate` default
+         below stays, because the renderer still falls back to it for a card that has never been
+         given one — so an untouched row still comes out uniform. */
     ],
     /* ⚠️ Layout and Size are gone from the SECTION as well, for the same reason they left the widget
        drawer: the column adders on the canvas set the count, the drag handles set the height, and a

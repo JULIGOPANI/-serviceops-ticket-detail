@@ -9,13 +9,14 @@ disagree. One task at a time: build, verify in the browser, tick it here, publis
 An earlier run of six shipped on 24 Aug 2026 — rail hide icon · banner image controls · collapsed
 Design accordions · Action Card page destination · KPI feedback count · Section Name field.
 
-Updated: 2026-08-24 19:05
+Updated: 2026-08-24 19:12
 
 ## 1. Quick Actions — Card templates moves to the individual card
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalStructureSpecs.ts` → `SECTION_SPEC.panel.content`
 - **You asked:** remove Card templates from the Quick Action parent section; keep it on each action card.
 - **How I check it:** select the Quick Actions section — no Card templates. Select one card — it has its own. ⚠️ Worth knowing: it lives on the parent today precisely so every card in a row shares a shape. Per-card means a row can hold four different shapes — the point of the change, and its cost.
+- **Verified:** Quick Actions section panel has no Card templates (its Content section drops entirely). Each action card has all four tiles and they WORK per card — setting New Incident to Icon top left its three siblings icon-left.
 
 ## 2. Remove the Custom "Action Card" widget from the library
 - **Status:** todo

@@ -23,4 +23,7 @@
 13.![alt text](image-13.png) - remove this action card as a individual placement on page, it should only placed inside parent section of actions card. which is already placed. so need to remove clone functionality from floating toolbar of action cards and also need to disable the way to add action cards from widget sidebar as we were showing brfore.
 14.![alt text](image-14.png) - remove 'action' section from the sidebar of each 4(New Incident,Request Service,AD Self Service,Knowledge) action cards.
 15.![alt text](image-15.png) ![alt text](image-3.png) - see this attached images and remove this section fields except 'show description' toggle from 'Most Used Services' widget.
-16.![alt text](image-16.png) - remove design section from 'logo' 
+16.![alt text](image-16.png) - remove design section from 'logo' sidebar.
+17.![alt text](image-17.png) - see the image and remove 'shadow' field from navbar's sidebar.
+18.![alt text](image-18.png) - see the image as a reference and nee to give inline font style editor for each floating toolbar of Test fields.
+19.
