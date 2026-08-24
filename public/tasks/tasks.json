@@ -1,15 +1,16 @@
 {
-  "stamp": "2026-08-24 15:05",
-  "builtAt": "2026-08-24T12:39:31.841Z",
+  "stamp": "2026-08-24 18:14",
+  "builtAt": "2026-08-24T12:44:32.806Z",
   "tasks": [
     {
       "n": 1,
       "title": "Left rail — remove the hide (eye) icon",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalStructureSpecs.ts` → `RAIL_SPEC.collection`",
         "You asked": "remove the hide icon from the menubar rows (Requests, Changes, My Assets, …).",
-        "How I check it": "select the left rail, count the per-row action buttons — the eye is gone and the drag handle plus the up/down arrows remain. The rail's note must stop promising you can hide them."
+        "How I check it": "select the left rail, count the per-row action buttons — the eye is gone and the drag handle plus the up/down arrows remain. The rail's note must stop promising you can hide them.",
+        "Verified": "Rail rows carry only Move up / Move down — 0 eye icons on the panel."
       }
     },
     {

@@ -294,7 +294,7 @@ export const RAIL_SPEC: WidgetSpec = {
      from here. */
   notes: [{
     tone: 'info',
-    text: 'These destinations belong to the product — you can reorder them and hide them, but not add or remove them. A destination the requester is not permitted to reach never appears, whatever the order.',
+    text: 'These destinations belong to the product — you can reorder them, but not add, remove or hide them. A destination the requester is not permitted to reach never appears, whatever the order.',
   }],
   collection: {
     key: 'items', group: 'Destinations', addLabel: '', emptyHint: '',
@@ -302,7 +302,12 @@ export const RAIL_SPEC: WidgetSpec = {
        header and a chevron above the only thing there is to see — and left it possible to close the
        panel's entire content while the panel stayed open. */
     flat: true,
-    noAdd: true, hideable: true, noOpen: true,
+    /* ⚠️ NOT hideable. The eye was the only per-row action on this list, and what it offered was
+       removing a product destination from the one navigation that appears on every screen of the
+       portal — the same power `noAdd` already withholds at the other end. The ORDER is the admin's;
+       which destinations exist is not. The note above says so, so the rule is legible rather than
+       just enforced. */
+    noAdd: true, noOpen: true,
     label: (it) => String(it.name ?? ''),
     meta: (it) => String(it.route ?? ''),
     seed: () => ({}),

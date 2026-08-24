@@ -6,15 +6,16 @@ These are the six changes that were interrupted when the bad commit was removed.
 source of truth — `npm run tasks` regenerates the live page from it, so the two can never disagree.
 I work them one at a time: build, verify in the browser, mark done here, publish.
 
-Updated: 2026-08-24 15:05
+Updated: 2026-08-24 18:14
 
 ## 1. Left rail — remove the hide (eye) icon
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalStructureSpecs.ts` → `RAIL_SPEC.collection`
 - **You asked:** remove the hide icon from the menubar rows (Requests, Changes, My Assets, …).
 - **How I check it:** select the left rail, count the per-row action buttons — the eye is gone and
   the drag handle plus the up/down arrows remain. The rail's note must stop promising you can hide
   them.
+- **Verified:** Rail rows carry only Move up / Move down — 0 eye icons on the panel.
 
 ## 2. Banner — remove Image fit, Focal point, Darken for text
 - **Status:** todo
