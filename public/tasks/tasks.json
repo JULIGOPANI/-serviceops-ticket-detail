@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-24 18:23",
-  "builtAt": "2026-08-24T12:53:41.684Z",
+  "stamp": "2026-08-24 18:25",
+  "builtAt": "2026-08-24T12:55:59.199Z",
   "tasks": [
     {
       "n": 1,
@@ -60,11 +60,12 @@
     {
       "n": 6,
       "title": "Section panel — remove the Name field",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalStructureSpecs.ts` → `SECTION_SPEC.panel.content`",
         "You asked": "remove Name from the parent section's sidebar (columns never had one, so nothing inner is affected). Lost when we removed the bad commit; you confirmed it should come back.",
-        "How I check it": "select a section — no Name field. ⚠️ Removing it exposes an empty CONTENT heading on a section with no cards, so Content must be dropped entirely when there is nothing to author, the same rule Design follows."
+        "How I check it": "select a section — no Name field. ⚠️ Removing it exposes an empty CONTENT heading on a section with no cards, so Content must be dropped entirely when there is nothing to author, the same rule Design follows.",
+        "Verified": "Section without cards → no Name, no CONTENT heading, straight to DESIGN. Section WITH cards → no Name, CONTENT still shows Card templates. Widget and Hero panels unchanged. Console clean."
       }
     }
   ]

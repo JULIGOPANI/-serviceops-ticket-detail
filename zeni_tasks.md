@@ -10,3 +10,4 @@
 # tasks (implemented from PMG and then removed)
 1.remove 'card templates' from parent section of 'Quick Action'. keep 'card templates' in individual action cards.
 2.remove Custom 'Action card' widget from the sidedrawer of widget. 
+3.action card's section should give feasibility to add external link button 

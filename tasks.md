@@ -6,7 +6,7 @@ These are the six changes that were interrupted when the bad commit was removed.
 source of truth — `npm run tasks` regenerates the live page from it, so the two can never disagree.
 I work them one at a time: build, verify in the browser, mark done here, publish.
 
-Updated: 2026-08-24 18:23
+Updated: 2026-08-24 18:25
 
 ## 1. Left rail — remove the hide (eye) icon
 - **Status:** done
@@ -52,7 +52,7 @@ Updated: 2026-08-24 18:23
 - **Verified:** Counts lists exactly: My requests, My changes, Approvals waiting on me, My assets, My CIs. No reference to the removed option left anywhere in src.
 
 ## 6. Section panel — remove the Name field
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalStructureSpecs.ts` → `SECTION_SPEC.panel.content`
 - **You asked:** remove Name from the parent section's sidebar (columns never had one, so nothing
   inner is affected). Lost when we removed the bad commit; you confirmed it should come back.
@@ -60,3 +60,4 @@ Updated: 2026-08-24 18:23
   heading on a section with no cards, so Content must be dropped entirely when there is nothing to
   author, the same rule Design follows.
 
+- **Verified:** Section without cards → no Name, no CONTENT heading, straight to DESIGN. Section WITH cards → no Name, CONTENT still shows Card templates. Widget and Hero panels unchanged. Console clean.

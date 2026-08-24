@@ -138,9 +138,15 @@ export const SECTION_SPEC: WidgetSpec = {
      with border + radius only. Fields that do not apply are removed, never greyed. */
   panel: {
     content: [
-      { key: 'name', label: 'Name', control: 'text', help: 'Only you see this — it labels the section in the editor.' },
-      /* Chosen HERE, on the parent, so every card in the row shares a shape. A row of cards that
-         do not agree reads as an accident, which is why the card has no Layout accordion. */
+      /* ⚠️ NO Name field. It was editor-only — "Only you see this" — and NOTHING read it: the hover
+         chip, the breadcrumb and the drawer title all take their words from `nodeById`, which
+         hard-codes them, which is why the panel says "Cards Row / Section" whatever you typed. A
+         text box that changes nothing anywhere, sitting first in the panel above the controls that
+         do. ⚠️ Columns never had one, so nothing nested is affected: `sec-N-cM` resolves to
+         `COLUMN_SPEC`, which is fields-only and has no Content section at all.
+         Card templates is chosen HERE, on the parent, so every card in the row shares a shape. A
+         row of cards that do not agree reads as an accident, which is why the card has no Layout
+         accordion. */
       { key: 'cardTemplate', label: 'Card templates', control: 'templates', when: (c) => c.hasCards === true },
     ],
     /* ⚠️ Layout and Size are gone from the SECTION as well, for the same reason they left the widget
@@ -204,7 +210,7 @@ export const SECTION_SPEC: WidgetSpec = {
   /* ⚠️ `bg` needs a default of its own. Without one the panel's colour field fell back to its
      control default while the canvas fell back to white — so the swatch said one colour and the
      band painted another, and the fill looked broken when it was only unset. */
-  defaults: { name: 'New section', cardTemplate: 'left', resize: 'fill', colGap: 16, fill: 'none', bg: '#FFFFFF', borderWidth: 0, borderColor: '#E5E7EB', radius: 8, minHeight: 0 },
+  defaults: { cardTemplate: 'left', resize: 'fill', colGap: 16, fill: 'none', bg: '#FFFFFF', borderWidth: 0, borderColor: '#E5E7EB', radius: 8, minHeight: 0 },
 };
 
 /** L2 — a column owns its width and the alignment of the blocks inside it. Nothing else (§7.21). */

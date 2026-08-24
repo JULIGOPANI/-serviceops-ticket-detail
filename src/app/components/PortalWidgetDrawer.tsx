@@ -366,7 +366,7 @@ const OverrideDot = () => (
   <span title="Something in here is set away from the default" className="size-1.5 flex-shrink-0 rounded-full bg-[#F58518]" />
 );
 
-function PanelBody({ spec, nodeId, cfg, renderField, openGroups, toggleGroup, styles, setStyle, replaceStyle, collectionSlot }: {
+function PanelBody({ spec, nodeId, cfg, renderField, openGroups, toggleGroup, styles, setStyle, replaceStyle, collectionSlot, hasCollection }: {
   spec: WidgetSpec; nodeId: string; cfg: Cfg;
   renderField: (f: WidgetField) => ReactNode;
   openGroups: string[]; toggleGroup: (g: string) => void;
@@ -375,10 +375,16 @@ function PanelBody({ spec, nodeId, cfg, renderField, openGroups, toggleGroup, st
   replaceStyle: (id: string, next: NodeStyle) => void;
   /* §1.4 — the item list sits INSIDE the Content section, so it is passed in rather than rebuilt. */
   collectionSlot?: ReactNode;
+  /* ⚠️ Whether that slot actually HAS anything. `collectionSlot` is a JSX fragment and is therefore
+     always truthy, empty or not, so it can never answer this on its own. */
+  hasCollection?: boolean;
 }) {
   const panel = spec.panel!;
   const packProps = { styles, id: nodeId, setStyle, replaceStyle };
   const visible = (fs?: WidgetField[]) => (fs ?? []).filter((f) => !f.when || f.when(cfg));
+
+  /** Everything that can appear under the CONTENT eyebrow, in one test. */
+  const hasContentSection = visible(panel.content).length > 0 || !!panel.contentNote || !!hasCollection;
 
   /** Has anything in this accordion moved off its default? Drives the orange dot. */
   const touched = (a: typeof panel.accordions[number]) => {
@@ -391,14 +397,23 @@ function PanelBody({ spec, nodeId, cfg, renderField, openGroups, toggleGroup, st
 
   return (
     <>
-      {/* Content is a SECTION, not a tab. An element with nothing to author has none at all — and
-          says so in one line rather than showing an empty group. */}
-      <SectionLabel>Content</SectionLabel>
-      {panel.content?.length ? visible(panel.content).map(renderField) : null}
-      {panel.contentNote && (
-        <p className="mt-1 text-[12px] leading-[1.55] text-[#7B8FA5]">{panel.contentNote}</p>
+      {/* Content is a SECTION, not a tab.
+          ⚠️ An element with nothing to author gets NO Content section — heading included. The
+          heading used to render whatever was beneath it, so a Section with no cards (its only
+          remaining content field is Card templates, gated on `hasCards`) showed "CONTENT" with the
+          "DESIGN" eyebrow directly under it: a heading introducing nothing, which reads as a panel
+          that failed to load rather than as a layer that simply has nothing to author. Same rule
+          Design already follows. */}
+      {hasContentSection && (
+        <>
+          <SectionLabel>Content</SectionLabel>
+          {panel.content?.length ? visible(panel.content).map(renderField) : null}
+          {panel.contentNote && (
+            <p className="mt-1 text-[12px] leading-[1.55] text-[#7B8FA5]">{panel.contentNote}</p>
+          )}
+          {collectionSlot}
+        </>
       )}
-      {collectionSlot}
 
       {panel.action?.length ? (
         <>
@@ -1205,6 +1220,7 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
             setStyle={setStyle}
             replaceStyle={replaceStyle}
             collectionSlot={collectionBlock}
+            hasCollection={!!(col && (!col.when || col.when(cfg)))}
           />
         ) : (
         <>
