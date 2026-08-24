@@ -74,7 +74,12 @@ export const PORTAL_NODES: PortalNodeDef[] = [
   { id: 'work', name: 'Cards Row', kind: 'section', content: 'row' },
   { id: 'requests', name: 'My Requests', kind: 'card', parent: 'work', content: 'requests' },
   { id: 'requests-title', name: 'Title', kind: 'text', parent: 'requests', content: 'text' },
-  { id: 'requests-list', name: 'Request List', kind: 'list', parent: 'requests', content: 'requests' },
+  /* ⚠️ There is no 'requests-list' node. The rows inside My Open Requests were their own selectable
+     layer with their own panel — Statuses, Scope, Show — which was a second place to configure the
+     same widget, reachable only by clicking the rows rather than the card. It also contradicted the
+     widget above it: the card's own panel is gone now because the backend decides what this list
+     shows, so a nested layer still offering to filter it was offering something that no longer
+     existed anywhere else. Clicking the rows selects the CARD, which is the thing you can act on. */
 
   { id: 'approvals', name: 'Approvals', kind: 'card', parent: 'work', content: 'approvals' },
   { id: 'approvals-title', name: 'Title', kind: 'text', parent: 'approvals', content: 'text' },

@@ -9,7 +9,7 @@ disagree. One task at a time: build, verify in the browser, tick it here, publis
 An earlier run of six shipped on 24 Aug 2026 — rail hide icon · banner image controls · collapsed
 Design accordions · Action Card page destination · KPI feedback count · Section Name field.
 
-Updated: 2026-08-24 21:15
+Updated: 2026-08-24 22:30
 
 ## 1. Quick Actions — Card templates moves to the individual card
 - **Status:** done
@@ -89,10 +89,11 @@ Updated: 2026-08-24 21:15
 - **Verified:** All five measured: every badge sits exactly 10px after its own title, while the badge-to-View-all gap varies 51/51/116/290/318px — so the link is pushed to the right edge and the badge tracks the title.
 
 ## 12. My Open Requests — the inner list is not separately configurable
-- **Status:** todo
+- **Status:** done
 - **Where:** `SupportPortalPreview.tsx` (the list's `Sel`) + its panel spec
 - **You asked:** no option to select the open-requests list inside the card; remove that selection and its sidebar configuration (Statuses / Scope / Show).
 - **How I check it:** click the rows inside My Open Requests — selection lands on the widget, never on a separate Request List layer, and no Statuses/Scope/Show panel exists.
+- **Verified:** Clicking a row inside the card selects My Requests, not a Request List layer. No Statuses/Scope/Show panel exists anywhere on the page. All five rows still render.
 
 ## 13. Action cards cannot be placed on their own
 - **Status:** todo

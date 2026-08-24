@@ -1211,8 +1211,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
               <RowDrop rowId="work" resize={secResize("work")} className={`flex flex-wrap${secPacked("work", 3) ? " portal-row-packed" : ""}`} style={{ gap: secGap("work"), ...secBox("work", 3), ...rowFits(inRow("work"), "work"), ...secGrid("work", 3) }}>
               {card('requests', (
                 <CardShell nodeId="requests" titleNodeId="requests-title" title={String(wc('requests').title ?? content.requests.title)} count={visibleRequests.length} cfg={wc('requests')}>
-                  <Sel id="requests-list">
-                    <ListBody nodeId="requests">
+                  <ListBody nodeId="requests">
                       {visibleRequests.map((r) => {
                         const c = wc('requests');
                         const tone = statusTone(r.status, darkMode);
@@ -1242,8 +1241,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                           </Row>
                         );
                       })}
-                    </ListBody>
-                  </Sel>
+                  </ListBody>
                 </CardShell>
               ), secCols("work", content.cols.work), secGap("work"), secGrow("work"))}
 

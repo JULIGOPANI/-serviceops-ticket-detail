@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-24 21:15",
-  "builtAt": "2026-08-24T15:45:18.555Z",
+  "stamp": "2026-08-24 22:30",
+  "builtAt": "2026-08-24T17:00:30.291Z",
   "tasks": [
     {
       "n": 1,
@@ -126,11 +126,12 @@
     {
       "n": 12,
       "title": "My Open Requests — the inner list is not separately configurable",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`SupportPortalPreview.tsx` (the list's `Sel`) + its panel spec",
         "You asked": "no option to select the open-requests list inside the card; remove that selection and its sidebar configuration (Statuses / Scope / Show).",
-        "How I check it": "click the rows inside My Open Requests — selection lands on the widget, never on a separate Request List layer, and no Statuses/Scope/Show panel exists."
+        "How I check it": "click the rows inside My Open Requests — selection lands on the widget, never on a separate Request List layer, and no Statuses/Scope/Show panel exists.",
+        "Verified": "Clicking a row inside the card selects My Requests, not a Request List layer. No Statuses/Scope/Show panel exists anywhere on the page. All five rows still render."
       }
     },
     {
