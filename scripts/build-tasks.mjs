@@ -43,11 +43,20 @@ for (const raw of md.split('\n')) {
   if (cur._last && /^\s{2,}\S/.test(raw)) cur.fields[cur._last] += ' ' + raw.trim();
 }
 
+const parked = (() => {
+  const at = md.indexOf('## Parked');
+  if (at < 0) return [];
+  return md.slice(at).split('\n').slice(1)
+    .filter((l) => /^-\s+/.test(l))
+    .map((l) => l.replace(/^-\s+/, '').trim());
+})();
+
 const stamp = (/^Updated:\s*(.+)$/m.exec(md) ?? [, ''])[1].trim();
 const data = {
   stamp,
   builtAt: new Date().toISOString(),
   tasks: tasks.map(({ n, title, status, fields }) => ({ n, title, status, fields })),
+  parked,
 };
 
 fs.mkdirSync(OUT, { recursive: true });
@@ -119,6 +128,16 @@ const html = `<!doctype html>
     background: var(--todo-bg); padding: 1px 5px; border-radius: 4px; color: var(--ink);
   }
   strong { color: var(--ink); font-weight: 600; }
+  #parked { margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--line); }
+  #parked h2 {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--faint); margin: 0 0 10px;
+  }
+  #parked ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  #parked li {
+    background: transparent; border: 1px dashed var(--line); border-radius: 999px;
+    padding: 5px 12px; font-size: 12.5px; color: var(--mute);
+  }
   footer { margin-top: 28px; font-size: 12px; color: var(--faint); }
   .live { display: inline-flex; align-items: center; gap: 6px; }
   .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--done); }
@@ -138,6 +157,11 @@ const html = `<!doctype html>
     </div>
 
     <ol id="list"></ol>
+
+    <section id="parked" hidden>
+      <h2>Parked — needs discussion</h2>
+      <ul id="parkedList"></ul>
+    </section>
 
     <footer>
       <span class="live"><span class="dot"></span> <span id="stamp">checking…</span></span>
@@ -190,6 +214,12 @@ function render(data) {
       + (rows ? '<dl>' + rows + '</dl>' : '')
       + '</li>';
   }).join('');
+  const box = document.getElementById('parked');
+  const items = data.parked ?? [];
+  box.hidden = items.length === 0;
+  document.getElementById('parkedList').innerHTML =
+    items.map((p) => '<li>' + esc(p) + '</li>').join('');
+
   stampNow(data);
 }
 

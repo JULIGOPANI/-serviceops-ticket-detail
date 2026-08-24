@@ -1,72 +1,153 @@
 {
-  "stamp": "2026-08-24 18:25",
-  "builtAt": "2026-08-24T12:55:59.199Z",
+  "stamp": "2026-08-24 19:05",
+  "builtAt": "2026-08-24T13:34:11.945Z",
   "tasks": [
     {
       "n": 1,
-      "title": "Left rail — remove the hide (eye) icon",
-      "status": "done",
+      "title": "Quick Actions — Card templates moves to the individual card",
+      "status": "todo",
       "fields": {
-        "Where": "`portalStructureSpecs.ts` → `RAIL_SPEC.collection`",
-        "You asked": "remove the hide icon from the menubar rows (Requests, Changes, My Assets, …).",
-        "How I check it": "select the left rail, count the per-row action buttons — the eye is gone and the drag handle plus the up/down arrows remain. The rail's note must stop promising you can hide them.",
-        "Verified": "Rail rows carry only Move up / Move down — 0 eye icons on the panel."
+        "Where": "`portalStructureSpecs.ts` → `SECTION_SPEC.panel.content`",
+        "You asked": "remove Card templates from the Quick Action parent section; keep it on each action card.",
+        "How I check it": "select the Quick Actions section — no Card templates. Select one card — it has its own. ⚠️ Worth knowing: it lives on the parent today precisely so every card in a row shares a shape. Per-card means a row can hold four different shapes — the point of the change, and its cost."
       }
     },
     {
       "n": 2,
-      "title": "Banner — remove Image fit, Focal point, Darken for text",
-      "status": "done",
+      "title": "Remove the Custom \"Action Card\" widget from the library",
+      "status": "todo",
       "fields": {
-        "Where": "`portalStructureSpecs.ts` → the Banner group of `HERO_SPEC`",
-        "You asked": "remove those three fields from the banner's style section.",
-        "How I check it": "select the banner, open the Banner group — the three are gone, and the banner still renders exactly as it does today. The \"Tile the image\" toggle goes with them: it only ever appeared under Image fit's \"Original size\", so without that option it could never show again.",
-        "Verified": "Banner group reads Height → Background → Banner image → whole-page toggle. Image fit / Focal point / Darken for text / Tile all absent; the banner itself renders unchanged."
+        "Where": "`supportPortalData.ts` → `PORTAL_ELEMENTS`",
+        "You asked": "remove the Custom Action Card widget from the widget side drawer.",
+        "How I check it": "Widgets → Custom has no \"Action Card\" row, and typing \"action\" into the search does not surface it either."
       }
     },
     {
       "n": 3,
-      "title": "Design accordions collapsed by default",
-      "status": "done",
+      "title": "Add an External link button from the Quick Action section's sidebar",
+      "status": "todo",
       "fields": {
-        "Where": "`PortalWidgetDrawer.tsx` → the open-groups seed",
-        "You asked": "in the style section, make all accordions collapsed by default.",
-        "How I check it": "select several different widgets — every Design accordion arrives shut, Content stays open. ⚠️ The two panel models use opposite polarity, so both need seeding or half the widgets keep opening expanded.",
-        "Verified": "Checked on both panel models: Hero → Banner/Search/Spacing shut; My Requests → Header/Style/Spacing/Empty state shut; Section → Layout/Style/Spacing shut. Content open in all three."
+        "Where": "`portalStructureSpecs.ts` → `SECTION_SPEC`, plus the Quick Actions renderer",
+        "You asked": "the action-card section should let you add an external-link button to that section from the parent section's sidebar.",
+        "How I check it": "select Quick Actions — there is a way to add an external-link button, what it adds lands in that row, and it opens the URL you set."
       }
     },
     {
       "n": 4,
-      "title": "Action Card — remove \"A page in this portal\"",
-      "status": "done",
+      "title": "My Open Requests — remove the whole config panel",
+      "status": "todo",
       "fields": {
-        "Where": "`portalWidgetSpec.ts` → the action-card `destination` options",
-        "You asked": "remove that option from the On-click-go-to dropdown.",
-        "How I check it": "open an Action Card's Action section — the dropdown lists Report an incident, Request a service, AD self service, Knowledge, External link. The Page picker it used to reveal goes too; a field whose parent option no longer exists can never appear.",
-        "Verified": "Dropdown lists exactly: Report an incident, Request a service, AD self service, Knowledge, External link. No Page picker appears for any of them."
+        "Where": "`portalWidgetSpec.ts` → the My Open Requests spec",
+        "You asked": "remove that data from the predefined section — Title, Statuses, Rows to show, both toggles, the Header group and the Empty state.",
+        "How I check it": "select the widget — no Content section, only styling left. The card on the canvas renders exactly as it does now."
       }
     },
     {
       "n": 5,
-      "title": "KPI — remove \"Feedback you owe us\"",
-      "status": "done",
+      "title": "Pending Approvals — remove the whole config panel",
+      "status": "todo",
       "fields": {
-        "Where": "`portalWidgetSpec.ts` → the KPI `counts` options",
-        "You asked": "remove that option from the Counts dropdown.",
-        "How I check it": "select a KPI, open Counts — five options remain, ending at My CIs.",
-        "Verified": "Counts lists exactly: My requests, My changes, Approvals waiting on me, My assets, My CIs. No reference to the removed option left anywhere in src."
+        "Where": "`portalWidgetSpec.ts` → the Pending Approvals spec",
+        "You asked": "remove those section fields — Title, Rows to show, Show requester, Show raised date, the Header group and the Empty state.",
+        "How I check it": "select the widget — no Content section; the canvas card is unchanged."
       }
     },
     {
       "n": 6,
-      "title": "Section panel — remove the Name field",
-      "status": "done",
+      "title": "Most Read — remove the whole config panel",
+      "status": "todo",
       "fields": {
-        "Where": "`portalStructureSpecs.ts` → `SECTION_SPEC.panel.content`",
-        "You asked": "remove Name from the parent section's sidebar (columns never had one, so nothing inner is affected). Lost when we removed the bad commit; you confirmed it should come back.",
-        "How I check it": "select a section — no Name field. ⚠️ Removing it exposes an empty CONTENT heading on a section with no cards, so Content must be dropped entirely when there is nothing to author, the same rule Design follows.",
-        "Verified": "Section without cards → no Name, no CONTENT heading, straight to DESIGN. Section WITH cards → no Name, CONTENT still shows Card templates. Widget and Hero panels unchanged. Console clean."
+        "Where": "`portalWidgetSpec.ts` → the Most Read Knowledge spec",
+        "You asked": "remove those section fields. ⚠️ Your line 6 carries a stray \", AD Self Service\" — I am reading this as Most Read only; say if it meant something else.",
+        "How I check it": "select the widget — no Content section; the canvas card is unchanged."
+      }
+    },
+    {
+      "n": 7,
+      "title": "My Assets — remove the whole config panel",
+      "status": "todo",
+      "fields": {
+        "Where": "`portalWidgetSpec.ts` → the My Assets spec",
+        "You asked": "remove those section fields.",
+        "How I check it": "select the widget — no Content section; the canvas card is unchanged."
+      }
+    },
+    {
+      "n": 8,
+      "title": "My CIs — remove the whole config panel",
+      "status": "todo",
+      "fields": {
+        "Where": "`portalWidgetSpec.ts` → the My CIs spec",
+        "You asked": "remove those section fields — Title, Rows to show, Show CI type, the Header group and the Empty state.",
+        "How I check it": "select the widget — no Content section. ⚠️ My CIs is the one widget that actually renders an empty state on this page, so I check \"No Data Found\" still shows once its control is gone."
+      }
+    },
+    {
+      "n": 9,
+      "title": "Announcements — remove the whole config panel",
+      "status": "todo",
+      "fields": {
+        "Where": "`portalWidgetSpec.ts` → the Announcements spec",
+        "You asked": "remove those section fields — Title, Rows to show and the Empty state.",
+        "How I check it": "select the widget — no Content section; the canvas card is unchanged."
+      }
+    },
+    {
+      "n": 10,
+      "title": "Contact Us — only the email and phone values stay editable",
+      "status": "todo",
+      "fields": {
+        "Where": "`portalCollectionSpecs.ts` → the Contact Us spec",
+        "You asked": "remove Title, the whole Show-hours section, the Show-email and Show-phone toggles, and the Email label / Phone label fields — those are not ours to edit. Leave only the email value and the phone value as editable inputs.",
+        "How I check it": "select Contact Us — the panel is two inputs, Email address and Phone number. The canvas card still shows its labels; they come from the product now."
+      }
+    },
+    {
+      "n": 11,
+      "title": "The count badge moves beside the card title",
+      "status": "todo",
+      "fields": {
+        "Where": "`SupportPortalPreview.tsx` → the live-data card header",
+        "You asked": "the badge sits far right beside the View-all link on all five live-data widgets; it should sit beside the Title instead.",
+        "How I check it": "measure each badge's left edge against its title's right edge — every badge sits immediately after its own title, and View all is alone on the right."
+      }
+    },
+    {
+      "n": 12,
+      "title": "My Open Requests — the inner list is not separately configurable",
+      "status": "todo",
+      "fields": {
+        "Where": "`SupportPortalPreview.tsx` (the list's `Sel`) + its panel spec",
+        "You asked": "no option to select the open-requests list inside the card; remove that selection and its sidebar configuration (Statuses / Scope / Show).",
+        "How I check it": "click the rows inside My Open Requests — selection lands on the widget, never on a separate Request List layer, and no Statuses/Scope/Show panel exists."
+      }
+    },
+    {
+      "n": 13,
+      "title": "Action cards cannot be placed on their own",
+      "status": "todo",
+      "fields": {
+        "Where": "`SupportPortalAddPanel.tsx`, `SupportPortalBuilder.tsx`, `PortalCanvas.tsx`",
+        "You asked": "an action card belongs only inside the Quick Actions parent section, never as a standalone block. So no duplicate on its floating toolbar, and no way to add one from the widget sidebar.",
+        "How I check it": "the Actions rows are gone from the library, and an action card's toolbar has no duplicate. ⚠️ The toolbar is shared, so duplicate has to be disabled for this kind rather than removed from the bar — I check it still works everywhere else."
+      }
+    },
+    {
+      "n": 14,
+      "title": "Action cards — remove the ACTION section from the panel",
+      "status": "todo",
+      "fields": {
+        "Where": "`portalWidgetSpec.ts` → the four fixed action-card specs",
+        "You asked": "remove the Action section from all four cards' sidebars — New Incident, Request Service, AD Self Service, Knowledge.",
+        "How I check it": "select each of the four — the panel goes Content → Design with no Action section, so On-click-go-to and Most used services are both gone. Their destinations come from the card's own identity."
       }
     }
+  ],
+  "parked": [
+    "Tour guide",
+    "AI capabilities",
+    "Video / GIF as a widget",
+    "\"Set as default\" from templates",
+    "Two-stepper for portal details / portal customization"
   ]
 }

@@ -51,3 +51,6 @@ credentials.txt
 
 # Playwright MCP session artifacts
 .playwright-mcp/
+
+# Screenshots pasted into zeni_tasks.md — kept so the task notes stay checkable.
+!image-*.png

@@ -10,4 +10,17 @@
 # tasks (implemented from PMG and then removed)
 1.remove 'card templates' from parent section of 'Quick Action'. keep 'card templates' in individual action cards.
 2.remove Custom 'Action card' widget from the sidedrawer of widget. 
-3.action card's section should give feasibility to add external link button 
+3.action card's section should give feasibility to add external link button in that section from the parent section(Quick action)'s sidebar.
+4.![alt text](image-2.png) ![alt text](image-3.png) - see this attached images and remove this data from 'My open requests' predefined Section.
+5.![alt text](image-4.png) ![alt text](image-3.png) - see this attached images and remove this section fields from 'pending approval' widget.
+6.![alt text](image-5.png) ![alt text](image-3.png) ,AD Self Service- see this attached images and remove this section fields from 'Most read' widget.
+7.![alt text](image-6.png) ![alt text](image-3.png) - see this attached images and remove this section fields from 'My Assets' widget.
+8.![alt text](image-7.png) ![alt text](image-3.png) - see this attached images and remove this section fields from 'My CIs' widget.
+9.![alt text](image-8.png) ![alt text](image-3.png) - see this attached images and remove this section fields from 'Announcements' widget.
+10.![alt text](image-9.png) ![alt text](image-3.png) -  see this attached images and remove title,'Show hours' section and toggle for email and phone number fields. also remove email label and phone label fields we can's edit them, and give only email value and phone value as a editable input fields.
+11.![alt text](image-10.png) - see this image and you can see the count badge for this all 5 livedata widgets are given to the right side besides the view link field. so need to give the badges besides the Title of card as you can see in this image : ![alt text](image-11.png) 
+12.![alt text](image-12.png) - no need to give option to select the open requests list from the 'My open requests' card. so remove that selection and sidebar configuration for this listing section.
+13.![alt text](image-13.png) - remove this action card as a individual placement on page, it should only placed inside parent section of actions card. which is already placed. so need to remove clone functionality from floating toolbar of action cards and also need to disable the way to add action cards from widget sidebar as we were showing brfore.
+14.![alt text](image-14.png) - remove 'action' section from the sidebar of each 4(New Incident,Request Service,AD Self Service,Knowledge) action cards.
+15.![alt text](image-15.png) ![alt text](image-3.png) - see this attached images and remove this section fields except 'show description' toggle from 'Most Used Services' widget.
+16.![alt text](image-16.png) - remove design section from 'logo' 
