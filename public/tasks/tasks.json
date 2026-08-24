@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-24 19:37",
-  "builtAt": "2026-08-24T14:07:46.014Z",
+  "stamp": "2026-08-24 19:45",
+  "builtAt": "2026-08-24T14:15:06.491Z",
   "tasks": [
     {
       "n": 1,
@@ -38,11 +38,12 @@
     {
       "n": 4,
       "title": "My Open Requests — remove the whole config panel",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalWidgetSpec.ts` → the My Open Requests spec",
         "You asked": "remove that data from the predefined section — Title, Statuses, Rows to show, both toggles, the Header group and the Empty state.",
-        "How I check it": "select the widget — no Content section, only styling left. The card on the canvas renders exactly as it does now."
+        "How I check it": "select the widget — no Content section, only styling left. The card on the canvas renders exactly as it does now.",
+        "Verified": "Panel is DESIGN → Style, Spacing only — no CONTENT heading, no Header group, no Empty state. Canvas card unchanged: title, 5 badge, View all, 5 rows. Pending Approvals still shows its full panel, so the change is scoped to this widget."
       }
     },
     {

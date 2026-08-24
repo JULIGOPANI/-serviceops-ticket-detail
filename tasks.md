@@ -9,7 +9,7 @@ disagree. One task at a time: build, verify in the browser, tick it here, publis
 An earlier run of six shipped on 24 Aug 2026 — rail hide icon · banner image controls · collapsed
 Design accordions · Action Card page destination · KPI feedback count · Section Name field.
 
-Updated: 2026-08-24 19:37
+Updated: 2026-08-24 19:45
 
 ## 1. Quick Actions — Card templates moves to the individual card
 - **Status:** done
@@ -33,10 +33,11 @@ Updated: 2026-08-24 19:37
 - **Verified:** Quick Actions row does not accept the dragover (cursor reads no-drop) and a simulated drop leaves it holding exactly its four cards; the My Open Requests and My Assets rows still accept. Clicking Text in the library with Quick Actions selected placed it in a new section instead.
 
 ## 4. My Open Requests — remove the whole config panel
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalWidgetSpec.ts` → the My Open Requests spec
 - **You asked:** remove that data from the predefined section — Title, Statuses, Rows to show, both toggles, the Header group and the Empty state.
 - **How I check it:** select the widget — no Content section, only styling left. The card on the canvas renders exactly as it does now.
+- **Verified:** Panel is DESIGN → Style, Spacing only — no CONTENT heading, no Header group, no Empty state. Canvas card unchanged: title, 5 badge, View all, 5 rows. Pending Approvals still shows its full panel, so the change is scoped to this widget.
 
 ## 5. Pending Approvals — remove the whole config panel
 - **Status:** todo

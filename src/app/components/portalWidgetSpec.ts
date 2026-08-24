@@ -239,6 +239,12 @@ const listCardStyleFields = (opts: { count?: boolean; viewAll?: boolean; statusP
 
 // P7 (Interactive states) removed — hover/focus/pressed styling is not something this panel offers.
 const LIST_CARD_PACKS = ['P1', 'P2', 'P4', 'P8'];
+/* ⚠️ The six live-data cards, minus P8. P8 is the Empty-state block — "when there is nothing to
+   show: show message / hide widget", plus the message itself. What a live card does when its query
+   comes back empty is the product's answer, not a per-page decision, and it is the one setting whose
+   effect an admin can almost never see while editing. The DEFAULTS still carry the empty-state
+   values, so a card with no data still renders its message exactly as it does today. */
+const LIVE_CARD_PACKS = LIST_CARD_PACKS.filter((p) => p !== 'P8');
 const LIST_CARD_ROLES: TypeRole[] = ['title', 'body', 'meta', 'link'];
 
 const listCardDefaults = {
@@ -255,20 +261,10 @@ export const WIDGET_SPECS: WidgetSpec[] = [
     // Gated on the Request MODULE, deliberately not on "allow create incident" — a requester who
     // cannot raise a ticket can still have tickets.
     gate: { kind: 'module', setting: 'Request module' },
-    fields: [
-      { key: 'title', label: 'Title', control: 'text', group: 'Content' },
-      /* The five §7.1 lists, not the platform's full status set: a requester's own open tickets
-         cannot be On Hold or Reopened from this widget's point of view. */
-      {
-        key: 'statuses', label: 'Statuses to include', control: 'chips', group: 'Content',
-        options: ['Open', 'In Progress', 'Pending', 'Resolved', 'Closed'],
-      },
-      { key: 'show', label: 'Rows to show', control: 'number', group: 'Content', min: 1, max: 10 },
-      { key: 'showStatus', label: 'Show status pill', control: 'toggle', group: 'Content' },
-      { key: 'showDate', label: 'Show created date', control: 'toggle', group: 'Content' },
-      ...listCardStyleFields({ statusPill: true }),
-    ],
-    packs: LIST_CARD_PACKS, roles: LIST_CARD_ROLES,
+    /* No fields at all — see the note above the registry. Title, Statuses, Rows to show and the two
+       toggles are gone, and with them the Header group that `listCardStyleFields` contributed. */
+    fields: [],
+    packs: LIVE_CARD_PACKS, roles: LIST_CARD_ROLES,
     defaults: { ...listCardDefaults, title: 'My Open Requests', statuses: ['Open', 'In Progress', 'Pending'], show: 5, showStatus: true, showDate: true },
   },
 

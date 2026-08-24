@@ -1138,6 +1138,14 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
     </>
   );
 
+  /* Everything that can appear under the CONTENT eyebrow in the PACKS model, in one test — the
+     spec's own content groups, a table row's Cells block, and the §4 collection.
+     ⚠️ NOT `!!collectionBlock`: that const is a JSX fragment and is therefore always truthy,
+     empty or not. The real test is the same condition the fragment wraps its own contents in. */
+  const hasPacksContent = groupsFor('content').length > 0
+    || !!(col && (!col.when || col.when(cfg)))
+    || !!(selItem && collection?.isTableRow);
+
   return (
     <div className="flex h-full flex-col">
       {/* ── header ── */}
@@ -1224,8 +1232,10 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
           />
         ) : (
         <>
-        <SectionLabel action={<ExpandAll keys={groupsFor('content').map((g) => g.group)} openGroups={openGroups} setOpen={setOpenGroups} />}>Content</SectionLabel>
-        {(
+        {hasPacksContent && (
+          <SectionLabel action={<ExpandAll keys={groupsFor('content').map((g) => g.group)} openGroups={openGroups} setOpen={setOpenGroups} />}>Content</SectionLabel>
+        )}
+        {hasPacksContent && (
           <>
             {groupsFor('content').map(({ group, fields }) => (
               /* ⚠️ A lone group named after its section renders BARE. "CONTENT" above "Content"
