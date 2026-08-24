@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-24 18:14",
-  "builtAt": "2026-08-24T12:44:32.806Z",
+  "stamp": "2026-08-24 18:18",
+  "builtAt": "2026-08-24T12:48:33.220Z",
   "tasks": [
     {
       "n": 1,
@@ -16,11 +16,12 @@
     {
       "n": 2,
       "title": "Banner — remove Image fit, Focal point, Darken for text",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalStructureSpecs.ts` → the Banner group of `HERO_SPEC`",
         "You asked": "remove those three fields from the banner's style section.",
-        "How I check it": "select the banner, open the Banner group — the three are gone, and the banner still renders exactly as it does today. The \"Tile the image\" toggle goes with them: it only ever appeared under Image fit's \"Original size\", so without that option it could never show again."
+        "How I check it": "select the banner, open the Banner group — the three are gone, and the banner still renders exactly as it does today. The \"Tile the image\" toggle goes with them: it only ever appeared under Image fit's \"Original size\", so without that option it could never show again.",
+        "Verified": "Banner group reads Height → Background → Banner image → whole-page toggle. Image fit / Focal point / Darken for text / Tile all absent; the banner itself renders unchanged."
       }
     },
     {

@@ -69,38 +69,6 @@ export const HERO_SPEC: WidgetSpec = {
       key: 'bannerImage', label: 'Banner image', control: 'bannerUpload', tab: 'style', group: 'Banner',
       when: (c) => (c.bgKind ?? 'image') === 'image',
     },
-    /* ⚠️ FOUR fits, not the two the canvas toolbar used to toggle. Cover and Contain answer
-       different questions from Stretch and Original, and a banner is the one band where all four
-       come up: a photograph wants Cover, a logo-ish graphic wants Contain, a gradient made at the
-       wrong ratio wants Stretch, and a tile wants Original. The toolbar's Maximise button is gone —
-       it wrote the same idea in a second place and could only ever say two of the four. */
-    {
-      key: 'bannerFit', label: 'Image fit', control: 'select', tab: 'style', group: 'Banner',
-      when: (c) => (c.bgKind ?? 'image') === 'image',
-      options: [
-        { value: 'cover', label: 'Cover — fill the band, crop the overflow' },
-        { value: 'contain', label: 'Fit — show all of it, letterbox the rest' },
-        { value: 'stretch', label: 'Stretch — distort to the exact band' },
-        { value: 'auto', label: 'Original size' },
-      ],
-    },
-    /* Which part survives the crop. Only Cover and Original can crop, so only they are asked. */
-    {
-      key: 'bannerPos', label: 'Focal point', control: 'nine', tab: 'style', group: 'Banner',
-      when: (c) => (c.bgKind ?? 'image') === 'image' && c.bannerFit !== 'stretch' && c.bannerFit !== 'contain',
-    },
-    {
-      key: 'bannerRepeat', label: 'Tile the image', control: 'toggle', tab: 'style', group: 'Banner',
-      when: (c) => (c.bgKind ?? 'image') === 'image' && c.bannerFit === 'auto',
-      help: 'Repeats a small graphic across the band instead of showing it once.',
-    },
-    /* ⚠️ The one control that decides whether the heading can be read. It is here rather than in a
-       contrast panel because darkening the artwork is what people actually reach for, and a warning
-       with no lever beside it is a warning nobody can act on. */
-    {
-      key: 'bannerShade', label: 'Darken for text', control: 'slider', tab: 'style', group: 'Banner',
-      min: 0, max: 80, unit: '%', when: (c) => (c.bgKind ?? 'image') === 'image',
-    },
     {
       key: 'bannerColor', label: 'Banner colour', control: 'color', tab: 'style', group: 'Banner',
       when: (c) => c.bgKind === 'color',
@@ -113,9 +81,13 @@ export const HERO_SPEC: WidgetSpec = {
       help: 'The same background runs under every section, not just the banner.',
     },
     /* Removed on request: Stretch to the page edges, Content max width, Heading colour, and with the
-       colour gone the Contrast guard that measured it. The renderer still reads the same cfg keys,
-       so each falls back to its default and the band looks exactly as it did — putting any of them
-       back is one line here, not a rebuild. */
+       colour gone the Contrast guard that measured it — and later Image fit, Focal point and Darken
+       for text. ⚠️ "Tile the image" went with them rather than being kept: it was gated on Image fit
+       being "Original size", so with that control gone it could never appear again — a field nothing
+       can reveal is worse than an absent one, because it reads as a bug to whoever finds it in the
+       spec. The renderer still reads the same cfg keys and the DEFAULTS below still declare them,
+       so each falls back to its default and the band looks exactly as it did — cover, centred,
+       unshaded. Putting any of them back is one line here, not a rebuild. */
     { key: 'searchWidth', label: 'Search width', control: 'slider', tab: 'style', group: 'Search', min: 40, max: 100, unit: '%', when: (c) => c.showSearch !== false },
     { key: 'searchRadius', label: 'Search corner radius', control: 'slider', tab: 'style', group: 'Search', min: 0, max: 24, when: (c) => c.showSearch !== false },
   ],

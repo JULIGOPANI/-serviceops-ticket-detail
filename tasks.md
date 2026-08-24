@@ -6,7 +6,7 @@ These are the six changes that were interrupted when the bad commit was removed.
 source of truth — `npm run tasks` regenerates the live page from it, so the two can never disagree.
 I work them one at a time: build, verify in the browser, mark done here, publish.
 
-Updated: 2026-08-24 18:14
+Updated: 2026-08-24 18:18
 
 ## 1. Left rail — remove the hide (eye) icon
 - **Status:** done
@@ -18,12 +18,13 @@ Updated: 2026-08-24 18:14
 - **Verified:** Rail rows carry only Move up / Move down — 0 eye icons on the panel.
 
 ## 2. Banner — remove Image fit, Focal point, Darken for text
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalStructureSpecs.ts` → the Banner group of `HERO_SPEC`
 - **You asked:** remove those three fields from the banner's style section.
 - **How I check it:** select the banner, open the Banner group — the three are gone, and the banner
   still renders exactly as it does today. The "Tile the image" toggle goes with them: it only ever
   appeared under Image fit's "Original size", so without that option it could never show again.
+- **Verified:** Banner group reads Height → Background → Banner image → whole-page toggle. Image fit / Focal point / Darken for text / Tile all absent; the banner itself renders unchanged.
 
 ## 3. Design accordions collapsed by default
 - **Status:** todo
