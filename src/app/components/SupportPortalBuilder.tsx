@@ -920,11 +920,15 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
   /** Only things with their own identity can be cloned; a fixed page band has none. */
   /** The palette type that renders the same widget as a fixed page block, so it can be cloned. */
+  /* ⚠️ NO action cards here. Duplicating one cloned it as a placed element INTO the Quick Actions
+     row — which is exactly the standalone placement that is not allowed any more, and the row itself
+     now refuses new elements, so the clone would have had nowhere to go. `canDuplicate` reads this
+     map, so dropping the four entries is what disables the toolbar button for them: it goes grey
+     with its reason rather than vanishing, because the bar is shared and a button that disappears
+     for one kind of element reads as a bug in the toolbar. */
   const CLONE_TYPE: Record<string, string> = {
     requests: 'c-requests', approvals: 'c-approvals', knowledge: 'c-knowledge',
     assets: 'c-assets', cis: 'c-cis',
-    'quick-incident': 'act-incident', 'quick-service': 'act-service',
-    'quick-knowledge': 'act-knowledge', 'quick-ad': 'act-ad',
   };
 
   const canDuplicate = useCallback(

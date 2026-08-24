@@ -9,7 +9,7 @@ disagree. One task at a time: build, verify in the browser, tick it here, publis
 An earlier run of six shipped on 24 Aug 2026 — rail hide icon · banner image controls · collapsed
 Design accordions · Action Card page destination · KPI feedback count · Section Name field.
 
-Updated: 2026-08-24 22:30
+Updated: 2026-08-24 23:00
 
 ## 1. Quick Actions — Card templates moves to the individual card
 - **Status:** done
@@ -96,10 +96,11 @@ Updated: 2026-08-24 22:30
 - **Verified:** Clicking a row inside the card selects My Requests, not a Request List layer. No Statuses/Scope/Show panel exists anywhere on the page. All five rows still render.
 
 ## 13. Action cards cannot be placed on their own
-- **Status:** todo
+- **Status:** done
 - **Where:** `SupportPortalAddPanel.tsx`, `SupportPortalBuilder.tsx`, `PortalCanvas.tsx`
 - **You asked:** an action card belongs only inside the Quick Actions parent section, never as a standalone block. So no duplicate on its floating toolbar, and no way to add one from the widget sidebar.
 - **How I check it:** the Actions rows are gone from the library, and an action card's toolbar has no duplicate. ⚠️ The toolbar is shared, so duplicate has to be disabled for this kind rather than removed from the bar — I check it still works everywhere else.
+- **Verified:** Library is 16 rows with the Actions group gone entirely; searching 'incident' returns only My Open Requests. On an action card the toolbar's copy button is greyed (#CBD5E1, cursor-not-allowed) with the tooltip 'This block is part of the page layout and can't be copied'; on Announcements it is live (#64748B, 'Copy'), so duplicate still works everywhere else.
 
 ## 14. Action cards — remove the ACTION section from the panel
 - **Status:** done

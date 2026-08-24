@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-24 22:30",
-  "builtAt": "2026-08-24T17:00:30.291Z",
+  "stamp": "2026-08-24 23:00",
+  "builtAt": "2026-08-24T17:30:09.140Z",
   "tasks": [
     {
       "n": 1,
@@ -137,11 +137,12 @@
     {
       "n": 13,
       "title": "Action cards cannot be placed on their own",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`SupportPortalAddPanel.tsx`, `SupportPortalBuilder.tsx`, `PortalCanvas.tsx`",
         "You asked": "an action card belongs only inside the Quick Actions parent section, never as a standalone block. So no duplicate on its floating toolbar, and no way to add one from the widget sidebar.",
-        "How I check it": "the Actions rows are gone from the library, and an action card's toolbar has no duplicate. ⚠️ The toolbar is shared, so duplicate has to be disabled for this kind rather than removed from the bar — I check it still works everywhere else."
+        "How I check it": "the Actions rows are gone from the library, and an action card's toolbar has no duplicate. ⚠️ The toolbar is shared, so duplicate has to be disabled for this kind rather than removed from the bar — I check it still works everywhere else.",
+        "Verified": "Library is 16 rows with the Actions group gone entirely; searching 'incident' returns only My Open Requests. On an action card the toolbar's copy button is greyed (#CBD5E1, cursor-not-allowed) with the tooltip 'This block is part of the page layout and can't be copied'; on Announcements it is live (#64748B, 'Copy'), so duplicate still works everywhere else."
       }
     },
     {

@@ -299,12 +299,18 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
   { id: 'c-faq', name: 'FAQ', icon: 'faq', group: 'Custom', onPage: true, keywords: 'questions help answers' },
 
   // ── Actions — fixed destinations, the same for every requester ──
-  { id: 'act-incident', name: 'New Incident', icon: 'incident', group: 'Actions', onPage: true, keywords: 'report issue raise ticket' },
-  { id: 'act-service', name: 'Request Service', icon: 'services', group: 'Actions', onPage: true, keywords: 'catalog order' },
+  /* ⚠️ The four action cards are HIDDEN from the palette. They are not blocks an admin places —
+     they are the four fixed destinations the Quick Actions row is made of, they already exist on
+     every page, and the row now refuses anything else (see LOCKED_ROWS). Leaving them addable
+     offered a fifth copy that had nowhere legal to land.
+     Hidden rather than deleted: the specs, the renderers and the hover previews all stay, so the
+     cards on the page keep working and their panels are unchanged. */
+  { id: 'act-incident', name: 'New Incident', icon: 'incident', group: 'Actions', onPage: true, keywords: 'report issue raise ticket', hidden: true },
+  { id: 'act-service', name: 'Request Service', icon: 'services', group: 'Actions', onPage: true, keywords: 'catalog order', hidden: true },
   /* ⚠️ NOT onPage — this page carries three action cards, and marking a fourth as placed would grey
      out the one entry that can still add it. Drop it on the page and it becomes reachable. */
-  { id: 'act-ad', name: 'AD Self Service', icon: 'adself', group: 'Actions', keywords: 'password reset domain unlock' },
-  { id: 'act-knowledge', name: 'Knowledge', icon: 'knowledge', group: 'Actions', onPage: true, keywords: 'articles help search' },
+  { id: 'act-ad', name: 'AD Self Service', icon: 'adself', group: 'Actions', keywords: 'password reset domain unlock', hidden: true },
+  { id: 'act-knowledge', name: 'Knowledge', icon: 'knowledge', group: 'Actions', onPage: true, keywords: 'articles help search', hidden: true },
 
   { id: 'l-tabs', name: 'Advanced Tabs', icon: 'tabs', group: 'Basic', hidden: true }, // hidden 20 Aug 2026
   { id: 'l-divider', name: 'Divider', icon: 'divider', group: 'Basic', keywords: 'vertical horizontal v/h separator rule', hidden: true }, // hidden 21 Aug 2026
