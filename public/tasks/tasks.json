@@ -1,0 +1,66 @@
+{
+  "stamp": "2026-08-24 15:05",
+  "builtAt": "2026-08-24T12:39:31.841Z",
+  "tasks": [
+    {
+      "n": 1,
+      "title": "Left rail — remove the hide (eye) icon",
+      "status": "todo",
+      "fields": {
+        "Where": "`portalStructureSpecs.ts` → `RAIL_SPEC.collection`",
+        "You asked": "remove the hide icon from the menubar rows (Requests, Changes, My Assets, …).",
+        "How I check it": "select the left rail, count the per-row action buttons — the eye is gone and the drag handle plus the up/down arrows remain. The rail's note must stop promising you can hide them."
+      }
+    },
+    {
+      "n": 2,
+      "title": "Banner — remove Image fit, Focal point, Darken for text",
+      "status": "todo",
+      "fields": {
+        "Where": "`portalStructureSpecs.ts` → the Banner group of `HERO_SPEC`",
+        "You asked": "remove those three fields from the banner's style section.",
+        "How I check it": "select the banner, open the Banner group — the three are gone, and the banner still renders exactly as it does today. The \"Tile the image\" toggle goes with them: it only ever appeared under Image fit's \"Original size\", so without that option it could never show again."
+      }
+    },
+    {
+      "n": 3,
+      "title": "Design accordions collapsed by default",
+      "status": "todo",
+      "fields": {
+        "Where": "`PortalWidgetDrawer.tsx` → the open-groups seed",
+        "You asked": "in the style section, make all accordions collapsed by default.",
+        "How I check it": "select several different widgets — every Design accordion arrives shut, Content stays open. ⚠️ The two panel models use opposite polarity, so both need seeding or half the widgets keep opening expanded."
+      }
+    },
+    {
+      "n": 4,
+      "title": "Action Card — remove \"A page in this portal\"",
+      "status": "todo",
+      "fields": {
+        "Where": "`portalWidgetSpec.ts` → the action-card `destination` options",
+        "You asked": "remove that option from the On-click-go-to dropdown.",
+        "How I check it": "open an Action Card's Action section — the dropdown lists Report an incident, Request a service, AD self service, Knowledge, External link. The Page picker it used to reveal goes too; a field whose parent option no longer exists can never appear."
+      }
+    },
+    {
+      "n": 5,
+      "title": "KPI — remove \"Feedback you owe us\"",
+      "status": "todo",
+      "fields": {
+        "Where": "`portalWidgetSpec.ts` → the KPI `counts` options",
+        "You asked": "remove that option from the Counts dropdown.",
+        "How I check it": "select a KPI, open Counts — five options remain, ending at My CIs."
+      }
+    },
+    {
+      "n": 6,
+      "title": "Section panel — remove the Name field",
+      "status": "todo",
+      "fields": {
+        "Where": "`portalStructureSpecs.ts` → `SECTION_SPEC.panel.content`",
+        "You asked": "remove Name from the parent section's sidebar (columns never had one, so nothing inner is affected). Lost when we removed the bad commit; you confirmed it should come back.",
+        "How I check it": "select a section — no Name field. ⚠️ Removing it exposes an empty CONTENT heading on a section with no cards, so Content must be dropped entirely when there is nothing to author, the same rule Design follows."
+      }
+    }
+  ]
+}

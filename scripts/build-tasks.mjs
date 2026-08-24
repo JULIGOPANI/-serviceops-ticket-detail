@@ -1,0 +1,206 @@
+/* Builds the live task page from tasks.md.
+ *
+ * ⚠️ ONE source of truth. `tasks.md` is hand-edited; this script derives everything the page shows
+ * from it. A page maintained beside the file rather than from it drifts the first time somebody
+ * updates one and not the other — and the whole point of the page is that it can be trusted at a
+ * glance.
+ *
+ * ⚠️ The DATA and the SHELL are separate files. `index.html` is written once and never needs to
+ * change again; only `tasks.json` moves. That is what lets the open page poll and re-render in
+ * place instead of reloading under the reader — a page that reloads while you are reading it is
+ * worse than one you refresh yourself. */
+
+import fs from 'fs';
+import path from 'path';
+
+const ROOT = path.resolve(import.meta.dirname, '..');
+const OUT = path.join(ROOT, 'public', 'tasks');
+
+const md = fs.readFileSync(path.join(ROOT, 'tasks.md'), 'utf8');
+
+/* Parse. The format is deliberately plain — `## <n>. <title>` then `- **Key:** value` lines — so
+   the file stays readable as prose and the parser stays a dozen lines. */
+const tasks = [];
+let cur = null;
+for (const raw of md.split('\n')) {
+  const head = /^##\s+(\d+)\.\s+(.+)$/.exec(raw);
+  if (head) {
+    cur = { n: Number(head[1]), title: head[2].trim(), status: 'todo', fields: {} };
+    tasks.push(cur);
+    continue;
+  }
+  if (!cur) continue;
+  const field = /^-\s+\*\*(.+?):\*\*\s*(.*)$/.exec(raw);
+  if (field) {
+    const key = field[1].trim().toLowerCase();
+    const val = field[2].trim();
+    if (key === 'status') cur.status = val.toLowerCase();
+    else cur.fields[field[1].trim()] = val;
+    cur._last = key === 'status' ? null : field[1].trim();
+    continue;
+  }
+  // A wrapped continuation line belongs to the field above it.
+  if (cur._last && /^\s{2,}\S/.test(raw)) cur.fields[cur._last] += ' ' + raw.trim();
+}
+
+const stamp = (/^Updated:\s*(.+)$/m.exec(md) ?? [, ''])[1].trim();
+const data = {
+  stamp,
+  builtAt: new Date().toISOString(),
+  tasks: tasks.map(({ n, title, status, fields }) => ({ n, title, status, fields })),
+};
+
+fs.mkdirSync(OUT, { recursive: true });
+fs.writeFileSync(path.join(OUT, 'tasks.json'), JSON.stringify(data, null, 2));
+
+/* Inline `**bold**` and `` `code` `` only — this is a task list, not a document. */
+const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support Portal — open tasks</title>
+<style>
+  :root {
+    --bg: #F7F9FC; --card: #FFFFFF; --line: #E5E7EB; --ink: #364658; --mute: #7B8FA5;
+    --faint: #9CA3AF; --accent: #3D8BD0; --done: #22A06B; --doing: #B54708;
+    --done-bg: #ECFDF3; --doing-bg: #FEF6E7; --todo-bg: #F1F5F9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161A; --card: #1C1F24; --line: #2A2F36; --ink: #E6EAF0; --mute: #96A3B4;
+      --faint: #6B7785; --accent: #6BA9E0; --done: #4ED08A; --doing: #E0A356;
+      --done-bg: #16301F; --doing-bg: #33260F; --todo-bg: #23272E;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 400 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 40px 20px 80px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--mute); font-size: 13px; margin: 0 0 4px; }
+  .sub a { color: var(--accent); }
+  .bar { display: flex; align-items: center; gap: 10px; margin: 22px 0 18px; }
+  .track { flex: 1; height: 6px; border-radius: 999px; background: var(--todo-bg); overflow: hidden; }
+  .fill { height: 100%; background: var(--done); border-radius: 999px; transition: width .4s ease; }
+  .count { font-size: 12px; color: var(--mute); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  li {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+    transition: border-color .2s ease;
+  }
+  li.done { opacity: .72; }
+  .top { display: flex; align-items: flex-start; gap: 10px; }
+  .n {
+    flex: 0 0 auto; width: 22px; height: 22px; border-radius: 999px; background: var(--todo-bg);
+    color: var(--mute); font-size: 11px; font-weight: 600; display: flex; align-items: center;
+    justify-content: center; margin-top: 1px; font-variant-numeric: tabular-nums;
+  }
+  li.done .n { background: var(--done-bg); color: var(--done); }
+  li.doing .n { background: var(--doing-bg); color: var(--doing); }
+  .title { flex: 1; font-size: 14px; font-weight: 600; margin: 0; }
+  li.done .title { text-decoration: line-through; text-decoration-color: var(--faint); }
+  .pill {
+    flex: 0 0 auto; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px;
+    background: var(--todo-bg); color: var(--mute); text-transform: uppercase; letter-spacing: .04em;
+  }
+  li.done .pill { background: var(--done-bg); color: var(--done); }
+  li.doing .pill { background: var(--doing-bg); color: var(--doing); }
+  dl { margin: 10px 0 0 32px; display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; }
+  dt { color: var(--faint); font-size: 12px; }
+  dd { margin: 0; font-size: 12.5px; color: var(--mute); }
+  code {
+    font: 500 11.5px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: var(--todo-bg); padding: 1px 5px; border-radius: 4px; color: var(--ink);
+  }
+  strong { color: var(--ink); font-weight: 600; }
+  footer { margin-top: 28px; font-size: 12px; color: var(--faint); }
+  .live { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--done); }
+  @media (prefers-reduced-motion: no-preference) { .dot { animation: pulse 2.4s ease-in-out infinite; } }
+  @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: .25 } }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Support Portal — open tasks</h1>
+    <p class="sub">The changes interrupted when the bad commit was removed. Worked one at a time, each verified in the browser before it is ticked.</p>
+    <p class="sub">Source: <a href="https://github.com/zenichakalasiya/serviceops-ticket-detail/blob/main/tasks.md">tasks.md</a></p>
+
+    <div class="bar">
+      <div class="track"><div class="fill" id="fill" style="width:0%"></div></div>
+      <span class="count" id="count">…</span>
+    </div>
+
+    <ol id="list"></ol>
+
+    <footer>
+      <span class="live"><span class="dot"></span> <span id="stamp">checking…</span></span>
+    </footer>
+  </div>
+
+<script>
+/* ⚠️ Fetch with a cache-buster. GitHub Pages serves JSON with a long max-age, so without one the
+   page would keep showing the build it first loaded and quietly stop being live at all. */
+const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const rich = (s) => esc(s)
+  .replace(/\`([^\`]+)\`/g, '<code>$1</code>')
+  .replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>');
+
+let last = '';
+
+async function tick() {
+  try {
+    const res = await fetch('./tasks.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    const key = JSON.stringify(data);
+    if (key === last) { stampNow(data); return; }
+    last = key;
+    render(data);
+  } catch {
+    document.getElementById('stamp').textContent = 'could not reach tasks.json — showing the last load';
+  }
+}
+
+function stampNow(data) {
+  document.getElementById('stamp').textContent =
+    'Updated ' + data.stamp + ' · re-checked ' + new Date().toLocaleTimeString();
+}
+
+function render(data) {
+  const done = data.tasks.filter((t) => t.status === 'done').length;
+  const total = data.tasks.length;
+  document.getElementById('fill').style.width = total ? Math.round((done / total) * 100) + '%' : '0%';
+  document.getElementById('count').textContent = done + ' of ' + total + ' done';
+  document.getElementById('list').innerHTML = data.tasks.map((t) => {
+    const rows = Object.entries(t.fields)
+      .map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + rich(v) + '</dd>').join('');
+    return '<li class="' + esc(t.status) + '">'
+      + '<div class="top">'
+      + '<span class="n">' + (t.status === 'done' ? '✓' : t.n) + '</span>'
+      + '<p class="title">' + rich(t.title) + '</p>'
+      + '<span class="pill">' + esc(t.status) + '</span>'
+      + '</div>'
+      + (rows ? '<dl>' + rows + '</dl>' : '')
+      + '</li>';
+  }).join('');
+  stampNow(data);
+}
+
+tick();
+setInterval(tick, 30000);
+</script>
+</body>
+</html>
+`;
+
+fs.writeFileSync(path.join(OUT, 'index.html'), html);
+
+const done = tasks.filter((t) => t.status === 'done').length;
+console.log(`tasks: ${done}/${tasks.length} done → public/tasks/`);

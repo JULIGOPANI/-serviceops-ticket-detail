@@ -4,8 +4,9 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "build": "vite build",
-    "dev": "vite"
+    "build": "node scripts/build-tasks.mjs && vite build",
+    "dev": "vite",
+    "tasks": "node scripts/build-tasks.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
