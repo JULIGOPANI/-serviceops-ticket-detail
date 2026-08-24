@@ -656,7 +656,7 @@ export const WIDGET_SPECS: WidgetSpec[] = [
       { key: 'label', label: 'Label', control: 'text', group: 'Content' },
       {
         key: 'source', label: 'Counts', control: 'select', group: 'Content',
-        options: ['My requests', 'My changes', 'Approvals waiting on me', 'My assets', 'My CIs', 'Feedback you owe us'],
+        options: ['My requests', 'My changes', 'Approvals waiting on me', 'My assets', 'My CIs'],
       },
       // ⚠️ Only the two sources that HAVE a status filter get chips. On the others the endpoint
       // returns a single total, so the drawer says so rather than rendering an inert filter.

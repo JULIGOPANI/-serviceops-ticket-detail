@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-24 18:22",
-  "builtAt": "2026-08-24T12:52:10.103Z",
+  "stamp": "2026-08-24 18:23",
+  "builtAt": "2026-08-24T12:53:41.684Z",
   "tasks": [
     {
       "n": 1,
@@ -49,11 +49,12 @@
     {
       "n": 5,
       "title": "KPI — remove \"Feedback you owe us\"",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalWidgetSpec.ts` → the KPI `counts` options",
         "You asked": "remove that option from the Counts dropdown.",
-        "How I check it": "select a KPI, open Counts — five options remain, ending at My CIs."
+        "How I check it": "select a KPI, open Counts — five options remain, ending at My CIs.",
+        "Verified": "Counts lists exactly: My requests, My changes, Approvals waiting on me, My assets, My CIs. No reference to the removed option left anywhere in src."
       }
     },
     {

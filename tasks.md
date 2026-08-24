@@ -6,7 +6,7 @@ These are the six changes that were interrupted when the bad commit was removed.
 source of truth — `npm run tasks` regenerates the live page from it, so the two can never disagree.
 I work them one at a time: build, verify in the browser, mark done here, publish.
 
-Updated: 2026-08-24 18:22
+Updated: 2026-08-24 18:23
 
 ## 1. Left rail — remove the hide (eye) icon
 - **Status:** done
@@ -45,10 +45,11 @@ Updated: 2026-08-24 18:22
 - **Verified:** Dropdown lists exactly: Report an incident, Request a service, AD self service, Knowledge, External link. No Page picker appears for any of them.
 
 ## 5. KPI — remove "Feedback you owe us"
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalWidgetSpec.ts` → the KPI `counts` options
 - **You asked:** remove that option from the Counts dropdown.
 - **How I check it:** select a KPI, open Counts — five options remain, ending at My CIs.
+- **Verified:** Counts lists exactly: My requests, My changes, Approvals waiting on me, My assets, My CIs. No reference to the removed option left anywhere in src.
 
 ## 6. Section panel — remove the Name field
 - **Status:** todo

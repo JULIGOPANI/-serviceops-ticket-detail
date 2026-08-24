@@ -9,4 +9,4 @@
 
 # tasks (implemented from PMG and then removed)
 1.remove 'card templates' from parent section of 'Quick Action'. keep 'card templates' in individual action cards.
-2.
+2.remove Custom 'Action card' widget from the sidedrawer of widget. 
