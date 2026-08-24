@@ -6,6 +6,9 @@
 4.'Set as default' functionality from templates
 5.2 stepper changes for 1.support portal details 2.support portal customization
 
+# Need to discuss with Sahilbhai
+1.KB for FAQs
+
 
 # tasks (implemented from PMG and then removed)
 1.remove 'card templates' from parent section of 'Quick Action'. keep 'card templates' in individual action cards.

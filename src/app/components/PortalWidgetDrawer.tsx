@@ -386,6 +386,17 @@ function PanelBody({ spec, nodeId, cfg, renderField, openGroups, toggleGroup, st
   /** Everything that can appear under the CONTENT eyebrow, in one test. */
   const hasContentSection = visible(panel.content).length > 0 || !!panel.contentNote || !!hasCollection;
 
+  /* ⚠️ The same rule for DESIGN, and this is the THIRD time one of these has had to be written
+     twice: two panel models means every "hide the heading when it introduces nothing" rule needs
+     a copy in each, and the second copy only surfaces when a widget of that flavour first hits
+     the edge. The logo is that widget — with its accordions gone it rendered a bare DESIGN
+     eyebrow with nothing beneath it.
+     ⚠️ `size` is filtered out of the render, so it is filtered out of the test too — counting it
+     would keep the eyebrow for a widget whose only accordion is one the panel never draws. */
+  const hasDesignSection = panel.accordions
+    .filter((a) => a.id !== 'size')
+    .some((a) => !a.when || a.when(cfg));
+
   /** Has anything in this accordion moved off its default? Drives the orange dot. */
   const touched = (a: typeof panel.accordions[number]) => {
     const own = visible(a.fields).some((f) => cfg[f.key] !== undefined && cfg[f.key] !== spec.defaults[f.key]);
@@ -422,6 +433,8 @@ function PanelBody({ spec, nodeId, cfg, renderField, openGroups, toggleGroup, st
         </>
       ) : null}
 
+      {hasDesignSection && (
+      <>
       <SectionLabel>Design</SectionLabel>
       <div>
         {/* ⚠️ `size` is dropped here as well. Size already left as a field group (DROP_GROUPS) and as
@@ -460,6 +473,8 @@ function PanelBody({ spec, nodeId, cfg, renderField, openGroups, toggleGroup, st
           );
         })}
       </div>
+      </>
+      )}
     </>
   );
 }

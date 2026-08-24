@@ -10,25 +10,28 @@ Shipped already — **1–14** (Quick Actions card templates · Custom Action Ca
 locked · six live-data panels · Contact Us · count badge · inner request list · standalone action
 cards · action-card ACTION section), and an earlier six on 24 Aug.
 
-Updated: 2026-08-25 09:40
+Updated: 2026-08-24 23:59
 
 ## 15. Most Used Services — keep only "Show description"
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalWidgetSpec.ts` → the Most Used Services spec
 - **You asked:** remove every field except the Show-description toggle — Title, Services to show, Columns, Show "Browse catalog" link, Link label and the Empty state.
 - **How I check it:** select the widget — CONTENT holds one switch and nothing else, and the card on the canvas is unchanged.
+- **Verified:** Panel is CONTENT → Show description, then DESIGN → Style, Spacing. Title, Services to show, Columns, Browse link, Link label and Empty state all gone; the canvas grid is unchanged.
 
 ## 16. Logo — remove the DESIGN section
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalStructureSpecs.ts` → `LOGO_SPEC`
 - **You asked:** remove the Design section (Style, Spacing) from the logo's sidebar.
 - **How I check it:** select the logo — CONTENT holds the upload and nothing follows it.
+- **Verified:** Panel is CONTENT → Logo image and nothing after it. ⚠️ Removing the accordions exposed a bare DESIGN heading, so PanelBody now drops that section entirely when it has nothing to draw — the same rule the packs model already had. Top bar and Hero still show their Design sections.
 
 ## 17. Top bar — remove the Shadow field
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalStructureSpecs.ts` → the navbar spec
 - **You asked:** remove the Shadow toggle from the navbar's sidebar.
 - **How I check it:** select the top bar — no Shadow row, and the bar renders as it does now.
+- **Verified:** Top bar → DESIGN → Style expanded reads Background colour, Bar height, Divider under the bar. No Shadow row.
 
 ## 18. Text toolbar — an inline font-style editor
 - **Status:** todo
@@ -49,10 +52,11 @@ Updated: 2026-08-25 09:40
 - **How I check it:** ⚠️ You chose **headings only** — the title node disappears entirely, so clicking the words selects the CARD rather than a layer you can select but not change. Click every heading listed: each selects its widget. Click an action card's description: it still types.
 
 ## 21. Search — keep only the placeholder
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalStructureSpecs.ts` → `HERO_SEARCH_FIELDS`
 - **You asked:** remove everything except Placeholder — Scope, Show suggestions as they type, Show the search bar.
 - **How I check it:** select the search bar — one field. ⚠️ The Hero's own panel keeps its Show-the-search-bar toggle, so the bar can still be hidden; I check that still works.
+- **Verified:** Search panel is CONTENT → Placeholder only. ⚠️ It was HERO_SEARCH_FIELDS that looked like the spec but had no readers anywhere — the real one is SEARCH_SPEC.panel.content. The dead const is deleted rather than left as a second definition of one screen.
 
 ## 22. Favourite Services + Most Used Services as card sections
 - **Status:** todo

@@ -15,21 +15,19 @@ import type { WidgetSpec } from './portalWidgetSpec';
  * ⚠️ It writes the BANNER's config keys (ownerOf strips -search), because there is one search
  * and one set of settings for it. Two stores would let the banner's "Show the search bar" and this
  * panel's disagree about whether there is a search at all.
- * ⚠️ "Show the search bar" is repeated here on purpose — it is not a duplicate control, it is the
- * same control in the place you are standing when you decide you do not want it. Hiding it here
- * would mean going back to the banner to switch off the thing you have selected. */
+ * ⚠️ "Show the search bar" USED to be repeated here, on the reasoning that it is the same control in
+ * the place you are standing when you decide you do not want it. Removed on request: the panel is
+ * the placeholder and nothing else, and hiding the search is done from the banner. */
 export const SEARCH_SPEC: WidgetSpec = {
   id: 'search', name: 'Search', group: 'Structure', reuse: 'single', family: 'flat',
   panel: {
+    /* ⚠️ ONE field. Scope and Suggestions describe what the search ENGINE does — the product's
+       answer, not this page's. Show-the-search-bar went too: it is the one control here that is not
+       about the search at all, it decides whether the banner HAS one, and it already exists on the
+       Hero's panel. ⚠️ The consequence, stated because it is a real cost: hiding the search now
+       means selecting the BANNER, not the search bar you are looking at. */
     content: [
       { key: 'searchPlaceholder', label: 'Placeholder', control: 'text' },
-      {
-        key: 'searchScope', label: 'Scope', control: 'segmented',
-        options: [{ value: 'knowledge', label: 'Knowledge' }, { value: 'all', label: 'All' }],
-        help: 'What the banner search looks through.',
-      },
-      { key: 'searchSuggestions', label: 'Show suggestions as they type', control: 'toggle' },
-      { key: 'showSearch', label: 'Show the search bar', control: 'toggle' },
     ],
     accordions: [
       {
@@ -118,15 +116,9 @@ export const HERO_SPEC: WidgetSpec = {
 };
 
 /** L6 — the Search bar's own drawer. Reached by selecting the search field on the canvas. */
-export const HERO_SEARCH_FIELDS: WidgetSpec['fields'] = [
-  { key: 'searchPlaceholder', label: 'Placeholder', control: 'text', group: 'Content' },
-  {
-    key: 'searchScope', label: 'Scope', control: 'segmented', group: 'Content',
-    options: [{ value: 'knowledge', label: 'Knowledge' }, { value: 'all', label: 'All' }],
-  },
-  { key: 'searchSuggestions', label: 'Show suggestions as they type', control: 'toggle', group: 'Content' },
-  { key: 'showSearch', label: 'Show the search bar', control: 'toggle', group: 'Content' },
-];
+/* ⚠️ `HERO_SEARCH_FIELDS` was deleted here. It described the search panel and NOTHING read it —
+   the panel comes from `SEARCH_SPEC.panel.content` above — so it was a second definition of one
+   screen, and the obvious place to make an edit that would have no effect. */
 
 /* ── §7.21 Section ───────────────────────────────────────────────────────── */
 
@@ -329,12 +321,11 @@ export const LOGO_SPEC: WidgetSpec = {
   id: 'logo', name: 'Logo', group: 'Chrome', reuse: 'single', family: 'flat',
   panel: {
     content: [{ key: 'logoSrc', label: 'Logo image', control: 'upload' }],
-    /* The SHARED Style pack every other element uses — fill, border, radius — rather than a bespoke
-       pair of fields that made the logo the one node styled by a different vocabulary. */
-    accordions: [
-      { id: 'style', open: true, groups: ['G1'] },
-      { id: 'spacing', spacing: 'both' },
-    ],
+    /* ⚠️ NO Design section. A logo is one supplied image sitting in the product's own bar: filling
+       it, bordering it or rounding it styles a mark somebody else's brand guidelines own, and its
+       spacing belongs to the bar — which is already why `logoPos` lives there. The panel is the
+       upload and nothing else, which is the whole truth about this layer. */
+    accordions: [],
   },
   noDelete: true,
   notes: [{ tone: 'info', text: 'Where the logo sits against the actions is set on the top bar, since it is a position relative to them.' }],
@@ -363,10 +354,10 @@ export const NAVBAR_SPEC: WidgetSpec = {
           { key: 'barBg', label: 'Background colour', control: 'color' },
           { key: 'barHeight', label: 'Bar height', control: 'sliderUnit', min: 48, max: 96, unit: 'px' },
           { key: 'barDivider', label: 'Divider under the bar', control: 'toggle' },
-          /* The SHARED shadow block — same control, same four keys, same rendered CSS as the action
-             cards and every other widget. A bespoke on/off + colour pair here meant the bar's
-             shadow was the one shadow in the builder you could not aim or sink. */
-          { key: 'shadowOn', label: 'Shadow', control: 'shadow' },
+          /* ⚠️ NO Shadow control. A full-width band at the very top of the page is the one surface
+             where a drop shadow reads as a rendering artefact rather than as depth. The four
+             `shadow*` keys stay in `defaults` and the renderer still reads them, so a bar that
+             already carries one keeps drawing it — there is simply no longer a way to set one. */
         ],
       },
       { id: 'spacing', spacing: 'both' },

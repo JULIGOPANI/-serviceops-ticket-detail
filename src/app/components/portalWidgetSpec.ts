@@ -356,30 +356,15 @@ export const WIDGET_SPECS: WidgetSpec[] = [
   {
     id: 'featured_services', name: 'Most Used Services', group: 'Live data', reuse: 'single', family: 'flat',
     gate: { kind: 'permission', setting: 'Access Service Catalog', section: 'Organization' },
+    /* ⚠️ ONE control. Show description is the only field here that is genuinely the admin's: the
+       catalogue decides which services rank, what they are called and which category they sit in,
+       but whether this portal prints the second line is a page decision. Title, Services to show,
+       Columns, the Browse link and its label all described data this widget does not own.
+       ⚠️ The card-template picker and the gap go too, and that is deliberate: task 22 gives this
+       widget the four-card shape, so a picker offering four other shapes would offer to undo the
+       design it is about to be given. Every value stays in `defaults`, so nothing moves today. */
     fields: [
-      { key: 'title', label: 'Title', control: 'text', group: 'Content' },
-      { key: 'show', label: 'Services to show', control: 'number', group: 'Content', min: 1, max: 12 },
-      /* ⚠️ Deliberately on BOTH tabs (§7.8) — and it is ONE value: `store: 'style'` writes the same
-         `columns` key the Arrangement pack edits, so the two controls can never drift apart. */
-      {
-        key: 'columns', label: 'Columns', control: 'segmented', group: 'Content', store: 'style',
-        options: [{ value: '1', label: '1' }, { value: '2', label: '2' }, { value: '3', label: '3' }],
-        help: 'The same setting as Arrangement → Columns on the Styling tab.',
-      },
       { key: 'showDesc', label: 'Show description', control: 'toggle', group: 'Content' },
-      { key: 'showBrowse', label: 'Show “Browse catalog” link', control: 'toggle', group: 'Content' },
-      { key: 'browseLabel', label: 'Link label', control: 'text', group: 'Content', when: (c) => c.showBrowse !== false },
-      /* ⚠️ The same card-template picker the sections use, and it REPLACES three controls at once:
-         where the icon sits, whether there is an icon at all, and how the words line up under it.
-         Those were previously a Show-icon toggle in Content and a "Position relative to text" row in
-         an Icon group — two places to answer one question, which can contradict (an icon position
-         chosen for a card set to have no icon). A shape you recognise by looking beats two words. */
-      { key: 'cardTemplate', label: 'Card templates', control: 'templates', tab: 'style', group: 'Style' },
-      /* Kept from the Arrangement pack, which is otherwise dropped below — the gap is real here. */
-      {
-        key: 'gap', label: 'Gap between items', control: 'sliderUnit', tab: 'style', group: 'Arrangement',
-        store: 'style', min: 0, max: 32, unit: 'px',
-      },
     ],
     /* ⚠️ P4 and P6 are gone. P4 brought "Divider between items", which cannot mean anything here —
        these services are a GRID, and there is no gap between rows to rule. P6 brought an Icon group
@@ -387,7 +372,7 @@ export const WIDGET_SPECS: WidgetSpec[] = [
        above, and whose remaining three were styling a glyph the template can switch off entirely.
        The gap was the one control in P4 worth keeping, so it is declared directly rather than
        dragging a pack in for one field. */
-    packs: ['P1', 'P2', 'P8'], roles: ['title', 'body', 'meta'],
+    packs: ['P1', 'P2'], roles: ['title', 'body', 'meta'],
     notes: [{ tone: 'info', text: 'A requester’s favourites, not a browse-all grid — the catalogue itself is a page, not a widget.' }],
     // No `columns` here — it lives in the style store so the two controls share one value.
     defaults: { title: 'Most Used Services', show: 6, showDesc: false, showBrowse: true, browseLabel: 'Browse catalog', cardTemplate: 'left' },
