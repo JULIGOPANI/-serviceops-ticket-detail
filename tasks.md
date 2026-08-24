@@ -9,7 +9,7 @@ disagree. One task at a time: build, verify in the browser, tick it here, publis
 An earlier run of six shipped on 24 Aug 2026 — rail hide icon · banner image controls · collapsed
 Design accordions · Action Card page destination · KPI feedback count · Section Name field.
 
-Updated: 2026-08-24 20:03
+Updated: 2026-08-24 20:45
 
 ## 1. Quick Actions — Card templates moves to the individual card
 - **Status:** done
@@ -75,10 +75,11 @@ Updated: 2026-08-24 20:03
 - **Verified:** Panel is DESIGN → Style, Spacing only. Scoped to the widget's own node, the canvas card is unchanged: heading plus three announcements with their dates, and still no count badge or View all — which this feed never had.
 
 ## 10. Contact Us — only the email and phone values stay editable
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalCollectionSpecs.ts` → the Contact Us spec
 - **You asked:** remove Title, the whole Show-hours section, the Show-email and Show-phone toggles, and the Email label / Phone label fields — those are not ours to edit. Leave only the email value and the phone value as editable inputs.
 - **How I check it:** select Contact Us — the panel is two inputs, Email address and Phone number. The canvas card still shows its labels; they come from the product now.
+- **Verified:** Panel is CONTENT → Email address, Phone number (holding the real values), then DESIGN. Title, Show email, Show phone, Show hours, Email label and Phone label are all gone. The canvas card is unchanged and still reads Contact Us / Email / Phone / Hours with all three values.
 
 ## 11. The count badge moves beside the card title
 - **Status:** todo

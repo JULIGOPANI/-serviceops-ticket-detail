@@ -316,31 +316,28 @@ export const WIDGET_SPECS: WidgetSpec[] = [
   /* ─────────── §7.7 Contact Us ─────────── */
   {
     id: 'contact_us', name: 'Contact Us', group: 'Live data', reuse: 'single', family: 'flat',
+    /* ⚠️ TWO fields. The labels are the product's words — "Email" and "Phone" are what this card
+       calls those lines on every portal, and letting one page rename them is how two portals stop
+       describing the same thing the same way. The values stay editable because a portal may
+       legitimately publish a different address or number to its own requesters.
+       The Show-email / Show-phone / Show-hours switches and the whole Hours line went with them:
+       with no toggle there is no way to hide a line, so a label and a value you could blank but
+       never remove would have been worse than a fixed one. Every string is still in `defaults`, so
+       the card renders exactly as it does today. */
     fields: [
-      { key: 'title', label: 'Title', control: 'text', group: 'Content' },
-      /* ⚠️ Each line's LABEL and VALUE are editable here, not just switchable. The panel used to
-         offer three on/off toggles and a link to Organization, so the only thing an admin could do
-         to the words on their own portal was hide them. The org record stays the source these are
-         seeded FROM — the link below still points at it — but a portal may legitimately want to say
-         "Service desk" instead of "Email", or publish a different number to requesters. */
-      { key: 'showEmail', label: 'Show email', control: 'toggle', group: 'Content' },
-      { key: 'cl0', label: 'Email label', control: 'text', group: 'Content', when: (c) => c.showEmail !== false },
-      { key: 'cv0', label: 'Email address', control: 'text', group: 'Content', when: (c) => c.showEmail !== false },
-      { key: 'showPhone', label: 'Show phone', control: 'toggle', group: 'Content' },
-      { key: 'cl1', label: 'Phone label', control: 'text', group: 'Content', when: (c) => c.showPhone !== false },
-      { key: 'cv1', label: 'Phone number', control: 'text', group: 'Content', when: (c) => c.showPhone !== false },
-      { key: 'showHours', label: 'Show hours', control: 'toggle', group: 'Content' },
-      { key: 'cl2', label: 'Hours label', control: 'text', group: 'Content', when: (c) => c.showHours !== false },
-      { key: 'cv2', label: 'Opening hours', control: 'text', group: 'Content', when: (c) => c.showHours !== false },
+      { key: 'cv0', label: 'Email address', control: 'text', group: 'Content' },
+      { key: 'cv1', label: 'Phone number', control: 'text', group: 'Content' },
     ],
     /* ⚠️ No P6. Contact Us has no icon of its own — the group was styling a glyph that is not on
        the widget, which is a control with nothing to act on. P4 goes with the global removal. */
     packs: ['P1', 'P2', 'P8'], roles: ['title', 'body', 'meta'],
     // §8.4 rule 2 — show the value, say where it lives, link there. A local field here would
     // silently diverge from the record every other portal reads.
+    /* ⚠️ The note no longer talks about switches, because there are none — it now says what is
+       actually true of the two fields left: they override the org record for this portal. */
     notes: [{
       tone: 'info',
-      text: 'The email address, phone number and hours come from the portal’s own settings, so every portal stays consistent. These switches only decide whether each line appears.',
+      text: 'These override what this portal publishes. The organisation record is where they are seeded from and what every other portal reads.',
       link: { label: 'Edit contact details', section: 'Organization', card: 'Company Details' },
     }],
     /* ⚠️ The line strings are seeded HERE as well as being the renderer's fallback. Without them the

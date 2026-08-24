@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-24 20:03",
-  "builtAt": "2026-08-24T14:33:27.138Z",
+  "stamp": "2026-08-24 20:45",
+  "builtAt": "2026-08-24T15:15:12.729Z",
   "tasks": [
     {
       "n": 1,
@@ -104,11 +104,12 @@
     {
       "n": 10,
       "title": "Contact Us — only the email and phone values stay editable",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalCollectionSpecs.ts` → the Contact Us spec",
         "You asked": "remove Title, the whole Show-hours section, the Show-email and Show-phone toggles, and the Email label / Phone label fields — those are not ours to edit. Leave only the email value and the phone value as editable inputs.",
-        "How I check it": "select Contact Us — the panel is two inputs, Email address and Phone number. The canvas card still shows its labels; they come from the product now."
+        "How I check it": "select Contact Us — the panel is two inputs, Email address and Phone number. The canvas card still shows its labels; they come from the product now.",
+        "Verified": "Panel is CONTENT → Email address, Phone number (holding the real values), then DESIGN. Title, Show email, Show phone, Show hours, Email label and Phone label are all gone. The canvas card is unchanged and still reads Contact Us / Email / Phone / Hours with all three values."
       }
     },
     {
