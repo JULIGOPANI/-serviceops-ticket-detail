@@ -298,14 +298,9 @@ export const WIDGET_SPECS: WidgetSpec[] = [
   /* ─────────── §7.5 Announcements ─────────── */
   {
     id: 'announcements', name: 'Announcements', group: 'Live data', reuse: 'single', family: 'flat',
-    fields: [
-      { key: 'title', label: 'Title', control: 'text', group: 'Content' },
-      { key: 'show', label: 'Rows to show', control: 'number', group: 'Content', min: 1, max: 10 },
-      { key: 'showDate', label: 'Show date', control: 'toggle', group: 'Content' },
-      // No total count and no "View all" — an announcement feed has no fuller list to go to.
-      ...listCardStyleFields({ count: false, viewAll: false }),
-    ],
-    packs: LIST_CARD_PACKS, roles: LIST_CARD_ROLES,
+    // No total count and no "View all" — an announcement feed has no fuller list to go to.
+    fields: [],
+    packs: LIVE_CARD_PACKS, roles: LIST_CARD_ROLES,
     defaults: { ...listCardDefaults, title: 'Announcements', show: 3, showDate: true, rowLayout: 'stacked' },
   },
 

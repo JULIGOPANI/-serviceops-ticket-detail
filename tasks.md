@@ -9,7 +9,7 @@ disagree. One task at a time: build, verify in the browser, tick it here, publis
 An earlier run of six shipped on 24 Aug 2026 — rail hide icon · banner image controls · collapsed
 Design accordions · Action Card page destination · KPI feedback count · Section Name field.
 
-Updated: 2026-08-24 20:00
+Updated: 2026-08-24 20:03
 
 ## 1. Quick Actions — Card templates moves to the individual card
 - **Status:** done
@@ -68,10 +68,11 @@ Updated: 2026-08-24 20:00
 - **Verified:** Panel is DESIGN → Style, Spacing only. ⚠️ The empty state still RENDERS — the canvas card shows No Data Found and its View all link, because the mode and message live in the defaults. The stale note telling admins to set the empty state deliberately was removed with the control it referred to.
 
 ## 9. Announcements — remove the whole config panel
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalWidgetSpec.ts` → the Announcements spec
 - **You asked:** remove those section fields — Title, Rows to show and the Empty state.
 - **How I check it:** select the widget — no Content section; the canvas card is unchanged.
+- **Verified:** Panel is DESIGN → Style, Spacing only. Scoped to the widget's own node, the canvas card is unchanged: heading plus three announcements with their dates, and still no count badge or View all — which this feed never had.
 
 ## 10. Contact Us — only the email and phone values stay editable
 - **Status:** todo

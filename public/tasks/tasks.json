@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-24 20:00",
-  "builtAt": "2026-08-24T14:30:20.789Z",
+  "stamp": "2026-08-24 20:03",
+  "builtAt": "2026-08-24T14:33:27.138Z",
   "tasks": [
     {
       "n": 1,
@@ -93,11 +93,12 @@
     {
       "n": 9,
       "title": "Announcements — remove the whole config panel",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalWidgetSpec.ts` → the Announcements spec",
         "You asked": "remove those section fields — Title, Rows to show and the Empty state.",
-        "How I check it": "select the widget — no Content section; the canvas card is unchanged."
+        "How I check it": "select the widget — no Content section; the canvas card is unchanged.",
+        "Verified": "Panel is DESIGN → Style, Spacing only. Scoped to the widget's own node, the canvas card is unchanged: heading plus three announcements with their dates, and still no count badge or View all — which this feed never had."
       }
     },
     {
