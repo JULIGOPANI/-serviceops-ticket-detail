@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-24 19:45",
-  "builtAt": "2026-08-24T14:15:06.491Z",
+  "stamp": "2026-08-24 19:54",
+  "builtAt": "2026-08-24T14:24:45.495Z",
   "tasks": [
     {
       "n": 1,
@@ -49,11 +49,12 @@
     {
       "n": 5,
       "title": "Pending Approvals — remove the whole config panel",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalWidgetSpec.ts` → the Pending Approvals spec",
         "You asked": "remove those section fields — Title, Rows to show, Show requester, Show raised date, the Header group and the Empty state.",
-        "How I check it": "select the widget — no Content section; the canvas card is unchanged."
+        "How I check it": "select the widget — no Content section; the canvas card is unchanged.",
+        "Verified": "Panel is DESIGN → Style, Spacing only. Canvas card unchanged: 2 badge, View all, both approval rows with requester names and dates."
       }
     },
     {

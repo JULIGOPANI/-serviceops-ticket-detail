@@ -272,14 +272,8 @@ export const WIDGET_SPECS: WidgetSpec[] = [
   {
     id: 'pending_approvals', name: 'Pending Approvals', group: 'Live data', reuse: 'single', family: 'flat',
     gate: { kind: 'permission', setting: 'Allow Requester To Access My Approvals', section: 'Organization' },
-    fields: [
-      { key: 'title', label: 'Title', control: 'text', group: 'Content' },
-      { key: 'show', label: 'Rows to show', control: 'number', group: 'Content', min: 1, max: 10 },
-      { key: 'showRequester', label: 'Show requester', control: 'toggle', group: 'Content' },
-      { key: 'showDate', label: 'Show raised date', control: 'toggle', group: 'Content' },
-      ...listCardStyleFields({}),
-    ],
-    packs: LIST_CARD_PACKS, roles: LIST_CARD_ROLES,
+    fields: [],
+    packs: LIVE_CARD_PACKS, roles: LIST_CARD_ROLES,
     defaults: { ...listCardDefaults, title: 'Pending Approvals', show: 3, showRequester: true, showDate: true },
   },
 

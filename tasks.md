@@ -9,7 +9,7 @@ disagree. One task at a time: build, verify in the browser, tick it here, publis
 An earlier run of six shipped on 24 Aug 2026 — rail hide icon · banner image controls · collapsed
 Design accordions · Action Card page destination · KPI feedback count · Section Name field.
 
-Updated: 2026-08-24 19:45
+Updated: 2026-08-24 19:54
 
 ## 1. Quick Actions — Card templates moves to the individual card
 - **Status:** done
@@ -40,10 +40,11 @@ Updated: 2026-08-24 19:45
 - **Verified:** Panel is DESIGN → Style, Spacing only — no CONTENT heading, no Header group, no Empty state. Canvas card unchanged: title, 5 badge, View all, 5 rows. Pending Approvals still shows its full panel, so the change is scoped to this widget.
 
 ## 5. Pending Approvals — remove the whole config panel
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalWidgetSpec.ts` → the Pending Approvals spec
 - **You asked:** remove those section fields — Title, Rows to show, Show requester, Show raised date, the Header group and the Empty state.
 - **How I check it:** select the widget — no Content section; the canvas card is unchanged.
+- **Verified:** Panel is DESIGN → Style, Spacing only. Canvas card unchanged: 2 badge, View all, both approval rows with requester names and dates.
 
 ## 6. Most Read — remove the whole config panel
 - **Status:** todo
