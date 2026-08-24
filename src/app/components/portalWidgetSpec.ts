@@ -473,9 +473,14 @@ export const WIDGET_SPECS: WidgetSpec[] = [
         /* The only place this is chosen now (see SECTION_SPEC). */
         { key: 'cardTemplate', label: 'Card templates', control: 'templates' },
       ],
-      /* The destination is now the admin's, not the widget type's. ⚠️ It gets its OWN section rather
-         than a row inside Content: where a card GOES is neither what it says nor how it looks, and
-         a destination buried among titles is how a card ends up pointing nowhere. */
+      /* ⚠️ ONLY on the custom card. The four fixed cards' destinations come from the backend, keyed
+         to the card's identity — an admin does not choose where "New Incident" goes, so offering the
+         choice claimed an authority the screen does not have and a setting the product would ignore.
+         The custom card exists to point anywhere, so it keeps this.
+         It gets its OWN section rather than a row inside Content: where a card GOES is neither what
+         it says nor how it looks, and a destination buried among titles is how one ends up pointing
+         nowhere. */
+      ...(id === 'act_custom' ? {
       action: [
         {
           key: 'destination', label: 'On click, go to', control: 'select',
@@ -503,6 +508,7 @@ export const WIDGET_SPECS: WidgetSpec[] = [
           help: 'When a requester clicks this card, the services people request most are shown first.',
         },
       ],
+      } : {}),
       accordions: [
         {
           id: 'style', open: true,

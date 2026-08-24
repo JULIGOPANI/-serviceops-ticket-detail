@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-24 19:32",
-  "builtAt": "2026-08-24T14:02:45.549Z",
+  "stamp": "2026-08-24 19:37",
+  "builtAt": "2026-08-24T14:07:46.014Z",
   "tasks": [
     {
       "n": 1,
@@ -138,12 +138,13 @@
     {
       "n": 14,
       "title": "Action cards — remove the ACTION section from the panel",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalWidgetSpec.ts` → the four fixed action-card specs",
         "You asked": "remove the Action section from all four cards' sidebars — New Incident, Request Service, AD Self Service, Knowledge.",
         "How I check it": "select each of the four — the panel goes Content → Design with no Action section, so On-click-go-to and Most used services are both gone. Their destinations come from the card's own identity.",
-        "⚠️ Needs your call before I start": "on task 3 you said \"we will only give these action cards to redirect anywhere\". Removing the Action section takes away the only control that says WHERE a card goes, so the four would redirect to their fixed built-in destinations and nowhere else. Both can't be true — I'll ask which you want when I reach this one."
+        "You settled it": "the destination is backend-side — a specific action card redirects to a specific page, decided there, not by the admin. So the control was offering an authority this screen does not have. The custom Action Card keeps its Action section, because that one exists to point anywhere.",
+        "Verified": "All four cards read CONTENT → DESIGN with no ACTION section: no On-click-go-to, no Most used services. Checked New Incident, Request Service, AD Self Service and Knowledge individually."
       }
     }
   ],

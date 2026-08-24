@@ -9,7 +9,7 @@ disagree. One task at a time: build, verify in the browser, tick it here, publis
 An earlier run of six shipped on 24 Aug 2026 — rail hide icon · banner image controls · collapsed
 Design accordions · Action Card page destination · KPI feedback count · Section Name field.
 
-Updated: 2026-08-24 19:32
+Updated: 2026-08-24 19:37
 
 ## 1. Quick Actions — Card templates moves to the individual card
 - **Status:** done
@@ -93,11 +93,12 @@ Updated: 2026-08-24 19:32
 - **How I check it:** the Actions rows are gone from the library, and an action card's toolbar has no duplicate. ⚠️ The toolbar is shared, so duplicate has to be disabled for this kind rather than removed from the bar — I check it still works everywhere else.
 
 ## 14. Action cards — remove the ACTION section from the panel
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalWidgetSpec.ts` → the four fixed action-card specs
 - **You asked:** remove the Action section from all four cards' sidebars — New Incident, Request Service, AD Self Service, Knowledge.
 - **How I check it:** select each of the four — the panel goes Content → Design with no Action section, so On-click-go-to and Most used services are both gone. Their destinations come from the card's own identity.
-- **⚠️ Needs your call before I start:** on task 3 you said "we will only give these action cards to redirect anywhere". Removing the Action section takes away the only control that says WHERE a card goes, so the four would redirect to their fixed built-in destinations and nowhere else. Both can't be true — I'll ask which you want when I reach this one.
+- **You settled it:** the destination is backend-side — a specific action card redirects to a specific page, decided there, not by the admin. So the control was offering an authority this screen does not have. The custom Action Card keeps its Action section, because that one exists to point anywhere.
+- **Verified:** All four cards read CONTENT → DESIGN with no ACTION section: no On-click-go-to, no Most used services. Checked New Incident, Request Service, AD Self Service and Knowledge individually.
 
 ## Parked — needs discussion
 - Tour guide
