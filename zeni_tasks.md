@@ -27,4 +27,6 @@
 17.![alt text](image-17.png) - see the image and remove 'shadow' field from navbar's sidebar.
 18.![alt text](image-18.png) - see the image as a reference and nee to give inline font style editor for each floating toolbar of Test fields.
 19.![alt text](image-19.png) ![alt text](image-20.png) - see the image and remove 'Open in a new tab' this field from the button action. and see 2nd image and remove this 2 fields - 'a page in this portal' and 'click to call' from Deopdown.
-20.as we are removing the all content edition from right sidebar of each predefined 
+20.as we are removing the all content edition from right sidebar of each predefined widget's as - all 4 action cards(New Incident,Request Service,AD Self Service,Knowledge), My Open req. pending approval, My assets, My CIs, favrouite Services, Frequenty used services, Announcements,Most read (knowledge) widgets will not more inline editable for heading. only action cards will have acess to edit inline for it's description field placed inside card. for other all mentioned Predefined widgets are not more inline editable.
+21.![alt text](image-21.png) - see the image and remove all fields except search placeholder.
+22.

@@ -9,7 +9,7 @@ disagree. One task at a time: build, verify in the browser, tick it here, publis
 An earlier run of six shipped on 24 Aug 2026 — rail hide icon · banner image controls · collapsed
 Design accordions · Action Card page destination · KPI feedback count · Section Name field.
 
-Updated: 2026-08-24 19:20
+Updated: 2026-08-24 19:32
 
 ## 1. Quick Actions — Card templates moves to the individual card
 - **Status:** done
@@ -25,11 +25,12 @@ Updated: 2026-08-24 19:20
 - **How I check it:** Widgets → Custom has no "Action Card" row, and typing "action" into the search does not surface it either.
 - **Verified:** Library is 20 rows (was 21); Custom group reads Contact Us / Most Used Services / FAQ / KPI. Searching "action" returns only the four fixed action cards and Button.
 
-## 3. Add an External link button from the Quick Action section's sidebar
-- **Status:** todo
-- **Where:** `portalStructureSpecs.ts` → `SECTION_SPEC`, plus the Quick Actions renderer
-- **You asked:** the action-card section should let you add an external-link button to that section from the parent section's sidebar.
-- **How I check it:** select Quick Actions — there is a way to add an external-link button, what it adds lands in that row, and it opens the URL you set.
+## 3. Quick Actions takes nothing but its four cards
+- **Status:** done
+- **Where:** `SupportPortalPreview.tsx` (the row's drop target) + `SupportPortalBuilder.tsx` (`addElement`)
+- **You asked:** ⚠️ CHANGED — the external-link button is off ("leave it as it is for now"; the four cards already redirect anywhere). What you asked for instead: nobody can add any extra widget or element into the action cards' parent section beyond those four.
+- **How I check it:** drag a Text, a Button and an Image onto the Quick Actions row — each is refused and says why, and the same element still drops fine into any other section. Clicking a library row while Quick Actions is selected places it elsewhere rather than inside.
+- **Verified:** Quick Actions row does not accept the dragover (cursor reads no-drop) and a simulated drop leaves it holding exactly its four cards; the My Open Requests and My Assets rows still accept. Clicking Text in the library with Quick Actions selected placed it in a new section instead.
 
 ## 4. My Open Requests — remove the whole config panel
 - **Status:** todo
@@ -96,6 +97,7 @@ Updated: 2026-08-24 19:20
 - **Where:** `portalWidgetSpec.ts` → the four fixed action-card specs
 - **You asked:** remove the Action section from all four cards' sidebars — New Incident, Request Service, AD Self Service, Knowledge.
 - **How I check it:** select each of the four — the panel goes Content → Design with no Action section, so On-click-go-to and Most used services are both gone. Their destinations come from the card's own identity.
+- **⚠️ Needs your call before I start:** on task 3 you said "we will only give these action cards to redirect anywhere". Removing the Action section takes away the only control that says WHERE a card goes, so the four would redirect to their fixed built-in destinations and nowhere else. Both can't be true — I'll ask which you want when I reach this one.
 
 ## Parked — needs discussion
 - Tour guide

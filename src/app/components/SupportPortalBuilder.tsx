@@ -19,7 +19,7 @@ import { PortalElementPanel } from './PortalElementPanel';
 import { CanvasProvider } from './PortalCanvas';
 import {
   DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, addColumn, moveIn, nodeById, parseItemId,
-  placedType, registerPlaced, colId,
+  placedType, registerPlaced, colId, isLockedRow,
 } from './portalPageModel';
 import { PortalWidgetDrawer } from './PortalWidgetDrawer';
 import { WIDGET_FOR_NODE, WIDGET_FOR_TYPE, specById, structureSpecId } from './portalWidgetSpec';
@@ -445,6 +445,13 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   rowExtrasRef.current = rowExtras;
 
   const dropInRow = useCallback((rowId: string, type: string) => {
+    /* ⚠️ Gated HERE because this is the single funnel — drag-and-drop, click-to-add's row fallback
+       and the replace-a-built-in path all end up in this function. Guarding the drop target alone
+       would leave the other two routes open. */
+    if (isLockedRow(rowId)) {
+      toast.error('Quick Actions holds its four action cards and nothing else');
+      return;
+    }
     const el = makeElement(type, rowId);
     setRowExtras((prev) => ({ ...prev, [rowId]: [...(prev[rowId] ?? []), el] }));
     select(el.id);
@@ -669,8 +676,11 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
       if (target) { dropInColumn(target, type); return; }
     }
 
+    /* ⚠️ A locked row falls THROUGH rather than refusing. You clicked a library row, so something
+       has to appear — it just cannot appear here; the seam below gives it its own section, which is
+       what clicking with nothing selected already does. */
     const row = anchor && (rowOrder[anchor] ? anchor : Object.keys(rowOrder).find((r) => rowOrder[r].includes(anchor)));
-    if (row) { dropInRow(row, type); return; }
+    if (row && !isLockedRow(row)) { dropInRow(row, type); return; }
 
     const last = blockOrder.filter((b) => !removed.includes(b)).slice(-1)[0] ?? 'hero';
     dropAtSeam(last, type);

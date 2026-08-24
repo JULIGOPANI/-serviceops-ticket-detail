@@ -16,7 +16,7 @@ import { AddSectionSeam, ColumnAdders, Sel, draggedElement, styleOf, useCanvas }
 import { PAGE_ID, chosen, roleStyle } from './portalStyleResolver';
 import { shadowCss } from './PortalBoxControls';
 import { PortalPlacedElement } from './PortalPlacedElement';
-import { DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, fillCss, colId, nodePath } from './portalPageModel';
+import { DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, fillCss, colId, nodePath, isLockedRow } from './portalPageModel';
 import type { CustomSection, PlacedElement, PortalPageContent } from './portalPageModel';
 import { iconNode, isImageChoice } from './PortalIconPicker';
 import type { IconChoice } from './PortalIconPicker';
@@ -92,16 +92,23 @@ function RowDrop({ rowId, className, style, resize, children }: {
 }) {
   const { dropInRow } = useCanvas();
   const [over, setOver] = useState(false);
+  /* ⚠️ A locked row does not call preventDefault on dragover, so the cursor stays "no drop" the whole
+     way across it. Accepting the drag and then refusing the drop would tell you it worked right up
+     until the moment it didn't. */
+  const locked = isLockedRow(rowId);
   return (
     <div
       style={style}
       data-resize={resize}
-      onDragOver={(e) => { if (e.dataTransfer.types.includes('text/portal-element')) { e.preventDefault(); setOver(true); } }}
+      onDragOver={(e) => {
+        if (locked) return;
+        if (e.dataTransfer.types.includes('text/portal-element')) { e.preventDefault(); setOver(true); }
+      }}
       onDragLeave={() => setOver(false)}
       onDrop={(e) => {
         const type = draggedElement(e);
         setOver(false);
-        if (!type) return;
+        if (!type || locked) return;
         e.preventDefault();
         e.stopPropagation();
         dropInRow(rowId, type);

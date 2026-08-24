@@ -466,6 +466,23 @@ const CARD_TYPES = new Set([
  * branch never read. Naming the set once is what stops the two halves drifting again. */
 export const ACTION_TYPES = new Set(['x-action-card', 'act-incident', 'act-service', 'act-ad', 'act-knowledge']);
 
+/* Rows that hold a FIXED cast and take nothing else.
+ *
+ * ⚠️ Quick Actions is the product's four destinations, laid out as one row that reads as a set. An
+ * arbitrary Text or Image dropped among them does not join the set — it breaks the one thing the row
+ * is: four of the same thing.
+ *
+ * A DRAG is refused by not accepting the dragover at all, so the cursor reads "no drop" the whole way
+ * across the row — the conventional signal, and better than accepting the drag and erroring on
+ * release, which tells you it worked right up until it did not. Every other route (click-to-add,
+ * replace-a-built-in) is refused inside dropInRow with a message, because THOSE would otherwise fail
+ * silently with nothing to explain them.
+ *
+ * Declared here, beside ACTION_TYPES, so the renderer and the builder read one rule instead of two
+ * copies of a string. */
+export const LOCKED_ROWS = new Set(['quick']);
+export const isLockedRow = (rowId: string) => LOCKED_ROWS.has(rowId);
+
 /* ⚠️ An action card paints its OWN surface from config, so wrapping it in Surface gives a card
    inside a card. A KPI does not — its configured body is an icon beside a number, with no box of
    any kind — so it sits in CARD_TYPES instead. Membership is about whether the element draws a
