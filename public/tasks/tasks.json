@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-24 19:54",
-  "builtAt": "2026-08-24T14:24:45.495Z",
+  "stamp": "2026-08-24 19:57",
+  "builtAt": "2026-08-24T14:27:16.124Z",
   "tasks": [
     {
       "n": 1,
@@ -60,11 +60,12 @@
     {
       "n": 6,
       "title": "Most Read — remove the whole config panel",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalWidgetSpec.ts` → the Most Read Knowledge spec",
         "You asked": "remove those section fields. ⚠️ Your line 6 carries a stray \", AD Self Service\" — I am reading this as Most Read only; say if it meant something else.",
-        "How I check it": "select the widget — no Content section; the canvas card is unchanged."
+        "How I check it": "select the widget — no Content section; the canvas card is unchanged.",
+        "Verified": "Panel is DESIGN → Style, Spacing only. Canvas card unchanged: View all, 3 KB rows, 3 category chips, dates intact."
       }
     },
     {

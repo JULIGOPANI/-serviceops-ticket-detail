@@ -9,7 +9,7 @@ disagree. One task at a time: build, verify in the browser, tick it here, publis
 An earlier run of six shipped on 24 Aug 2026 — rail hide icon · banner image controls · collapsed
 Design accordions · Action Card page destination · KPI feedback count · Section Name field.
 
-Updated: 2026-08-24 19:54
+Updated: 2026-08-24 19:57
 
 ## 1. Quick Actions — Card templates moves to the individual card
 - **Status:** done
@@ -47,10 +47,11 @@ Updated: 2026-08-24 19:54
 - **Verified:** Panel is DESIGN → Style, Spacing only. Canvas card unchanged: 2 badge, View all, both approval rows with requester names and dates.
 
 ## 6. Most Read — remove the whole config panel
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalWidgetSpec.ts` → the Most Read Knowledge spec
 - **You asked:** remove those section fields. ⚠️ Your line 6 carries a stray ", AD Self Service" — I am reading this as Most Read only; say if it meant something else.
 - **How I check it:** select the widget — no Content section; the canvas card is unchanged.
+- **Verified:** Panel is DESIGN → Style, Spacing only. Canvas card unchanged: View all, 3 KB rows, 3 category chips, dates intact.
 
 ## 7. My Assets — remove the whole config panel
 - **Status:** todo
