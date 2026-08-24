@@ -26,4 +26,5 @@
 16.![alt text](image-16.png) - remove design section from 'logo' sidebar.
 17.![alt text](image-17.png) - see the image and remove 'shadow' field from navbar's sidebar.
 18.![alt text](image-18.png) - see the image as a reference and nee to give inline font style editor for each floating toolbar of Test fields.
-19.
+19.![alt text](image-19.png) ![alt text](image-20.png) - see the image and remove 'Open in a new tab' this field from the button action. and see 2nd image and remove this 2 fields - 'a page in this portal' and 'click to call' from Deopdown.
+20.as we are removing the all content edition from right sidebar of each predefined 

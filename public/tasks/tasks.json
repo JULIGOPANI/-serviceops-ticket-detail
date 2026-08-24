@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-24 19:12",
-  "builtAt": "2026-08-24T13:42:37.905Z",
+  "stamp": "2026-08-24 19:20",
+  "builtAt": "2026-08-24T13:50:23.106Z",
   "tasks": [
     {
       "n": 1,
@@ -16,11 +16,12 @@
     {
       "n": 2,
       "title": "Remove the Custom \"Action Card\" widget from the library",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`supportPortalData.ts` → `PORTAL_ELEMENTS`",
         "You asked": "remove the Custom Action Card widget from the widget side drawer.",
-        "How I check it": "Widgets → Custom has no \"Action Card\" row, and typing \"action\" into the search does not surface it either."
+        "How I check it": "Widgets → Custom has no \"Action Card\" row, and typing \"action\" into the search does not surface it either.",
+        "Verified": "Library is 20 rows (was 21); Custom group reads Contact Us / Most Used Services / FAQ / KPI. Searching \"action\" returns only the four fixed action cards and Button."
       }
     },
     {

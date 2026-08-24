@@ -334,7 +334,10 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
 
 
   // ── Custom ──
-  { id: 'x-action-card', name: 'Action Card', icon: 'actionCard', group: 'Custom', keywords: 'quick action tile' },
+  /* ⚠️ HIDDEN, not deleted — an action card belongs inside the Quick Actions row, never as a
+     standalone block on the page. The spec, the renderer and the preview all stay, so anything a
+     page is already carrying keeps working and restoring it is one word. */
+  { id: 'x-action-card', name: 'Action Card', icon: 'actionCard', group: 'Custom', keywords: 'quick action tile', hidden: true }, // hidden 24 Aug 2026
   { id: 'x-kpi', name: 'KPI', icon: 'kpi', group: 'Custom', keywords: 'metric stat number' },
 ];
 

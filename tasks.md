@@ -9,7 +9,7 @@ disagree. One task at a time: build, verify in the browser, tick it here, publis
 An earlier run of six shipped on 24 Aug 2026 — rail hide icon · banner image controls · collapsed
 Design accordions · Action Card page destination · KPI feedback count · Section Name field.
 
-Updated: 2026-08-24 19:12
+Updated: 2026-08-24 19:20
 
 ## 1. Quick Actions — Card templates moves to the individual card
 - **Status:** done
@@ -19,10 +19,11 @@ Updated: 2026-08-24 19:12
 - **Verified:** Quick Actions section panel has no Card templates (its Content section drops entirely). Each action card has all four tiles and they WORK per card — setting New Incident to Icon top left its three siblings icon-left.
 
 ## 2. Remove the Custom "Action Card" widget from the library
-- **Status:** todo
+- **Status:** done
 - **Where:** `supportPortalData.ts` → `PORTAL_ELEMENTS`
 - **You asked:** remove the Custom Action Card widget from the widget side drawer.
 - **How I check it:** Widgets → Custom has no "Action Card" row, and typing "action" into the search does not surface it either.
+- **Verified:** Library is 20 rows (was 21); Custom group reads Contact Us / Most Used Services / FAQ / KPI. Searching "action" returns only the four fixed action cards and Button.
 
 ## 3. Add an External link button from the Quick Action section's sidebar
 - **Status:** todo
