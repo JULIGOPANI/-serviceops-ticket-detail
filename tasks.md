@@ -9,7 +9,7 @@ disagree. One task at a time: build, verify in the browser, tick it here, publis
 An earlier run of six shipped on 24 Aug 2026 — rail hide icon · banner image controls · collapsed
 Design accordions · Action Card page destination · KPI feedback count · Section Name field.
 
-Updated: 2026-08-24 19:57
+Updated: 2026-08-24 20:00
 
 ## 1. Quick Actions — Card templates moves to the individual card
 - **Status:** done
@@ -54,16 +54,18 @@ Updated: 2026-08-24 19:57
 - **Verified:** Panel is DESIGN → Style, Spacing only. Canvas card unchanged: View all, 3 KB rows, 3 category chips, dates intact.
 
 ## 7. My Assets — remove the whole config panel
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalWidgetSpec.ts` → the My Assets spec
 - **You asked:** remove those section fields.
 - **How I check it:** select the widget — no Content section; the canvas card is unchanged.
+- **Verified:** Panel is DESIGN → Style, Spacing only. Canvas card unchanged: 5 asset rows with their type labels.
 
 ## 8. My CIs — remove the whole config panel
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalWidgetSpec.ts` → the My CIs spec
 - **You asked:** remove those section fields — Title, Rows to show, Show CI type, the Header group and the Empty state.
 - **How I check it:** select the widget — no Content section. ⚠️ My CIs is the one widget that actually renders an empty state on this page, so I check "No Data Found" still shows once its control is gone.
+- **Verified:** Panel is DESIGN → Style, Spacing only. ⚠️ The empty state still RENDERS — the canvas card shows No Data Found and its View all link, because the mode and message live in the defaults. The stale note telling admins to set the empty state deliberately was removed with the control it referred to.
 
 ## 9. Announcements — remove the whole config panel
 - **Status:** todo

@@ -281,13 +281,8 @@ export const WIDGET_SPECS: WidgetSpec[] = [
   {
     id: 'my_assets', name: 'My Assets', group: 'Live data', reuse: 'single', family: 'flat',
     gate: { kind: 'permission', setting: 'Allow Requester to Access My Assets', section: 'Organization' },
-    fields: [
-      { key: 'title', label: 'Title', control: 'text', group: 'Content' },
-      { key: 'show', label: 'Rows to show', control: 'number', group: 'Content', min: 1, max: 10 },
-      { key: 'showType', label: 'Show asset type', control: 'toggle', group: 'Content' },
-      ...listCardStyleFields({}),
-    ],
-    packs: LIST_CARD_PACKS, roles: LIST_CARD_ROLES,
+    fields: [],
+    packs: LIVE_CARD_PACKS, roles: LIST_CARD_ROLES,
     defaults: { ...listCardDefaults, title: 'My Assets', show: 5, showType: true },
   },
 
@@ -295,18 +290,8 @@ export const WIDGET_SPECS: WidgetSpec[] = [
   {
     id: 'my_cis', name: 'My CIs', group: 'Live data', reuse: 'single', family: 'flat',
     gate: { kind: 'permission', setting: 'Allow Requester to Access My CI', section: 'Organization' },
-    fields: [
-      { key: 'title', label: 'Title', control: 'text', group: 'Content' },
-      { key: 'show', label: 'Rows to show', control: 'number', group: 'Content', min: 1, max: 10 },
-      { key: 'showType', label: 'Show CI type', control: 'toggle', group: 'Content' },
-      ...listCardStyleFields({}),
-    ],
-    packs: LIST_CARD_PACKS, roles: LIST_CARD_ROLES,
-    notes: [{
-      tone: 'info',
-      text: 'My CIs is commonly empty on real instances — its empty state is the state most requesters will see. Set it deliberately rather than treating it as an afterthought.',
-      tab: 'style',
-    }],
+    fields: [],
+    packs: LIVE_CARD_PACKS, roles: LIST_CARD_ROLES,
     defaults: { ...listCardDefaults, title: 'My CIs', show: 5, showType: true },
   },
 

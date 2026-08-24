@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-24 19:57",
-  "builtAt": "2026-08-24T14:27:16.124Z",
+  "stamp": "2026-08-24 20:00",
+  "builtAt": "2026-08-24T14:30:20.789Z",
   "tasks": [
     {
       "n": 1,
@@ -71,21 +71,23 @@
     {
       "n": 7,
       "title": "My Assets — remove the whole config panel",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalWidgetSpec.ts` → the My Assets spec",
         "You asked": "remove those section fields.",
-        "How I check it": "select the widget — no Content section; the canvas card is unchanged."
+        "How I check it": "select the widget — no Content section; the canvas card is unchanged.",
+        "Verified": "Panel is DESIGN → Style, Spacing only. Canvas card unchanged: 5 asset rows with their type labels."
       }
     },
     {
       "n": 8,
       "title": "My CIs — remove the whole config panel",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalWidgetSpec.ts` → the My CIs spec",
         "You asked": "remove those section fields — Title, Rows to show, Show CI type, the Header group and the Empty state.",
-        "How I check it": "select the widget — no Content section. ⚠️ My CIs is the one widget that actually renders an empty state on this page, so I check \"No Data Found\" still shows once its control is gone."
+        "How I check it": "select the widget — no Content section. ⚠️ My CIs is the one widget that actually renders an empty state on this page, so I check \"No Data Found\" still shows once its control is gone.",
+        "Verified": "Panel is DESIGN → Style, Spacing only. ⚠️ The empty state still RENDERS — the canvas card shows No Data Found and its View all link, because the mode and message live in the defaults. The stale note telling admins to set the empty state deliberately was removed with the control it referred to."
       }
     },
     {
