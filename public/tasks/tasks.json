@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-24 20:45",
-  "builtAt": "2026-08-24T15:15:12.729Z",
+  "stamp": "2026-08-24 21:15",
+  "builtAt": "2026-08-24T15:45:18.555Z",
   "tasks": [
     {
       "n": 1,
@@ -115,11 +115,12 @@
     {
       "n": 11,
       "title": "The count badge moves beside the card title",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`SupportPortalPreview.tsx` → the live-data card header",
         "You asked": "the badge sits far right beside the View-all link on all five live-data widgets; it should sit beside the Title instead.",
-        "How I check it": "measure each badge's left edge against its title's right edge — every badge sits immediately after its own title, and View all is alone on the right."
+        "How I check it": "measure each badge's left edge against its title's right edge — every badge sits immediately after its own title, and View all is alone on the right.",
+        "Verified": "All five measured: every badge sits exactly 10px after its own title, while the badge-to-View-all gap varies 51/51/116/290/318px — so the link is pushed to the right edge and the badge tracks the title."
       }
     },
     {

@@ -9,7 +9,7 @@ disagree. One task at a time: build, verify in the browser, tick it here, publis
 An earlier run of six shipped on 24 Aug 2026 — rail hide icon · banner image controls · collapsed
 Design accordions · Action Card page destination · KPI feedback count · Section Name field.
 
-Updated: 2026-08-24 20:45
+Updated: 2026-08-24 21:15
 
 ## 1. Quick Actions — Card templates moves to the individual card
 - **Status:** done
@@ -82,10 +82,11 @@ Updated: 2026-08-24 20:45
 - **Verified:** Panel is CONTENT → Email address, Phone number (holding the real values), then DESIGN. Title, Show email, Show phone, Show hours, Email label and Phone label are all gone. The canvas card is unchanged and still reads Contact Us / Email / Phone / Hours with all three values.
 
 ## 11. The count badge moves beside the card title
-- **Status:** todo
+- **Status:** done
 - **Where:** `SupportPortalPreview.tsx` → the live-data card header
 - **You asked:** the badge sits far right beside the View-all link on all five live-data widgets; it should sit beside the Title instead.
 - **How I check it:** measure each badge's left edge against its title's right edge — every badge sits immediately after its own title, and View all is alone on the right.
+- **Verified:** All five measured: every badge sits exactly 10px after its own title, while the badge-to-View-all gap varies 51/51/116/290/318px — so the link is pushed to the right edge and the badge tracks the title.
 
 ## 12. My Open Requests — the inner list is not separately configurable
 - **Status:** todo

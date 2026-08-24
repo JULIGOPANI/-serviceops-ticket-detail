@@ -648,22 +648,24 @@ function CardShell({ nodeId, titleNodeId, title, count, cfg = EMPTY_CFG, childre
   return (
     <div className="@container flex min-w-0 flex-col">
       <div className="flex items-center gap-2 px-4 pb-2.5 pt-3.5">
-        {titleId ? (
-          <Sel id={titleId} className="min-w-0 flex-1 px-0.5">
-            <span style={{ ...titleCss, ...styleOf(styles, titleId) }} className="block truncate text-[15px] font-semibold text-[#364658]">{title}</span>
-          </Sel>
-        ) : (
-          <span style={titleCss} className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[#364658]">{title}</span>
-        )}
-        {showCount && (
-          plain
-            ? <span className="flex-shrink-0 text-[12px] font-medium text-[#7B8FA5]">{count}</span>
-            : (
-              <span className="inline-flex h-[18px] min-w-[18px] flex-shrink-0 items-center justify-center rounded bg-[#EEF2F6] px-1.5 text-[11px] font-semibold text-[#64748B]">
-                {count}
-              </span>
-            )
-        )}
+        <span className="flex min-w-0 flex-1 items-center gap-2">
+          {titleId ? (
+            <Sel id={titleId} className="min-w-0 px-0.5">
+              <span style={{ ...titleCss, ...styleOf(styles, titleId) }} className="block truncate text-[15px] font-semibold text-[#364658]">{title}</span>
+            </Sel>
+          ) : (
+            <span style={titleCss} className="min-w-0 truncate text-[15px] font-semibold text-[#364658]">{title}</span>
+          )}
+          {showCount && (
+            plain
+              ? <span className="flex-shrink-0 text-[12px] font-medium text-[#7B8FA5]">{count}</span>
+              : (
+                <span className="inline-flex h-[18px] min-w-[18px] flex-shrink-0 items-center justify-center rounded bg-[#EEF2F6] px-1.5 text-[11px] font-semibold text-[#64748B]">
+                  {count}
+                </span>
+              )
+          )}
+        </span>
         {showViewAll && (
           <span style={linkCss} className="flex flex-shrink-0 items-center gap-1 text-[#7B8FA5]">
             {/* ⚠️ Tailwind v4 arbitrary container queries are `@min-[…]`, not the v3 plugin's
