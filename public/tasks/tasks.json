@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-24 18:18",
-  "builtAt": "2026-08-24T12:48:33.220Z",
+  "stamp": "2026-08-24 18:20",
+  "builtAt": "2026-08-24T12:50:31.118Z",
   "tasks": [
     {
       "n": 1,
@@ -27,11 +27,12 @@
     {
       "n": 3,
       "title": "Design accordions collapsed by default",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`PortalWidgetDrawer.tsx` → the open-groups seed",
         "You asked": "in the style section, make all accordions collapsed by default.",
-        "How I check it": "select several different widgets — every Design accordion arrives shut, Content stays open. ⚠️ The two panel models use opposite polarity, so both need seeding or half the widgets keep opening expanded."
+        "How I check it": "select several different widgets — every Design accordion arrives shut, Content stays open. ⚠️ The two panel models use opposite polarity, so both need seeding or half the widgets keep opening expanded.",
+        "Verified": "Checked on both panel models: Hero → Banner/Search/Spacing shut; My Requests → Header/Style/Spacing/Empty state shut; Section → Layout/Style/Spacing shut. Content open in all three."
       }
     },
     {

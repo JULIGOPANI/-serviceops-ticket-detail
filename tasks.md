@@ -6,7 +6,7 @@ These are the six changes that were interrupted when the bad commit was removed.
 source of truth — `npm run tasks` regenerates the live page from it, so the two can never disagree.
 I work them one at a time: build, verify in the browser, mark done here, publish.
 
-Updated: 2026-08-24 18:18
+Updated: 2026-08-24 18:20
 
 ## 1. Left rail — remove the hide (eye) icon
 - **Status:** done
@@ -27,12 +27,13 @@ Updated: 2026-08-24 18:18
 - **Verified:** Banner group reads Height → Background → Banner image → whole-page toggle. Image fit / Focal point / Darken for text / Tile all absent; the banner itself renders unchanged.
 
 ## 3. Design accordions collapsed by default
-- **Status:** todo
+- **Status:** done
 - **Where:** `PortalWidgetDrawer.tsx` → the open-groups seed
 - **You asked:** in the style section, make all accordions collapsed by default.
 - **How I check it:** select several different widgets — every Design accordion arrives shut,
   Content stays open. ⚠️ The two panel models use opposite polarity, so both need seeding or half
   the widgets keep opening expanded.
+- **Verified:** Checked on both panel models: Hero → Banner/Search/Spacing shut; My Requests → Header/Style/Spacing/Empty state shut; Section → Layout/Style/Spacing shut. Content open in all three.
 
 ## 4. Action Card — remove "A page in this portal"
 - **Status:** todo

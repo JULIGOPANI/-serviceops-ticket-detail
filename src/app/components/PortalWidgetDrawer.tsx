@@ -513,31 +513,28 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
   const { nodeId, spec, cfg, setCfg, styles, setStyle, replaceStyle, onSelect, onReset, applyPreset, icon, setIcon } = props;
   const node = nodeById(nodeId);
   const path = nodePath(nodeId);
-  /* Derived from the spec, not a hand-written list — a new group is open on arrival without anyone
-     remembering to add it here. */
-  const ALL_GROUPS = [
+  /* What arrives OPEN. ⚠️ CONTENT only — every DESIGN accordion starts collapsed.
+     Content is what you came to edit and it is a handful of rows; Design is the long tail — six to
+     nine accordions of fill, border, radius, typography, spacing and size, which expanded at once
+     turn the panel into a page you scroll past to reach anything. Collapsed, Design is a legible
+     index of what CAN be styled, and the one you want is one click away.
+     ⚠️ The two panel models use OPPOSITE polarity, so both have to be seeded. The packs panel treats
+     a name in this list as open; `PanelBody`'s accordions are open UNLESS `shut:<id>` is present —
+     so leaving one out does nothing there, and the `shut:` keys have to be put IN. Miss that and
+     half the widgets keep arriving fully expanded.
+     The per-widget memory still wins, so anything you deliberately open stays open for that type. */
+  const DEFAULT_OPEN = [
     ...new Set([
-      'Content', '__spacing',
-      ...(spec.fields ?? []).map((f) => f.group).filter(Boolean) as string[],
-      ...(spec.panel?.accordions ?? []).map((a) => ACCORDION_TITLE[a.id] ?? a.id),
-      /* ⚠️ The COLLECTION's group too — "Items", "Extra content", "Questions". It was the one group
-         name this list never gathered, so the list of things a widget actually contains was the one
-         group that always arrived shut: select an accordion and its three questions were behind a
-         chevron, on a panel where everything else was already open. */
+      'Content',
+      ...(spec.fields ?? []).filter((f) => (f.tab ?? 'content') === 'content').map((f) => f.group).filter(Boolean) as string[],
       ...(spec.collection ? [spec.collection.group] : []),
-      ...(spec.packs ?? []),
+      ...(spec.panel?.accordions ?? []).map((a) => `shut:${a.id}`),
     ]),
   ];
-
-  /* ⚠️ OPEN by default, all of them. The panel used to open with a hand-picked few expanded, so
-     selecting an element showed a column of closed rows and the work started with a round of
-     clicking things open to find out what was in them. A styling panel is read by scanning, and you
-     cannot scan what is collapsed. The per-widget memory still wins, so anything you deliberately
-     shut stays shut for that widget type. */
   /* The banner gallery is opened FROM a field and rendered at the drawer's root — a popover mounted
      inside a scrolling panel is clipped the moment it is taller than the space below its trigger. */
   const [bannerPick, setBannerPick] = useState<BannerPick>(null);
-  const [openGroups, setOpenGroupsState] = useState<string[]>(GROUP_MEMORY[spec.id] ?? ALL_GROUPS);
+  const [openGroups, setOpenGroupsState] = useState<string[]>(GROUP_MEMORY[spec.id] ?? DEFAULT_OPEN);
   /* ⚠️ RE-SEEDED when the selected widget changes. This drawer is ONE component instance that
      swaps its spec as you click around the page, and `useState` only ever reads its initial value —
      so `openGroups` kept the group names of whatever you selected FIRST. Every later widget's
@@ -545,7 +542,7 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
      accordion, and the accordion arrives shut with no way to tell why. Keyed on `spec.id` so a
      widget you deliberately tidied still opens the way you left it. */
   useEffect(() => {
-    setOpenGroupsState(GROUP_MEMORY[spec.id] ?? ALL_GROUPS);
+    setOpenGroupsState(GROUP_MEMORY[spec.id] ?? DEFAULT_OPEN);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spec.id]);
   const setOpenGroups = (next: string[]) => { GROUP_MEMORY[spec.id] = next; setOpenGroupsState(next); };
