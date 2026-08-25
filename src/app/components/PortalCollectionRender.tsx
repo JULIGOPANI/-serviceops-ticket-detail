@@ -12,7 +12,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronsRight, ImageOff, ShoppingCart, Star } from 'lucide-react';
 import { Sel, useCanvas } from './PortalCanvas';
-import { itemNodeId, subNodeId } from './portalPageModel';
+import { hasFixedTitle, itemNodeId, subNodeId } from './portalPageModel';
 import type { PortalStyles } from './portalPageModel';
 import { chosen, roleStyle } from './portalStyleResolver';
 import { IconFrameBox } from './PortalIconFrame';
@@ -37,13 +37,16 @@ const visible = (items: Item[] | undefined, live: boolean) =>
 function WidgetTitle({ nodeId, text }: { nodeId: string; text?: unknown }) {
   const { styles } = useCanvas();
   if (!text) return null;
-  return (
-    <Sel id={`${nodeId}-title`}>
-      <h3 style={roleStyle(styles, nodeId, 'title')} className="mb-3 text-[16px] font-semibold text-[#364658]">
-        {String(text)}
-      </h3>
-    </Sel>
+  const head = (
+    <h3 style={roleStyle(styles, nodeId, 'title')} className="mb-3 text-[16px] font-semibold text-[#364658]">
+      {String(text)}
+    </h3>
   );
+  /* ⚠️ A product-owned heading renders BARE — no Sel, so it is not selectable and not typeable.
+     Every widget that draws its heading through here inherits the rule at once; the two that draw
+     their own are handled at their own call sites below. */
+  if (hasFixedTitle(nodeId)) return head;
+  return <Sel id={`${nodeId}-title`}>{head}</Sel>;
 }
 
 /* ── §7.16 FAQ ───────────────────────────────────────────────────────────── */
@@ -674,11 +677,20 @@ export function FeaturedServicesRender({ nodeId, cfg }: { nodeId: string; cfg: C
         {/* ⚠️ This widget draws its own heading rather than using WidgetTitle, because the heading
             and the browse link share a row. That is also why it was missed: the one fix that gave
             every other widget an editable heading could not reach it. */}
-        <Sel id={`${nodeId}-title`} className="min-w-0 flex-1">
-          <h3 style={roleStyle(styles, nodeId, 'title')} className="truncate text-[15px] font-semibold text-[#364658]">
+        {/* ⚠️ Fixed like every other product heading. This widget draws its own because the heading
+            and the browse link share a row — which is exactly why it was missed the last time a
+            heading rule went in, and why it needs its own copy of the test. */}
+        {hasFixedTitle(nodeId) ? (
+          <h3 style={roleStyle(styles, nodeId, 'title')} className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[#364658]">
             {String(cfg.title ?? '')}
           </h3>
-        </Sel>
+        ) : (
+          <Sel id={`${nodeId}-title`} className="min-w-0 flex-1">
+            <h3 style={roleStyle(styles, nodeId, 'title')} className="truncate text-[15px] font-semibold text-[#364658]">
+              {String(cfg.title ?? '')}
+            </h3>
+          </Sel>
+        )}
         {cfg.showBrowse !== false && (
           <Sel id={`${nodeId}-viewall`} className="flex-shrink-0">
             <span style={roleStyle(styles, nodeId, 'link')} className="text-[12px] font-medium text-[#3D8BD0]">
@@ -1091,11 +1103,17 @@ function LiveCard({ nodeId, cfg, title, count, rows }: {
   return (
     <div className="@container flex min-w-0 flex-col">
       <div className="flex items-center gap-2 pb-2.5">
-        <Sel id={`${nodeId}-title`} className="min-w-0 flex-1 px-0.5">
-          <span style={roleStyle(styles, nodeId, 'title')} className="block truncate text-[15px] font-semibold text-[#364658]">
+        {hasFixedTitle(nodeId) ? (
+          <span style={roleStyle(styles, nodeId, 'title')} className="block min-w-0 flex-1 truncate px-0.5 text-[15px] font-semibold text-[#364658]">
             {String(cfg.title ?? title)}
           </span>
-        </Sel>
+        ) : (
+          <Sel id={`${nodeId}-title`} className="min-w-0 flex-1 px-0.5">
+            <span style={roleStyle(styles, nodeId, 'title')} className="block truncate text-[15px] font-semibold text-[#364658]">
+              {String(cfg.title ?? title)}
+            </span>
+          </Sel>
+        )}
         {cfg.showCount !== false && (plain
           ? <span className="flex-shrink-0 text-[12px] font-medium text-[#7B8FA5]">{count}</span>
           : (

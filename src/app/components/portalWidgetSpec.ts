@@ -516,10 +516,14 @@ export const WIDGET_SPECS: WidgetSpec[] = [
            They are not separate ELEMENTS — they are one button with a different destination, which
            is exactly the duplication the note below warns about. Folded in here and removed from the
            palette, so there is one control for "a thing you click that goes somewhere". */
+        /* ⚠️ "A page in this portal" and "Call a number" are gone, and the fields they revealed go
+           with them below — a dependent field whose parent option no longer exists is a control
+           nothing can ever reveal: it survives in the spec looking like a feature and behaves like
+           a bug. */
         options: [
-          { value: 'url', label: 'External link' }, { value: 'page', label: 'A page in this portal' },
+          { value: 'url', label: 'External link' },
           { value: 'download', label: 'Download a file' }, { value: 'email', label: 'Compose an email' },
-          { value: 'phone', label: 'Call a number' }, { value: 'share', label: 'Share this page' },
+          { value: 'share', label: 'Share this page' },
         ],
       },
       {
@@ -528,18 +532,16 @@ export const WIDGET_SPECS: WidgetSpec[] = [
         help: 'Shares the portal page the button sits on.',
       },
       { key: 'url', label: 'URL', control: 'text', group: 'Action', when: (c) => c.action === 'url' },
-      { key: 'newTab', label: 'Open in a new tab', control: 'toggle', group: 'Action', when: (c) => c.action === 'url' },
-      {
-        key: 'page', label: 'Page', control: 'select', group: 'Action', when: (c) => c.action === 'page',
-        options: ['My Requests', 'Service Catalog', 'Knowledge', 'My Approvals', 'My Assets', 'Report an issue'],
-      },
+      /* ⚠️ No "Open in a new tab" and no Page picker. The `newTab` KEY stays in `defaults` and the
+         renderer still reads it, so an external link keeps opening the way it does today — there is
+         simply no longer a control for it. */
       { key: 'file', label: 'File', control: 'upload', group: 'Action', when: (c) => c.action === 'download' },
       {
         key: 'fileName', label: 'Shown as', control: 'text', group: 'Action', when: (c) => c.action === 'download',
         help: 'Leave blank to use the uploaded file’s own name.',
       },
       { key: 'email', label: 'Send to', control: 'text', group: 'Action', when: (c) => c.action === 'email' },
-      { key: 'phone', label: 'Number', control: 'text', group: 'Action', when: (c) => c.action === 'phone' },
+      /* The Number field left with "Call a number" above. */
       /* ── The two tabs ──────────────────────────────────────────────────────
        *
        * A real switch, built from the field engine rather than new drawer machinery: §2.2 already

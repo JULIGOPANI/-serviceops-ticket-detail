@@ -16,7 +16,7 @@ import { AddSectionSeam, ColumnAdders, Sel, draggedElement, styleOf, useCanvas }
 import { PAGE_ID, chosen, roleStyle } from './portalStyleResolver';
 import { shadowCss } from './PortalBoxControls';
 import { PortalPlacedElement } from './PortalPlacedElement';
-import { DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, fillCss, colId, nodePath, isLockedRow } from './portalPageModel';
+import { DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, fillCss, colId, nodePath, isLockedRow, hasFixedTitle } from './portalPageModel';
 import type { CustomSection, PlacedElement, PortalPageContent } from './portalPageModel';
 import { iconNode, isImageChoice } from './PortalIconPicker';
 import type { IconChoice } from './PortalIconPicker';
@@ -633,7 +633,11 @@ function CardShell({ nodeId, titleNodeId, title, count, cfg = EMPTY_CFG, childre
      title used to depend on a caller passing titleNodeId, so the three cards that did got inline
      editing and My Assets and My CIs — which go through EmptyCard — did not. Same words, same job,
      two behaviours decided by a prop nobody could see. Derived from the card id instead. */
-  const titleId = titleNodeId ?? (nodeId ? nodeId + '-title' : undefined);
+  /* ⚠️ undefined for a product-owned heading, which is what makes the words render bare instead of
+     inside a Sel. Deciding it HERE rather than at each call site is why every card through this
+     shell behaves the same — the last time a heading rule was written per-caller, three cards got
+     inline editing and two did not. */
+  const titleId = hasFixedTitle(nodeId) ? undefined : (titleNodeId ?? (nodeId ? nodeId + '-title' : undefined));
   const titleCss = rid ? roleStyle(styles, rid, 'title') : undefined;
   const linkCss = rid ? roleStyle(styles, rid, 'link') : undefined;
   const showCount = cfg.showCount !== false;
@@ -1183,9 +1187,11 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                             against the subtitle's left edge while the subtitle looked centred,
                             because it was the thing setting the width. */}
                         <span className={`min-w-0 flex-1 ${centre ? 'w-full' : ''}`}>
-                          <Sel id={`${a.id}-title`}>
-                            <span style={{ ...roleStyle(styles, `${a.id}-title`, 'title'), ...(centre && !styles[`${a.id}-title`]?.align ? { textAlign: 'center' as const } : {}) }} className="block truncate text-[16px] font-semibold text-[#364658]">{String(c.title ?? a.title)}</span>
-                          </Sel>
+                          {/* ⚠️ The TITLE is the product's — these four are fixed destinations, and
+                              renaming one on the canvas is how a card ends up describing something
+                              it does not do. The SUBTITLE below stays editable, which is the one
+                              thing you asked to keep. */}
+                          <span style={{ ...roleStyle(styles, `${a.id}-title`, 'title'), ...(centre && !styles[`${a.id}-title`]?.align ? { textAlign: 'center' as const } : {}) }} className="block truncate text-[16px] font-semibold text-[#364658]">{String(c.title ?? a.title)}</span>
                           <Sel id={`${a.id}-sub`}>
                             <span style={{ ...roleStyle(styles, `${a.id}-sub`, 'body'), ...(centre && !styles[`${a.id}-sub`]?.align ? { textAlign: 'center' as const } : {}) }} className="block truncate text-[13px] text-[#7B8FA5]">{String(c.sub ?? a.desc)}</span>
                           </Sel>

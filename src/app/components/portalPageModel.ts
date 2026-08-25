@@ -73,7 +73,8 @@ export const PORTAL_NODES: PortalNodeDef[] = [
   // ── the work row — one section, three cards ──
   { id: 'work', name: 'Cards Row', kind: 'section', content: 'row' },
   { id: 'requests', name: 'My Requests', kind: 'card', parent: 'work', content: 'requests' },
-  { id: 'requests-title', name: 'Title', kind: 'text', parent: 'requests', content: 'text' },
+  /* ⚠️ No '-title' nodes for these three — see hasFixedTitle. A node nothing renders is a
+     breadcrumb waiting to name a layer that is not there. */
   /* ⚠️ There is no 'requests-list' node. The rows inside My Open Requests were their own selectable
      layer with their own panel — Statuses, Scope, Show — which was a second place to configure the
      same widget, reachable only by clicking the rows rather than the card. It also contradicted the
@@ -82,10 +83,8 @@ export const PORTAL_NODES: PortalNodeDef[] = [
      existed anywhere else. Clicking the rows selects the CARD, which is the thing you can act on. */
 
   { id: 'approvals', name: 'Approvals', kind: 'card', parent: 'work', content: 'approvals' },
-  { id: 'approvals-title', name: 'Title', kind: 'text', parent: 'approvals', content: 'text' },
 
   { id: 'knowledge', name: 'Knowledge', kind: 'card', parent: 'work', content: 'knowledge' },
-  { id: 'knowledge-title', name: 'Title', kind: 'text', parent: 'knowledge', content: 'text' },
 
   /* Records row — Assets and CIs were floating as their own bands. Every card now lives inside a
      parent section, so the whole row can be styled, spaced and re-laid-out as one thing. */
@@ -426,6 +425,36 @@ export const PORTAL_FONTS = [
 
 /** The CSS family for a stored font id, or undefined when it names nothing we ship. */
 export const fontCss = (id?: string) => PORTAL_FONTS.find((f) => f.id === id)?.css;
+
+/* Widgets whose HEADING belongs to the product, not to the page.
+ *
+ * Their content comes from the backend and their panels no longer offer a Title, so a heading you
+ * could still retype on the canvas was the last way to make a card lie about what it lists — "My
+ * Open Requests" renamed to "Closed tickets" while it goes on listing open ones.
+ *
+ * ⚠️ Listed EXPLICITLY rather than inferred from the group. Which widgets are the product's is a
+ * product decision, and the two things that look like rules here both have exceptions: FAQ and
+ * Feedback sit in the same groups but their words are genuinely authored, and the action cards'
+ * SUBTITLES stay editable while their titles do not.
+ * ⚠️ Both spellings are covered — the fixed page nodes AND the catalogue types — because the same
+ * widget dropped from the library gets an `el-N` id and has to behave identically. */
+const FIXED_TITLE_NODES = new Set([
+  'requests', 'approvals', 'knowledge', 'assets', 'cis', 'news', 'services', 'favourites', 'contact',
+  'quick-incident', 'quick-service', 'quick-ad', 'quick-knowledge',
+]);
+const FIXED_TITLE_TYPES = new Set([
+  'c-requests', 'c-approvals', 'c-assets', 'c-cis', 'c-announcements', 'c-knowledge',
+  'c-services', 'c-favourites', 'c-contact',
+  'act-incident', 'act-service', 'act-ad', 'act-knowledge', 'x-action-card',
+]);
+
+/** True when this widget's heading is fixed — render the words, do not wrap them in a Sel. */
+export function hasFixedTitle(nodeId?: string): boolean {
+  if (!nodeId) return false;
+  if (FIXED_TITLE_NODES.has(nodeId)) return true;
+  const t = placedType(nodeId);
+  return !!t && FIXED_TITLE_TYPES.has(t);
+}
 
 export type PortalStyles = Record<string, NodeStyle>;
 

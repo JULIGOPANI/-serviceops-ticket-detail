@@ -10,7 +10,7 @@ Shipped already — **1–14** (Quick Actions card templates · Custom Action Ca
 locked · six live-data panels · Contact Us · count badge · inner request list · standalone action
 cards · action-card ACTION section), and an earlier six on 24 Aug.
 
-Updated: 2026-08-25 07:45
+Updated: 2026-08-25 09:25
 
 ## 15. Most Used Services — keep only "Show description"
 - **Status:** done
@@ -41,16 +41,18 @@ Updated: 2026-08-25 07:45
 - **Verified:** Toolbar gains a Font select: Default plus the six families, each option rendered in its own face. Selecting Merriweather / Poppins / IBM Plex changed the rendered font-family each time and Default restored it. ⚠️ Only Inter was actually loaded, so the other five would have fallen back to the generic sans and the picker would have offered six identical-looking options — all six are now requested in fonts.css and measure at six distinct widths.
 
 ## 19. Button — trim the Action section
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalWidgetSpec.ts` → the Button spec
 - **You asked:** remove "Open in a new tab", and remove "A page in this portal" and "Call a number" from the Opens dropdown.
 - **How I check it:** select a Button — Opens lists External link, Download a file, Compose an email, Share this page. No new-tab toggle. ⚠️ Whatever the removed options revealed (URL fields, phone field) has to go with them or it becomes a control nothing can reveal.
+- **Verified:** Button panel ACTION reads Opens → External link / Download a file / Compose an email / Share this page, then URL. No Open-in-a-new-tab, no Page picker, no Number field. The canvas button is unchanged.
 
 ## 20. Predefined widgets stop being inline-editable
-- **Status:** todo
+- **Status:** done
 - **Where:** `SupportPortalPreview.tsx` (the `-title` `Sel` wrappers) + `portalPageModel.ts`
 - **You asked:** headings on the four action cards, My Open Requests, Pending Approvals, My Assets, My CIs, Favourite Services, Most Used Services, Announcements and Most Read stop being inline-editable. Only the action card's **description** stays editable.
 - **How I check it:** ⚠️ You chose **headings only** — the title node disappears entirely, so clicking the words selects the CARD rather than a layer you can select but not change. Click every heading listed: each selects its widget. Click an action card's description: it still types.
+- **Verified:** Clicked all nine headings — My Open Requests, Pending Approvals, Most Read, My Assets, My CIs, Announcements, Contact Us, Most Used Services and New Incident each select their WIDGET, not a text layer. The action card's description still selects Subtext (editable) and the hero heading still selects Heading, both correctly out of scope.
 
 ## 21. Search — keep only the placeholder
 - **Status:** done
