@@ -680,10 +680,16 @@ const FEATURED_SERVICES = [
  * catalogue — at which point the requester is better served by the catalogue page itself. */
 const MAX_SERVICE_TILES = 4;
 
-function ServiceTiles({ nodeId, items, showDesc }: {
+function ServiceTiles({ nodeId, items, showDesc, tpl = 'top' }: {
   nodeId: string; items: { id: string; name: string; desc: string }[]; showDesc: boolean;
+  /* The shared card template. ⚠️ Defaults to 'top' — the reference arrangement — rather than to the
+     'left' every other card family starts from, because a four-across grid of icon-left tiles puts
+     the icon and the words in a 36px-wide column each and the names wrap on every one. */
+  tpl?: string;
 }) {
   const { styles } = useCanvas();
+  const top = tpl === 'top';
+  const noIcon = tpl === 'none';
   return (
     <div
       className="grid min-w-0 gap-3"
@@ -692,12 +698,19 @@ function ServiceTiles({ nodeId, items, showDesc }: {
       {items.slice(0, MAX_SERVICE_TILES).map((s) => (
         <div
           key={s.id}
-          className="flex min-w-0 flex-col items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 py-4 text-center shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+          className={`flex min-w-0 gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 py-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${
+            top ? 'flex-col items-center text-center' : tpl === 'right' ? 'flex-row-reverse items-center' : 'items-center'
+          }`}
         >
-          <span className="flex size-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#F1F5F9] text-[#475467]">
-            <ShoppingCart size={18} strokeWidth={1.7} />
-          </span>
-          <span className="min-w-0">
+          {/* ⚠️ 'Text only' hides the badge, exactly as it does on an action card — where the icon
+              sits and whether there IS one are one question with four answers, which is why they
+              share a control rather than needing a separate switch. */}
+          {!noIcon && (
+            <span className="flex size-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#F1F5F9] text-[#475467]">
+              <ShoppingCart size={18} strokeWidth={1.7} />
+            </span>
+          )}
+          <span className={`min-w-0 ${top ? '' : 'flex-1'}`}>
             <span style={roleStyle(styles, nodeId, 'body')} className="block truncate text-[13px] font-medium text-[#364658]">{s.name}</span>
             {showDesc && (
               <span style={roleStyle(styles, nodeId, 'meta')} className="mt-0.5 block truncate text-[12px] text-[#7B8FA5]">{s.desc}</span>
@@ -714,7 +727,7 @@ export function FavouriteServicesRender({ nodeId, cfg }: { nodeId: string; cfg: 
   return (
     <div className="@container min-w-0">
       <WidgetTitle nodeId={nodeId} text={cfg.title ?? 'Favourite Services'} />
-      <ServiceTiles nodeId={nodeId} items={FAVOURITE_SERVICES} showDesc={cfg.showDesc !== false} />
+      <ServiceTiles nodeId={nodeId} items={FAVOURITE_SERVICES} showDesc={cfg.showDesc !== false} tpl={String(cfg.cardTemplate ?? 'top')} />
     </div>
   );
 }
@@ -760,7 +773,7 @@ export function FeaturedServicesRender({ nodeId, cfg }: { nodeId: string; cfg: C
       </div>
       {/* ⚠️ The SAME tiles as Favourite Services. These two sit on one page and list the same kind
           of thing, so two grid languages would be a difference that means nothing. */}
-      <ServiceTiles nodeId={nodeId} items={FEATURED_SERVICES} showDesc={cfg.showDesc !== false} />
+      <ServiceTiles nodeId={nodeId} items={FEATURED_SERVICES} showDesc={cfg.showDesc !== false} tpl={String(cfg.cardTemplate ?? 'top')} />
     </div>
   );
 }

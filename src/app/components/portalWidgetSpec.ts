@@ -361,10 +361,16 @@ export const WIDGET_SPECS: WidgetSpec[] = [
     gate: { kind: 'permission', setting: 'Access Service Catalog', section: 'Organization' },
     fields: [
       { key: 'showDesc', label: 'Show description', control: 'toggle', group: 'Content' },
+      /* ⚠️ Its own GROUP, so it reads as a section under Content rather than as one more switch
+         inside it — the tile's SHAPE is a different question from what the tile says.
+         ⚠️ SHARED between the two service rows: the value is mirrored in `patchCfg`, so setting it
+         on either sets it on both. Two grids of the same kind of thing, stacked one above the
+         other, disagreeing about their own shape is a difference that means nothing. */
+      { key: 'cardTemplate', label: '', control: 'templates', group: 'Card templates' },
     ],
     packs: ['P1', 'P2'], roles: ['title', 'body', 'meta'],
     notes: [{ tone: 'info', text: 'The services this requester has pinned. Shows up to four — a shortcut that runs longer than that is a catalogue.' }],
-    defaults: { title: 'Favourite Services', showDesc: true },
+    defaults: { title: 'Favourite Services', showDesc: true, cardTemplate: 'top' },
   },
 
   /* ─────────── §7.8 Featured Services ─────────── */
@@ -375,11 +381,18 @@ export const WIDGET_SPECS: WidgetSpec[] = [
        catalogue decides which services rank, what they are called and which category they sit in,
        but whether this portal prints the second line is a page decision. Title, Services to show,
        Columns, the Browse link and its label all described data this widget does not own.
-       ⚠️ The card-template picker and the gap go too, and that is deliberate: task 22 gives this
-       widget the four-card shape, so a picker offering four other shapes would offer to undo the
-       design it is about to be given. Every value stays in `defaults`, so nothing moves today. */
+       ⚠️ The GAP went with them and has not come back — the grid's spacing is the design's, not a
+       per-page decision. Card templates DID come back, in its own group below, once the two service
+       rows became a pair that should be shaped together. Every removed value stays in `defaults`,
+       so nothing on the canvas moved. */
     fields: [
       { key: 'showDesc', label: 'Show description', control: 'toggle', group: 'Content' },
+      /* ⚠️ Its own GROUP, so it reads as a section under Content rather than as one more switch
+         inside it — the tile's SHAPE is a different question from what the tile says.
+         ⚠️ SHARED between the two service rows: the value is mirrored in `patchCfg`, so setting it
+         on either sets it on both. Two grids of the same kind of thing, stacked one above the
+         other, disagreeing about their own shape is a difference that means nothing. */
+      { key: 'cardTemplate', label: '', control: 'templates', group: 'Card templates' },
     ],
     /* ⚠️ P4 and P6 are gone. P4 brought "Divider between items", which cannot mean anything here —
        these services are a GRID, and there is no gap between rows to rule. P6 brought an Icon group
@@ -393,7 +406,7 @@ export const WIDGET_SPECS: WidgetSpec[] = [
     /* ⚠️ showDesc now ships TRUE. The tile was redesigned around a two-line block — name over
        category — so leaving it off rendered half a design: four cards whose lower half was empty
        beside a Favourite Services grid that filled it. It is still the one control here. */
-    defaults: { title: 'Most Used Services', show: 4, showDesc: true, showBrowse: true, browseLabel: 'Browse catalog', cardTemplate: 'left' },
+    defaults: { title: 'Most Used Services', show: 4, showDesc: true, showBrowse: true, browseLabel: 'Browse catalog', cardTemplate: 'top' },
   },
 
   /* ─────────── §7.10 Action cards ─────────── */
@@ -810,6 +823,8 @@ export const WIDGET_FOR_NODE: Record<string, string> = {
   knowledge: 'most_read',
   assets: 'my_assets',
   cis: 'my_cis',
+  favourites: 'favourite_services',
+  services: 'featured_services',
   'quick-incident': 'act_incident',
   'quick-service': 'act_service',
   'quick-knowledge': 'act_knowledge',

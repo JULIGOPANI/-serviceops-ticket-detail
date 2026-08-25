@@ -66,7 +66,7 @@ Updated: 2026-08-25 11:06
 - **Where:** `SupportPortalPreview.tsx`, `supportPortalData.ts`, `portalWidgetSpec.ts`
 - **You asked:** two sections of up to four cards, styled like the action cards rather than the old list. ⚠️ You chose **restyle the existing Most Used Services and add Favourite Services** — so the page carries each name once, not twice.
 - **How I check it:** both sections render four cards with icon-on-top, name and category (Employee Off-boarding / HR, Microsoft Office 2019 / Software, Payroll Setup / Finance, Flight Booking / Travel), and they match the action cards' shape.
-- **Verified:** Both sections render four tiles — icon on top, name over category, centred, in the action cards' chrome — at identical 117px heights and 1027px card widths. Favourite Services carries the reference's four (Employee Off-boarding/HR, Microsoft Office 2019/Software, Payroll Setup/Finance, Flight Booking/Travel); Most Used Services carries four different ones so two adjacent grids do not read as a rendering bug.
+- **Verified:** ⚠️ REVISED — neither section is in the library (15 rows, both absent); they are fixed page blocks sitting directly under Quick Actions (measured: quick 408 → favourites 497 → services 678 → work 830). Both render four tiles, icon-top, name over category, identical 117px height and column direction on load. Card templates is its own group under Content and is SHARED: picking Icon left turned both grids to row, Icon top turned both back to column.
 
 ## 23. Row-wise placement, and splitting a row into columns
 - **Status:** todo

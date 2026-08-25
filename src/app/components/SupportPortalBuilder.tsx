@@ -330,7 +330,16 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     };
   }, [specForNode, widgetCfg, sectionHasContent]);
 
+  /* The two service rows share their tile shape. ⚠️ Mirrored HERE, at the one place widget config
+     is written, rather than by giving the field a second home — every route into a widget's config
+     goes through this function, so there is no path that sets one and misses the other. It is the
+     only key in the builder that behaves this way, which is why it is named rather than inferred. */
   const patchCfg = useCallback((id: string, patch: Cfg) => {
+    const SERVICE_ROWS = ['favourites', 'services'];
+    if (SERVICE_ROWS.includes(id) && patch.cardTemplate !== undefined) {
+      const other = SERVICE_ROWS.find((rr) => rr !== id)!;
+      setWidgetCfg((prev) => ({ ...prev, [other]: { ...(prev[other] ?? {}), cardTemplate: patch.cardTemplate } }));
+    }
     /* ⚠️ Responsive behaviour CLEARS the widths already dragged onto this section's first-layer
        columns. Fill stores a share of the row (`flex`) and Fixed stores a width of its own
        (`widthPct`); a value left behind by the other mode is read by the wrong rule and the row

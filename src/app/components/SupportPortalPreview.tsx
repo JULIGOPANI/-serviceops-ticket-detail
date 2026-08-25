@@ -4,6 +4,7 @@ import {
   Bell, Check, Info, Keyboard, KeyRound, House, MessageSquare, MessagesSquare, Plus, PanelLeft,
   RotateCcw, Search, ShoppingCart, Type, X, ChevronsRight, LayoutGrid,
 } from 'lucide-react';
+import { FavouriteServicesRender, FeaturedServicesRender } from './PortalCollectionRender';
 import { MotadataLogo } from './Header';
 import { AiSparkle } from './AiSparkle';
 import {
@@ -427,7 +428,7 @@ const NAV_MIME = 'text/portal-nav';
 
 /** The four built-in anchors a section can be attached to. A blank page renders none of them, so
  *  it collects everything anchored to any of them under its own single seam. */
-const BUILT_IN_ANCHORS = new Set(['hero', 'quick', 'work', 'records']);
+const BUILT_IN_ANCHORS = new Set(['hero', 'quick', 'favourites', 'services', 'work', 'records']);
 
 function PortalHeader({ cfg = EMPTY_CFG, onLogoPos }: {
   content?: PortalPageContent; cfg?: Record<string, unknown>;
@@ -1210,6 +1211,21 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
             </Sel>
 
             {after('quick')}
+
+            {/* ── The two service rows ──
+                ⚠️ Each is ONE card, not a row of cards: the grid inside is the widget's own, so the
+                section wrapper only has to place it and paint its surface. That is also why they
+                take `card()` rather than `RowDrop` — nothing else can be dropped beside them, the
+                same rule Quick Actions follows. */}
+            <Sel id="favourites" className={SECTION_PAD} style={{ order: slot("favourites"), ...fillCss(wc('favourites')) }}>
+              <FavouriteServicesRender nodeId="favourites" cfg={wc('favourites')} />
+            </Sel>
+            {after('favourites')}
+
+            <Sel id="services" className={SECTION_PAD} style={{ order: slot("services"), ...fillCss(wc('services')) }}>
+              <FeaturedServicesRender nodeId="services" cfg={wc('services')} />
+            </Sel>
+            {after('services')}
 
             {/* ── Work row ── */}
             {/* ── Work row ── one section, three cards, full width. */}

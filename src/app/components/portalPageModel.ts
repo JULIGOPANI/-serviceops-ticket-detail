@@ -70,6 +70,15 @@ export const PORTAL_NODES: PortalNodeDef[] = [
      drawer to describe it, while the page stays three cards until an admin adds the fourth. */
   { id: 'quick-ad', name: 'AD Self Service', kind: 'card', parent: 'quick', content: 'actionCard' },
 
+  /* ── the two service rows ──
+   * ⚠️ Fixed page blocks, NOT palette elements. What they list is chosen by the REQUESTER — their
+   * pinned services, and what the organisation asks for most — so an admin adding or removing the
+   * section would be arranging a list they do not populate. That is why neither appears in the
+   * widget library and why neither can be deleted: the section is the product's, its contents are
+   * the requester's, and only the tile's shape is the admin's. */
+  { id: 'favourites', name: 'Favourite Services', kind: 'card', content: 'row' },
+  { id: 'services', name: 'Most Used Services', kind: 'card', content: 'row' },
+
   // ── the work row — one section, three cards ──
   { id: 'work', name: 'Cards Row', kind: 'section', content: 'row' },
   { id: 'requests', name: 'My Requests', kind: 'card', parent: 'work', content: 'requests' },
@@ -219,7 +228,10 @@ export interface PortalPageContent {
  *
  * The hero is not in the list: the quick-actions row overlaps it by a negative margin, so it is the
  * one band whose position is structural rather than a preference. */
-export const DEFAULT_BLOCK_ORDER = ['quick', 'work', 'records'];
+/* ⚠️ Both service rows sit directly under Quick Actions. Everything a requester can START is then
+   in the top third — the four action cards, their pinned services, the ones everyone asks for —
+   and the lists of things already in flight follow underneath. */
+export const DEFAULT_BLOCK_ORDER = ['quick', 'favourites', 'services', 'work', 'records'];
 
 export const DEFAULT_ROW_ORDER: Record<string, string[]> = {
   quick: ['quick-incident', 'quick-service', 'quick-ad', 'quick-knowledge'],
