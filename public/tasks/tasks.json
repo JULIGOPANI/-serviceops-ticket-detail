@@ -1,6 +1,6 @@
 {
-  "stamp": "2026-08-25 09:25",
-  "builtAt": "2026-08-25T03:55:48.622Z",
+  "stamp": "2026-08-25 11:06",
+  "builtAt": "2026-08-25T05:36:20.165Z",
   "tasks": [
     {
       "n": 15,
@@ -82,11 +82,12 @@
     {
       "n": 22,
       "title": "Favourite Services + Most Used Services as card sections",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`SupportPortalPreview.tsx`, `supportPortalData.ts`, `portalWidgetSpec.ts`",
         "You asked": "two sections of up to four cards, styled like the action cards rather than the old list. ⚠️ You chose **restyle the existing Most Used Services and add Favourite Services** — so the page carries each name once, not twice.",
-        "How I check it": "both sections render four cards with icon-on-top, name and category (Employee Off-boarding / HR, Microsoft Office 2019 / Software, Payroll Setup / Finance, Flight Booking / Travel), and they match the action cards' shape."
+        "How I check it": "both sections render four cards with icon-on-top, name and category (Employee Off-boarding / HR, Microsoft Office 2019 / Software, Payroll Setup / Finance, Flight Booking / Travel), and they match the action cards' shape.",
+        "Verified": "Both sections render four tiles — icon on top, name over category, centred, in the action cards' chrome — at identical 117px heights and 1027px card widths. Favourite Services carries the reference's four (Employee Off-boarding/HR, Microsoft Office 2019/Software, Payroll Setup/Finance, Flight Booking/Travel); Most Used Services carries four different ones so two adjacent grids do not read as a rendering bug."
       }
     },
     {

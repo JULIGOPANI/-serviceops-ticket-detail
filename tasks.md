@@ -10,7 +10,7 @@ Shipped already — **1–14** (Quick Actions card templates · Custom Action Ca
 locked · six live-data panels · Contact Us · count badge · inner request list · standalone action
 cards · action-card ACTION section), and an earlier six on 24 Aug.
 
-Updated: 2026-08-25 09:25
+Updated: 2026-08-25 11:06
 
 ## 15. Most Used Services — keep only "Show description"
 - **Status:** done
@@ -62,10 +62,11 @@ Updated: 2026-08-25 09:25
 - **Verified:** Search panel is CONTENT → Placeholder only. ⚠️ It was HERO_SEARCH_FIELDS that looked like the spec but had no readers anywhere — the real one is SEARCH_SPEC.panel.content. The dead const is deleted rather than left as a second definition of one screen.
 
 ## 22. Favourite Services + Most Used Services as card sections
-- **Status:** todo
+- **Status:** done
 - **Where:** `SupportPortalPreview.tsx`, `supportPortalData.ts`, `portalWidgetSpec.ts`
 - **You asked:** two sections of up to four cards, styled like the action cards rather than the old list. ⚠️ You chose **restyle the existing Most Used Services and add Favourite Services** — so the page carries each name once, not twice.
 - **How I check it:** both sections render four cards with icon-on-top, name and category (Employee Off-boarding / HR, Microsoft Office 2019 / Software, Payroll Setup / Finance, Flight Booking / Travel), and they match the action cards' shape.
+- **Verified:** Both sections render four tiles — icon on top, name over category, centred, in the action cards' chrome — at identical 117px heights and 1027px card widths. Favourite Services carries the reference's four (Employee Off-boarding/HR, Microsoft Office 2019/Software, Payroll Setup/Finance, Flight Booking/Travel); Most Used Services carries four different ones so two adjacent grids do not read as a rendering bug.
 
 ## 23. Row-wise placement, and splitting a row into columns
 - **Status:** todo

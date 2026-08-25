@@ -649,16 +649,75 @@ export function AnnouncementsRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg 
 
 /* ── §7.8 Featured Services ──────────────────────────────────────────────── */
 
-const FEATURED_SERVICES = [
-  { id: 's1', name: 'New Laptop Request', desc: 'Standard or engineering spec' },
-  { id: 's2', name: 'Software Installation', desc: 'From the approved catalogue' },
-  { id: 's3', name: 'VPN Access', desc: 'Remote access for your account' },
-  { id: 's4', name: 'New Employee Onboarding', desc: 'Accounts, kit and access' },
-  { id: 's5', name: 'Mailbox Quota Increase', desc: 'More space on your mailbox' },
-  { id: 's6', name: 'Conference Room Setup', desc: 'AV and seating for a meeting' },
-  { id: 's7', name: 'Password Reset', desc: 'Unlock or reset your domain account' },
-  { id: 's8', name: 'Mobile Device Enrolment', desc: 'Enrol a phone or tablet' },
+/* ⚠️ The second line is a CATEGORY, not a sentence. The reference shows "HR", "Software",
+   "Finance", "Travel" — a service's department, which is what a requester scans a favourites grid
+   by. The old descriptions were half-sentences that made every tile a different height and gave the
+   grid nothing to align on. */
+const FAVOURITE_SERVICES = [
+  { id: 'f1', name: 'Employee Off-boarding', desc: 'HR' },
+  { id: 'f2', name: 'Microsoft Office 2019', desc: 'Software' },
+  { id: 'f3', name: 'Payroll Setup', desc: 'Finance' },
+  { id: 'f4', name: 'Flight Booking', desc: 'Travel' },
 ];
+
+/* ⚠️ DIFFERENT services from the favourites above. Both grids take their shape from the same
+   reference, but filling two adjacent sections with the same four rows reads as a rendering bug
+   rather than as two lists that happen to look alike. */
+const FEATURED_SERVICES = [
+  { id: 's1', name: 'New Laptop Request', desc: 'Hardware' },
+  { id: 's2', name: 'Software Installation', desc: 'Software' },
+  { id: 's3', name: 'VPN Access', desc: 'Network' },
+  { id: 's4', name: 'New Employee Onboarding', desc: 'HR' },
+];
+
+/* One tile, both sections.
+ *
+ * ⚠️ Built from the ACTION CARD's chrome — white surface, hairline border, tinted icon badge, name,
+ * muted second line — because these sit on the same page as those four and a second card language
+ * would make the page look like two products. The ARRANGEMENT is the reference's: icon on top,
+ * everything centred, which is what lets four tiles hold a row without the names wrapping.
+ * ⚠️ Fixed at FOUR. A favourites grid is a shortcut, and a shortcut that runs to eight is a
+ * catalogue — at which point the requester is better served by the catalogue page itself. */
+const MAX_SERVICE_TILES = 4;
+
+function ServiceTiles({ nodeId, items, showDesc }: {
+  nodeId: string; items: { id: string; name: string; desc: string }[]; showDesc: boolean;
+}) {
+  const { styles } = useCanvas();
+  return (
+    <div
+      className="grid min-w-0 gap-3"
+      style={{ gridTemplateColumns: `repeat(${Math.min(items.length, MAX_SERVICE_TILES)}, minmax(0,1fr))` }}
+    >
+      {items.slice(0, MAX_SERVICE_TILES).map((s) => (
+        <div
+          key={s.id}
+          className="flex min-w-0 flex-col items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 py-4 text-center shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+        >
+          <span className="flex size-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#F1F5F9] text-[#475467]">
+            <ShoppingCart size={18} strokeWidth={1.7} />
+          </span>
+          <span className="min-w-0">
+            <span style={roleStyle(styles, nodeId, 'body')} className="block truncate text-[13px] font-medium text-[#364658]">{s.name}</span>
+            {showDesc && (
+              <span style={roleStyle(styles, nodeId, 'meta')} className="mt-0.5 block truncate text-[12px] text-[#7B8FA5]">{s.desc}</span>
+            )}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** §7.8's sibling — the requester's own pinned services. Same tile, different list. */
+export function FavouriteServicesRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
+  return (
+    <div className="@container min-w-0">
+      <WidgetTitle nodeId={nodeId} text={cfg.title ?? 'Favourite Services'} />
+      <ServiceTiles nodeId={nodeId} items={FAVOURITE_SERVICES} showDesc={cfg.showDesc !== false} />
+    </div>
+  );
+}
 
 export function FeaturedServicesRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
   const { styles } = useCanvas();
@@ -699,33 +758,9 @@ export function FeaturedServicesRender({ nodeId, cfg }: { nodeId: string; cfg: C
           </Sel>
         )}
       </div>
-      <div
-        style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, gap: Number(chosen(styles, nodeId, 'gap') ?? 12) }}
-      >
-        {items.map((s) => (
-          /* ⚠️ The tile obeys the CARD TEMPLATE, exactly as a quick-action card does. Icon-top also
-             centres the words: picking the stacked tile IS the decision to centre, and an icon
-             centred over left-hugging text is not an arrangement anyone chose. */
-          <div
-            key={s.id}
-            className={`flex min-w-0 gap-2.5 rounded border border-[#E5E7EB] bg-white px-3 py-2.5 ${
-              tpl === 'top' ? 'flex-col items-center text-center' : tpl === 'right' ? 'flex-row-reverse items-center' : 'items-center'
-            }`}
-          >
-            {tpl !== 'none' && (
-              <span className="flex size-7 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#475467]">
-                <ShoppingCart size={15} strokeWidth={1.7} />
-              </span>
-            )}
-            <span className="min-w-0 flex-1">
-              <span style={roleStyle(styles, nodeId, 'body')} className="block truncate text-[13px] text-[#364658]">{s.name}</span>
-              {cfg.showDesc === true && (
-                <span style={roleStyle(styles, nodeId, 'meta')} className="block truncate text-[12px] text-[#7B8FA5]">{s.desc}</span>
-              )}
-            </span>
-          </div>
-        ))}
-      </div>
+      {/* ⚠️ The SAME tiles as Favourite Services. These two sit on one page and list the same kind
+          of thing, so two grid languages would be a difference that means nothing. */}
+      <ServiceTiles nodeId={nodeId} items={FEATURED_SERVICES} showDesc={cfg.showDesc !== false} />
     </div>
   );
 }
@@ -1250,6 +1285,7 @@ export const COLLECTION_RENDERERS: Record<string, (p: { nodeId: string; cfg: Cfg
   'c-contact': ContactRender,
   'c-announcements': AnnouncementsRender,
   'c-services': FeaturedServicesRender,
+  'c-favourites': FavouriteServicesRender,
   'c-faq': FaqRender,
   'b-accordion': AccordionRender,
   'b-card': CardRender,

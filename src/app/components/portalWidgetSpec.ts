@@ -352,6 +352,21 @@ export const WIDGET_SPECS: WidgetSpec[] = [
     },
   },
 
+  /* ─────────── Favourite Services ───────────
+     ⚠️ The SAME single control Most Used Services keeps, for the same reason: the catalogue owns
+     which services these are and what they are called; whether the category line prints is the
+     page's decision. */
+  {
+    id: 'favourite_services', name: 'Favourite Services', group: 'Live data', reuse: 'single', family: 'flat',
+    gate: { kind: 'permission', setting: 'Access Service Catalog', section: 'Organization' },
+    fields: [
+      { key: 'showDesc', label: 'Show description', control: 'toggle', group: 'Content' },
+    ],
+    packs: ['P1', 'P2'], roles: ['title', 'body', 'meta'],
+    notes: [{ tone: 'info', text: 'The services this requester has pinned. Shows up to four — a shortcut that runs longer than that is a catalogue.' }],
+    defaults: { title: 'Favourite Services', showDesc: true },
+  },
+
   /* ─────────── §7.8 Featured Services ─────────── */
   {
     id: 'featured_services', name: 'Most Used Services', group: 'Live data', reuse: 'single', family: 'flat',
@@ -375,7 +390,10 @@ export const WIDGET_SPECS: WidgetSpec[] = [
     packs: ['P1', 'P2'], roles: ['title', 'body', 'meta'],
     notes: [{ tone: 'info', text: 'A requester’s favourites, not a browse-all grid — the catalogue itself is a page, not a widget.' }],
     // No `columns` here — it lives in the style store so the two controls share one value.
-    defaults: { title: 'Most Used Services', show: 6, showDesc: false, showBrowse: true, browseLabel: 'Browse catalog', cardTemplate: 'left' },
+    /* ⚠️ showDesc now ships TRUE. The tile was redesigned around a two-line block — name over
+       category — so leaving it off rendered half a design: four cards whose lower half was empty
+       beside a Favourite Services grid that filled it. It is still the one control here. */
+    defaults: { title: 'Most Used Services', show: 4, showDesc: true, showBrowse: true, browseLabel: 'Browse catalog', cardTemplate: 'left' },
   },
 
   /* ─────────── §7.10 Action cards ─────────── */
@@ -807,6 +825,7 @@ export const WIDGET_FOR_TYPE: Record<string, string> = {
   'c-announcements': 'announcements',
   'c-contact': 'contact_us',
   'c-services': 'featured_services',
+  'c-favourites': 'favourite_services',
   'c-cis': 'my_cis',
   /* The action cards are reachable from the palette now, so the dropped element resolves to the
      same spec as the fixed page block — one widget, two ways in, never two editors. */

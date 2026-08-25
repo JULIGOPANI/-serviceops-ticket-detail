@@ -509,7 +509,11 @@ export interface CustomSection {
 export interface ElementRenderSpec { kind: NodeKind; bare: boolean }
 
 const CARD_TYPES = new Set([
-  'c-services', 'c-categories', 'c-requests', 'c-approvals', 'c-assets', 'c-tasks',
+  /* ⚠️ 'c-favourites' belongs here beside 'c-services'. The two render the same grid and sit on
+     the same page: without it Favourite Services drew its tiles straight onto the page background
+     while Most Used Services sat in a white card, so two identical grids read as two different
+     kinds of thing for no reason anyone could name. */
+  'c-services', 'c-favourites', 'c-categories', 'c-requests', 'c-approvals', 'c-assets', 'c-tasks',
   'c-announcements', 'c-knowledge', 'c-faq', 'c-contact',
   'b-card', 'b-table', 'b-accordion', 'b-text-image',
   /* ⚠️ Listed, or removing it from SELF_SURFACED changes nothing: renderSpec falls through to a
