@@ -22,6 +22,9 @@ export interface TableCell {
   rowspan: number;
   isHeader: boolean;
   bg?: string;
+  /** Per-cell TEXT colour. ⚠️ Separate from `bg`: a table cell has two colours worth setting and
+   *  one control cannot mean both. */
+  color?: string;
   textAlign?: CellAlign;
   verticalAlign?: VertAlign;
 }
@@ -214,7 +217,7 @@ export function clearRowContent(m: TableModel, index: number, { resetAttrs = fal
     cells: r.cells.map((c) => ({
       ...c,
       content: '',
-      ...(resetAttrs ? { bg: undefined, textAlign: undefined, verticalAlign: undefined } : {}),
+      ...(resetAttrs ? { bg: undefined, color: undefined, textAlign: undefined, verticalAlign: undefined } : {}),
     })),
   })) };
   return next;
@@ -307,7 +310,7 @@ export function clearColumnContent(m: TableModel, col: number, { resetAttrs = fa
       cells[i] = {
         ...cells[i],
         content: '',
-        ...(resetAttrs ? { bg: undefined, textAlign: undefined, verticalAlign: undefined } : {}),
+        ...(resetAttrs ? { bg: undefined, color: undefined, textAlign: undefined, verticalAlign: undefined } : {}),
       };
       return { ...r, cells };
     }),
@@ -334,7 +337,7 @@ export function setCellContent(m: TableModel, cellId: string, content: string): 
 }
 
 /** Apply one attribute across a set of cells — the floating toolbar's whole job. */
-export function setCellAttribute(m: TableModel, ids: string[], name: 'bg' | 'textAlign' | 'verticalAlign', value: unknown): TableModel {
+export function setCellAttribute(m: TableModel, ids: string[], name: 'bg' | 'color' | 'textAlign' | 'verticalAlign', value: unknown): TableModel {
   const set = new Set(ids);
   return {
     ...m,
@@ -354,10 +357,35 @@ export function clearCells(m: TableModel, ids: string[], { resetAttrs = false } 
     rows: m.rows.map((r) => ({
       ...r,
       cells: r.cells.map((c) => (set.has(c.id)
-        ? { ...c, content: '', ...(resetAttrs ? { bg: undefined, textAlign: undefined, verticalAlign: undefined } : {}) }
+        ? { ...c, content: '', ...(resetAttrs ? { bg: undefined, color: undefined, textAlign: undefined, verticalAlign: undefined } : {}) }
         : c)),
     })),
   };
+}
+
+/** Sort the BODY rows by one column's text.
+ *
+ * ⚠️ The header never moves — it is not data, and a sort that carried it into the middle of the
+ * table would be sorting the wrong thing. ⚠️ Blank cells go LAST in both directions, not first in
+ * one of them: an empty cell is an absence, and an absence has no place in an ordering — putting it
+ * at the end is the only answer that reads the same whichever way you sorted.
+ * ⚠️ Numbers compare as numbers where both sides are numeric, so 9 sorts before 10. */
+export function sortByColumn(m: TableModel, col: number, dir: 'asc' | 'desc'): TableModel {
+  const head = m.headerRow ? m.rows.slice(0, 1) : [];
+  const body = m.headerRow ? m.rows.slice(1) : [...m.rows];
+  const text = (r: TableRow) => (cellAt(r, col)?.content ?? '').trim();
+  const sorted = [...body].sort((a, b) => {
+    const x = text(a); const y = text(b);
+    if (!x && !y) return 0;
+    if (!x) return 1;
+    if (!y) return -1;
+    const nx = Number(x); const ny = Number(y);
+    const cmp = (!Number.isNaN(nx) && !Number.isNaN(ny))
+      ? nx - ny
+      : x.localeCompare(y, undefined, { sensitivity: 'base', numeric: true });
+    return dir === 'asc' ? cmp : -cmp;
+  });
+  return { ...m, rows: [...head, ...sorted] };
 }
 
 /* ── sizing ──────────────────────────────────────────────────────────────── */

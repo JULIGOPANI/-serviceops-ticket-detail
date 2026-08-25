@@ -14,17 +14,17 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
-  AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ChevronDown,
-  Copy, Eraser, Heading, Maximize2, Plus, Trash2,
+  AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowDownAZ, ArrowDownZA, ArrowLeft, ArrowRight,
+  ArrowUp, ChevronRight, Copy, Eraser, GripHorizontal, GripVertical, Heading, Maximize2, Palette,
+  Plus, Trash2,
 } from 'lucide-react';
 import { useCanvas } from './PortalCanvas';
-import { PortalColorPicker } from './PortalColorPicker';
 import {
   MAX_DIM, addColumnAfter, addColumnBefore, addColumnBlocked, addRowAfter, addRowBefore,
   addRowBlocked, cellAt, cellStarts, clearCells, clearColumnContent, clearRowContent, columnCount,
   deleteColumn, deleteColumnBlocked, deleteRow, deleteRowBlocked, duplicateColumn, duplicateRow,
   fitTableToWidth, insertTable, moveColumn, moveRow, reorderColumn, reorderRow, resizeColumn,
-  setCellAttribute, setCellContent, tableFrom, toggleHeaderCell,
+  setCellAttribute, setCellContent, sortByColumn, tableFrom, toggleHeaderCell,
 } from './portalTableModel';
 import type { CellAlign, TableModel, VertAlign } from './portalTableModel';
 
@@ -78,7 +78,7 @@ export function TableGridPicker({ onPick, onCancel }: { onPick: (rows: number, c
 
 interface Geo { x: number[]; w: number[]; y: number[]; h: number[]; width: number; height: number }
 
-/* ── the handle menu ─────────────────────────────────────────────────────── */
+/* ── the menu, with submenus ──────────────────────────────────────────────── */
 
 interface MenuItem {
   label: string;
@@ -87,10 +87,79 @@ interface MenuItem {
   /** Disabled WITH a reason on it — never hidden, never inert (§10.6). */
   blocked?: string | null;
   divider?: boolean;
+  /** Opens a flyout instead of acting. */
+  children?: React.ReactNode;
+}
+
+/** Named colours, the way a document editor offers them.
+ *
+ * ⚠️ NAMES, not a spectrum. This is a table cell, not a brand palette — you are marking one value
+ * as a warning or a total, and "Red" says that where #DC2626 does not. The portal's own colour
+ * picker is still the right tool for anything that IS a design decision. */
+const CELL_COLORS: [string, string][] = [
+  ['Default', ''], ['Gray', '#6B7280'], ['Brown', '#92400E'], ['Orange', '#C2410C'],
+  ['Yellow', '#A16207'], ['Green', '#15803D'], ['Blue', '#1D4ED8'], ['Purple', '#6D28D9'],
+  ['Pink', '#BE185D'], ['Red', '#B91C1C'],
+];
+const CELL_BGS: [string, string][] = [
+  ['None', ''], ['Gray', '#F3F4F6'], ['Brown', '#F5EFE9'], ['Orange', '#FFF1E7'],
+  ['Yellow', '#FEF7E0'], ['Green', '#ECFDF3'], ['Blue', '#EFF6FF'], ['Purple', '#F5F0FF'],
+  ['Pink', '#FDF2F8'], ['Red', '#FEF2F2'],
+];
+
+function ColorFlyout({ onText, onBg }: { onText: (c: string) => void; onBg: (c: string) => void }) {
+  return (
+    <div className="max-h-[300px] w-[190px] overflow-y-auto py-1">
+      <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#9CA3AF]">Text colour</p>
+      {CELL_COLORS.map(([name, hex]) => (
+        <button
+          key={`t${name}`}
+          type="button"
+          onClick={() => onText(hex)}
+          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] text-[#364658] hover:bg-[#F5F7FA]"
+        >
+          <span className="flex size-4 items-center justify-center text-[13px] font-semibold" style={{ color: hex || '#364658' }}>A</span>
+          {name} text
+        </button>
+      ))}
+      <div className="my-1 h-px bg-[#F1F5F9]" />
+      <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#9CA3AF]">Background</p>
+      {CELL_BGS.map(([name, hex]) => (
+        <button
+          key={`b${name}`}
+          type="button"
+          onClick={() => onBg(hex)}
+          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] text-[#364658] hover:bg-[#F5F7FA]"
+        >
+          <span
+            className="size-4 flex-shrink-0 rounded-[3px] border border-[#E5E7EB]"
+            style={{ background: hex || '#FFFFFF' }}
+          />
+          {name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function AlignFlyout({ onH, onV }: { onH: (v: CellAlign) => void; onV: (v: VertAlign) => void }) {
+  const row = 'flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] text-[#364658] hover:bg-[#F5F7FA]';
+  return (
+    <div className="w-[168px] py-1">
+      <button type="button" className={row} onClick={() => onH('left')}><AlignLeft size={14} /> Align left</button>
+      <button type="button" className={row} onClick={() => onH('center')}><AlignCenter size={14} /> Align centre</button>
+      <button type="button" className={row} onClick={() => onH('right')}><AlignRight size={14} /> Align right</button>
+      <div className="my-1 h-px bg-[#F1F5F9]" />
+      <button type="button" className={row} onClick={() => onV('top')}><ArrowUp size={14} /> Align top</button>
+      <button type="button" className={row} onClick={() => onV('middle')}><AlignCenter size={14} className="rotate-90" /> Align middle</button>
+      <button type="button" className={row} onClick={() => onV('bottom')}><ArrowDown size={14} /> Align bottom</button>
+    </div>
+  );
 }
 
 function HandleMenu({ items, x, y, onClose }: { items: MenuItem[]; x: number; y: number; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [openSub, setOpenSub] = useState<string | null>(null);
   useEffect(() => {
     const away = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) onClose(); };
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -103,25 +172,47 @@ function HandleMenu({ items, x, y, onClose }: { items: MenuItem[]; x: number; y:
       ref={ref}
       role="menu"
       style={{ left: x, top: y }}
-      className="absolute z-[70] min-w-[196px] rounded-lg border border-[#E5E7EB] bg-white py-1 shadow-[0_12px_16px_-4px_rgba(16,24,40,0.10)]"
+      /* ⚠️ A capped height with its own scroll. The column menu is twelve items and the table can
+         sit anywhere on a long page — without this the last few rows fall off the bottom of the
+         canvas, which is exactly where Delete lives. */
+      className="absolute z-[70] max-h-[320px] min-w-[214px] overflow-y-auto overflow-x-visible rounded-lg border border-[#E5E7EB] bg-white py-1 shadow-[0_12px_16px_-4px_rgba(16,24,40,0.10)]"
       onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       {items.map((it, i) => (
-        <div key={it.label + i}>
+        <div key={it.label + i} className="relative">
           {it.divider && <div className="my-1 h-px bg-[#F1F5F9]" />}
           <button
             type="button"
             role="menuitem"
             disabled={!!it.blocked}
             title={it.blocked ?? undefined}
-            onClick={() => { if (!it.blocked) { it.run?.(); onClose(); } }}
+            onMouseEnter={() => setOpenSub(it.children ? it.label : null)}
+            onClick={() => {
+              if (it.blocked) return;
+              if (it.children) { setOpenSub((s) => (s === it.label ? null : it.label)); return; }
+              it.run?.();
+              onClose();
+            }}
             className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] ${
               it.blocked ? 'cursor-not-allowed text-[#C3CBD6]' : 'text-[#364658] hover:bg-[#F5F7FA]'
             }`}
           >
-            <span className="flex size-4 items-center justify-center text-current">{it.icon}</span>
-            {it.label}
+            <span className="flex size-4 flex-shrink-0 items-center justify-center text-current">{it.icon}</span>
+            <span className="flex-1">{it.label}</span>
+            {it.children && <ChevronRight size={13} className="flex-shrink-0 text-[#9CA3AF]" />}
           </button>
+          {it.children && openSub === it.label && (
+            /* ⚠️ Rendered to the LEFT when there is no room on the right. The menu itself is already
+               positioned against the handle, so a flyout that always opened right ran off the canvas
+               on any column past the middle of the table. */
+            <div
+              className={`absolute top-0 z-[80] rounded-lg border border-[#E5E7EB] bg-white shadow-[0_12px_16px_-4px_rgba(16,24,40,0.10)] ${
+                x > 420 ? 'right-full mr-1' : 'left-full ml-1'
+              }`}
+              onMouseLeave={() => setOpenSub(null)}
+            >{it.children}</div>
+          )}
         </div>
       ))}
     </div>
@@ -149,16 +240,18 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLTableElement>(null);
   const [geo, setGeo] = useState<Geo | null>(null);
+  /* ⚠️ Read by the drag handler, which must measure against the CURRENT layout rather than the one
+     that existed when the press began — the table reflows the moment a row is lifted. */
+  const geoRef = useRef<Geo | null>(null);
+  geoRef.current = geo;
+  /** Where the dragged ghost sits, in viewport coordinates. Null when nothing is being dragged. */
+  const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null);
   const [hoverRow, setHoverRow] = useState<number | null>(null);
   const [hoverCol, setHoverCol] = useState<number | null>(null);
-  const [menu, setMenu] = useState<{ kind: 'row' | 'col'; index: number; x: number; y: number } | null>(null);
+  const [menu, setMenu] = useState<{ kind: 'row' | 'col' | 'cell'; index: number; x: number; y: number } | null>(null);
   const [sel, setSel] = useState<{ r0: number; c0: number; r1: number; c1: number } | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [drag, setDrag] = useState<{ kind: 'row' | 'col'; from: number; to: number } | null>(null);
-  /* ⚠️ The colour popover PORTALS itself to the body and positions from the trigger’s viewport
-     rect, so what is stored here is that rect — not a position of our own. Positioning it inside
-     this element would clip it the moment the table sat near the bottom of the design panel. */
-  const [colorAt, setColorAt] = useState<DOMRect | null>(null);
   const dragRef = useRef<typeof drag>(null);
   dragRef.current = drag;
 
@@ -225,30 +318,61 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
     };
   }, [sel, geo]);
 
-  /* ── drag to reorder a row or a column ── */
+  /* ── drag to reorder a row or a column ──
+   *
+   * ⚠️ A 4px THRESHOLD before it becomes a drag. The handle is also the menu button, and without a
+   * threshold every press started a drag — so a plain click reordered nothing, opened the menu on
+   * release, and felt like the drag had failed. Nothing moves until the pointer has actually
+   * travelled, which is what makes one control do both jobs.
+   * ⚠️ `geo` is read from a REF, not from the closure. The value captured at mousedown is a
+   * snapshot: the first `setDrag` re-renders, the table reflows around the lifted row, and the
+   * handler goes on measuring against geometry that no longer exists — which is why the drop
+   * indicator drifted one column off partway across a wide table.
+   * ⚠️ Listeners go on the WINDOW and `preventDefault` is called on the move, so a drag that leaves
+   * the table — or the browser's own text selection — cannot swallow it. */
   const startReorder = (kind: 'row' | 'col', index: number) => (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
     e.preventDefault(); e.stopPropagation();
-    setDrag({ kind, from: index, to: index });
-    const move = (ev: MouseEvent) => {
-      const wrap = wrapRef.current; const g = geo;
-      if (!wrap || !g) return;
+    const sx = e.clientX; const sy = e.clientY;
+    let live = false;
+
+    const at = (ev: MouseEvent) => {
+      const wrap = wrapRef.current; const g = geoRef.current;
+      if (!wrap || !g) return index;
       const base = wrap.getBoundingClientRect();
       if (kind === 'col') {
         const px = ev.clientX - base.left;
-        let to = g.x.findIndex((x, i) => px < x + g.w[i] / 2);
-        if (to < 0) to = g.x.length - 1;
-        setDrag((d) => (d ? { ...d, to } : d));
-      } else {
-        const py = ev.clientY - base.top;
-        let to = g.y.findIndex((y, i) => py < y + g.h[i] / 2);
-        if (to < 0) to = g.y.length - 1;
-        setDrag((d) => (d ? { ...d, to } : d));
+        const i = g.x.findIndex((x, n) => px < x + g.w[n] / 2);
+        return i < 0 ? g.x.length - 1 : i;
       }
+      const py = ev.clientY - base.top;
+      const i = g.y.findIndex((y, n) => py < y + g.h[n] / 2);
+      return i < 0 ? g.y.length - 1 : i;
     };
+
+    const move = (ev: MouseEvent) => {
+      if (!live) {
+        if (Math.abs(ev.clientX - sx) < 4 && Math.abs(ev.clientY - sy) < 4) return;
+        live = true;
+        setDrag({ kind, from: index, to: index });
+      }
+      ev.preventDefault();
+      setGhost({ x: ev.clientX, y: ev.clientY });
+      const to = at(ev);
+      setDrag((d) => (d ? { ...d, to } : d));
+    };
+
     const up = () => {
       const d = dragRef.current;
-      if (d && d.to !== d.from) write(d.kind === 'col' ? reorderColumn(model, d.from, d.to) : reorderRow(model, d.from, d.to));
+      if (live && d && d.to !== d.from) {
+        write(d.kind === 'col' ? reorderColumn(model, d.from, d.to) : reorderRow(model, d.from, d.to));
+      }
       setDrag(null);
+      setGhost(null);
+      /* ⚠️ Swallow the click that a real press-and-release always fires afterwards, or every drag
+         would end by opening the menu it just used as a handle. Only after a drag — a plain click
+         must still reach the button. */
+      if (live) window.addEventListener('click', (c) => { c.stopPropagation(); c.preventDefault(); }, { capture: true, once: true });
       window.removeEventListener('mousemove', move);
       window.removeEventListener('mouseup', up);
     };
@@ -347,12 +471,30 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
   }
 
   /* ── menus ── */
+  const colorItems = (ids: string[]) => (
+    <ColorFlyout
+      onText={(c) => write(setCellAttribute(model, ids, 'color', c || undefined))}
+      onBg={(c) => write(setCellAttribute(model, ids, 'bg', c || undefined))}
+    />
+  );
+  const alignItems = (ids: string[]) => (
+    <AlignFlyout
+      onH={(v) => write(setCellAttribute(model, ids, 'textAlign', v))}
+      onV={(v) => write(setCellAttribute(model, ids, 'verticalAlign', v))}
+    />
+  );
+  /** Every cell id in one row / one column — what a handle menu's Colour and Alignment act on. */
+  const rowIds = (i: number) => (model.rows[i]?.cells ?? []).map((c) => c.id);
+  const colIds = (c: number) => model.rows.map((r) => cellAt(r, c)?.id).filter(Boolean) as string[];
+
   const rowMenu = (i: number): MenuItem[] => [
     { label: 'Insert row above', icon: <ArrowUp size={14} />, blocked: addRowBlocked(model), run: () => write(addRowBefore(model, i)) },
     { label: 'Insert row below', icon: <ArrowDown size={14} />, blocked: addRowBlocked(model), run: () => write(addRowAfter(model, i)) },
-    { label: 'Duplicate row', icon: <Copy size={14} />, blocked: addRowBlocked(model), run: () => write(duplicateRow(model, i)) },
     { label: 'Move up', icon: <ArrowUp size={14} />, divider: true, blocked: i === 0 ? 'Already the first row' : null, run: () => write(moveRow(model, i, 'up')) },
     { label: 'Move down', icon: <ArrowDown size={14} />, blocked: i === rows - 1 ? 'Already the last row' : null, run: () => write(moveRow(model, i, 'down')) },
+    { label: 'Colour', icon: <Palette size={14} />, divider: true, children: colorItems(rowIds(i)) },
+    { label: 'Alignment', icon: <AlignLeft size={14} />, children: alignItems(rowIds(i)) },
+    { label: 'Duplicate row', icon: <Copy size={14} />, divider: true, blocked: addRowBlocked(model), run: () => write(duplicateRow(model, i)) },
     /* ⚠️ Writes the CONFIG key, not the model — the panel's "First row is a header" switch writes
        the same one, so the menu item and the switch are two ways to reach one value rather than two
        values that drift. `tableFrom` applies it to the model on every read. */
@@ -361,12 +503,27 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
     { label: 'Delete row', icon: <Trash2 size={14} />, divider: true, blocked: deleteRowBlocked(model), run: () => write(deleteRow(model, i)) },
   ];
 
+  /* What a SELECTION can be given. ⚠️ Deliberately short: everything structural belongs to a whole
+     row or column, and offering "insert" or "delete" against an arbitrary rectangle would raise a
+     question the model has no answer to. */
+  const cellMenu = (): MenuItem[] => [
+    { label: 'Colour', icon: <Palette size={14} />, children: colorItems(selIds) },
+    { label: 'Alignment', icon: <AlignLeft size={14} />, children: alignItems(selIds) },
+    { label: selIds.length > 1 ? 'Toggle header cells' : 'Toggle header cell', icon: <Heading size={14} />, divider: true, run: () => { let m = model; selIds.forEach((id) => { m = toggleHeaderCell(m, id); }); write(m); } },
+    { label: 'Clear contents', icon: <Eraser size={14} />, run: () => write(clearCells(model, selIds, { resetAttrs: true })) },
+  ];
+
   const colMenu = (i: number): MenuItem[] => [
     { label: 'Insert column left', icon: <ArrowLeft size={14} />, blocked: addColumnBlocked(model), run: () => write(addColumnBefore(model, i)) },
     { label: 'Insert column right', icon: <ArrowRight size={14} />, blocked: addColumnBlocked(model), run: () => write(addColumnAfter(model, i)) },
-    { label: 'Duplicate column', icon: <Copy size={14} />, blocked: addColumnBlocked(model), run: () => write(duplicateColumn(model, i)) },
     { label: 'Move left', icon: <ArrowLeft size={14} />, divider: true, blocked: i === 0 ? 'Already the first column' : null, run: () => write(moveColumn(model, i, 'left')) },
     { label: 'Move right', icon: <ArrowRight size={14} />, blocked: i === cols - 1 ? 'Already the last column' : null, run: () => write(moveColumn(model, i, 'right')) },
+    /* ⚠️ Sorting a table with ONE body row is a no-op, so it says so rather than doing nothing. */
+    { label: 'Sort column A → Z', icon: <ArrowDownAZ size={14} />, divider: true, blocked: rows - (model.headerRow ? 1 : 0) < 2 ? 'Nothing to sort — one row' : null, run: () => write(sortByColumn(model, i, 'asc')) },
+    { label: 'Sort column Z → A', icon: <ArrowDownZA size={14} />, blocked: rows - (model.headerRow ? 1 : 0) < 2 ? 'Nothing to sort — one row' : null, run: () => write(sortByColumn(model, i, 'desc')) },
+    { label: 'Colour', icon: <Palette size={14} />, divider: true, children: colorItems(colIds(i)) },
+    { label: 'Alignment', icon: <AlignLeft size={14} />, children: alignItems(colIds(i)) },
+    { label: 'Duplicate column', icon: <Copy size={14} />, divider: true, blocked: addColumnBlocked(model), run: () => write(duplicateColumn(model, i)) },
     { label: model.headerColumn ? 'Remove header column' : 'Make header column', icon: <Heading size={14} />, divider: true, blocked: i === 0 ? null : 'Only the first column can be the header', run: () => setCfg?.(nodeId, { firstColumn: !model.headerColumn }) },
     { label: 'Clear contents', icon: <Eraser size={14} />, run: () => write(clearColumnContent(model, i)) },
     { label: 'Fit columns to width', icon: <Maximize2 size={14} />, run: () => write(fitTableToWidth(model)) },
@@ -489,12 +646,17 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
                 const w = wrapRef.current!.getBoundingClientRect();
                 setMenu({ kind: 'col', index: i, x: b.left - w.left, y: RAIL + 6 });
               }}
-              style={{ left: x + RAIL + 4, width: geo.w[i] - 2, top: 0, height: RAIL }}
-              className={`absolute z-[50] flex items-center justify-center rounded-[3px] transition-colors ${
-                hoverCol === i || (sel && Math.min(sel.c0, sel.c1) <= i && i <= Math.max(sel.c0, sel.c1))
-                  ? 'bg-[#3D8BD0] text-white' : 'bg-[#EEF2F6] text-[#9CA3AF] hover:bg-[#DDE5EC]'
+              style={{ left: x + RAIL + 4, width: geo.w[i] - 2, top: 0, height: RAIL, cursor: drag?.kind === 'col' ? 'grabbing' : 'grab' }}
+              /* ⚠️ A GRIP, not a chevron. The bar is a drag handle first and a menu button second —
+                 a chevron says "this opens something" and says nothing at all about picking it up,
+                 which is exactly the half of the control people could not find. */
+              className={`absolute z-[50] flex items-center justify-center rounded-full transition-colors ${
+                drag?.kind === 'col' && drag.from === i
+                  ? 'bg-[#3D8BD0] text-white'
+                  : hoverCol === i || (sel && Math.min(sel.c0, sel.c1) <= i && i <= Math.max(sel.c0, sel.c1))
+                    ? 'bg-[#3D8BD0] text-white' : 'bg-[#EEF2F6] text-[#9CA3AF] hover:bg-[#DDE5EC]'
               }`}
-            ><ChevronDown size={11} /></button>
+            ><GripHorizontal size={12} /></button>
           ))}
           {/* row rail */}
           {geo.y.map((y, i) => (
@@ -511,12 +673,14 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
                 const b = (e.currentTarget as HTMLElement).getBoundingClientRect();
                 setMenu({ kind: 'row', index: i, x: RAIL + 6, y: b.top - w.top + RAIL });
               }}
-              style={{ top: y + RAIL + 4, height: geo.h[i] - 2, left: 0, width: RAIL }}
-              className={`absolute z-[50] flex items-center justify-center rounded-[3px] transition-colors ${
-                hoverRow === i || (sel && Math.min(sel.r0, sel.r1) <= i && i <= Math.max(sel.r0, sel.r1))
-                  ? 'bg-[#3D8BD0] text-white' : 'bg-[#EEF2F6] text-[#9CA3AF] hover:bg-[#DDE5EC]'
+              style={{ top: y + RAIL + 4, height: geo.h[i] - 2, left: 0, width: RAIL, cursor: drag?.kind === 'row' ? 'grabbing' : 'grab' }}
+              className={`absolute z-[50] flex items-center justify-center rounded-full transition-colors ${
+                drag?.kind === 'row' && drag.from === i
+                  ? 'bg-[#3D8BD0] text-white'
+                  : hoverRow === i || (sel && Math.min(sel.r0, sel.r1) <= i && i <= Math.max(sel.r0, sel.r1))
+                    ? 'bg-[#3D8BD0] text-white' : 'bg-[#EEF2F6] text-[#9CA3AF] hover:bg-[#DDE5EC]'
               }`}
-            ><ChevronDown size={11} className="-rotate-90" /></button>
+            ><GripVertical size={12} /></button>
           ))}
 
           {/* select-all corner */}
@@ -585,33 +749,50 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
             className="absolute z-[45] h-[6px] cursor-row-resize hover:bg-[#3D8BD0]/30"
           />
 
+          {/* ⚠️ A GHOST under the cursor, so a drag looks like carrying something rather than like
+              nothing happening. It is the row or column's own text at 70% on a white card — enough
+              to recognise WHICH one you picked up, which a plain grey rectangle cannot say.
+              ⚠️ `position: fixed` with viewport coordinates: the table sits inside a scrolling
+              canvas, so anything positioned against the wrapper lags the cursor the moment the page
+              scrolls under it. */}
+          {drag && ghost && (
+            <span
+              className="pointer-events-none fixed z-[9999] max-w-[220px] truncate rounded border border-[#3D8BD0] bg-white px-2.5 py-1.5 text-[12px] text-[#364658] opacity-90 shadow-[0_8px_20px_rgba(16,24,40,0.18)]"
+              style={{ left: ghost.x + 12, top: ghost.y + 12 }}
+            >
+              {drag.kind === 'col'
+                ? (cellAt(model.rows[0], drag.from)?.content || `Column ${drag.from + 1}`)
+                : (model.rows[drag.from]?.cells[0]?.content || `Row ${drag.from + 1}`)}
+            </span>
+          )}
+
           {menu && (
             <HandleMenu
-              items={menu.kind === 'row' ? rowMenu(menu.index) : colMenu(menu.index)}
+              items={menu.kind === 'row' ? rowMenu(menu.index) : menu.kind === 'cell' ? cellMenu() : colMenu(menu.index)}
               x={menu.x} y={menu.y}
               onClose={() => setMenu(null)}
             />
           )}
 
-          {/* ── floating cell toolbar ── */}
+          {/* ── the selection's own handle ──
+              ⚠️ This REPLACES the floating toolbar. That bar hovered above the selection and, on any
+              cell in the top row, sat directly over the column rail — so the rail's handles could
+              not be clicked at all while a cell was selected, which is how the drag came to look
+              broken. It also duplicated the handle menus: two surfaces offering Colour, Alignment
+              and Clear, which is the trap this builder keeps having to close.
+              One round grip on the selection's right edge, and the same menu the rails use. */}
           {sel && !editing && selRect && (
-            <CellToolbar
-              left={selRect.left + RAIL + 4}
-              top={selRect.top + RAIL + 4}
-              width={selRect.width}
-              onAlign={(v) => write(setCellAttribute(model, selIds, 'textAlign', v))}
-              onVAlign={(v) => write(setCellAttribute(model, selIds, 'verticalAlign', v))}
-              onHeader={() => selIds.forEach((id, i) => { if (i === 0) write(toggleHeaderCell(model, id)); })}
-              onClear={() => write(clearCells(model, selIds, { resetAttrs: true }))}
-              onColor={(e) => setColorAt((e.currentTarget as HTMLElement).getBoundingClientRect())}
-            />
-          )}
-          {colorAt && (
-            <PortalColorPicker
-              value={String(model.rows.flatMap((r) => r.cells).find((c) => c.id === selIds[0])?.bg ?? '#FFFFFF')}
-              onChange={(v) => write(setCellAttribute(model, selIds, 'bg', v))}
-              onClose={() => setColorAt(null)}
-              anchor={colorAt}
+            <button
+              type="button"
+              aria-label="Cell options"
+              onClick={(e) => {
+                e.stopPropagation();
+                const w = wrapRef.current!.getBoundingClientRect();
+                const b = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                setMenu({ kind: 'cell', index: 0, x: b.right - w.left + 6, y: b.top - w.top });
+              }}
+              style={{ left: selRect.left + RAIL + 4 + selRect.width - 5, top: selRect.top + RAIL + 4 + selRect.height / 2 - 5 }}
+              className="absolute z-[60] size-[10px] rounded-full border-2 border-white bg-[#3D8BD0] shadow-[0_1px_3px_rgba(16,24,40,0.3)] transition-transform hover:scale-125"
             />
           )}
         </>
@@ -681,6 +862,11 @@ function TableCellView({
         ...(bw > 0 ? { border: `${bw}px solid ${bc}` } : {}),
         wordBreak: 'break-word',
         ...face,
+        /* ⚠️ AFTER `face`, or the panel's Header/Rows colour wins and the per-cell one is stored and
+           never seen. The panel sets what the whole table looks like; a cell colour is the override
+           you reached for on top of it, so it has to be the last word. `undefined` leaves `face`
+           alone, which is what "Default text" means. */
+        ...(cell.color ? { color: cell.color } : {}),
         ...(selected ? { background: cell.bg ?? 'var(--tt-table-selected-bg, #EBF5FF)' } : {}),
       }}
     >
@@ -694,41 +880,5 @@ function TableCellView({
         style={{ cursor: enabled ? 'text' : undefined }}
       />
     </Tag>
-  );
-}
-
-/* ── the floating cell toolbar ───────────────────────────────────────────── */
-
-function CellToolbar({ left, top, width, onAlign, onVAlign, onHeader, onClear, onColor }: {
-  left: number; top: number; width: number;
-  onAlign: (v: CellAlign) => void;
-  onVAlign: (v: VertAlign) => void;
-  onHeader: () => void;
-  onClear: () => void;
-  onColor: (e: React.MouseEvent) => void;
-}) {
-  const btn = 'flex size-7 items-center justify-center rounded text-[#364658] transition-colors hover:bg-[#F5F7FA]';
-  /* ⚠️ It sits ABOVE the selection and never over it — the toolbar describes the cells, so covering
-     them would hide the thing it is about. Clamped to 0 so a selection at the very top of the
-     element still shows its toolbar rather than pushing it off the canvas. */
-  return (
-    <div
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
-      style={{ left: Math.max(0, left + width / 2), top: Math.max(0, top - 40), transform: 'translateX(-50%)' }}
-      className="absolute z-[75] flex items-center gap-0.5 rounded border border-[#E5E7EB] bg-white px-1 py-1 shadow-[0_4px_6px_-2px_rgba(16,24,40,0.06),0_12px_16px_-4px_rgba(16,24,40,0.10)]"
-    >
-      <button type="button" className={btn} title="Align left" onClick={() => onAlign('left')}><AlignLeft size={14} /></button>
-      <button type="button" className={btn} title="Align centre" onClick={() => onAlign('center')}><AlignCenter size={14} /></button>
-      <button type="button" className={btn} title="Align right" onClick={() => onAlign('right')}><AlignRight size={14} /></button>
-      <span className="mx-0.5 h-4 w-px bg-[#E5E7EB]" />
-      <button type="button" className={btn} title="Align top" onClick={() => onVAlign('top')}><ArrowUp size={14} /></button>
-      <button type="button" className={btn} title="Align middle" onClick={() => onVAlign('middle')}><AlignCenter size={14} className="rotate-90" /></button>
-      <button type="button" className={btn} title="Align bottom" onClick={() => onVAlign('bottom')}><ArrowDown size={14} /></button>
-      <span className="mx-0.5 h-4 w-px bg-[#E5E7EB]" />
-      <button type="button" className={btn} title="Cell background" onClick={onColor}><span className="size-3.5 rounded-[2px] border border-[#D9E0EA] bg-gradient-to-br from-[#EBF5FF] to-[#FDE68A]" /></button>
-      <button type="button" className={btn} title="Toggle header cell" onClick={onHeader}><Heading size={14} /></button>
-      <button type="button" className={btn} title="Clear contents and styling" onClick={onClear}><Eraser size={14} /></button>
-    </div>
   );
 }
