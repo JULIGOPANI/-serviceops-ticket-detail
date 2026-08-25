@@ -1452,7 +1452,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     <div className="fixed inset-x-0 bottom-0 top-[56px] z-[9000] flex flex-col bg-[#EEF1F5]">
       {/* ── Top bar ── the builder's own chrome; the admin sidebar is deliberately gone. */}
       <div className="flex h-12 flex-shrink-0 items-center gap-3 border-b border-[#e5e7eb] bg-white pl-2 pr-3">
-        <button onClick={onExit} title="Back to Support Portal Customization" className={iconBtn}>
+        <button onClick={onExit} title="Back to Support Portal" className={iconBtn}>
           <ArrowLeft size={18} />
         </button>
 

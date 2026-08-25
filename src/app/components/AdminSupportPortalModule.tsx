@@ -109,7 +109,7 @@ function RowActions({ isDefault, onEditDetails, onCustomize, onPreview, onCopy, 
   );
 }
 
-/* Support Portal Customization — Admin › Organization.
+/* Support Portal — Admin › Support Channels.
  *
  * The listing owns the pages; the builder edits one of them. A page is created the moment a route
  * out of "New page" is chosen — as a Draft — so leaving the builder never loses work and the
@@ -469,11 +469,16 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
   const head = (
     <div className="mb-4 flex items-start gap-4">
       <div className="min-w-0 flex-1">
-      <h1 className="text-[20px] font-semibold text-[#364658]">Support Portal Customization</h1>
+      {/* ⚠️ "Support Portal", not "Support Portal Customization". The name is a leftover from when
+          this page had two tabs and Customization was one of them; the tab strip went when the page
+          became ONE destination showing the portals you have, so the head was still naming a mode
+          the page no longer has. It also disagreed with every other name for this screen — the
+          sidebar row, the Overview card and the route all say Support Portal. */}
+      <h1 className="text-[20px] font-semibold text-[#364658]">Support Portal</h1>
       <p className="mt-1 text-[13px] leading-[1.6] text-[#7B8FA5]">
         Design the pages your requesters land on — build one from scratch or start from a template.{' '}
         <button
-          onClick={() => toast.success('Opening the Support Portal Customization documentation')}
+          onClick={() => toast.success('Opening the Support Portal documentation')}
           className="inline-flex items-center gap-1 text-[13px] font-medium text-[#3D8BD0] hover:underline"
         >View Docs <ExternalLink size={12} /></button>
       </p>

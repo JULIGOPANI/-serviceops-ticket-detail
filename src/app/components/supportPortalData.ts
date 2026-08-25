@@ -1,4 +1,4 @@
-/* Support Portal Customization — Admin › Organization.
+/* Support Portal — Admin › Support Channels.
  *
  * Two data sets live here and nothing else does:
  *   1. the PAGES an admin has built (the listing's rows, created by the builder), and

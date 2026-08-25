@@ -206,16 +206,26 @@ Updated: 2026-08-25 12:11
 - **Verified:** the card reads exactly "Contact Us / Email / servicedesk@acme.com / Phone / +91 79 4040 0000" with **no Hours**, and it contains **0 selectable child nodes**. The panel reads CONTENT (Email address, Phone number) → DESIGN (Style, Spacing) with **no Empty state**. Typing "help@acme.com" into the Email address field changed the card immediately.
 
 ## 27. "Support Portal Customization" becomes "Support Portal"
-- **Status:** todo
+- **Status:** done
 - **Where:** `AdminSupportPortalModule.tsx` (the page head), `adminData.ts` (the card + nav row)
 - **You asked:** change the title from "support portal customization" to "support portal".
-- **How I check it:** the admin page head, the sidebar row and the Overview card all read "Support Portal", and nothing anywhere still says "Customization" as a page name. ⚠️ The Customization **tab** keeps its name — it is one of two tabs, and the head above them is what is being renamed.
+- **How I check it:** the admin page head, the sidebar row and the Overview card all read "Support Portal", and nothing anywhere still says "Customization" as a page name.
+- **⚠️ My note about keeping the Customization tab was wrong** — there is no tab strip on this page any more. It went when Support Portal became one destination showing the portals you have, so "Customization" was naming a mode the page no longer has, and it disagreed with the sidebar row, the Overview card and the route, all of which already said Support Portal.
+- **What changed:** the `<h1>`, the View-Docs toast, the builder's back-arrow tooltip ("Back to Support Portal"), and the internal module key in `AdminPage` — renamed in both of its two places at once, since they only mean anything to each other.
+- **Verified:** the listing `<h1>` reads "Support Portal", the back tooltip reads "Back to Support Portal", and the string "Customization" appears nowhere on either screen.
+
+
 
 ## 28. A widget's first DESIGN accordion opens, the rest stay shut
-- **Status:** todo
+- **Status:** done
 - **Where:** `PortalWidgetDrawer.tsx` (`DEFAULT_OPEN`)
 - **You asked:** in every widget sidebar that has a DESIGN section, the first accordion of that section is expanded and the others are collapsed.
 - **How I check it:** open any widget with a Design section — the first accordion is open, every one below it is shut. ⚠️ The two panel models have OPPOSITE polarity (`shut:<id>` for panel accordions, the group name for packs), so this rule has to be written twice or it will only take on half the widgets.
+- **What I built:** the seed opens the first Design accordion and shuts the rest. Written twice, as predicted: the packs panel gets the first key ADDED to the open list, and `PanelBody`'s accordions get the first key LEFT OUT of the `shut:` list. ⚠️ The render keys three kinds of accordion three different ways — a field group by its NAME, a pack by its ID, Spacing by the literal `__spacing` — so `firstDesignKey` answers in the same currency the open-state list is written in rather than with an index. `DROP_GROUPS` and `EMPTY_STATE_GROUP` moved to module scope so the seed can use them; they were declared 470 lines below it, which in this file is a blank page rather than an error.
+- **⚠️ Found dead:** `accordion.open` is declared on `SECTION_SPEC`'s Layout accordion and is read by nothing. The `shut:` list is what actually governs.
+- **Verified across both models:** Banner (panel) opens **Banner** with Search and Spacing shut; the Quick Actions section (panel) opens **Layout** with Style and Spacing shut; Contact Us and Announcements (packs) open **Style** with Spacing shut.
+
+
 
 ## 29. Accordion, Banner and the page-background toggle
 - **Status:** todo

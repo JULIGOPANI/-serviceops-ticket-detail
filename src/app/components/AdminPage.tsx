@@ -29,7 +29,7 @@ const CARD_MODULES: Record<string, string> = {
   /* ⚠️ Support Channels, not Organization. The portal's settings already lived here, so putting its
      customization anywhere else meant two homes for one subject. The card that used to open this
      from Organization is gone rather than left as a second door. */
-  'Support Channels/Support Portal': 'Support Portal Customization',
+  'Support Channels/Support Portal': 'Support Portal',
 };
 
 /* Admin hub — the settings surface. Its own shell: the product's left icon rail is replaced by a
@@ -171,7 +171,7 @@ export function AdminPage({ onNavigate, moduleSlug, onModuleChange, portalSlug, 
             <div className="min-h-0 flex-1 overflow-y-auto bg-white">
               <AdminOsUpgradeModule />
             </div>
-          ) : module === 'Support Portal Customization' ? (
+          ) : module === 'Support Portal' ? (
             <div className="min-h-0 flex-1 overflow-y-auto bg-white">
               <AdminSupportPortalModule
                 onBuilder={setBuilderOpen}

@@ -517,6 +517,42 @@ const NODE_ICON: Record<string, ReactNode> = {
   list: <List size={16} />, search: <SearchIcon size={16} />, rail: <PanelLeft size={16} />,
 };
 
+/* Groups the Design section never draws, whatever a spec declares.
+ * ⚠️ MODULE scope, not inside the component. They are constants, and the open-state seed below runs
+ * far above where they used to be declared — a `const` read before its declaration in the same
+ * scope is a temporal dead zone, which in this file arrives as a blank page rather than an error. */
+const DROP_GROUPS = new Set(['Layout', 'Size', 'Arrangement']);
+/* The one group that always sinks to the foot of Design. It describes what a widget does when it
+   has nothing to show — a rare, conditional state — so it must not sit between the fill and the
+   spacing you are actually reading, and it can never be the FIRST accordion. */
+const EMPTY_STATE_GROUP = 'Empty state';
+/* Packs the drawer never draws as their own accordion. P2 is Size in pack form and P4 is
+   Arrangement; P8 renders after Spacing rather than in sequence. */
+const SKIP_PACKS = new Set(['P2', 'P4', 'P8']);
+
+/** The open-key of the FIRST accordion the Design section will render for this spec, or null.
+ *
+ * ⚠️ The render keys three different kinds of accordion three different ways — a field group by its
+ * NAME, a pack by its ID, and Spacing by the literal `__spacing` — so this has to answer in the
+ * same currency the open-state list is written in, not with an index. */
+function firstDesignKey(spec: WidgetSpec, cfg: Cfg): string | null {
+  const groups: string[] = [];
+  (spec.fields ?? []).forEach((f) => {
+    if ((f.tab ?? 'content') !== 'style') return;
+    const g = f.group ?? 'Content';
+    if (g === 'Action' || g === EMPTY_STATE_GROUP || DROP_GROUPS.has(g)) return;
+    if (f.when && !f.when(cfg)) return;
+    if (!groups.includes(g)) groups.push(g);
+  });
+  if (groups.length) return groups[0];
+  /* A pack whose title matches a field group is drawn INSIDE that group, so it is not its own
+     accordion and cannot be the first one. */
+  const pk = (spec.packs ?? []).find((p) => ALL_PACKS[p] && !SKIP_PACKS.has(p) && !groups.includes(ALL_PACKS[p].title));
+  if (pk) return pk;
+  /* Every widget gets Spacing, so there is always something to open. */
+  return '__spacing';
+}
+
 export interface WidgetDrawerProps {
   nodeId: string;
   spec: WidgetSpec;
@@ -554,12 +590,27 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
      so leaving one out does nothing there, and the `shut:` keys have to be put IN. Miss that and
      half the widgets keep arriving fully expanded.
      The per-widget memory still wins, so anything you deliberately open stays open for that type. */
+  /* ⚠️ The FIRST Design accordion arrives OPEN; every one below it stays shut. All-collapsed made
+     Design read as a section that failed to load — a heading over a stack of closed bars with no
+     sign that any of them holds anything — and opening all of them turns the panel into a page you
+     scroll past to reach anything. One open shows what a Design row looks like while the rest stay
+     a legible index.
+     ⚠️ Written TWICE because the two panel models have opposite polarity: the packs panel treats a
+     key in this list as OPEN, while `PanelBody`'s accordions are open UNLESS `shut:<id>` is present.
+     So one gets the first key added and the other gets the first key left OUT. Miss either half and
+     that flavour of widget keeps its old behaviour, which is exactly how the last three rules of
+     this shape shipped half-done. */
+  const firstPanelAccordion = (spec.panel?.accordions ?? [])
+    .filter((a) => a.id !== 'size')
+    .filter((a) => !a.when || a.when(cfg))[0]?.id;
+
   const DEFAULT_OPEN = [
     ...new Set([
       'Content',
       ...(spec.fields ?? []).filter((f) => (f.tab ?? 'content') === 'content').map((f) => f.group).filter(Boolean) as string[],
       ...(spec.collection ? [spec.collection.group] : []),
-      ...(spec.panel?.accordions ?? []).map((a) => `shut:${a.id}`),
+      ...(spec.panel ? [] : [firstDesignKey(spec, cfg)].filter(Boolean) as string[]),
+      ...(spec.panel?.accordions ?? []).filter((a) => a.id !== firstPanelAccordion).map((a) => `shut:${a.id}`),
     ]),
   ];
   /* The banner gallery is opened FROM a field and rendered at the drawer's root — a popover mounted
@@ -1021,12 +1072,8 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
      one duplicated the Spacing the section already owns, the other could not apply to half the
      widgets that declared it. Dropped at the drawer rather than deleted from thirty specs, the same
      way Layout and Size were. */
-  const DROP_GROUPS = new Set(['Layout', 'Size', 'Arrangement']);
 
-  /* The one group that always sinks to the foot of Design. It describes what a widget does when it
-     has nothing to show — a rare, conditional state — so it must not sit between the fill and the
-     spacing you are actually reading. */
-  const EMPTY_STATE_GROUP = 'Empty state';
+
   const emptyStateFields = () => viewFields.filter((f) => f.group === EMPTY_STATE_GROUP && (f.tab ?? 'content') === 'style' && (!f.when || f.when(viewCfg)));
   const groupsFor = (which: 'content' | 'style' | 'action') => {
     /* ⚠️ 'action' is a SECTION, not a tab: its fields still declare `tab: 'content'` because that
