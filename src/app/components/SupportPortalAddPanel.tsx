@@ -294,11 +294,11 @@ export function SupportPortalAddPanel({ onAdd, placed }: Props) {
             </h3>
             <div className="space-y-2">
               {items.map((e) => {
-                /* ⚠️ Only a PREDEFINED block can be "added". Everything else in this library is
-                   repeatable by design — two request lists filtered to different statuses is a
-                   reasonable page — so a tick on a Text or a Button would be reintroducing the
-                   single-instance rule that made the palette go dead as a page got built. */
-                const added = !!e.node && !!placed?.has(e.id);
+                /* ⚠️ The BUILDER decides what counts as predefined and what is currently on the
+                   page; this only reads the answer. Testing `e.node` here as well was a second,
+                   narrower copy of that rule — and the narrower one won, which is why Announcements
+                   never went grey however many were on the page. One rule, one place. */
+                const added = !!placed?.has(e.id);
                 return (
                   <button
                     key={e.id}

@@ -293,9 +293,11 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
   { id: 'c-approvals', name: 'Pending Approvals', icon: 'approvals', group: 'Live data', onPage: true, node: 'approvals', keywords: 'pending approve' },
   { id: 'c-assets', name: 'My Assets', icon: 'assets', group: 'Live data', onPage: true, node: 'assets', keywords: 'hardware devices' },
   { id: 'c-cis', name: 'My CIs', icon: 'cis', group: 'Live data', onPage: true, node: 'cis', keywords: 'configuration items cmdb' },
-  /* ⚠️ No `node`. Announcements is the one Live-data widget this page has no fixed block for, so it
-     is always addable and never shows as added — which is true, and is why the flag is per element
-     rather than per group. */
+  /* ⚠️ No `node` — Announcements is the one Live-data widget this page has no fixed block for; it
+     only ever exists as a placed element. It is still marked as added once one is on the page,
+     because "predefined" is decided by the GROUP (Live data and Actions) rather than by owning a
+     fixed block. Reading it the other way round left this one row addable while its five neighbours
+     all greyed out. */
   { id: 'c-announcements', name: 'Announcements', icon: 'announcements', group: 'Live data', keywords: 'news broadcast banner' },
   { id: 'c-knowledge', name: 'Most Read Knowledge', icon: 'knowledge', group: 'Live data', onPage: true, node: 'knowledge', keywords: 'articles kb most read' },
   { id: 'c-contact', name: 'Contact Us', icon: 'contact', group: 'Custom', keywords: 'support escalate raise' },

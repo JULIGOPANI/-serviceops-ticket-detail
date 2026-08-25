@@ -590,7 +590,19 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     const types = new Set<string>();
     sections.forEach((s) => sectionElements(s.section).forEach((el) => types.add(el.type)));
     Object.values(rowExtras).forEach((list) => list.forEach((el) => types.add(el.type)));
-    return new Set(PORTAL_ELEMENTS.filter((e) => e.node && (nodes.has(e.node) || types.has(e.id))).map((e) => e.id));
+    /* ⚠️ PREDEFINED is a GROUP rule, not a fixed-block rule. Live data and Actions are the product's
+       own single-instance widgets; everything in Basic, Visual and Custom is repeatable by design.
+       Gating on `node` alone was too narrow: **Announcements** is Live data with no fixed page block
+       — it is only ever placed — so it could never be marked however many copies the page carried,
+       while its five neighbours in the same group all were. One group, two behaviours, for a reason
+       nobody looking at the panel could see.
+       The two service rows keep their `node` because they sit in Custom, where the group rule does
+       not reach — they are the exception the flag exists for. */
+    const predefined = (e: (typeof PORTAL_ELEMENTS)[number]) =>
+      e.group === 'Live data' || e.group === 'Actions' || !!e.node;
+    return new Set(PORTAL_ELEMENTS
+      .filter((e) => predefined(e) && ((e.node && nodes.has(e.node)) || types.has(e.id)))
+      .map((e) => e.id));
   }, [rowOrder, removed, content.quick, blockOrder, sections, rowExtras]);
 
   /* Reset to default — every store the canvas reads, back to its seed.
@@ -737,9 +749,9 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     /* ⚠️ The palette already disables these rows, but a DRAG can still deliver one — a drop target
        does not know which row it came from — and this is the one funnel both routes pass through.
        Refusing here, with the reason, is what keeps the two consistent. */
-    const predefined = PORTAL_ELEMENTS.find((e) => e.id === type);
-    if (predefined?.node && placedPredefined.has(predefined.id)) {
-      toast.error(`${predefined.name} is already on this page`);
+    const def = PORTAL_ELEMENTS.find((e) => e.id === type);
+    if (def && placedPredefined.has(def.id)) {
+      toast.error(`${def.name} is already on this page`);
       return;
     }
 
