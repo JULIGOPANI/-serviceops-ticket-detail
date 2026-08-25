@@ -59,6 +59,8 @@ export type ControlKind =
 export type Cfg = Record<string, unknown>;
 
 export interface WidgetField {
+  /** Example text shown in an empty input. ⚠️ Example copy, never a repeat of the label above it. */
+  placeholder?: string;
   key: string;
   label: string;
   control: ControlKind;
@@ -129,6 +131,13 @@ export interface CollectionSpec {
   hideable?: boolean;
   /** The items carry no settings of their own — no chevron into a per-item drawer. */
   noOpen?: boolean;
+  /* A NEW item arrives empty rather than pre-filled with example copy.
+   *
+   * ⚠️ Opt-in, not the default. The seeds exist so an untouched page shows a realistic accordion,
+   * and a gallery slide added blank is a broken slide — but a question you just chose to add should
+   * be waiting for YOUR question, not carrying somebody else's that you now have to select and
+   * delete. Set on the three plain text lists; everything else keeps its seed. */
+  blankOnAdd?: boolean;
   /** Multi-file add, appended in selection order (§7.19). */
   bulkAdd?: boolean;
   /** The list only exists in this state — e.g. Feedback's questions when follow-ups are off. */
@@ -834,7 +843,13 @@ export function structureSpecId(nodeId: string): string | undefined {
   if (/-label$/.test(nodeId)) return 'list_label';
   if (/-sub$/.test(nodeId)) return 'card_sub';
   if (/-viewall$/.test(nodeId)) return 'list_link';
-  if (/^sec-\d+-c\d+$/.test(nodeId)) return 'column';
+  /* ⚠️ `-b`, not `-c`. Box ids became `sec-3-b7` when the section became a tree, and this test was
+     left matching the old positional `sec-3-c0` — so every column and every unsplit section stopped
+     resolving to COLUMN_SPEC and fell through to the LEGACY `PortalElementPanel`. That is why an
+     empty section showed the old Style block (a "Background colour" dropdown, a "Per corner" radius
+     and a `solid` border row) while every other element showed the current one. A router that
+     matches on id SHAPE has to be changed in the same commit as the shape. */
+  if (/^sec-\d+-b\d+$/.test(nodeId)) return 'column';
   if (/^sec-\d+$/.test(nodeId)) return 'section';
   return undefined;
 }

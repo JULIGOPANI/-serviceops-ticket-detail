@@ -252,6 +252,16 @@ Updated: 2026-08-25 12:11
 
 
 
+## 32. Four corrections from the 25 Aug review
+- **Status:** done
+- **Where:** `portalWidgetSpec.ts` (`structureSpecId`), `portalStructureSpecs.ts`, `supportPortalData.ts`, `PortalItemList.tsx` + `PortalWidgetDrawer.tsx`
+- **You asked:** (1) an empty section shows the OLD Style component; (2) remove Layout ▸ Behaviour from every sidebar in the module; (3) Most Used Services and Favourite Services belong under Live data; (4) task 29's Add item should open the box inline with empty fields and placeholders instead of replacing the sidebar.
+- **(1) was a regression I introduced.** Box ids became `sec-3-b7` when the section became a tree (task 23), and `structureSpecId` was left matching the old positional `sec-3-c0` — so every column and every unsplit section stopped resolving to `COLUMN_SPEC` and fell through to the LEGACY `PortalElementPanel`. That is the old block you photographed: a "Background colour" dropdown, a "Per corner" radius and a `solid` border row. ⚠️ **A router that matches on id SHAPE has to change in the same commit as the shape.**
+- **(2)** The Row/Column Behaviour control is off both the Section and the Column panels. The tree model behind it stays (`Box.dir`, `splitBox`, the axis-aware adders), so nothing on the canvas moved — it simply is not a panel decision while the section work is parked.
+- **(3)** Both rows moved from Custom to **Live data**: both are backend-fed — one from what this requester pinned, the other from what the organisation asks for most — which is the line Live data draws. They kept their `node`, which is what lets the palette see them on the page since both are top-level BANDS rather than row members.
+- **(4)** Adding an item no longer calls `onSelect`, which used to swap the whole sidebar for that item's drawer — you asked for one more row and the panel you were working in disappeared. The list opens the new row **in place** (the item is always appended, so its index is the length before the add). A new `blankOnAdd` flag empties every declared field, and `placeholder` on the two inline fields says what belongs there. ⚠️ Both are **opt-in**: the seeds exist so an untouched page shows a realistic accordion, and a gallery slide added blank is a broken slide. A collection with no inline editor still opens its drawer, because it has nowhere else to go.
+- **Verified:** a column's Design now reads "Style | Fill | None | Colour | Border | px | Corner radius | px | %" — the current component. No "Behaviour" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens "Item 4" expanded, both fields empty, showing "How do I reset my password?" and "Answer it in a sentence or two." as placeholders, with the Add link CTA below them.
+
 ## 90. Image-upload empty state — one component everywhere
 - **Status:** done
 - **Where:** `PortalControls.tsx` (`ImageUploadZone`), + PortalIconPicker, PortalPlacedElement, PortalCanvas, SupportPortalBuilder

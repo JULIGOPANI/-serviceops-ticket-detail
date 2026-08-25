@@ -314,8 +314,13 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
      an admin can reasonably decide whether the page carries a favourites row at all, and hiding the
      row only meant that once it was deleted there was no way to get it back. Favourite Services
      carries the note saying it stays invisible until a requester has favourites. */
-  { id: 'c-favourites', name: 'Favourite Services', icon: 'services', group: 'Custom', node: 'favourites', keywords: 'pinned starred saved shortcuts' },
-  { id: 'c-services', name: 'Most Used Services', icon: 'services', group: 'Custom', node: 'services', keywords: 'catalog request service favourites featured' },
+  /* ⚠️ LIVE DATA, not Custom. Both are fed by the backend — one from what this requester pinned, the
+     other from what the organisation asks for most — which is the line Live data draws. They sat in
+     Custom because they were written before that split existed.
+     Their `node` stays: it is what lets the palette see them on the page, since both are top-level
+     BANDS rather than members of a row. */
+  { id: 'c-favourites', name: 'Favourite Services', icon: 'services', group: 'Live data', node: 'favourites', keywords: 'pinned starred saved shortcuts' },
+  { id: 'c-services', name: 'Most Used Services', icon: 'services', group: 'Live data', node: 'services', keywords: 'catalog request service favourites featured' },
   /* Placed: the FAQ block already sits in the banner area of this portal, so the palette shows it
      as added rather than offering a second one. */
   { id: 'c-faq', name: 'FAQ', icon: 'faq', group: 'Custom', onPage: true, keywords: 'questions help answers' },

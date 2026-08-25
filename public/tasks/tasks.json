@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-25T09:26:01.933Z",
+  "builtAt": "2026-08-25T09:41:35.868Z",
   "tasks": [
     {
       "n": 1,
@@ -349,6 +349,16 @@
         "How I check it": "both rows are in the library; selecting Favourite Services shows the note. ⚠️ This reverses **task 22**'s hiding — though task 22's reasoning argued for a NOTE rather than an absence: an admin can reasonably decide whether the page carries a favourites row at all, and hiding it only meant that once deleted there was no way back.",
         "What I built": "both are back in the palette, each naming its fixed page block, so task 25's mark applies — they render greyed with a tick while the page carries them. `placedPredefined` had to learn about top-level BANDS as well as row members: these two are their own blocks in `blockOrder`, so counting only `rowOrder` left both addable while the page already had them.",
         "Verified": "the library is 21 rows (was 19); both service rows appear under Custom and both are greyed with a tick. Selecting Favourite Services shows the amber note at the top of Content; Most Used Services shows nothing, so the thirteen info notes stayed dormant."
+      }
+    },
+    {
+      "n": 32,
+      "title": "Four corrections from the 25 Aug review",
+      "status": "done",
+      "fields": {
+        "Where": "`portalWidgetSpec.ts` (`structureSpecId`), `portalStructureSpecs.ts`, `supportPortalData.ts`, `PortalItemList.tsx` + `PortalWidgetDrawer.tsx`",
+        "You asked": "(1) an empty section shows the OLD Style component; (2) remove Layout ▸ Behaviour from every sidebar in the module; (3) Most Used Services and Favourite Services belong under Live data; (4) task 29's Add item should open the box inline with empty fields and placeholders instead of replacing the sidebar.",
+        "Verified": "a column's Design now reads \"Style | Fill | None | Colour | Border | px | Corner radius | px | %\" — the current component. No \"Behaviour\" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens \"Item 4\" expanded, both fields empty, showing \"How do I reset my password?\" and \"Answer it in a sentence or two.\" as placeholders, with the Add link CTA below them."
       }
     },
     {

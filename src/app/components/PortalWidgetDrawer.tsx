@@ -1131,9 +1131,20 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
   const addItem = (extra?: Cfg) => {
     if (!col) return;
     const id = `${Date.now().toString(36)}${items.length}`;
-    const item = { id, ...col.seed(items.length), ...extra };
+    /* ⚠️ A blank row where the collection asked for one — every declared field emptied, so the
+       inline editor opens waiting for YOUR words rather than carrying an example you now have to
+       select and delete. The seeds still fill the DEFAULT items, which is what they are for. */
+    const seeded = col.blankOnAdd
+      ? Object.fromEntries(col.fields.map((f) => [f.key, '']))
+      : col.seed(items.length);
+    const item = { id, ...seeded, ...extra };
     setCfg({ [col.key]: [...items, item] });
-    onSelect(itemNodeId(nodeId, id));
+    /* ⚠️ No redirect when the row has an inline editor. Selecting the item swapped the whole sidebar
+       for its drawer — you asked for one more row and the panel you were working in disappeared.
+       The list opens the new row in place instead. A collection with no inline editor still needs
+       somewhere to go, so it keeps the old behaviour. */
+    const inlineEditable = !col.noOpen && col.fields.length >= 2;
+    if (!inlineEditable) onSelect(itemNodeId(nodeId, id));
   };
 
   const bulkAdd = (srcs: string[]) => {
@@ -1196,6 +1207,7 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
                     noOpen={col.noOpen}
                     inlineKeys={col.noOpen || col.fields.length < 2 ? undefined : [col.fields[0].key, col.fields[1].key]}
                     inlineCta={col.inlineCta}
+                    inlinePlaceholders={col.fields.length >= 2 ? [col.fields[0].placeholder, col.fields[1].placeholder] : undefined}
                     /* An accordion item is a title and a body — both are inline, so the chevron
                        would open a drawer showing the two fields already in front of you. */
                     inlineCoversAll={col.fields.length === 2 && !col.subElements?.length ? true : col.fields.length === 2}

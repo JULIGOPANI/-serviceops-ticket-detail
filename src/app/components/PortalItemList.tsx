@@ -52,6 +52,8 @@ interface Props {
      expands in place to edit them; without them it only opens the full drawer. Derived from the
      collection's own fields, so a widget never has to restate what its item is made of. */
   inlineKeys?: [string, string];
+  /** Example text for the two inline inputs, so a blank new row says what belongs in it. */
+  inlinePlaceholders?: [string | undefined, string | undefined];
   /** The optional extra offered at the foot of the inline editor — see `CollectionSpec.inlineCta`. */
   inlineCta?: { label: string; flag: string; removeLabel: string; clears: string[] };
   /** True when the inline editor shows every field the item has — the chevron would then lead to
@@ -62,7 +64,7 @@ interface Props {
 const inputCls = 'h-9 w-full rounded border border-[#d1d5db] bg-white px-3 text-[13px] text-[#364658] placeholder:text-[#9ca3af] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]';
 
 export function PortalItemList({
-  items, label, meta, thumb, onOpen, onChange, addLabel, onAdd, max, hideable, emptyHint, noOpen,
+  items, label, meta, thumb, onOpen, onChange, addLabel, onAdd, max, hideable, emptyHint, noOpen, inlinePlaceholders,
   noAdd, lockedHide, inlineKeys, inlineCoversAll, inlineCta,
 }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
@@ -207,6 +209,7 @@ export function PortalItemList({
                     <input
                       value={String(item[inlineKeys[0]] ?? '')}
                       onChange={(e) => patch({ [inlineKeys[0]]: e.target.value })}
+                      placeholder={inlinePlaceholders?.[0]}
                       className={inputCls}
                     />
                     <div className="mb-1 mt-3 flex items-center justify-between gap-2">
@@ -223,6 +226,7 @@ export function PortalItemList({
                       rows={2}
                       value={String(item[inlineKeys[1]] ?? '')}
                       onChange={(e) => patch({ [inlineKeys[1]]: e.target.value })}
+                      placeholder={inlinePlaceholders?.[1]}
                       className={`${inputCls} h-auto py-1.5 ${item.descHidden ? 'opacity-50' : ''}`}
                     />
                     {item.descHidden && (
@@ -280,7 +284,11 @@ export function PortalItemList({
       {/* The sticky footer's job (§2.1): the single Add action, reachable down a long list.
           Absent entirely on product-owned lists — there is nothing to add. */}
       {noAdd ? null : <button
-        onClick={() => { if (!atLimit) onAdd(); }}
+        /* ⚠️ Opens the new row IN PLACE. Adding used to select the item, which swapped the whole
+           sidebar for that item's drawer — you asked for one more row and the panel you were working
+           in disappeared. The new item is always appended, so its index is the length before the
+           add; the drawer stops selecting it in the same change, or the two would fight. */
+        onClick={() => { if (!atLimit) { onAdd(); setExpanded(items.length); } }}
         disabled={atLimit}
         title={atLimit ? `This collection holds at most ${max}` : undefined}
         className={`mt-2.5 flex w-full items-center justify-center gap-1.5 rounded border border-dashed px-3 py-2 text-[13px] font-medium transition-colors ${

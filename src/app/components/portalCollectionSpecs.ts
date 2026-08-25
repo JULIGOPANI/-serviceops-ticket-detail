@@ -584,10 +584,12 @@ export const ACCORDION_SPEC: WidgetSpec = {
     label: (it) => String(it.title ?? ''),
     meta: (it) => String(it.body ?? '').replace(/<[^>]+>/g, '').slice(0, 60),
     seed: (i) => ({ ...ACC_SEEDS[i % ACC_SEEDS.length] }),
+    blankOnAdd: true,
     fields: [
-      { key: 'title', label: 'Title or question', control: 'text', group: 'Textual content' },
+      { key: 'title', label: 'Title or question', control: 'text', group: 'Textual content', placeholder: 'How do I reset my password?' },
       {
         key: 'body', label: 'Description', control: 'rich', group: 'Textual content',
+        placeholder: 'Answer it in a sentence or two.',
         help: 'Bullets, bold and links all work here.',
       },
       /* ⚠️ Reached by the "+ Add link" CTA at the foot of the inline editor, not by a field sitting
