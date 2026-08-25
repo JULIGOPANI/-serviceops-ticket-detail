@@ -63,16 +63,15 @@ export function FaqRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
   const aIndent = Number(cfg.aIndent ?? 0);
   const anim = String(cfg.animation ?? 'normal');
 
-  /* Which answers are open. `openFirst` seeds it; `allowMultiOpen` decides whether opening one
-     closes the others — the two toggles the drawer offers, doing exactly what they say. */
-  const seed = items
-    .map((it, i) => ((it.openByDefault === true) || (cfg.openFirst !== false && i === 0) ? it.id : null))
-    .filter(Boolean) as string[];
+  /* ⚠️ Which answers are open, the ACCORDION's way — one at a time, nothing open to begin with.
+     This used to be two panel toggles (`openFirst`, `allowMultiOpen`) plus a per-item override; all
+     three are gone, so the FAQ behaves the same as the Accordion beside it in the palette rather
+     than differently for reasons only its old panel could explain.
+     `openByDefault` is still honoured on an item that already carries it — a question somebody
+     deliberately opened on an existing page should not close itself because the control moved. */
+  const seed = items.filter((it) => it.openByDefault === true).map((it) => it.id);
   const [open, setOpen] = useState<string[]>(seed);
-  const toggle = (id: string) => setOpen((o) => (
-    o.includes(id) ? o.filter((x) => x !== id)
-      : cfg.allowMultiOpen === true ? [...o, id] : [id]
-  ));
+  const toggle = (id: string) => setOpen((o) => (o.includes(id) ? o.filter((x) => x !== id) : [id]));
 
   if (!items.length) {
     return <p className="py-6 text-center text-[13px] text-[#9CA3AF]">No questions yet — add one in the panel.</p>;

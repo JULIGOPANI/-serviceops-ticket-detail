@@ -54,6 +54,13 @@ interface Props {
   inlineKeys?: [string, string];
   /** Example text for the two inline inputs, so a blank new row says what belongs in it. */
   inlinePlaceholders?: [string | undefined, string | undefined];
+  /* The two inline inputs' LABELS, taken from the collection's own fields.
+   *
+   * ⚠️ They used to be hard-coded "Title" and "Description", which was fine while the chevron could
+   * still open a drawer that named them properly. With the chevron gone this editor is the only way
+   * into an item, so a FAQ whose spec calls them Question and Answer would have had no surface
+   * anywhere that used its own words. */
+  inlineLabels?: [string, string];
   /** The optional extra offered at the foot of the inline editor — see `CollectionSpec.inlineCta`. */
   inlineCta?: { label: string; flag: string; removeLabel: string; clears: string[] };
   /** True when the inline editor shows every field the item has — the chevron would then lead to
@@ -64,7 +71,7 @@ interface Props {
 const inputCls = 'h-9 w-full rounded border border-[#d1d5db] bg-white px-3 text-[13px] text-[#364658] placeholder:text-[#9ca3af] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]';
 
 export function PortalItemList({
-  items, label, meta, thumb, onOpen, onChange, addLabel, onAdd, max, hideable, emptyHint, noOpen, inlinePlaceholders,
+  items, label, meta, thumb, onOpen, onChange, addLabel, onAdd, max, hideable, emptyHint, noOpen, inlinePlaceholders, inlineLabels,
   noAdd, lockedHide, inlineKeys, inlineCoversAll, inlineCta,
 }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
@@ -205,7 +212,7 @@ export function PortalItemList({
                 {/* Inline editor — the two fields you actually change, without leaving the list. */}
                 {open && inlineKeys && (
                   <div className="border-t border-[#F0F2F5] px-3 pb-3 pt-2.5" onClick={(e) => e.stopPropagation()}>
-                    <div className="mb-1 text-[12px] font-normal text-[#7B8FA5]">Title</div>
+                    <div className="mb-1 text-[12px] font-normal text-[#7B8FA5]">{inlineLabels?.[0] ?? 'Title'}</div>
                     <input
                       value={String(item[inlineKeys[0]] ?? '')}
                       onChange={(e) => patch({ [inlineKeys[0]]: e.target.value })}
@@ -213,12 +220,12 @@ export function PortalItemList({
                       className={inputCls}
                     />
                     <div className="mb-1 mt-3 flex items-center justify-between gap-2">
-                      <span className="text-[12px] font-normal text-[#7B8FA5]">Description</span>
+                      <span className="text-[12px] font-normal text-[#7B8FA5]">{inlineLabels?.[1] ?? 'Description'}</span>
                       {/* ⚠️ Per ITEM, not per widget. Some points need a second line and some do not,
                           and blanking the text to hide it would lose what was written. */}
                       <button
                         onClick={() => patch({ descHidden: !item.descHidden })}
-                        title={item.descHidden ? 'Show this description' : 'Hide this description on the portal'}
+                        title={item.descHidden ? `Show this ${(inlineLabels?.[1] ?? 'description').toLowerCase()}` : `Hide this ${(inlineLabels?.[1] ?? 'description').toLowerCase()} on the portal`}
                         className={`${iconBtn} ${item.descHidden ? 'text-[#3D8BD0]' : ''}`}
                       >{item.descHidden ? <EyeOff size={13} /> : <Eye size={13} />}</button>
                     </div>

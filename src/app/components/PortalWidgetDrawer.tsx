@@ -1208,9 +1208,18 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
                     inlineKeys={col.noOpen || col.fields.length < 2 ? undefined : [col.fields[0].key, col.fields[1].key]}
                     inlineCta={col.inlineCta}
                     inlinePlaceholders={col.fields.length >= 2 ? [col.fields[0].placeholder, col.fields[1].placeholder] : undefined}
+                    inlineLabels={col.fields.length >= 2 ? [col.fields[0].label, col.fields[1].label] : undefined}
                     /* An accordion item is a title and a body — both are inline, so the chevron
                        would open a drawer showing the two fields already in front of you. */
-                    inlineCoversAll={col.fields.length === 2 && !col.subElements?.length ? true : col.fields.length === 2}
+                    /* ⚠️ The right arrow is HIDDEN wherever the row has an inline editor, not only
+                       where that editor happens to cover every field. It opened the item's own
+                       drawer, which replaced the whole panel you were working in — the same swap the
+                       Add-item fix removed, reached by a different button. What the inline editor
+                       does not cover is reachable another way: the "+ Add link" CTA at its foot, and
+                       the item's own text nodes by clicking them on the canvas.
+                       ⚠️ A collection with NO inline editor keeps the arrow. It is the only way into
+                       those items, and removing it would strand them. */
+                    inlineCoversAll={!col.noOpen && col.fields.length >= 2}
                     hideable={col.hideable}
                     noAdd={col.noAdd}
                     /* §7.24 — the logo cannot be hidden, and the action is DISABLED with the reason

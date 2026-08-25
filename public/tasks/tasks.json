@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-25T09:41:35.868Z",
+  "builtAt": "2026-08-25T10:01:18.690Z",
   "tasks": [
     {
       "n": 1,
@@ -359,6 +359,19 @@
         "Where": "`portalWidgetSpec.ts` (`structureSpecId`), `portalStructureSpecs.ts`, `supportPortalData.ts`, `PortalItemList.tsx` + `PortalWidgetDrawer.tsx`",
         "You asked": "(1) an empty section shows the OLD Style component; (2) remove Layout ▸ Behaviour from every sidebar in the module; (3) Most Used Services and Favourite Services belong under Live data; (4) task 29's Add item should open the box inline with empty fields and placeholders instead of replacing the sidebar.",
         "Verified": "a column's Design now reads \"Style | Fill | None | Colour | Border | px | Corner radius | px | %\" — the current component. No \"Behaviour\" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens \"Item 4\" expanded, both fields empty, showing \"How do I reset my password?\" and \"Answer it in a sentence or two.\" as placeholders, with the Add link CTA below them."
+      }
+    },
+    {
+      "n": 33,
+      "title": "FAQ matches the Accordion, and the per-item arrow goes",
+      "status": "done",
+      "fields": {
+        "Where": "`portalCollectionSpecs.ts` (`FAQ_SPEC`), `PortalCollectionRender.tsx` (`FaqRender`), `PortalItemList.tsx`, `PortalWidgetDrawer.tsx`",
+        "You asked": "(1) remove the Behaviour section from FAQ; (2) remove the right arrow that redirects to a new page by swapping the current one; (3) remove the Design fields in the second screenshot, and make the FAQ expand/collapse the way the Accordion does.",
+        "Settled first": "**Item container** goes too (it was just above your crop) — leaving Design as Style + Spacing, exactly the Accordion's panel. The arrow goes **everywhere a row has an inline editor**, not FAQ only. Both widgets stay in the palette for now.",
+        "⚠️ Follow-on the arrow's removal forced": "the inline editor hard-coded its two labels as \"Title\" and \"Description\". That was tolerable while the chevron could open a drawer that named the fields properly; with the chevron gone this editor is the ONLY way into an item, so a FAQ would have had no surface anywhere using its own words. The labels and the hide-tooltip now come from the collection's own fields.",
+        "Verified": "FAQ panel = CONTENT (Title, Questions, Add question) → DESIGN (Style, Spacing). Item rows show Move up · Move down · Duplicate · Delete — **no arrow**; the Accordion's show the same plus its hide toggle. On the canvas the new FAQ arrives with **nothing open**; opening Q1 shows only Q1; opening Q2 closes Q1. The FAQ's inline editor is labelled **Question / Answer**, the Accordion's **Title or question / Description**.",
+        "⚠️ Flagged": "FAQ and Accordion are now the same widget with different seed copy. You chose to keep both for now — worth revisiting, since an earlier pass split them apart precisely because one widget with two palette names was confusing."
       }
     },
     {

@@ -50,30 +50,18 @@ const FAQ_NEW: Cfg[] = [
 
 export const FAQ_SPEC: WidgetSpec = {
   id: 'faq', name: 'FAQ', group: 'Content', reuse: 'many', family: 'collection',
+  /* ⚠️ A Title and nothing else. Out went the BEHAVIOUR group (show-first-open, allow-multi-open)
+     and the whole ACCORDION style group — item container, divider, chevron position, chevron
+     rotation, question padding, answer indent, open-item background, expand animation. Thirteen
+     controls for a list of questions, and not one of them was a decision worth making twice.
+     Design is now **Style** + **Spacing**, which is exactly the Accordion's panel — the two widgets
+     now behave identically by design (see the note below). Every removed value stays in `defaults`
+     and is still read by the renderer, so the FAQ on the canvas is unchanged: flat, dividers on,
+     chevron right, rotating. */
   fields: [
     { key: 'title', label: 'Title', control: 'text', group: 'Content' },
-    { key: 'openFirst', label: 'Show the first answer open', control: 'toggle', group: 'Behaviour' },
-    { key: 'allowMultiOpen', label: 'Let more than one answer be open at once', control: 'toggle', group: 'Behaviour' },
-    // Accordion styling (§7.16), on the Styling tab.
-    {
-      key: 'itemContainer', label: 'Item container', control: 'segmented', tab: 'style', group: 'Accordion',
-      options: [{ value: 'flat', label: 'Flat' }, { value: 'bordered', label: 'Bordered' }, { value: 'card', label: 'Card per item' }],
-    },
-    { key: 'itemDivider', label: 'Divider between items', control: 'toggle', tab: 'style', group: 'Accordion' },
-    {
-      key: 'chevron', label: 'Chevron position', control: 'segmented', tab: 'style', group: 'Accordion',
-      options: [{ value: 'left', label: 'Left' }, { value: 'right', label: 'Right' }],
-    },
-    { key: 'chevronRotates', label: 'Chevron rotates on open', control: 'toggle', tab: 'style', group: 'Accordion' },
-    { key: 'qPad', label: 'Question padding', control: 'slider', tab: 'style', group: 'Accordion', min: 8, max: 24 },
-    { key: 'aIndent', label: 'Answer indent', control: 'slider', tab: 'style', group: 'Accordion', min: 0, max: 32 },
-    { key: 'openBg', label: 'Open-item background', control: 'color', tab: 'style', group: 'Accordion' },
-    {
-      key: 'animation', label: 'Expand animation', control: 'segmented', tab: 'style', group: 'Accordion',
-      options: [{ value: 'none', label: 'None' }, { value: 'fast', label: 'Fast' }, { value: 'normal', label: 'Normal' }],
-    },
   ],
-  packs: ['P1', 'P2', 'P4'],
+  packs: ['P1'],
   /* ⚠️ Said ONCE, here: the platform has no FAQ entity, so this content is authored and the drawer
      must never imply a data source. Anything needing review or versioning is a knowledge article. */
   notes: [{
@@ -83,16 +71,17 @@ export const FAQ_SPEC: WidgetSpec = {
   collection: {
     key: 'items', group: 'Questions', addLabel: 'Add question',
     emptyHint: 'No questions yet. A FAQ with nothing in it is invisible on the portal.',
+    /* Same as the Accordion: a question you just chose to add waits for YOUR question. */
+    blankOnAdd: true,
     label: (it) => String(it.q ?? ''),
     meta: (it) => String(it.a ?? '').replace(/<[^>]+>/g, '').slice(0, 60),
     seed: (i) => ({ ...FAQ_NEW[i % FAQ_NEW.length] }),
     fields: [
-      { key: 'q', label: 'Question', control: 'text', group: 'Content' },
-      { key: 'a', label: 'Answer', control: 'rich', group: 'Content', help: 'Links and lists matter here.' },
-      {
-        key: 'openByDefault', label: 'Open by default', control: 'toggle', group: 'Content',
-        help: 'Overrides the widget’s “first answer open” for this question.',
-      },
+      { key: 'q', label: 'Question', control: 'text', group: 'Content', placeholder: 'How do I reset my password?' },
+      { key: 'a', label: 'Answer', control: 'rich', group: 'Content', placeholder: 'Answer it in a sentence or two.', help: 'Links and lists matter here.' },
+      /* ⚠️ "Open by default" went with the widget toggle it existed to OVERRIDE. A per-item override
+         of a setting nobody can set any more is a control answering a question that cannot be
+         asked. The renderer still honours the key, so a question already flagged open stays open. */
     ],
     packs: ['P1'],
     subElements: [
@@ -100,10 +89,13 @@ export const FAQ_SPEC: WidgetSpec = {
       { key: 'a', name: 'Answer', role: 'body' },
     ],
   },
+  /* ⚠️ Every one of these is still READ by the renderer — they are what keep the card looking
+     exactly as it did once the controls went. Deleting them would restyle every existing FAQ.
+     `allowMultiOpen` is gone entirely rather than defaulted: the FAQ now opens one answer at a time
+     the way the Accordion does, which is what "work the same as our accordion" asked for. */
   defaults: {
     title: 'Frequently asked questions',
-    openFirst: true,
-    allowMultiOpen: false,
+    openFirst: false,
     itemContainer: 'flat', itemDivider: true, chevron: 'right', chevronRotates: true,
     qPad: 12, aIndent: 0, animation: 'normal',
     items: FAQ_SEEDS.map((s, i) => ({ id: `faq${i}`, ...s })),
