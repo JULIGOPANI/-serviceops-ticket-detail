@@ -290,7 +290,7 @@ export function CreateSupportPortalModal({ onClose, onSaveDetails, onScratch, on
                     onClick={() => onTemplate(null)}
                     className="overflow-hidden rounded-lg border border-[#3D8BD0]/40 bg-white text-left transition-all hover:border-[#3D8BD0] hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]"
                   >
-                    <TemplateArt layout="classic" accent="#3D8BD0" />
+                    <TemplateArt layout="portal" accent="#3D8BD0" />
                     <span className="block px-3 py-2.5">
                       <span className="flex items-center gap-1.5">
                         <span className="truncate text-[13px] font-medium text-[#364658]">Support Portal</span>

@@ -30,6 +30,28 @@ export function TemplateArt({ layout, accent }: { layout: TemplateLayout; accent
       <R x={0} y={0} w={160} h={96} fill="#F7F9FC" r={0} />
       <R x={0} y={0} w={160} h={7} fill="#FFFFFF" r={0} />
       <R x={0} y={7} w={9} h={89} fill="#FFFFFF" r={0} />
+      {/* ── THIS portal, drawn from what it actually renders ──
+          Banner + search, four action cards riding up into its lower edge, Favourite Services and
+          Most Used Services as two tile rows, then the work cards. Anyone who has seen the page
+          recognises it; that is the whole job of this one tile. */}
+      {layout === 'portal' && (<>
+        <R x={9} y={7} w={151} h={28} fill={accent} r={0} />
+        <R x={54} y={12} w={61} h={3} fill="#FFFFFF" o={0.55} />
+        <R x={40} y={19} w={89} h={7} fill="#FFFFFF" />
+        {/* the four action cards, overlapping the banner exactly as they do on the page */}
+        {[0, 1, 2, 3].map((i) => <R key={`q${i}`} x={13 + i * 35} y={30} w={31} h={13} fill="#FFFFFF" />)}
+        {[0, 1, 2, 3].map((i) => <R key={`qi${i}`} x={16 + i * 35} y={33} w={6} h={6} fill={g2} r={1.5} />)}
+        {[0, 1, 2, 3].map((i) => <R key={`qt${i}`} x={24 + i * 35} y={34} w={16} h={2.5} fill={g} />)}
+        {/* Favourite Services */}
+        <R x={13} y={48} w={26} h={2.5} fill={g} />
+        {[0, 1, 2, 3].map((i) => <R key={`f${i}`} x={13 + i * 35} y={53} w={31} h={14} fill="#FFFFFF" />)}
+        {[0, 1, 2, 3].map((i) => <R key={`fi${i}`} x={25 + i * 35} y={56} w={6} h={6} fill={g2} r={1.5} />)}
+        {/* the work row */}
+        {[0, 1, 2].map((i) => <R key={`w${i}`} x={13 + i * 47} y={72} w={43} h={19} fill="#FFFFFF" />)}
+        {[0, 1, 2].map((i) => <R key={`wt${i}`} x={17 + i * 47} y={76} w={20} h={2.5} fill={g} />)}
+        {[0, 1, 2].map((i) => <R key={`wr${i}`} x={17 + i * 47} y={82} w={35} h={2} fill={g2} />)}
+        {[0, 1, 2].map((i) => <R key={`wr2${i}`} x={17 + i * 47} y={86} w={28} h={2} fill={g2} />)}
+      </>)}
       {layout === 'classic' && (<>
         <R x={9} y={7} w={151} h={34} fill={accent} r={0} />
         <R x={52} y={16} w={64} h={4} fill="#FFFFFF" o={0.5} />

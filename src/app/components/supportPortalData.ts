@@ -36,7 +36,12 @@ export interface PortalPage {
   ssoOnly?: boolean;
 }
 
-export type TemplateLayout = 'classic' | 'spotlight' | 'catalog' | 'knowledge' | 'minimal' | 'status';
+/* ⚠️ `portal` is not a template layout like the others — it is a PICTURE OF THIS PORTAL. The
+   Default tile used to borrow `classic`, a generic three-column wireframe, so the one tile that
+   promises "the page your requesters see today" was showing a page nobody has. It draws the real
+   thing: banner and search, the four action cards straddling its lower edge, the two service rows,
+   and the work cards below them. */
+export type TemplateLayout = 'portal' | 'classic' | 'spotlight' | 'catalog' | 'knowledge' | 'minimal' | 'status';
 
 export interface PortalTemplate {
   id: string;

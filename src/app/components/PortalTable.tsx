@@ -15,16 +15,17 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { CSSProperties } from 'react';
 import {
   AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowDownAZ, ArrowDownZA, ArrowLeft, ArrowRight,
-  ArrowUp, ChevronRight, Copy, Eraser, GripHorizontal, GripVertical, Heading, Maximize2, Palette,
-  Plus, Trash2,
+  ArrowUp, ChevronRight, Copy, Eraser, Group, GripHorizontal, GripVertical, Heading, Maximize2,
+  Palette, Plus, Trash2, Ungroup,
 } from 'lucide-react';
 import { useCanvas } from './PortalCanvas';
 import {
   MAX_DIM, addColumnAfter, addColumnBefore, addColumnBlocked, addRowAfter, addRowBefore,
   addRowBlocked, cellAt, cellStarts, clearCells, clearColumnContent, clearRowContent, columnCount,
   deleteColumn, deleteColumnBlocked, deleteRow, deleteRowBlocked, duplicateColumn, duplicateRow,
-  fitTableToWidth, insertTable, moveColumn, moveRow, reorderColumn, reorderRow, resizeColumn,
-  setCellAttribute, setCellContent, sortByColumn, tableFrom, toggleHeaderCell,
+  fitTableToWidth, insertTable, isMerged, mergeBlockedBecause, mergeCells, moveColumn, moveRow,
+  reorderColumn, reorderRow, resizeColumn, setCellAttribute, setCellContent, sortByColumn, splitCell,
+  tableFrom, toggleHeaderCell,
 } from './portalTableModel';
 import type { CellAlign, TableModel, VertAlign } from './portalTableModel';
 
@@ -506,12 +507,27 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
   /* What a SELECTION can be given. ⚠️ Deliberately short: everything structural belongs to a whole
      row or column, and offering "insert" or "delete" against an arbitrary rectangle would raise a
      question the model has no answer to. */
-  const cellMenu = (): MenuItem[] => [
-    { label: 'Colour', icon: <Palette size={14} />, children: colorItems(selIds) },
+  const cellMenu = (): MenuItem[] => {
+    const r0 = sel ? Math.min(sel.r0, sel.r1) : 0;
+    const r1 = sel ? Math.max(sel.r0, sel.r1) : 0;
+    const c0 = sel ? Math.min(sel.c0, sel.c1) : 0;
+    const c1 = sel ? Math.max(sel.c0, sel.c1) : 0;
+    /* ⚠️ ONE slot, showing merge or split by what is selected — they are the same intent aimed at
+       two states, and two permanently-visible items would leave one of them dead whichever cell you
+       had. The reason for a refusal rides on the disabled control, where you can read it before you
+       reach for it rather than after. */
+    const one = selIds.length === 1 && isMerged(model, selIds[0]);
+    const why = mergeBlockedBecause(model, r0, r1, c0, c1);
+    return [
+    one
+      ? { label: 'Split cell', icon: <Ungroup size={14} />, run: () => write(splitCell(model, selIds[0])) }
+      : { label: 'Merge cells', icon: <Group size={14} />, blocked: why, run: () => write(mergeCells(model, r0, r1, c0, c1)) },
+    { label: 'Colour', icon: <Palette size={14} />, divider: true, children: colorItems(selIds) },
     { label: 'Alignment', icon: <AlignLeft size={14} />, children: alignItems(selIds) },
     { label: selIds.length > 1 ? 'Toggle header cells' : 'Toggle header cell', icon: <Heading size={14} />, divider: true, run: () => { let m = model; selIds.forEach((id) => { m = toggleHeaderCell(m, id); }); write(m); } },
     { label: 'Clear contents', icon: <Eraser size={14} />, run: () => write(clearCells(model, selIds, { resetAttrs: true })) },
-  ];
+    ];
+  };
 
   const colMenu = (i: number): MenuItem[] => [
     { label: 'Insert column left', icon: <ArrowLeft size={14} />, blocked: addColumnBlocked(model), run: () => write(addColumnBefore(model, i)) },

@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-25T12:17:28.553Z",
+  "builtAt": "2026-08-25T12:29:04.717Z",
   "tasks": [
     {
       "n": 1,
@@ -261,7 +261,7 @@
     {
       "n": 24,
       "title": "Table — rebuild it the way Word does",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalCollectionSpecs.ts`, a new table renderer",
         "You asked": "drop the whole current table configuration. Insert by choosing rows × columns from a 10×10 grid; edit cells inline with a floating toolbar; drag rows and columns; insert and delete row / column / table / cell. Keep only Title in Content and Spacing in Style.",
@@ -273,7 +273,7 @@
         "The menus carry everything your images show": "Insert before/after · Move · **Sort A→Z / Z→A** · **Colour ›** · **Alignment ›** · Duplicate · Header toggle · Clear contents · Delete. Colour opens **Text colour AND Background** as two named lists — a cell has two colours worth setting, and dropping background to match the screenshot exactly would have removed something that worked. Alignment carries horizontal and vertical together.",
         "Sort": "the header never moves, and blanks go last in BOTH directions. An empty cell is an absence, and an absence has no place in an ordering; putting it at the end is the only answer that reads the same whichever way you sorted. Numbers compare as numbers, so 9 sorts before 10.",
         "Verified with real mouse input": "dragging column 1's grip onto column 3 took \"Tier, Contact, Response\" → \"Contact, Response, Tier\", with the ghost reading \"Tier\" and the drop line shown, and **the menu did not open afterwards**. A plain click on the same grip DID open the menu — thirteen items, \"Move left\" disabled reading \"Already the first column\". Red text applied `rgb(185,28,28)` to all three cells of column 1. Sort Z→A reordered the two body rows with the header untouched. A real row drag moved them back, ghost reading \"L2 · Infrastructure\". A 2-cell drag-selection gave a grip whose menu is Colour · Alignment · Toggle header cells · Clear contents.",
-        "Still to do": "merge / split cells. ⚠️ Excel/Sheets paste and keyboard-only operation are **CUT** — you dropped both on 25 Aug; the brief still asks for them (§5.24, §7) and is superseded on those two points."
+        "Verified with real input": "drag-selecting two cells in one row and choosing Merge gave `L1 · Service Desk servicedesk@acme.com[span2]` — both contents kept. Selecting that cell and pressing Escape leaves it selected (the grip appears), the slot then reads **Split cell**, and splitting returned two cells with the text in the first. A vertical selection shows **Merge cells disabled**, titled \"Merging down is not supported yet — merge cells across one row\"."
       }
     },
     {
@@ -363,6 +363,18 @@
         "Where": "`portalWidgetSpec.ts` (`structureSpecId`), `portalStructureSpecs.ts`, `supportPortalData.ts`, `PortalItemList.tsx` + `PortalWidgetDrawer.tsx`",
         "You asked": "(1) an empty section shows the OLD Style component; (2) remove Layout ▸ Behaviour from every sidebar in the module; (3) Most Used Services and Favourite Services belong under Live data; (4) task 29's Add item should open the box inline with empty fields and placeholders instead of replacing the sidebar.",
         "Verified": "a column's Design now reads \"Style | Fill | None | Colour | Border | px | Corner radius | px | %\" — the current component. No \"Behaviour\" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens \"Item 4\" expanded, both fields empty, showing \"How do I reset my password?\" and \"Answer it in a sentence or two.\" as placeholders, with the Add link CTA below them."
+      }
+    },
+    {
+      "n": 38,
+      "title": "The Default tile shows this portal, not a generic wireframe",
+      "status": "done",
+      "fields": {
+        "Where": "`SupportPortalTemplateGallery.tsx` (`TemplateArt`), `supportPortalData.ts` (`TemplateLayout`), `CreateSupportPortalModal.tsx`",
+        "You asked": "the Default tile in the templates grid should show the Support Portal default page image.",
+        "What it was": "the tile borrowed `classic` — a generic three-column wireframe shared with an actual template. So the one tile that promises \"the page your requesters see today\" was showing a page nobody has, and it looked like every other tile in the grid.",
+        "What it draws now": "a new `portal` layout, taken from what the page actually renders — the banner with its search bar, the **four action cards riding up into its lower edge**, a Favourite Services label with four tiles, and the three work cards with their rows. Anyone who has seen the portal recognises it, which is the whole job of that one tile.",
+        "Verified": "the first tile carries **39** rects against **15** for its neighbours, and reads \"Support Portal · Default · The standard ServiceOps portal your requesters see today.\""
       }
     },
     {

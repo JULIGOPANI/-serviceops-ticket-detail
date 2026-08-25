@@ -177,7 +177,7 @@ Updated: 2026-08-25 12:11
 - **Still to do:** the drag mechanic from [SECTION-ROW-COLUMN-DRAG-PROMPT.md](SECTION-ROW-COLUMN-DRAG-PROMPT.md) — the blue placement line, its orientation rule and the label chip — plus a column holding a STACK of elements rather than one, and the Divider's return (still yours to confirm).
 
 ## 24. Table — rebuild it the way Word does
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalCollectionSpecs.ts`, a new table renderer
 - **You asked:** drop the whole current table configuration. Insert by choosing rows × columns from a 10×10 grid; edit cells inline with a floating toolbar; drag rows and columns; insert and delete row / column / table / cell. Keep only Title in Content and Spacing in Style.
 - **How I check it:** insert from the 10×10 popup; click a cell and type; drag a row or column handle to reorder; drag a boundary to resize; drag the bottom edge for cell padding; select a rectangle of cells and align or colour them; every menu item that cannot apply is disabled with the reason on it.
@@ -193,7 +193,13 @@ Updated: 2026-08-25 12:11
 - **The floating toolbar is REPLACED by a cell menu**, reached from a round grip on the selection's right edge. It duplicated the handle menus — two surfaces offering Colour, Alignment and Clear — and it was physically in the way.
 - **Sort:** the header never moves, and blanks go last in BOTH directions. An empty cell is an absence, and an absence has no place in an ordering; putting it at the end is the only answer that reads the same whichever way you sorted. Numbers compare as numbers, so 9 sorts before 10.
 - **Verified with real mouse input:** dragging column 1's grip onto column 3 took "Tier, Contact, Response" → "Contact, Response, Tier", with the ghost reading "Tier" and the drop line shown, and **the menu did not open afterwards**. A plain click on the same grip DID open the menu — thirteen items, "Move left" disabled reading "Already the first column". Red text applied `rgb(185,28,28)` to all three cells of column 1. Sort Z→A reordered the two body rows with the header untouched. A real row drag moved them back, ghost reading "L2 · Infrastructure". A 2-cell drag-selection gave a grip whose menu is Colour · Alignment · Toggle header cells · Clear contents.
-- **Still to do:** merge / split cells. ⚠️ Excel/Sheets paste and keyboard-only operation are **CUT** — you dropped both on 25 Aug; the brief still asks for them (§5.24, §7) and is superseded on those two points.
+- **Merge / split (25 Aug) — closed, with one boundary stated out loud.** Merging **across a row** works: the selection becomes one cell with a `colspan`, and its ⚠️ **content is JOINED, not discarded** — merging three cells that each say something and keeping only the leftmost is a silent deletion, and the one thing you cannot do about a silent deletion is notice it. Split puts the content back in the first of the new cells; there is no honest way to decide which words belonged to which column, and guessing at a split point would scatter somebody's sentence.
+- **⚠️ Merging DOWN is refused, with the reason on the control** — "Merging down is not supported yet — merge cells across one row". That is a decision, not an omission: a `rowspan` means the rows beneath no longer tile their own width, so `fixTable`, `cellAt`, `cellStarts`, `columnCount`, insert/delete column and both reorders each need a coverage map before any of them stays correct. The brief calls this the hardest requirement in the document and says to decide the outcome deliberately **or refuse with a reason**; this refuses. `rowspan` stays in the model and the renderer still emits it, so the day that map is written nothing else changes.
+- **One slot, two states.** Merge and Split share a menu row, showing whichever applies — they are the same intent aimed at two states, and two permanent items would leave one dead whichever cell you had.
+- **Verified with real input:** drag-selecting two cells in one row and choosing Merge gave `L1 · Service Desk servicedesk@acme.com[span2]` — both contents kept. Selecting that cell and pressing Escape leaves it selected (the grip appears), the slot then reads **Split cell**, and splitting returned two cells with the text in the first. A vertical selection shows **Merge cells disabled**, titled "Merging down is not supported yet — merge cells across one row".
+- ⚠️ Excel/Sheets paste and keyboard-only operation stay **CUT** — you dropped both on 25 Aug; the brief still asks for them (§5.24, §7) and is superseded on those two points.
+
+
 
 ## 25. Bring the predefined widgets back to the library, disabled with an "Added" mark
 - **Where:** `supportPortalData.ts`, `SupportPortalAddPanel.tsx`
@@ -270,6 +276,14 @@ Updated: 2026-08-25 12:11
 - **(3)** Both rows moved from Custom to **Live data**: both are backend-fed — one from what this requester pinned, the other from what the organisation asks for most — which is the line Live data draws. They kept their `node`, which is what lets the palette see them on the page since both are top-level BANDS rather than row members.
 - **(4)** Adding an item no longer calls `onSelect`, which used to swap the whole sidebar for that item's drawer — you asked for one more row and the panel you were working in disappeared. The list opens the new row **in place** (the item is always appended, so its index is the length before the add). A new `blankOnAdd` flag empties every declared field, and `placeholder` on the two inline fields says what belongs there. ⚠️ Both are **opt-in**: the seeds exist so an untouched page shows a realistic accordion, and a gallery slide added blank is a broken slide. A collection with no inline editor still opens its drawer, because it has nowhere else to go.
 - **Verified:** a column's Design now reads "Style | Fill | None | Colour | Border | px | Corner radius | px | %" — the current component. No "Behaviour" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens "Item 4" expanded, both fields empty, showing "How do I reset my password?" and "Answer it in a sentence or two." as placeholders, with the Add link CTA below them.
+
+## 38. The Default tile shows this portal, not a generic wireframe
+- **Status:** done
+- **Where:** `SupportPortalTemplateGallery.tsx` (`TemplateArt`), `supportPortalData.ts` (`TemplateLayout`), `CreateSupportPortalModal.tsx`
+- **You asked:** the Default tile in the templates grid should show the Support Portal default page image.
+- **What it was:** the tile borrowed `classic` — a generic three-column wireframe shared with an actual template. So the one tile that promises "the page your requesters see today" was showing a page nobody has, and it looked like every other tile in the grid.
+- **What it draws now:** a new `portal` layout, taken from what the page actually renders — the banner with its search bar, the **four action cards riding up into its lower edge**, a Favourite Services label with four tiles, and the three work cards with their rows. Anyone who has seen the portal recognises it, which is the whole job of that one tile.
+- **Verified:** the first tile carries **39** rects against **15** for its neighbours, and reads "Support Portal · Default · The standard ServiceOps portal your requesters see today."
 
 ## 37. An empty section is one box, not a box inside a box
 - **Status:** done

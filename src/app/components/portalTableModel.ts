@@ -388,6 +388,74 @@ export function sortByColumn(m: TableModel, col: number, dir: 'asc' | 'desc'): T
   return { ...m, rows: [...head, ...sorted] };
 }
 
+/* ── merge and split ──────────────────────────────────────────────────────
+ *
+ * ⚠️ ACROSS a row only — `colspan`. Merging DOWN is refused with a reason, and that is a decision
+ * rather than an omission. A `rowspan` means the rows beneath no longer tile their own width, so
+ * every function that assumes "row N has one cell per column" has to learn a coverage map first:
+ * `fixTable`, `cellAt`, `cellStarts`, `columnCount`, insert/delete column, and both reorders. The
+ * brief names this as the hardest requirement in the document and says to decide the outcome
+ * deliberately or refuse with a reason — this refuses, out loud, on the control.
+ * `rowspan` stays in the model and the renderer still emits it, so the day that map is written
+ * nothing else has to change. */
+
+/** Why these cells cannot be merged, or null when they can. */
+export function mergeBlockedBecause(m: TableModel, r0: number, r1: number, c0: number, c1: number): string | null {
+  if (r0 !== r1) return 'Merging down is not supported yet — merge cells across one row';
+  if (c0 === c1) return 'Select more than one cell to merge';
+  const row = m.rows[r0];
+  if (!row) return 'Nothing selected';
+  return null;
+}
+
+/** Merge one row's selected cells into a single cell spanning them.
+ *
+ *  ⚠️ Content is JOINED, not discarded. Merging three cells that each say something and keeping only
+ *  the leftmost is a silent deletion — and the one thing you cannot do about a silent deletion is
+ *  notice it. Blank cells contribute nothing, so the common case (one filled cell, two empty) reads
+ *  exactly as expected. */
+export function mergeCells(m: TableModel, r0: number, r1: number, c0: number, c1: number): TableModel {
+  if (mergeBlockedBecause(m, r0, r1, c0, c1)) return m;
+  const next = { ...m, rows: m.rows.map((r) => ({ ...r, cells: [...r.cells] })) };
+  const row = next.rows[r0];
+  const starts = cellStarts(row);
+  const first = starts.findIndex((s, i) => c0 >= s && c0 < s + row.cells[i].colspan);
+  const last = starts.findIndex((s, i) => c1 >= s && c1 < s + row.cells[i].colspan);
+  if (first < 0 || last < 0 || last < first) return m;
+  const taken = row.cells.slice(first, last + 1);
+  const span = taken.reduce((n, c) => n + c.colspan, 0);
+  const merged: TableCell = {
+    ...taken[0],
+    colspan: span,
+    content: taken.map((c) => c.content.trim()).filter(Boolean).join(' '),
+  };
+  row.cells.splice(first, taken.length, merged);
+  return next;
+}
+
+/** Split a merged cell back into one cell per column it covered.
+ *
+ *  ⚠️ The content stays in the FIRST of the new cells rather than being divided. There is no honest
+ *  way to decide which words belonged to which column, and guessing at a split point would scatter
+ *  somebody's sentence across three cells. */
+export function splitCell(m: TableModel, cellId: string): TableModel {
+  const next = { ...m, rows: m.rows.map((r) => ({ ...r, cells: [...r.cells] })) };
+  for (const row of next.rows) {
+    const i = row.cells.findIndex((c) => c.id === cellId);
+    if (i < 0) continue;
+    const cell = row.cells[i];
+    if (cell.colspan <= 1) return m;
+    const extra = Array.from({ length: cell.colspan - 1 }, () => blankCell(next, cell.isHeader));
+    row.cells.splice(i, 1, { ...cell, colspan: 1 }, ...extra);
+    return next;
+  }
+  return m;
+}
+
+/** True when this cell spans more than one column — what makes Split available. */
+export const isMerged = (m: TableModel, cellId: string): boolean =>
+  m.rows.some((r) => r.cells.some((c) => c.id === cellId && c.colspan > 1));
+
 /* ── sizing ──────────────────────────────────────────────────────────────── */
 
 export const MIN_COL_PCT = 5;
