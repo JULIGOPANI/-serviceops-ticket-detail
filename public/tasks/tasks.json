@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-25T08:35:32.127Z",
+  "builtAt": "2026-08-25T08:39:48.337Z",
   "tasks": [
     {
       "n": 1,
@@ -288,11 +288,14 @@
     {
       "n": 26,
       "title": "Contact Us — the card is still editable and still shows Hours",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`SupportPortalPreview.tsx` (the Contact Us renderer)",
         "You asked": "Contact Us still has inline-editable fields on the canvas and the Hours line is still on the card. The empty section was also not removed from the sidebar.",
-        "How I check it": "clicking any Contact Us line selects the widget rather than an editable text node; the card shows Email and Phone only. ⚠️ Task 10 removed the hours CONTROL but left the rendered line — I read \"remove the Show-hours section\" as panel-only. This says the line itself goes from the card."
+        "How I check it": "clicking any Contact Us line selects the widget rather than an editable text node; the card shows Email and Phone only. ⚠️ Task 10 removed the hours CONTROL but left the rendered line — I read \"remove the Show-hours section\" as panel-only. This says the line itself goes from the card.",
+        "What I fixed": "three things. (1) **Hours is gone from the card** — removed, not hidden behind a switch. Its toggle went in task 10, which left a line you could neither edit nor hide: the worst of the three states. (2) **Nothing on the card is inline-editable any more** — both halves of every line used to be their own `<Sel>` text node, so clicking the word \"Email\" opened an inline editor for a label that is the PRODUCT's word. Every portal calls that line Email; letting one page rename it is how two portals stop describing the same thing the same way. The two VALUES stay editable, in the panel, because a portal may legitimately publish its own address. (3) **The empty section is gone from the sidebar** — that was the **Empty state** group (pack P8), which asks what to show when there is nothing to show. Contact Us is two fixed lines now, so there is no state in which it is empty; it kept P8 while the three Show switches existed, because turning all three off did empty it.",
+        "Also removed, both halves at once": "the `showEmail`/`showPhone`/`showHours` defaults and the renderer's filter that read them, plus the `cl0`/`cl1`/`cl2`/`cv2` seeds and the \"every line is switched off\" empty branch — config kept alive only by the code that read it, and code kept alive only by the config it read.",
+        "Verified": "the card reads exactly \"Contact Us / Email / servicedesk@acme.com / Phone / +91 79 4040 0000\" with **no Hours**, and it contains **0 selectable child nodes**. The panel reads CONTENT (Email address, Phone number) → DESIGN (Style, Spacing) with **no Empty state**. Typing \"help@acme.com\" into the Email address field changed the card immediately."
       }
     },
     {

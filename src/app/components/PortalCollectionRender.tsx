@@ -453,10 +453,13 @@ export function FeedbackRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
 /* ⚠️ These values are NOT editable here and are not stored on the widget. They come from the
    portal's own settings so every portal says the same thing — the drawer says so and links there.
    The three toggles only decide whether each line appears. */
+/* ⚠️ TWO lines. Hours is gone — not hidden behind a switch, removed. Its toggle went when the panel
+   was trimmed, which left a line you could neither edit nor hide: the worst of the three states.
+   ⚠️ No `key` any more either. The three `show*` flags were only ever read by a filter that existed
+   to serve toggles that no longer exist — dead config feeding a dead filter. */
 const CONTACT_LINES = [
-  { key: 'showEmail', label: 'Email', value: 'servicedesk@acme.com' },
-  { key: 'showPhone', label: 'Phone', value: '+91 79 4040 0000' },
-  { key: 'showHours', label: 'Hours', value: 'Mon–Fri, 09:00–20:00 IST' },
+  { label: 'Email', value: 'servicedesk@acme.com' },
+  { label: 'Phone', value: '+91 79 4040 0000' },
 ];
 
 /* The P4 Arrangement pack, read back.
@@ -490,34 +493,29 @@ const stackProps = (gap: number, dividers: boolean) => ({
 
 export function ContactRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
   const { styles } = useCanvas();
-  /* The index is carried through the filter so a hidden line does not renumber the ones below it. */
-  const lines = CONTACT_LINES.map((l, i) => ({ ...l, i })).filter((l) => cfg[l.key] !== false);
   const { gap, dividers } = arrange(styles, nodeId);
   return (
     <div className="@container min-w-0">
       <WidgetTitle nodeId={nodeId} text={cfg.title} />
-      {lines.length === 0 ? (
-        <p className="py-4 text-[13px] text-[#9CA3AF]">Every line is switched off — nothing will show here.</p>
-      ) : (
-        <div {...stackProps(gap, dividers)}>
-          {lines.map((l) => (
-            <div key={l.key} className="py-2.5">
-              {/* ⚠️ The line's INDEX keys the node, not its label — the label is itself editable, so
-                  keying by it would move the node the moment somebody renamed it. */}
-              <Sel id={`${nodeId}-cl${l.i}`}>
-                <div style={roleStyle(styles, nodeId, 'meta')} className="text-[12px] text-[#7B8FA5]">
-                  {String(cfg[`cl${l.i}`] ?? l.label)}
-                </div>
-              </Sel>
-              <Sel id={`${nodeId}-cv${l.i}`}>
-                <div style={roleStyle(styles, nodeId, 'body')} className="mt-0.5 truncate text-[13px] text-[#364658]">
-                  {String(cfg[`cv${l.i}`] ?? l.value)}
-                </div>
-              </Sel>
+      <div {...stackProps(gap, dividers)}>
+        {CONTACT_LINES.map((l, i) => (
+          <div key={l.label} className="py-2.5">
+            {/* ⚠️ NOTHING here is wrapped in <Sel>, and that is the point of this pass. Both halves
+                of a line used to be their own selectable text node, so clicking the word "Email" put
+                you in an inline editor for a label that is the PRODUCT's word — every portal calls
+                that line Email, and letting one page rename it is how two portals stop describing
+                the same thing the same way. The two VALUES are still editable, in the panel, where a
+                portal publishing its own address belongs.
+                ⚠️ There is no empty state below either: two fixed lines cannot all be switched off,
+                so the "every line is switched off" branch was describing a state the card can no
+                longer reach. */}
+            <div style={roleStyle(styles, nodeId, 'meta')} className="text-[12px] text-[#7B8FA5]">{l.label}</div>
+            <div style={roleStyle(styles, nodeId, 'body')} className="mt-0.5 truncate text-[13px] text-[#364658]">
+              {String(cfg[`cv${i}`] ?? l.value)}
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

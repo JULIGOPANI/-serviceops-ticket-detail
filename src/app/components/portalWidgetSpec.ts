@@ -330,7 +330,11 @@ export const WIDGET_SPECS: WidgetSpec[] = [
     ],
     /* ⚠️ No P6. Contact Us has no icon of its own — the group was styling a glyph that is not on
        the widget, which is a control with nothing to act on. P4 goes with the global removal. */
-    packs: ['P1', 'P2', 'P8'], roles: ['title', 'body', 'meta'],
+    /* ⚠️ No P8 either. An Empty-state group asks what to show when there is nothing to show —
+       and this card is two FIXED lines now, so there is no state in which it is empty. It kept P8
+       while the three Show switches existed, because turning all three off did empty it; with the
+       switches gone the group describes a state the card can no longer reach. */
+    packs: ['P1', 'P2'], roles: ['title', 'body', 'meta'],
     // §8.4 rule 2 — show the value, say where it lives, link there. A local field here would
     // silently diverge from the record every other portal reads.
     /* ⚠️ The note no longer talks about switches, because there are none — it now says what is
@@ -344,11 +348,15 @@ export const WIDGET_SPECS: WidgetSpec[] = [
        panel opened with three blank inputs while the canvas showed "Email / servicedesk@acme.com" —
        the field looked empty and the page looked filled, so the only way to learn the current value
        was to read it off the page and retype it. A default is what makes the control state a fact. */
+    /* ⚠️ No `show*` flags and no Hours strings. They were seeded for three toggles that no longer
+       exist, feeding a filter in the renderer that no longer exists — config kept alive only by the
+       code that read it, both halves dead at once. */
     defaults: {
-      title: 'Contact Us', showEmail: true, showPhone: true, showHours: true,
-      cl0: 'Email', cv0: 'servicedesk@acme.com',
-      cl1: 'Phone', cv1: '+91 79 4040 0000',
-      cl2: 'Hours', cv2: 'Mon–Fri, 09:00–20:00 IST',
+      title: 'Contact Us',
+      /* Only the two VALUES. The labels are the product's words and the renderer owns them now,
+         so a seeded ` + String.fromCharCode(96) + `cl0` + String.fromCharCode(96) + ` would be a value nothing reads — and the Hours pair went with the line. */
+      cv0: 'servicedesk@acme.com',
+      cv1: '+91 79 4040 0000',
     },
   },
 
