@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   ArrowLeft, ChevronLeft, Eye, RotateCcw,
@@ -565,6 +565,30 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   rowOrderRef.current = rowOrder;
   const [removed, setRemoved] = useState<string[]>([]);
 
+  /* Which PREDEFINED elements this page currently carries.
+   *
+   * ⚠️ DERIVED, never stored. `PortalElement.onPage` says a block ships with the portal, which is a
+   * fact about the catalogue and never changes; this answers "is it on THIS page right now", and
+   * the two stop agreeing the moment somebody deletes a block. A palette row that greys out has to
+   * track the page to be truthful — remove My Assets and its row becomes addable again.
+   *
+   * ⚠️ Two homes, because the page has two kinds of predefined block: the live-data cards live in
+   * `rowOrder` (minus anything `removed`), and the action cards are members of `content.quick`. */
+  const placedPredefined = useMemo(() => {
+    const nodes = new Set<string>();
+    Object.values(rowOrder).forEach((ids) => ids.forEach((id) => { if (!removed.includes(id)) nodes.add(id); }));
+    content.quick.forEach((q) => nodes.add(q.id));
+    /* ⚠️ A THIRD home, and it is the one that keeps the mark honest end to end. Delete My Assets and
+       the row goes addable; click it and the widget lands as a PLACED element in a new section
+       rather than restoring the fixed block. Counting only the fixed block would leave the row
+       saying "addable" with the widget sitting on the page — so a second click gives you two, a
+       third gives you three, and the mark means nothing. */
+    const types = new Set<string>();
+    sections.forEach((s) => sectionElements(s.section).forEach((el) => types.add(el.type)));
+    Object.values(rowExtras).forEach((list) => list.forEach((el) => types.add(el.type)));
+    return new Set(PORTAL_ELEMENTS.filter((e) => e.node && (nodes.has(e.node) || types.has(e.id))).map((e) => e.id));
+  }, [rowOrder, removed, content.quick, sections, rowExtras]);
+
   /* Reset to default — every store the canvas reads, back to its seed.
      ⚠️ It must clear ALL of them. Missing one leaves the page in a state that is neither the
      default nor what you built: an added section whose widget config was wiped, or a block still
@@ -706,6 +730,15 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
        appends to the row's CONTENT rather than dropping a stand-in element somewhere; that is the
        only way the fourth card comes out identical to the three beside it instead of merely
        similar. */
+    /* ⚠️ The palette already disables these rows, but a DRAG can still deliver one — a drop target
+       does not know which row it came from — and this is the one funnel both routes pass through.
+       Refusing here, with the reason, is what keeps the two consistent. */
+    const predefined = PORTAL_ELEMENTS.find((e) => e.id === type);
+    if (predefined?.node && placedPredefined.has(predefined.id)) {
+      toast.error(`${predefined.name} is already on this page`);
+      return;
+    }
+
     if (type === 'act-ad') {
       if (content.quick.some((q) => q.id === 'quick-ad')) { toast.error('AD Self Service is already on the page'); return; }
       setContent((c) => ({ ...c, quick: [...c.quick, { id: 'quick-ad', title: 'AD Self Service', desc: 'Reset your domain password' }] }));
@@ -746,7 +779,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
     const last = blockOrder.filter((b) => !removed.includes(b)).slice(-1)[0] ?? 'hero';
     dropAtSeam(last, type);
-  }, [content.quick, selectedId, sections, rowOrder, blockOrder, removed, dropInColumn, dropInRow, dropAtSeam, select, patchCfg]);
+  }, [content.quick, selectedId, sections, rowOrder, blockOrder, removed, placedPredefined, dropInColumn, dropInRow, dropAtSeam, select, patchCfg]);
 
   const moveNode = useCallback((id: string, dir: 'prev' | 'next') => {
     const step = dir === 'prev' ? -1 : 1;
@@ -1576,7 +1609,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
             {/* A rail panel wins while one is open; otherwise the panel is the element editor,
                 falling back to the "select something" empty state. */}
             {panelKey === 'add' ? (
-              <div className="min-h-0 flex-1"><SupportPortalAddPanel onAdd={addElement} /></div>
+              <div className="min-h-0 flex-1"><SupportPortalAddPanel onAdd={addElement} placed={placedPredefined} /></div>
             ) : active === 'theme' ? (
               <div className="flex min-h-0 flex-1 flex-col"><PortalThemePanel theme={theme} onChange={(patch) => setTheme((t) => ({ ...t, ...patch }))} /></div>
             ) : active === 'branding' ? (

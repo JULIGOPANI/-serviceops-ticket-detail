@@ -254,8 +254,14 @@ export interface PortalElement {
   /** Key into the panel's icon registry. */
   icon: string;
   group: PortalElementGroup;
-  /** System components only — already placed on the page, so it can't be added twice. */
+  /** System components only — this element IS a block the page ships with. */
   onPage?: boolean;
+  /* The node id of that block, so "is it on the page right now" can be ANSWERED rather than
+     assumed.
+     ⚠️ `onPage` is a fact about the catalogue and never changes; this is what lets the palette read
+     the LIVE page instead. Delete My Assets from the page and its row goes back to addable — a
+     static flag would have gone on claiming it was there. */
+  node?: string;
   /** Extra words the search should match (variants, synonyms) without cluttering the row. */
   keywords?: string;
   /* ⚠️ Withheld from the palette, but NOT deleted. Its spec and renderer stay, so anything already
@@ -283,12 +289,15 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
    * ⚠️ Search, Categories, My Tasks and FAQ were removed from this section. Search and FAQ still
    * exist as elements elsewhere in the palette; My Tasks and Categories are not portal blocks this
    * product ships. */
-  { id: 'c-requests', name: 'My Open Requests', icon: 'requests', group: 'Live data', onPage: true, keywords: 'tickets incidents open' },
-  { id: 'c-approvals', name: 'Pending Approvals', icon: 'approvals', group: 'Live data', onPage: true, keywords: 'pending approve' },
-  { id: 'c-assets', name: 'My Assets', icon: 'assets', group: 'Live data', onPage: true, keywords: 'hardware devices' },
-  { id: 'c-cis', name: 'My CIs', icon: 'cis', group: 'Live data', onPage: true, keywords: 'configuration items cmdb' },
+  { id: 'c-requests', name: 'My Open Requests', icon: 'requests', group: 'Live data', onPage: true, node: 'requests', keywords: 'tickets incidents open' },
+  { id: 'c-approvals', name: 'Pending Approvals', icon: 'approvals', group: 'Live data', onPage: true, node: 'approvals', keywords: 'pending approve' },
+  { id: 'c-assets', name: 'My Assets', icon: 'assets', group: 'Live data', onPage: true, node: 'assets', keywords: 'hardware devices' },
+  { id: 'c-cis', name: 'My CIs', icon: 'cis', group: 'Live data', onPage: true, node: 'cis', keywords: 'configuration items cmdb' },
+  /* ⚠️ No `node`. Announcements is the one Live-data widget this page has no fixed block for, so it
+     is always addable and never shows as added — which is true, and is why the flag is per element
+     rather than per group. */
   { id: 'c-announcements', name: 'Announcements', icon: 'announcements', group: 'Live data', keywords: 'news broadcast banner' },
-  { id: 'c-knowledge', name: 'Most Read Knowledge', icon: 'knowledge', group: 'Live data', onPage: true, keywords: 'articles kb most read' },
+  { id: 'c-knowledge', name: 'Most Read Knowledge', icon: 'knowledge', group: 'Live data', onPage: true, node: 'knowledge', keywords: 'articles kb most read' },
   { id: 'c-contact', name: 'Contact Us', icon: 'contact', group: 'Custom', keywords: 'support escalate raise' },
   /* ⚠️ NOT onPage. This is spec §7.8 Featured Services — a requester's favourites list. The page
      carries the "Request Service" ACTION CARD, which is a different widget with a fixed
@@ -308,18 +317,17 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
   { id: 'c-faq', name: 'FAQ', icon: 'faq', group: 'Custom', onPage: true, keywords: 'questions help answers' },
 
   // ── Actions — fixed destinations, the same for every requester ──
-  /* ⚠️ The four action cards are HIDDEN from the palette. They are not blocks an admin places —
-     they are the four fixed destinations the Quick Actions row is made of, they already exist on
-     every page, and the row now refuses anything else (see LOCKED_ROWS). Leaving them addable
-     offered a fifth copy that had nowhere legal to land.
-     Hidden rather than deleted: the specs, the renderers and the hover previews all stay, so the
-     cards on the page keep working and their panels are unchanged. */
-  { id: 'act-incident', name: 'New Incident', icon: 'incident', group: 'Actions', onPage: true, keywords: 'report issue raise ticket', hidden: true },
-  { id: 'act-service', name: 'Request Service', icon: 'services', group: 'Actions', onPage: true, keywords: 'catalog order', hidden: true },
-  /* ⚠️ NOT onPage — this page carries three action cards, and marking a fourth as placed would grey
-     out the one entry that can still add it. Drop it on the page and it becomes reachable. */
-  { id: 'act-ad', name: 'AD Self Service', icon: 'adself', group: 'Actions', keywords: 'password reset domain unlock', hidden: true },
-  { id: 'act-knowledge', name: 'Knowledge', icon: 'knowledge', group: 'Actions', onPage: true, keywords: 'articles help search', hidden: true },
+  /* ⚠️ The four action cards are BACK in the palette. Hiding them was the wrong answer to a real
+     problem: they are the Quick Actions row's four fixed destinations, so a fifth copy has nowhere
+     legal to land — but a palette that silently drops four rows makes the admin wonder where the
+     New Incident card went. Present-and-marked-as-added says the same thing and answers the
+     question at the same time.
+     Each names its `node`, so the mark reads the LIVE page: remove AD Self Service from the row and
+     its row becomes addable again. */
+  { id: 'act-incident', name: 'New Incident', icon: 'incident', group: 'Actions', onPage: true, node: 'quick-incident', keywords: 'report issue raise ticket' },
+  { id: 'act-service', name: 'Request Service', icon: 'services', group: 'Actions', onPage: true, node: 'quick-service', keywords: 'catalog order' },
+  { id: 'act-ad', name: 'AD Self Service', icon: 'adself', group: 'Actions', node: 'quick-ad', keywords: 'password reset domain unlock' },
+  { id: 'act-knowledge', name: 'Knowledge', icon: 'knowledge', group: 'Actions', onPage: true, node: 'quick-knowledge', keywords: 'articles help search' },
 
   { id: 'l-tabs', name: 'Advanced Tabs', icon: 'tabs', group: 'Basic', hidden: true }, // hidden 20 Aug 2026
   { id: 'l-divider', name: 'Divider', icon: 'divider', group: 'Basic', keywords: 'vertical horizontal v/h separator rule', hidden: true }, // hidden 21 Aug 2026

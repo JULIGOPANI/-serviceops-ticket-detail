@@ -17,7 +17,7 @@ import { AddSectionSeam, ColumnAdders, Sel, draggedElement, styleOf, useCanvas }
 import { PAGE_ID, chosen, roleStyle } from './portalStyleResolver';
 import { shadowCss } from './PortalBoxControls';
 import { PortalPlacedElement } from './PortalPlacedElement';
-import { DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, fillCss, isBranch, nodePath, isLockedRow, hasFixedTitle } from './portalPageModel';
+import { DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, fillCss, isBranch, nodePath, isLockedRow, hasFixedTitle, rowOf } from './portalPageModel';
 import type { Box, BoxDir, CustomSection, PlacedElement, PortalPageContent } from './portalPageModel';
 import { iconNode, isImageChoice } from './PortalIconPicker';
 import type { IconChoice } from './PortalIconPicker';
@@ -970,9 +970,17 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
      number instead of a structural rewrite of the page body. */
   const card = (id: string, body: ReactNode, cols?: number, gap = 16, grow = 1) => {
     if (removed.includes(id)) return null;
-    const row = Object.keys(rowOrder).find((r) => rowOrder[r].includes(id));
-    if (row && !rowOrder[row].includes(id)) return null;
-    const order = row ? rowOrder[row].indexOf(id) : 0;
+    /* ⚠️ Membership comes from `rowOf` — the STATIC map of which row a card belongs to — not from
+       searching the live `rowOrder`. Deleting a fixed card takes it out of `rowOrder`, so a search
+       of the live order finds no row for it and the guard below had nothing to test:
+         const row = Object.keys(rowOrder).find((r) => rowOrder[r].includes(id));
+         if (row && !rowOrder[row].includes(id)) return null;
+       The second line could never fire — `row` was found by that very test — so a deleted card fell
+       through and rendered anyway, at order 0. Delete reported "Removed", the toolbar and the
+       palette both believed it, and the card stayed on the page. */
+    const home = rowOf(id);
+    if (home && !(rowOrder[home] ?? []).includes(id)) return null;
+    const order = home ? (rowOrder[home] ?? []).indexOf(id) : 0;
     return cardInner(id, body, cols, order, gap, grow);
   };
 

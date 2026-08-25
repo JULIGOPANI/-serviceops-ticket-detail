@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-  Boxes, ChevronsUpDown, ClipboardList, Download, GalleryHorizontal, Gauge, Heading,
+  Boxes, Check, ChevronsUpDown, ClipboardList, Download, GalleryHorizontal, Gauge, Heading,
   HelpCircle, Image as ImageIcon, Images, KeyRound, LayoutGrid, LayoutTemplate, LifeBuoy, Link2, List, Mail,
   Megaphone, Minus, MousePointerClick, MoveVertical, Network, PanelTop, Phone, Rows3, Search, Shapes, Share2,
   ShoppingCart, Smile, Square, Star, Table, Timer, Type, X, Zap,
@@ -98,9 +98,16 @@ interface Props {
   /** Places the element on the page. Click and drag are the same add — one lands it where the
    *  builder decides, the other where you aimed. */
   onAdd: (elementId: string) => void;
+  /* Element ids of the PREDEFINED blocks the page is currently carrying.
+   *
+   * ⚠️ Passed IN, computed from live page state, never read from the catalogue. `onPage` says a
+   * block ships with the portal; this says it is on THIS page right now, and the two stop agreeing
+   * the moment somebody deletes one. A row that greys out has to stay in step with the page to be
+   * truthful, and a static flag never quite does. */
+  placed?: Set<string>;
 }
 
-export function SupportPortalAddPanel({ onAdd }: Props) {
+export function SupportPortalAddPanel({ onAdd, placed }: Props) {
   const [query, setQuery] = useState('');
   /* ⚠️ The anchor is a MEASURED rect, not the element: the list scrolls under a fixed popover, so
      the card has to be placed against where the row is NOW, not where React last thought it was.
@@ -286,10 +293,17 @@ export function SupportPortalAddPanel({ onAdd }: Props) {
               {group}
             </h3>
             <div className="space-y-2">
-              {items.map((e) => (
+              {items.map((e) => {
+                /* ⚠️ Only a PREDEFINED block can be "added". Everything else in this library is
+                   repeatable by design — two request lists filtered to different statuses is a
+                   reasonable page — so a tick on a Text or a Button would be reintroducing the
+                   single-instance rule that made the palette go dead as a page got built. */
+                const added = !!e.node && !!placed?.has(e.id);
+                return (
                   <button
                     key={e.id}
-                    draggable
+                    draggable={!added}
+                    disabled={added}
                     onDragStart={(ev) => {
                       // The canvas reads this to know what was dropped.
                       ev.dataTransfer.setData('text/portal-element', e.id);
@@ -297,19 +311,40 @@ export function SupportPortalAddPanel({ onAdd }: Props) {
                       // A card floating beside the cursor while you aim a drop is in the way.
                       setPeek(null);
                     }}
-                    onClick={() => onAdd(e.id)}
+                    onClick={() => !added && onAdd(e.id)}
                     onMouseEnter={(ev) => setPeek({ id: e.id, rect: ev.currentTarget.getBoundingClientRect() })}
                     onMouseLeave={() => setPeek((c) => (c?.id === e.id ? null : c))}
-                    title={`Click to add “${e.name}”, or drag it where you want it`}
-                    className="group/el flex w-full cursor-grab items-center gap-3 rounded border border-[#E5E7EB] bg-white px-3 py-2.5 text-left transition-all hover:border-[#3D8BD0] hover:shadow-[0_1px_2px_rgba(16,24,40,0.04),0_2px_8px_rgba(16,24,40,0.06)] active:cursor-grabbing"
+                    /* The reason is on the control, not in a toast after the click — you can read it
+                       before you reach for it. */
+                    title={added
+                      ? `“${e.name}” is already on this page. Remove it from the page to add it again.`
+                      : `Click to add “${e.name}”, or drag it where you want it`}
+                    className={`group/el flex w-full items-center gap-3 rounded border px-3 py-2.5 text-left transition-all ${
+                      added
+                        ? 'cursor-not-allowed border-[#EDF0F4] bg-[#FAFBFC]'
+                        : 'cursor-grab border-[#E5E7EB] bg-white hover:border-[#3D8BD0] hover:shadow-[0_1px_2px_rgba(16,24,40,0.04),0_2px_8px_rgba(16,24,40,0.06)] active:cursor-grabbing'
+                    }`}
                   >
                     {/* Icon and label share one colour in every state — they are one thing. */}
-                    <span className="flex size-8 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#364658] transition-colors group-hover/el:bg-[#EBF5FF] group-hover/el:text-[#3D8BD0]">
+                    <span className={`flex size-8 flex-shrink-0 items-center justify-center rounded transition-colors ${
+                      added ? 'bg-[#F1F5F9] text-[#B6BFCC]' : 'bg-[#F1F5F9] text-[#364658] group-hover/el:bg-[#EBF5FF] group-hover/el:text-[#3D8BD0]'
+                    }`}>
                       {icon(e.icon)}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[#364658] transition-colors group-hover/el:text-[#3D8BD0]">{e.name}</span>
+                    <span className={`min-w-0 flex-1 truncate text-[13px] font-medium transition-colors ${
+                      added ? 'text-[#9AA6B6]' : 'text-[#364658] group-hover/el:text-[#3D8BD0]'
+                    }`}>{e.name}</span>
+                    {/* ⚠️ A TICK on the right, not the word "Added". The row is already greyed and
+                        already carries the reason on hover; a second label would be a third way of
+                        saying one thing, in the narrowest column of the panel. */}
+                    {added && (
+                      <span className="flex size-4 flex-shrink-0 items-center justify-center rounded-full bg-[#22C55E] text-white" aria-label="Already on this page">
+                        <Check size={11} strokeWidth={3} />
+                      </span>
+                    )}
                   </button>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}
