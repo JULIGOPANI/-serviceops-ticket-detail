@@ -1101,9 +1101,22 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
   };
 
   /* Widget-level notes belong to the WIDGET. Repeating "these questions are authored, not fetched"
-     on every question and every answer is noise, not guidance. */
+     on every question and every answer is noise, not guidance — hence the `parsed` gate, which is
+     what excludes an item and a sub-element layer.
+     ⚠️ WARN only. The grey ⓘ note cards were removed from every panel on request and thirteen
+     `info` notes are still declared across the specs, so rendering notes wholesale would put all
+     thirteen back. A warn says something the canvas cannot show you — Favourite Services draws four
+     example tiles in the builder and nothing at all for a requester who has pinned none — and there
+     is exactly one in the catalogue, which is the right number for a caution. */
   const notesFor = (which: 'content' | 'style') =>
-    (parsed ? [] : (spec.notes ?? [])).filter((n) => (n.tab ?? 'content') === which && (!n.when || n.when(cfg)));
+    (parsed ? [] : (spec.notes ?? [])).filter((n) => n.tone === 'warn' && (n.tab ?? 'content') === which && (!n.when || n.when(cfg)));
+
+  const noteBlock = (which: 'content' | 'style') => notesFor(which).map((n) => (
+    <p
+      key={n.text}
+      className="mb-3 rounded border border-[#FDE68A] bg-[#FFFBEB] px-2.5 py-2 text-[12px] leading-[1.55] text-[#92400E]"
+    >{n.text}</p>
+  ));
 
   const packProps = { styles, id: nodeId, setStyle, replaceStyle, roles: viewRoles as never };
   const open = gateOpen(spec);
@@ -1182,6 +1195,7 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
                        description, so a collection gets inline editing without restating them. */
                     noOpen={col.noOpen}
                     inlineKeys={col.noOpen || col.fields.length < 2 ? undefined : [col.fields[0].key, col.fields[1].key]}
+                    inlineCta={col.inlineCta}
                     /* An accordion item is a title and a body — both are inline, so the chevron
                        would open a drawer showing the two fields already in front of you. */
                     inlineCoversAll={col.fields.length === 2 && !col.subElements?.length ? true : col.fields.length === 2}
@@ -1300,6 +1314,7 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
         {hasPacksContent && (
           <SectionLabel action={<ExpandAll keys={groupsFor('content').map((g) => g.group)} openGroups={openGroups} setOpen={setOpenGroups} />}>Content</SectionLabel>
         )}
+        {hasPacksContent && noteBlock('content')}
         {hasPacksContent && (
           <>
             {groupsFor('content').map(({ group, fields }) => (

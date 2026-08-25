@@ -110,6 +110,14 @@ export type GateKind = 'permission' | 'module' | 'feature';
 /* The §4 collection contract, as data. A widget declares it and gets the item list, the item drawer
    and the sub-element drawer for free — build it once, reuse it for all six. */
 export interface CollectionSpec {
+  /* An optional extra an item can be GIVEN, offered as a CTA at the foot of the inline editor
+   * rather than as fields that are always there.
+   *
+   * ⚠️ A CTA, not two permanently visible inputs. Most rows never get a link, and an empty URL box
+   * under every question is a question asked of every question — the panel grows by two rows per
+   * item to serve the minority that wants one. `flag` is the key it switches on, so the same
+   * mechanism serves any collection that wants an optional extra. */
+  inlineCta?: { label: string; flag: string; removeLabel: string; clears: string[] };
   /** cfg key holding the array. */
   key: string;
   /** Group title in the widget's Content tab. */
@@ -377,7 +385,14 @@ export const WIDGET_SPECS: WidgetSpec[] = [
       { key: 'cardTemplate', label: '', control: 'templates', group: 'Card templates' },
     ],
     packs: ['P1', 'P2'], roles: ['title', 'body', 'meta'],
-    notes: [{ tone: 'info', text: 'The services this requester has pinned. Shows up to four — a shortcut that runs longer than that is a catalogue.' }],
+    /* ⚠️ A WARN, not an info. This section can be on the page and invisible to most of the people
+       looking at it, which is the one thing an admin cannot discover by looking at the canvas — the
+       builder shows four example tiles to everybody. Placing a block that renders nothing for a
+       requester who has pinned nothing is the surprise worth naming. */
+    notes: [
+      { tone: 'warn', text: 'This section only appears once a requester has added favourites. Anyone with none sees nothing here — the tiles below are examples.' },
+      { tone: 'info', text: 'The services this requester has pinned. Shows up to four — a shortcut that runs longer than that is a catalogue.' },
+    ],
     defaults: { title: 'Favourite Services', showDesc: true, cardTemplate: 'top' },
   },
 

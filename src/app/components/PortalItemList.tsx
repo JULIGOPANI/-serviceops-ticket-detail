@@ -52,6 +52,8 @@ interface Props {
      expands in place to edit them; without them it only opens the full drawer. Derived from the
      collection's own fields, so a widget never has to restate what its item is made of. */
   inlineKeys?: [string, string];
+  /** The optional extra offered at the foot of the inline editor — see `CollectionSpec.inlineCta`. */
+  inlineCta?: { label: string; flag: string; removeLabel: string; clears: string[] };
   /** True when the inline editor shows every field the item has — the chevron would then lead to
       the same two fields one navigation away, so it is dropped. */
   inlineCoversAll?: boolean;
@@ -61,7 +63,7 @@ const inputCls = 'h-9 w-full rounded border border-[#d1d5db] bg-white px-3 text-
 
 export function PortalItemList({
   items, label, meta, thumb, onOpen, onChange, addLabel, onAdd, max, hideable, emptyHint, noOpen,
-  noAdd, lockedHide, inlineKeys, inlineCoversAll,
+  noAdd, lockedHide, inlineKeys, inlineCoversAll, inlineCta,
 }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -227,6 +229,45 @@ export function PortalItemList({
                       <p className="mt-1.5 text-[11px] leading-[1.5] text-[#9CA3AF]">
                         Kept here, not shown on the portal.
                       </p>
+                    )}
+
+                    {/* ⚠️ BOTTOM LEFT, and it is a link-weight control rather than a bordered button.
+                        It offers something most rows will never take, sitting under the two fields
+                        every row does use — a full-width dashed CTA there would read as the primary
+                        action of the editor, which is the Description above it. */}
+                    {inlineCta && (
+                      <div className="mt-3 flex items-start justify-start">
+                        {item[inlineCta.flag] === true ? (
+                          <div className="w-full">
+                            <div className="mb-1 text-[12px] font-normal text-[#7B8FA5]">Link text</div>
+                            <input
+                              value={String(item.linkLabel ?? '')}
+                              onChange={(e) => patch({ linkLabel: e.target.value })}
+                              placeholder="Read the full article"
+                              className={inputCls}
+                            />
+                            <div className="mb-1 mt-3 text-[12px] font-normal text-[#7B8FA5]">Link address</div>
+                            <input
+                              value={String(item.linkUrl ?? '')}
+                              onChange={(e) => patch({ linkUrl: e.target.value })}
+                              placeholder="https://"
+                              className={inputCls}
+                            />
+                            {/* ⚠️ Removing CLEARS both values. A flag left on with the fields blanked
+                                would render an empty link on the portal, and one left off with the
+                                values kept would bring back a URL nobody remembered writing. */}
+                            <button
+                              onClick={() => patch(Object.fromEntries([[inlineCta.flag, false], ...inlineCta.clears.map((k) => [k, ''])]))}
+                              className="mt-2.5 text-[12px] font-medium text-[#EF4444] hover:underline"
+                            >{inlineCta.removeLabel}</button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => patch({ [inlineCta.flag]: true })}
+                            className="inline-flex items-center gap-1 text-[12px] font-medium text-[#3D8BD0] hover:underline"
+                          ><Plus size={12} /> {inlineCta.label}</button>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}

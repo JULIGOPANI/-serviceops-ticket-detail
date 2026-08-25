@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-25T08:47:02.760Z",
+  "builtAt": "2026-08-25T09:11:36.858Z",
   "tasks": [
     {
       "n": 1,
@@ -326,21 +326,27 @@
     {
       "n": 29,
       "title": "Accordion, Banner and the page-background toggle",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalCollectionSpecs.ts` (Accordion), `portalStructureSpecs.ts` (Banner), `PortalCanvas.tsx` (the toolbar globe)",
         "You asked": "three things. (1) **Accordion** — drop the Content section (Display rules), keep only Style and Spacing in Design, and give the item editor an **\"Add link\" CTA at the bottom left** of the Title + Description box. (2) **Banner** — the Choose-CTA popup shows only the banner IMAGES: no search, no per-banner title or description; and banner height becomes **4 predefined sizes** instead of a px slider. (3) Remove the **\"also use this background behind the whole page\"** toggle from the sidebar.",
-        "How I check it": "the Accordion panel has no Content section and exactly two Design accordions; opening an item shows Add link bottom-left. The banner popup is a grid of images only, and Height offers four named sizes. The whole-page background toggle is gone."
+        "How I check it": "the Accordion panel has no Content section and exactly two Design accordions; opening an item shows Add link bottom-left. The banner popup is a grid of images only, and Height offers four named sizes. The whole-page background toggle is gone.",
+        "(1) Accordion": "`fields` is now empty. Out went the two Display-rules toggles and four whole style groups — Text style, Expansion icon, Text style — expanded, Alignment — about twenty controls for a widget whose job is to hold a list of questions. Design is exactly **Style** (the shared P1 pack) + **Spacing**. Every removed value stays in `defaults`, so the accordion is pixel-identical; the keys simply stopped being editable. The **Add link** CTA is a new `CollectionSpec.inlineCta` — a CTA rather than two permanent inputs, because most rows never get a link and an empty URL box under every question is a question asked of every question. Removing a link **clears both values**: a flag left on with blank fields renders an empty link, and a flag off with the values kept brings back a URL nobody remembered writing.",
+        "(2) Banner": "the Choose-a-banner popup lost its search and its per-tile name and note. You are choosing a PICTURE, and a picture is recognised by looking at it — a search box over a grid you can see all of asks you to name what you are about to point at, and the names had nothing left to match on. The name survives as the tile's tooltip; the artwork grew 58px → 78px to take the whole tile. Height is now **Short · Standard · Tall · Full**: a banner has about four useful heights, and a 120–600px slider invited a precision nobody wants — 347px is not a decision anyone made on purpose. The values are still plain pixels underneath, so the renderer is unchanged.",
+        "(3) Whole-page background": "removed from the panel AND the canvas toolbar in the same pass, along with the `onWholePage` plumbing and the now-unused `Globe` import. It put one BLOCK in charge of the page's background — a change you make while looking at the banner and then find everywhere else — and the page has its own background in Theme.",
+        "Verified": "Accordion Content = Items only; Design = \"Style | Fill | None | Colour | Border | Corner radius | Spacing\". The Add link CTA sits **12px from the left edge and 12px from the bottom** of the inline editor; adding one, typing \"Reset it yourself\" / \"https://acme.com/ad\" put a working link on the canvas item. The banner popup: **no input element**, 9 image tiles at 78px, names in tooltips, text content is only the header + group labels + \"Upload my own image\". Height \"Tall\" took the banner 260px → 360px. No \"Also use behind the whole page\" anywhere."
       }
     },
     {
       "n": 30,
       "title": "Favourite Services and Most Used Services rejoin the library",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`supportPortalData.ts` (the `hidden` flags), `portalWidgetSpec.ts` (the note)",
         "You asked": "add both sections to the widget sidebar, and give Favourite Services a note for the admin saying the section only appears once a requester has added favourites.",
-        "How I check it": "both rows are in the library and addable; selecting Favourite Services shows the note. ⚠️ This **reverses task 22**, where they were made fixed page blocks and hidden from the palette precisely because a requester fills them, not an admin. Your call — the note is what makes it honest, since an admin can now place a section whose contents they do not control."
+        "How I check it": "both rows are in the library; selecting Favourite Services shows the note. ⚠️ This reverses **task 22**'s hiding — though task 22's reasoning argued for a NOTE rather than an absence: an admin can reasonably decide whether the page carries a favourites row at all, and hiding it only meant that once deleted there was no way back.",
+        "What I built": "both are back in the palette, each naming its fixed page block, so task 25's mark applies — they render greyed with a tick while the page carries them. `placedPredefined` had to learn about top-level BANDS as well as row members: these two are their own blocks in `blockOrder`, so counting only `rowOrder` left both addable while the page already had them.",
+        "Verified": "the library is 21 rows (was 19); both service rows appear under Custom and both are greyed with a tick. Selecting Favourite Services shows the amber note at the top of Content; Most Used Services shows nothing, so the thirteen info notes stayed dormant."
       }
     },
     {

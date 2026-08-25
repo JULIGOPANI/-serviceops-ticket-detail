@@ -578,6 +578,10 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     const nodes = new Set<string>();
     Object.values(rowOrder).forEach((ids) => ids.forEach((id) => { if (!removed.includes(id)) nodes.add(id); }));
     content.quick.forEach((q) => nodes.add(q.id));
+    /* ⚠️ Top-level BANDS too, not just cards inside a row. Favourite Services and Most Used Services
+       are their own blocks in `blockOrder` rather than members of a row, so counting only row
+       members left both of them addable while the page was already carrying them. */
+    blockOrder.forEach((id) => { if (!removed.includes(id)) nodes.add(id); });
     /* ⚠️ A THIRD home, and it is the one that keeps the mark honest end to end. Delete My Assets and
        the row goes addable; click it and the widget lands as a PLACED element in a new section
        rather than restoring the fixed block. Counting only the fixed block would leave the row
@@ -587,7 +591,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     sections.forEach((s) => sectionElements(s.section).forEach((el) => types.add(el.type)));
     Object.values(rowExtras).forEach((list) => list.forEach((el) => types.add(el.type)));
     return new Set(PORTAL_ELEMENTS.filter((e) => e.node && (nodes.has(e.node) || types.has(e.id))).map((e) => e.id));
-  }, [rowOrder, removed, content.quick, sections, rowExtras]);
+  }, [rowOrder, removed, content.quick, blockOrder, sections, rowExtras]);
 
   /* Reset to default — every store the canvas reads, back to its seed.
      ⚠️ It must clear ALL of them. Missing one leaves the page in a state that is neither the
@@ -1310,7 +1314,6 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     selectedId, hoverId, select, setHover: setHoverId, styles, setStyle, setText, setCfg: patchCfg,
     addSection, addColumnBeside, splitNode, setNodeDir, splitInfo, dropInColumn, dropAtSeam, dropInRow,
     moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, moveToSeam, addChildBlock, areSiblings, replaceElement, pickIcon, applyPreset,
-    onWholePage: () => { const on = cfgFor('hero').bgWholePage === true; patchCfg('hero', { bgWholePage: !on }); toast.success(on ? 'Background is banner-only again' : 'Background applied to the whole page'); },
     /* The text toolbar names the theme fonts, so it needs the live theme. */
     theme,
   };

@@ -306,12 +306,14 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
      what THIS requester pinned, versus what the whole organisation asks for most — and a single
      widget with a source toggle would have made a page carrying both look like one widget
      misconfigured twice. */
-  /* ⚠️ HIDDEN from the palette, both of them. These are sections a requester fills, not blocks an
-     admin places — offering them in the library would let one page carry three copies of a list
-     nobody can populate. They render as fixed page blocks instead; the specs and renderers stay,
-     which is what still gives each one its panel when you select it on the canvas. */
-  { id: 'c-favourites', name: 'Favourite Services', icon: 'services', group: 'Custom', keywords: 'pinned starred saved shortcuts', hidden: true },
-  { id: 'c-services', name: 'Most Used Services', hidden: true, icon: 'services', group: 'Custom', keywords: 'catalog request service favourites featured' },
+  /* ⚠️ BACK in the palette, both of them, and each naming its fixed page block so the library marks
+     it as already added. They were hidden in task 22 on the reasoning that a requester fills them,
+     so an admin should not be placing them — but that reasoning argued for a NOTE, not an absence:
+     an admin can reasonably decide whether the page carries a favourites row at all, and hiding the
+     row only meant that once it was deleted there was no way to get it back. Favourite Services
+     carries the note saying it stays invisible until a requester has favourites. */
+  { id: 'c-favourites', name: 'Favourite Services', icon: 'services', group: 'Custom', node: 'favourites', keywords: 'pinned starred saved shortcuts' },
+  { id: 'c-services', name: 'Most Used Services', icon: 'services', group: 'Custom', node: 'services', keywords: 'catalog request service favourites featured' },
   /* Placed: the FAQ block already sits in the banner area of this portal, so the palette shows it
      as added rather than offering a second one. */
   { id: 'c-faq', name: 'FAQ', icon: 'faq', group: 'Custom', onPage: true, keywords: 'questions help answers' },

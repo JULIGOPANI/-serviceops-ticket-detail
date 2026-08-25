@@ -895,6 +895,9 @@ function ListRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
  * Two states, styled separately: the row you always see and the panel behind it. Both faces come
  * from the WIDGET, so every row folds and unfolds looking like the others. */
 function AccordionRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
+  /* `enabled` is what tells a per-item link to stay inert on the canvas — a click there has to mean
+     "select this", not "leave the page you are building". */
+  const { enabled } = useCanvas();
   const items = ((cfg.items as Cfg[]) ?? []).filter((it) => it.hidden !== true);
   const [open, setOpen] = useState<string[]>(cfg.firstOpen === true && items[0] ? [String(items[0].id ?? 0)] : []);
   const fmt = (v: unknown) => {
@@ -967,6 +970,21 @@ function AccordionRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
                       dangerouslySetInnerHTML={{ __html: String(it.body ?? '') }}
                     />
                   </Sel>
+                  {/* The optional per-item link, from the inline editor's "Add link" CTA.
+                      ⚠️ Rendered only when the flag is on AND there is an address — the flag alone
+                      would draw a link that goes nowhere, which is worse than no link. It falls back
+                      to the address for its words, so a link is never a blank underline.
+                      ⚠️ Inert on the canvas: a click there has to mean "select this", not "leave the
+                      page you are building". */}
+                  {it.hasLink === true && String(it.linkUrl ?? '') && (
+                    <a
+                      href={String(it.linkUrl)}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => { if (enabled) e.preventDefault(); }}
+                      className="mt-2 inline-block text-[13px] font-medium text-[#3D8BD0] hover:underline"
+                    >{String(it.linkLabel || it.linkUrl)}</a>
+                  )}
                 </div>
               )}
             </div>

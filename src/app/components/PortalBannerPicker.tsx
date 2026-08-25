@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Images, Search, Upload, X } from 'lucide-react';
+import { Check, Images, Upload, X } from 'lucide-react';
 import { PORTAL_BANNERS } from './portalBannerGallery';
 import type { PortalBanner } from './portalBannerGallery';
 
@@ -26,7 +26,6 @@ export function PortalBannerPicker({ value, onPick, onUpload, onClose, anchor }:
   onClose: () => void;
   anchor: DOMRect;
 }) {
-  const [q, setQ] = useState('');
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,10 +43,12 @@ export function PortalBannerPicker({ value, onPick, onUpload, onClose, anchor }:
     ? anchor.bottom + 8
     : Math.max(8, anchor.top - H - 8);
 
-  const needle = q.trim().toLowerCase();
-  const shown = PORTAL_BANNERS.filter((b) =>
-    !needle || b.name.toLowerCase().includes(needle) || b.note.toLowerCase().includes(needle) || b.group.toLowerCase().includes(needle));
-  const groups = ['Service desk', 'Seasonal'].filter((g) => shown.some((b) => b.group === g));
+  /* ⚠️ No search and no filtering. You are choosing a PICTURE, and a picture is recognised by
+     looking at it — a search box over a grid you can see all of asks you to name what you are
+     about to point at. It also had nothing useful to match on now that the names and notes are
+     gone from the tiles. */
+  const shown = PORTAL_BANNERS;
+  const groups = ['Service desk', 'Seasonal'].filter((g) => shown.some((x) => x.group === g));
 
   return createPortal(
     <div
@@ -61,19 +62,6 @@ export function PortalBannerPicker({ value, onPick, onUpload, onClose, anchor }:
         <button onClick={onClose} className="flex size-7 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6]"><X size={15} /></button>
       </div>
 
-      <div className="border-b border-[#E5E7EB] px-3 py-2">
-        <div className="relative">
-          <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
-          <input
-            autoFocus
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search banners"
-            className="h-8 w-full rounded border border-[#d1d5db] pl-8 pr-2.5 text-[13px] text-[#364658] outline-none focus:border-[#3D8BD0]"
-          />
-        </div>
-      </div>
-
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         {groups.map((g) => (
           <div key={g} className="mb-4 last:mb-0">
@@ -85,14 +73,18 @@ export function PortalBannerPicker({ value, onPick, onUpload, onClose, anchor }:
                   <button
                     key={b.id}
                     onClick={() => { onPick(b); onClose(); }}
-                    title={b.note}
+                    title={b.name}
                     className={`group overflow-hidden rounded border text-left transition-all ${
                       on ? 'border-[#3D8BD0] ring-2 ring-[#3D8BD0]/25' : 'border-[#E5E7EB] hover:border-[#3D8BD0]'
                     }`}
                   >
-                    {/* The real artwork at the band's own ratio, cropped the way the band crops it. */}
+                    {/* ⚠️ The ARTWORK, and nothing under it. The name and the note said less about a
+                        banner than three seconds of looking at it did, and they turned a grid of
+                        pictures into a list of rows that happened to have pictures on them. The name
+                        survives as the tile's tooltip, for anyone who wants to say which one they
+                        picked. Taller now that it is the whole tile. */}
                     <span
-                      className="relative block h-[58px] w-full bg-cover bg-center"
+                      className="relative block h-[78px] w-full bg-cover bg-center"
                       style={{ backgroundImage: `url("${b.src}")` }}
                     >
                       {on && (
@@ -100,10 +92,6 @@ export function PortalBannerPicker({ value, onPick, onUpload, onClose, anchor }:
                           <Check size={11} strokeWidth={3} />
                         </span>
                       )}
-                    </span>
-                    <span className="block px-2 py-1.5">
-                      <span className="block truncate text-[12px] font-medium text-[#364658]">{b.name}</span>
-                      <span className="block truncate text-[11px] text-[#9CA3AF]">{b.note}</span>
                     </span>
                   </button>
                 );

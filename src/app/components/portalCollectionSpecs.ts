@@ -567,42 +567,15 @@ const ACC_SEEDS: Cfg[] = [
 
 export const ACCORDION_SPEC: WidgetSpec = {
   id: 'accordion', name: 'Accordion', group: 'Layout', reuse: 'many', family: 'collection',
-  fields: [
-    /* DISPLAY RULES — behaviour, so it belongs with the content it governs rather than in styling.
-       ⚠️ "First item expanded" only means something while rows CAN be open, which is always here;
-       but with one-at-a-time off it is the only thing deciding the opening state, so both stay. */
-    { key: 'oneAtATime', label: 'Show one expanded item at a time', control: 'toggle', group: 'Display rules' },
-    { key: 'firstOpen', label: 'Show first item expanded', control: 'toggle', group: 'Display rules' },
-
-    // ── Collapsed style ──
-    { key: 'titleType', label: 'Theme text', control: 'select', tab: 'style', group: 'Text style', options: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'Paragraph'] },
-    { key: 'titleFont', label: 'Font', control: 'select', tab: 'style', group: 'Text style', options: FONTS, divider: true },
-    { key: 'titleSize', label: 'Size', control: 'sliderUnit', tab: 'style', group: 'Text style', min: 10, max: 48, unit: 'px' },
-    { key: 'titleColor', label: 'Colour', control: 'color', tab: 'style', group: 'Text style' },
-    { key: 'titleFormat', label: 'Format', control: 'chips', tab: 'style', group: 'Text style', options: ['Bold', 'Underline', 'Italic'] },
-    { key: 'titleAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Text style', options: ALIGN_4 },
-    { key: 'headBg', label: 'Background colour', control: 'color', tab: 'style', group: 'Text style', divider: true },
-    { key: 'headBorderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Text style' },
-
-    // ── Expansion icon — part of the collapsed row, so it sits with it ──
-    { key: 'iconColor', label: 'Icon colour', control: 'color', tab: 'style', group: 'Expansion icon' },
-    { key: 'iconSize', label: 'Icon size', control: 'sliderUnit', tab: 'style', group: 'Expansion icon', min: 10, max: 40, unit: 'px' },
-    { key: 'iconBg', label: 'Background colour', control: 'color', tab: 'style', group: 'Expansion icon', divider: true },
-    { key: 'iconPad', label: 'Padding', control: 'sliderUnit', tab: 'style', group: 'Expansion icon', min: 0, max: 16, unit: 'px' },
-    { key: 'iconRadius', label: 'Corner radius', control: 'sliderUnit', tab: 'style', group: 'Expansion icon', min: 0, max: 50, unit: '%' },
-
-    // ── Expanded style ──
-    { key: 'bodyFont', label: 'Font', control: 'select', tab: 'style', group: 'Text style — expanded', options: FONTS },
-    { key: 'bodySize', label: 'Size', control: 'sliderUnit', tab: 'style', group: 'Text style — expanded', min: 10, max: 32, unit: 'px' },
-    { key: 'bodyColor', label: 'Colour', control: 'color', tab: 'style', group: 'Text style — expanded' },
-    { key: 'bodyFormat', label: 'Format', control: 'chips', tab: 'style', group: 'Text style — expanded', options: ['Bold', 'Underline', 'Italic'] },
-    { key: 'bodyAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Text style — expanded', options: ALIGN_4 },
-    { key: 'bodyBg', label: 'Background colour', control: 'color', tab: 'style', group: 'Text style — expanded', divider: true },
-    { key: 'bodyBorderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Text style — expanded' },
-
-    { key: 'contentAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Alignment', options: ALIGN_4 },
-  ],
-  // Spacing comes from P1's padding box; no P4 — an accordion is one stack, not an arrangement.
+  /* ⚠️ NO fields at all. The Design section is now exactly two accordions — **Style** (the shared P1
+     pack) and **Spacing** — and Content is the item list, nothing else.
+     What went: the two Display-rules toggles (one-at-a-time, first-item-expanded) from Content, and
+     four whole style groups from Design — Text style, Expansion icon, Text style — expanded, and
+     Alignment. That is roughly twenty controls for a widget whose job is to hold a list of questions.
+     ⚠️ Every removed value stays in `defaults`, so the accordion on the canvas is pixel-identical:
+     the renderer reads the same keys it always did, they simply stopped being editable. Restoring
+     any one of them is a line in `fields`. */
+  fields: [],
   packs: ['P1'],
   collection: {
     key: 'items', group: 'Items', addLabel: 'Add item',
@@ -617,7 +590,16 @@ export const ACCORDION_SPEC: WidgetSpec = {
         key: 'body', label: 'Description', control: 'rich', group: 'Textual content',
         help: 'Bullets, bold and links all work here.',
       },
+      /* ⚠️ Reached by the "+ Add link" CTA at the foot of the inline editor, not by a field sitting
+         permanently under Description. Most rows never get one, and an empty URL box on every item
+         is a question asked of every question. Once a link exists the two fields stay visible, so
+         removing one is as reachable as adding it. */
+      { key: 'linkLabel', label: 'Link text', control: 'text', group: 'Textual content', when: (c) => c.hasLink === true },
+      { key: 'linkUrl', label: 'Link address', control: 'text', group: 'Textual content', when: (c) => c.hasLink === true },
     ],
+    /* The inline editor's bottom-left CTA. `flag` is the key it switches on, so the same mechanism
+       serves any collection that wants an optional extra. */
+    inlineCta: { label: 'Add link', flag: 'hasLink', removeLabel: 'Remove link', clears: ['linkLabel', 'linkUrl'] },
     subElements: [
       { key: 'title', name: 'Title', role: 'subtitle' },
       { key: 'body', name: 'Body text', role: 'body' },

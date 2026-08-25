@@ -53,7 +53,21 @@ export const HERO_SPEC: WidgetSpec = {
     { key: 'sub', label: 'Sub-heading', control: 'text', group: 'Content' },
     { key: 'showSearch', label: 'Show the search bar', control: 'toggle', group: 'Content' },
     { key: 'searchPlaceholder', label: 'Search placeholder', control: 'text', group: 'Content', when: (c) => c.showSearch !== false },
-    { key: 'height', label: 'Height', control: 'slider', tab: 'style', group: 'Banner', min: 120, max: 600 },
+    /* ⚠️ FOUR named sizes, not a 120–600px slider. A banner has about four useful heights — enough
+       for a line of text, the standard band, something you notice, and a near-full screen — and the
+       slider invited a precision nobody wants: 347px is not a decision anyone made on purpose, and
+       it is a decision that has to be re-made on every portal. The values are still plain pixels
+       underneath, so the renderer is unchanged and an existing custom height keeps rendering; it
+       simply is not typed by hand any more. */
+    {
+      key: 'height', label: 'Height', control: 'segmented', tab: 'style', group: 'Banner',
+      options: [
+        { value: '180', label: 'Short' },
+        { value: '260', label: 'Standard' },
+        { value: '360', label: 'Tall' },
+        { value: '480', label: 'Full' },
+      ],
+    },
     /* ⚠️ Background is TWO TABS — Image or Colour — with image the default, because a banner is a
        picture first and the colour is what you fall back to. It replaced Fill's None / Colour /
        Image: "None" was never a real answer for a band whose whole job is to be a backdrop, and
@@ -71,13 +85,12 @@ export const HERO_SPEC: WidgetSpec = {
       key: 'bannerColor', label: 'Banner colour', control: 'color', tab: 'style', group: 'Banner',
       when: (c) => c.bgKind === 'color',
     },
-    /* ⚠️ One toggle, live. "Also behind the whole page" is the move people make once they have a
-       photograph they like — and doing it by hand would mean finding the Page layer and uploading
-       the same file twice, with the two free to drift the moment either is changed. */
-    {
-      key: 'bgWholePage', label: 'Also use behind the whole page', control: 'toggle', tab: 'style', group: 'Banner',
-      help: 'The same background runs under every section, not just the banner.',
-    },
+    /* ⚠️ "Also use behind the whole page" is GONE, from the panel and from the canvas toolbar at the
+       same time. It put one BLOCK in charge of the whole page's background — a change you make while
+       looking at the banner and then find everywhere else — and the page already has its own
+       background in Theme, which is where a page-wide decision belongs. The `bgWholePage` key and
+       the renderer branch that reads it stay, so a portal that had it on still renders that way;
+       nothing sets it any more. */
     /* Removed on request: Stretch to the page edges, Content max width, Heading colour, and with the
        colour gone the Contrast guard that measured it — and later Image fit, Focal point and Darken
        for text. ⚠️ "Tile the image" went with them rather than being kept: it was gated on Image fit

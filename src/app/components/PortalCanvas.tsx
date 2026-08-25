@@ -6,7 +6,7 @@ import {
   AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical,
   AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, ArrowDown, ArrowLeft, ArrowRight,
   ArrowUp, Baseline, Bold, ChevronRight, Columns2, Copy, GripHorizontal, GripVertical, Italic, Link2, Rows2,
-  Braces, Globe, Highlighter, Maximize2, UnfoldVertical, Move, MoveHorizontal, MoveVertical, Plus, RemoveFormatting,
+  Braces, Highlighter, Maximize2, UnfoldVertical, Move, MoveHorizontal, MoveVertical, Plus, RemoveFormatting,
   Replace, SquareDashed, Trash2, Underline, X,
 } from 'lucide-react';
 // ArrowLeft stays in use by the card toolbar's "Move left".
@@ -65,7 +65,6 @@ interface CanvasCtx {
   /** Swaps a placed element for a different kind, in the same spot. */
   replaceElement: (id: string, elementType: string) => void;
   /** Toggles the banner's background onto the page — the toolbar half of the panel's toggle. */
-  onWholePage?: () => void;
   /** Drops `sourceId` at `targetId`'s position — the grip's drag-to-reorder. */
   moveTo: (sourceId: string, targetId: string) => void;
   /** True when the two ids sit in the same list, so a drop between them is meaningful. */
@@ -331,7 +330,7 @@ function useNodeDragHandle(id: string) {
 }
 
 function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: string }) {
-  const { styles, setStyle, moveNode, duplicateNode, deleteNode, canDuplicate, addInside, replaceElement, addChildBlock, onWholePage, splitNode, splitInfo } = useCanvas();
+  const { styles, setStyle, moveNode, duplicateNode, deleteNode, canDuplicate, addInside, replaceElement, addChildBlock, splitNode, splitInfo } = useCanvas();
   const [picking, setPicking] = useState(false);
   const [axis, setAxis] = useState<'h' | 'v' | null>(null);
 
@@ -480,19 +479,11 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
         data-tip={dupOk ? 'Copy' : 'This block is part of the page layout and can’t be copied'}
         onClick={() => dupOk && duplicateNode(id)}
       ><Copy size={14} /></button>
-      {/* ⚠️ The BANNER's three, and only the banner's. It is the one block with a background image,
-          so stretch-to-cover and use-behind-the-page are questions no other element can answer — and
-          putting them in the shared toolbar would mean two dead buttons on every card. The "+" it
-          already has opens the element library, which is where Text and Button come from. */}
-      {id === 'hero' && (
-        <>
-          <button
-            className={btn}
-            data-tip="Also use this background behind the whole page"
-            onClick={() => onWholePage?.()}
-          ><Globe size={15} /></button>
-        </>
-      )}
+      {/* ⚠️ The banner's globe button is GONE. "Also use this background behind the whole page" put
+          one block in charge of the page's background — a change you make while looking at the
+          banner and then see everywhere else — and the page has its own background in Theme, which
+          is where a page-wide decision belongs. Removed from the toolbar and from the panel at the
+          same time, so there is no half of it left. */}
       {/* ⚠️ No clear-all-padding button. It was a one-way shortcut for something the Spacing panel
           already does per side, and its glyph said nothing about padding — so it read as an unknown
           action on a toolbar where every other button is a movement or a duplicate. Zeroing four
