@@ -188,9 +188,15 @@ export const TABLE_SPEC: WidgetSpec = {
        that changes what the other fields are even editing. */
     /* ⚠️ One CTA, not a size sweeper plus a row list. The sheet decides its own size by what you
        type into it, so asking for R × C first was asking a question the content already answers. */
-    { key: 'rows', label: 'Table content', control: 'tableContent', group: 'Content' },
+    { key: 'table', label: 'Table content', control: 'tableContent', group: 'Content' },
     { key: 'title', label: 'Title', control: 'text', group: 'Content', help: 'Optional.' },
+    /* ⚠️ The two header switches sit TOGETHER, in Content (§6). "First column" used to live under
+       Border in the Style tab, which put one half of a pair of questions two tabs away from the
+       other — and both are about what the table MEANS, not what it looks like.
+       Each is also reachable from its own handle menu on the canvas; both write these keys, so the
+       switch and the menu item cannot disagree. */
     { key: 'headerRow', label: 'First row is a header', control: 'toggle', group: 'Content' },
+    { key: 'firstColumn', label: 'First column is a header', control: 'toggle', group: 'Content' },
     /* §7.17's column list. Width and alignment live HERE rather than in a second Styling block —
        reordering a column and setting its width are the same act of shaping the table, and the
        spec's own rule forbids two controls for one value. */
@@ -225,7 +231,6 @@ export const TABLE_SPEC: WidgetSpec = {
     { key: 'rowFormat', label: 'Font format', control: 'chips', tab: 'style', group: 'Text style', when: (c) => c.styleTab === 'rows', options: FORMATS },
 
     // ── Table — what is left once the header and the rows own their own look ──
-    { key: 'firstColumn', label: 'First column', control: 'toggle', tab: 'style', group: 'Border', help: 'Style the first column like a header.' },
     { key: 'cellPad', label: 'Cell padding', control: 'sliderUnit', tab: 'style', group: 'Table', min: 4, max: 24, unit: 'px' },
     { key: 'cellAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Table', options: ALIGN_4 },
     { key: 'hScroll', label: 'Horizontal scroll on narrow screens', control: 'toggle', tab: 'style', group: 'Table' },

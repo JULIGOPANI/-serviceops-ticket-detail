@@ -49,6 +49,7 @@ import { IconField } from './PortalIconPicker';
 import type { IconChoice } from './PortalIconPicker';
 import { GATE_COPY, gateOpen, specById } from './portalWidgetSpec';
 import type { Cfg, WidgetField, WidgetSpec } from './portalWidgetSpec';
+import { applyGrid, gridOf, tableFrom } from './portalTableModel';
 
 /* Which groups are open is remembered per widget TYPE for the session: someone styling five cards
    in a row should not have to re-open the same drawer each time. Module-level on purpose — it is
@@ -776,11 +777,13 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
         );
       }
       case 'tableContent': {
-        /* Stored as rows of CELLS. The old shape was  objects for the item list;
-           the sheet has no per-row identity to carry, so a plain string[][] is the honest form. */
-        const raw = (viewCfg.rows as unknown[]) ?? [];
-        const grid = raw.map((r) => (Array.isArray(r) ? (r as string[]) : ((r as Cfg)?.cells as string[]) ?? []));
-        return <TableContentField rows={grid} onChange={(g) => set('rows', g)} />;
+        /* ⚠️ Reads and writes THE MODEL, not a parallel `rows` array. The sheet used to own
+           `cfg.rows` while the canvas owns `cfg.table`, so once a table had been touched on the
+           canvas every edit typed here was stored and silently ignored — two editors for one grid,
+           and the one you were not looking at won. `applyGrid` keeps each cell's identity and
+           styling where the shape still has a cell for it, so bulk entry is not destructive. */
+        const model = tableFrom(viewCfg);
+        return <TableContentField rows={gridOf(model)} onChange={(g) => set(f.key, applyGrid(model, g))} />;
       }
       case 'lineStyle':
         return (

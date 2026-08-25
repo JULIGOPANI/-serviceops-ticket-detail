@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-25T07:30:14.233Z",
+  "builtAt": "2026-08-25T08:11:26.488Z",
   "tasks": [
     {
       "n": 1,
@@ -265,7 +265,11 @@
       "fields": {
         "Where": "`portalCollectionSpecs.ts`, a new table renderer",
         "You asked": "drop the whole current table configuration. Insert by choosing rows × columns from a 10×10 grid; edit cells inline with a floating toolbar; drag rows and columns; insert and delete row / column / table / cell. Keep only Title in Content and Spacing in Style.",
-        "How I check it": "⚠️ Your line 24 ends mid-sentence (\"other given instructions like table row column selecting will\"). I will ask what was cut off, plus the specific interaction questions, before building."
+        "How I check it": "insert from the 10×10 popup; click a cell and type; drag a row or column handle to reorder; drag a boundary to resize; drag the bottom edge for cell padding; select a rectangle of cells and align or colour them; every menu item that cannot apply is disabled with the reason on it.",
+        "Settled 25 Aug": "staged — this pass is the shape and the inline experience, with merge/split, sort and Excel paste to follow. **10×10 is a hard ceiling**, not just the picker: inserts stop there too. ⚠️ You chose to **keep the brief's §6 panel** rather than trimming it to Title + Spacing — so the panel and the canvas now share one source for every value they both touch (see Verified).",
+        "Verified": "the seeded table reads its old `rows` config and renders 9 cells with rails, a select-all corner and both extend buttons. Insert column right → 4 columns at 25% each with content intact. Click a cell → contentEditable, typed value commits. Add-a-column stops at 10 with \"A table holds 10 columns at most\" and the menu's three insert items carry the same reason; rows stop at 10 likewise. Dragging column 1's handle onto column 3 moved \"Tier\" to position 3 with a live drop indicator. Dragging boundary 0 by 80px gave 15%/5% and the widths still total exactly 100. Drag-select rows 1–2 × cols 0–1 → 4 cells `aria-selected`, one continuous stroke round the region, floating toolbar above it; Align centre applied to exactly those 4 and left the other 5 alone. Dragging the bottom edge took cell padding 8px → 18px. Panel switch \"First column is a header\" → `<th scope=\"row\">`; the handle menu read \"Remove header column\", and using it flipped the panel switch back — one value, two affordances. Sheet \"30 min\" → \"15 min\" landed on the canvas; a canvas edit to \"6 hrs\" showed up in the sheet.",
+        "Bug found and fixed on the way": "turning on the header column blanked every cell in it. Switching a cell between `<td>` and `<th>` keeps the same React component instance, so the mirror effect never re-ran — but the element TYPE changed, so React tore down the DOM and built an empty one. The model still held the text; the DOM had thrown it away, silently. `tag` is now a dependency of that effect.",
+        "Still to do (pass 2)": "merge / split cells (`colspan`/`rowspan` are already in the model and every operation is written span-aware), sort by column, paste a range from Excel or Sheets, and full keyboard-only operation."
       }
     },
     {

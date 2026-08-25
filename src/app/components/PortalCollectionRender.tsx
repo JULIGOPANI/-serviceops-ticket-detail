@@ -12,6 +12,9 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronsRight, ImageOff, ShoppingCart, Star } from 'lucide-react';
 import { Sel, useCanvas } from './PortalCanvas';
+/* The Table is a module of its own — a spreadsheet-grade editor is a different kind of thing from
+   the read-only renderers in this file, and it owns its data model, its handles and its menus. */
+import { PortalTable } from './PortalTable';
 import { hasFixedTitle, itemNodeId, subNodeId } from './portalPageModel';
 import type { PortalStyles } from './portalPageModel';
 import { chosen, roleStyle } from './portalStyleResolver';
@@ -206,109 +209,14 @@ function ChildBlock({ item }: { item: Item }) {
 
 /* ── §7.17 Table ─────────────────────────────────────────────────────────── */
 
+/* The Table's WIDGET wrapper. The heading is a child text node like every other widget's; the grid
+ * below it is its own module — see PortalTable.tsx — because a spreadsheet-grade editor is a
+ * different kind of thing from the read-only renderers around it. */
 export function TableRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
-  const { styles } = useCanvas();
-  /* ⚠️ Rows arrive as plain string[][] from the sheet, but older config may still hold the
-     { id, cells } item shape. Normalising here means one renderer serves both rather than a
-     migration nobody would remember to run. */
-  const rows: string[][] = ((cfg.rows as unknown[]) ?? []).map((r) =>
-    (Array.isArray(r) ? (r as string[]) : ((r as Cfg)?.cells as string[]) ?? []));
-  const pad = Number(cfg.cellPad ?? 10);
-  const header = cfg.headerRow !== false;
-  /* The Header / Rows / Frame groups the drawer now offers. ⚠️ This renderer used to read
-     `headerEmphasis`, `striped` and `bordered`, which no longer exist — so every new control was
-     inert and the table kept its hardcoded look. */
-  const fmt = (v: unknown) => {
-    const on = Array.isArray(v) ? (v as string[]) : [];
-    return {
-      fontWeight: on.includes('Bold') ? 700 : undefined,
-      textDecoration: on.includes('Underline') ? 'underline' : undefined,
-      fontStyle: on.includes('Italic') ? 'italic' : undefined,
-    };
-  };
-  const face = (p: 'head' | 'row') => ({
-    fontFamily: cfg[`${p}Font`] === 'Inherit from theme' ? undefined : (cfg[`${p}Font`] as string),
-    fontWeight: ({ Light: 300, Normal: 400, Medium: 500, Semibold: 600, Bold: 700 } as Record<string, number>)[
-      String(cfg[`${p}Weight`] ?? (p === 'head' ? 'Semibold' : 'Normal'))
-    ],
-    fontSize: Number(cfg[`${p}Size`] ?? 13),
-    color: String(cfg[`${p}Color`] ?? (p === 'head' ? '#364658' : '#5B7A99')),
-    ...fmt(cfg[`${p}Format`]),
-  });
-  const cellBorder = Number(cfg.frameBorderWidth ?? 1);
-  const cellBorderColor = String(cfg.frameBorderColor ?? '#E5E7EB');
-
-  /* ⚠️ A `<colgroup>` is what makes per-column widths actually hold. Setting a width on each cell
-     fights `border-collapse` and the widest content wins instead; the column group is applied once,
-     before any cell is measured. `table-fixed` is the other half — without it the browser keeps
-     auto-sizing from content and ignores the percentages entirely. */
-  const widths = (cfg.widths as number[]) ?? [];
-  const aligns = (cfg.aligns as string[]) ?? [];
-  const colCount = Math.max(0, ...rows.map((r) => r.length));
-
   return (
     <div>
       <WidgetTitle nodeId={nodeId} text={cfg.title} />
-      <div className={cfg.hScroll !== false ? 'overflow-x-auto' : ''}>
-        {/* ⚠️ ALWAYS table-fixed, and always a colgroup. `table-fixed` was previously applied only
-            when per-column widths existed, so a table with none fell back to auto layout and every
-            column sized itself to its own longest cell — which is why one column swallowed the row
-            and the borders stopped lining up. With no stored widths each column now takes an equal
-            share, which is what "even column width" means and the right resting state. */}
-        <table className="w-full table-fixed border-collapse">
-          <colgroup>
-            {Array.from({ length: colCount }).map((_, i) => (
-              <col
-                key={i}
-                style={{ width: `${Math.round(100 / (colCount || 1))}%` }}
-              />
-            ))}
-          </colgroup>
-          <tbody>
-            {rows.map((r, ri) => {
-              const isHead = header && ri === 0;
-              return (
-                  <tr
-                    key={ri}
-                    /* ⚠️ NOT wrapped in <Sel>. Sel renders a DIV, and a <div> between <tbody> and
-                       <tr> takes the row out of the table box model entirely — each row became its
-                       own anonymous table, which is why the columns did not line up and every cell
-                       sized itself to its own text. Row-level selection has to come from attributes
-                       ON the <tr>, never from a wrapper element. */
-                    style={{
-                      background: isHead
-                        ? String(cfg.headBg ?? '#F9FAFB')
-                        /* Even and odd count the BODY rows, not the table rows — with a header on,
-                           the first data row is row 1, and striping that counts the header inverts
-                           the whole table the moment the header is switched off. */
-                        : String(((header ? ri - 1 : ri) % 2 === 0 ? cfg.evenBg : cfg.oddBg) ?? '#FFFFFF'),
-                    }}
-                  >
-                    {r.map((cell, ci) => {
-                      // "First column" styles column 0 like a header — a row label, not data.
-                      const asHead = isHead || (cfg.firstColumn === true && ci === 0);
-                      return (
-                        <td
-                          key={ci}
-                          style={{
-                            padding: pad,
-                            textAlign: (aligns[ci] as 'left' | 'center' | 'right') ?? (cfg.cellAlign as never) ?? 'left',
-                            ...(cellBorder > 0 ? { border: `${cellBorder}px solid ${cellBorderColor}` } : {}),
-                            // Long values wrap instead of forcing a column wider than its share.
-                            wordBreak: 'break-word',
-                            ...face(asHead ? 'head' : 'row'),
-                          }}
-                        >
-                          <span style={roleStyle(styles, nodeId, asHead ? 'title' : 'body')}>{cell}</span>
-                        </td>
-                      );
-                    })}
-                  </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <PortalTable nodeId={nodeId} cfg={cfg} />
     </div>
   );
 }
