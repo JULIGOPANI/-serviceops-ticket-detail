@@ -313,7 +313,20 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
   /* Step 1 → the portal exists. It is NOT opened yet: step 2 is still on screen asking what goes
      on it, and swapping the canvas in underneath that question would answer it for them. */
   const [draftId, setDraftId] = useState<string | null>(null);
+  /* ⚠️ The FIRST save creates the draft; every later one EDITS it. Step 1 stays reachable from step
+     2 — the details are editable until you leave — and this used to call `create` every time, so
+     going back to fix a typo and pressing Save left TWO portals in the listing: one carrying the
+     typo and one carrying the correction, with nothing on screen saying a second had appeared.
+     The button relabels to "Save changes" once the draft exists, so it never reads as one thing and
+     does another. */
   const saveDetails = (dt: PortalDetails) => {
+    if (draftId) {
+      setPages((prev) => prev.map((p) => (p.id === draftId
+        ? { ...p, name: dt.name, company: dt.company, url: dt.url, idp: dt.idp, ssoOnly: dt.ssoOnly }
+        : p)));
+      toast.success('Details updated');
+      return;
+    }
     const created = create(dt.name, 'Blank layout', {
       company: dt.company, url: dt.url, idp: dt.idp, ssoOnly: dt.ssoOnly,
     });

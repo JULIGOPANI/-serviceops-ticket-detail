@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-25T10:38:51.350Z",
+  "builtAt": "2026-08-25T10:54:12.890Z",
   "tasks": [
     {
       "n": 1,
@@ -435,11 +435,12 @@
     {
       "n": 35,
       "title": "The two-step create flow, made intuitive",
-      "status": "todo — ⚠️ needs a conversation before i build it",
+      "status": "done",
       "fields": {
         "Where": "`CreateSupportPortalModal.tsx`, `SupportPortalTemplateGallery.tsx`",
         "You asked": "step 1's details survive going forward to step 2. Step 2 drops the two clickable cards (\"Create from scratch\" / \"Use template\"); instead **Create from scratch is shown by default at the top**, the default template is removed from there, and it becomes the **first square in the templates grid, carrying the Default tag**. You attached a reference for the stepper UI and said to ask if anything.",
-        "How I check it": "to be agreed — I will come to you with the specific questions before writing any of it."
+        "Settled first (25 Aug)": "from-scratch is an **immediate action**, like a template tile — no selected state, no Create button, so every starting point on the screen is one click. A second Save **updates the draft** rather than creating another portal, and the button relabels. The Default is the grid's **first tile in every category**. The stepper takes your reference's SHAPE with the product's blue.",
+        "Verified": "step 1 → Save → step 2 shows \"✓ Support portal details › ② Support portal customization\", a **Start from scratch** row, then TEMPLATES with **Support Portal / Default** as the first tile. Going back to step 1 kept \"HR Portal / support.acme.com/hr / Acme Corporation\", the button read **Save changes**, the toast was \"Details updated\", and the listing behind still held **one** HR Portal row. Under the **HR** chip the tiles are \"Support Portal\" then \"People & HR Desk\" — the Default still first."
       }
     },
     {

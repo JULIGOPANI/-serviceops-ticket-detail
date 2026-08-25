@@ -331,10 +331,17 @@ Updated: 2026-08-25 12:11
 
 
 ## 35. The two-step create flow, made intuitive
-- **Status:** todo — ⚠️ needs a conversation before I build it
+- **Status:** done
 - **Where:** `CreateSupportPortalModal.tsx`, `SupportPortalTemplateGallery.tsx`
 - **You asked:** step 1's details survive going forward to step 2. Step 2 drops the two clickable cards ("Create from scratch" / "Use template"); instead **Create from scratch is shown by default at the top**, the default template is removed from there, and it becomes the **first square in the templates grid, carrying the Default tag**. You attached a reference for the stepper UI and said to ask if anything.
-- **How I check it:** to be agreed — I will come to you with the specific questions before writing any of it.
+- **Settled first (25 Aug):** from-scratch is an **immediate action**, like a template tile — no selected state, no Create button, so every starting point on the screen is one click. A second Save **updates the draft** rather than creating another portal, and the button relabels. The Default is the grid's **first tile in every category**. The stepper takes your reference's SHAPE with the product's blue.
+- **(1) One screen, not a fork.** Step 2 used to open on two big cards — "Create from scratch" and "Use Template" — which asked you to choose a KIND of start before you could see any of the starts. From-scratch is one row and the templates are six tiles: they fit together, so the question was costing a click to answer something the screen could simply show. The "start from a blank page instead" footer link went with the fork it existed to escape — a second door to a room you are now standing in.
+- **(2) The Default is the first tile**, badged, instead of a "Start from your portal" band above the grid. The band existed because a tile eighth in a row of eight cannot say "this is what your requesters see today"; the badge says it, and being pinned first means the one starting point that always applies is always in the same place. ⚠️ It ignores the category chips, because it HAS no category — it is not an IT or an HR layout, it is the portal that already exists.
+- **(3) ⚠️ Saving twice used to create TWO portals.** Step 1 stays reachable from step 2 — the details are editable until you leave — and `saveDetails` called `create` every time. Going back to fix a typo and pressing Save left one portal carrying the typo and one carrying the correction, with nothing on screen saying a second had appeared. The first Save creates the draft; every later one edits it, and the button reads **Save changes** so it never says one thing and does another.
+- **(4) The stepper is a grey band with a chevron**, not two blue dots on a rule. The rule read as a progress bar that was always half full — it said the same thing on both steps — while two identically-blue circles gave no way to tell where you WERE from where you had BEEN. Now the finished step is greyed with a tick, the current one is dark with its number, and the chevron points the way. ⚠️ The tick is **#3D8BD0, not the reference's green**: green is this product's healthy/success colour and a completed step is neither — it is simply behind you.
+- **Verified:** step 1 → Save → step 2 shows "✓ Support portal details › ② Support portal customization", a **Start from scratch** row, then TEMPLATES with **Support Portal / Default** as the first tile. Going back to step 1 kept "HR Portal / support.acme.com/hr / Acme Corporation", the button read **Save changes**, the toast was "Details updated", and the listing behind still held **one** HR Portal row. Under the **HR** chip the tiles are "Support Portal" then "People & HR Desk" — the Default still first.
+
+
 
 ## 36. Video widget
 - **Status:** done
