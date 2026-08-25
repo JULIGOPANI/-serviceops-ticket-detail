@@ -80,6 +80,13 @@ Updated: 2026-08-25 11:06
 - **You asked:** drop the whole current table configuration. Insert by choosing rows × columns from a 10×10 grid; edit cells inline with a floating toolbar; drag rows and columns; insert and delete row / column / table / cell. Keep only Title in Content and Spacing in Style.
 - **How I check it:** ⚠️ Your line 24 ends mid-sentence ("other given instructions like table row column selecting will"). I will ask what was cut off, plus the specific interaction questions, before building.
 
+## 90. Image-upload empty state — one component everywhere
+- **Status:** done
+- **Where:** `PortalControls.tsx` (`ImageUploadZone`), + PortalIconPicker, PortalPlacedElement, PortalCanvas, SupportPortalBuilder
+- **You asked:** from [IMAGE-UPLOAD-ZONE-PROMPT.md](IMAGE-UPLOAD-ZONE-PROMPT.md) — replace every image-upload empty state with ONE shared component. Plus: a filled slot shows only a **Replace** CTA (no Remove link, no second dashed box), and no divider between the tab row and the upload container.
+- **How I check it:** the same lockup at both sizes, drag-over responds, an oversized file errors and stays usable, and no hand-rolled image dropzone survives the §7.7 grep.
+- **Verified:** sm (panel) = 132px min / 24×16 pad / 32px file glyph; md (canvas) = 180px / 40×24 / 40px — same lockup, same copy. Drag-over paints #EBF5FF on #3D8BD0. A 9MB drop gives "That file is 9.0MB — the limit is 5MB" in red with the zone still enabled; a .txt gives the type message. A real PNG dropped on the canvas image element lands and replaces the zone. Filled = 92px chequerboard preview + a single Replace. §7.7 grep leaves only the one component plus the out-of-scope placeholders.
+
 ## Parked — needs discussion
 - Tour guide
 - AI capabilities

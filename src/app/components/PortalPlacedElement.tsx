@@ -4,6 +4,7 @@ import { PORTAL_ELEMENTS } from './supportPortalData';
 import { ACTION_TYPES, fillCss, renderSpec } from './portalPageModel';
 import type { PlacedElement } from './portalPageModel';
 import { COLLECTION_RENDERERS } from './PortalCollectionRender';
+import { ImageUploadZone } from './PortalControls';
 import { useCanvas } from './PortalCanvas';
 import { containerCss } from './portalStyleResolver';
 
@@ -409,11 +410,11 @@ function PlacedBody({ item, icon, text, cfg }: {
       );
 
     case 'v-image':
-      return (
-        <div className="flex aspect-[16/9] w-full items-center justify-center rounded border border-dashed border-[#C3CBD6] bg-[#FAFBFC]">
-          <ImageIcon size={26} className="text-[#C3CBD6]" />
-        </div>
-      );
+      /* ⚠️ WIRED, not decorative. This was a dashed box with a picture glyph in it that opened
+         nothing and accepted nothing — it looked exactly like a dropzone and was the one place in
+         the module where dragging an image onto the obvious target did nothing at all. It is the
+         same component the panel draws, at the `md` size the canvas needs. */
+      return <ImageDropSlot id={item.id} />;
 
     case 'v-icon':
     case 'x-action-icon':
@@ -502,6 +503,22 @@ function PlacedBody({ item, icon, text, cfg }: {
    widgets that had nothing to apply them to. A non-bare element already paints those through
    Surface, and a text node through Sel, so wrapping either would draw the border twice; this covers
    exactly the gap between them. StyledBox emits only what a human chose, so nothing untouched moves. */
+/* The canvas half of an image slot.
+ *
+ * ⚠️ Its own component because it needs a hook — `useCanvas` cannot be called inside the switch
+ * that renders every placed element, and lifting the hook to the top of that function would run it
+ * for the forty types that have no use for it. */
+function ImageDropSlot({ id }: { id: string }) {
+  const { setCfg } = useCanvas();
+  return (
+    <ImageUploadZone
+      size="md"
+      label="Upload an image for this element"
+      onFile={(src) => setCfg(id, { src })}
+    />
+  );
+}
+
 export function PortalPlacedElement(props: React.ComponentProps<typeof PlacedBody>) {
   const spec = renderSpec(props.item.type);
   const body = <PlacedBody {...props} />;

@@ -72,6 +72,11 @@ interface CanvasCtx {
   areSiblings: (a: string, b: string) => boolean;
   /** Writes a text node's words back to whichever store owns them — the inline-edit path. */
   setText: (id: string, text: string) => void;
+  /* Writes a widget's CONFIG from the canvas — the inline half of a panel field.
+     ⚠️ Mirrors `setText` deliberately. An element that can be filled in place needs to write the
+     same key its drawer writes, or the canvas and the panel end up owning different copies of one
+     value; routing both through the builder's `patchCfg` is what keeps them the same value. */
+  setCfg: (id: string, patch: Record<string, unknown>) => void;
   /* The live theme. ⚠️ Only the text toolbar's font picker reads it, and it reads it to NAME the two
      faces rather than to apply them — the faces themselves are applied as CSS variables set on the
      canvas wrapper, so a themed block re-renders on a theme change without anything re-reading
@@ -81,7 +86,7 @@ interface CanvasCtx {
 
 const Ctx = createContext<CanvasCtx>({
   enabled: false, selectedId: null, hoverId: null,
-  select: () => {}, setHover: () => {}, styles: {}, setStyle: () => {}, setText: () => {},
+  select: () => {}, setHover: () => {}, styles: {}, setStyle: () => {}, setText: () => {}, setCfg: () => {},
   addSection: () => {}, addColumnBeside: () => {}, dropInColumn: () => {}, dropAtSeam: () => {}, dropInRow: () => {}, moveToSeam: () => {}, addChildBlock: () => {},
   moveNode: () => {}, duplicateNode: () => {}, deleteNode: () => {}, canDuplicate: () => false, addInside: () => {},
   moveTo: () => {}, areSiblings: () => false, replaceElement: () => {}, pickIcon: () => {},

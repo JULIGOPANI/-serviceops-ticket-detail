@@ -9,12 +9,12 @@
  * `rounded` radius, the #3D8BD0 focus ring, `.app-select`. Nothing new was invented.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   AlignCenter, AlignLeft, AlignRight, Bold, Check, ChevronDown, Eraser,
   IndentDecrease, IndentIncrease, Info, Italic, Link2, List, ListOrdered, Quote, Redo2, Strikethrough,
-  Images, TriangleAlert, Underline, Undo2, Upload, X,
+  File, Images, TriangleAlert, Underline, Undo2, Upload, UploadCloud, X,
 } from 'lucide-react';
 
 /* ── shared chrome ───────────────────────────────────────────────────────── */
@@ -671,8 +671,146 @@ export function GridPicker({ rows, cols, onChange, max = 10 }: {
 
 const CHECKER = 'linear-gradient(45deg, #EEF2F6 25%, transparent 25%), linear-gradient(-45deg, #EEF2F6 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #EEF2F6 75%), linear-gradient(-45deg, transparent 75%, #EEF2F6 75%)';
 
-export function UploadZone({ value, onChange, accept = 'image/*', hint = 'PNG, JPG, SVG or WebP', gallery }: {
-  value?: string; onChange: (dataUrl?: string) => void; accept?: string; hint?: string;
+/* ── The image-upload empty state, once ──────────────────────────────────────
+ *
+ * ⚠️ ONE component, N call sites — not N containers edited to look alike. Before this the module
+ * had five hand-rolled "drop an image here" boxes with three different border colours, three
+ * different icons and four different sentences, because each was written where it was needed. The
+ * point of replacing rather than restyling is that the next one cannot drift: there is nowhere to
+ * drift to.
+ *
+ * ⚠️ Looks like a dropzone ⇒ IS a dropzone. Click opens the picker and a drop is accepted, at every
+ * site. A decorative dashed box that does nothing when you drag a file onto it is the single most
+ * confusing thing a builder can show, and this module had one on the canvas.
+ */
+
+/* Two sizes, one component. The design panel is 340–600px and the canvas is not, so a single set of
+   measurements cannot serve both without being wrong somewhere. */
+const ZONE = {
+  sm: { pad: 'px-4 py-6', file: 32, badge: 'size-5', glyph: 11, gap1: 'mt-2.5', gap2: 'mt-[3px]', l1: 'text-[13px] leading-[18px]', l2: 'text-[11px] leading-[16px]', min: 'min-h-[132px]' },
+  md: { pad: 'px-6 py-10', file: 40, badge: 'size-6', glyph: 13, gap1: 'mt-3', gap2: 'mt-1', l1: 'text-[14px] leading-[20px]', l2: 'text-[12px] leading-[18px]', min: 'min-h-[180px]' },
+} as const;
+
+/* ⚠️ DERIVED from the slot's real rules, never typed per call site. A helper line that promises a
+   limit the slot does not have is worse than no helper line — "max 5MB" under an input that
+   rejects at 2MB teaches people to distrust every number on the screen. */
+export function uploadHint(accept: string, maxMB: number, multiple = false, maxFiles?: number) {
+  const types = accept.includes('image/*')
+    ? 'PNG, JPG, SVG or WebP'
+    : accept.split(',')
+      .map((t) => t.trim().replace(/^image\//, '').replace(/^\./, '').replace('+xml', '').toUpperCase())
+      .filter(Boolean).join(', ');
+  const parts = [types, `max ${maxMB}MB`];
+  /* Multi-file wording ONLY where multi-file is true — one flag drives the input and the copy. */
+  if (multiple && maxFiles) parts.push(`up to ${maxFiles} files`);
+  return parts.join(' · ');
+}
+
+export function ImageUploadZone({
+  onFile, accept = 'image/*', maxMB = 5, size = 'sm', label, multiple = false, maxFiles, disabled, disabledReason,
+}: {
+  /** Called with the data URL once the file has passed validation. */
+  onFile: (dataUrl: string) => void;
+  accept?: string;
+  maxMB?: number;
+  size?: 'sm' | 'md';
+  /** Names the SLOT, not the action — "Upload logo image", not "Upload". */
+  label: string;
+  multiple?: boolean;
+  maxFiles?: number;
+  disabled?: boolean;
+  disabledReason?: string;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const [over, setOver] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const z = ZONE[size];
+  const hintId = useId();
+
+  /* ⚠️ Validation runs BEFORE anything is read, so a wrong or oversized file never draws a thumbnail
+     first and an error second. The zone stays usable either way — an error that disables the control
+     makes the next attempt two steps instead of one. */
+  const take = (file?: File | null) => {
+    if (!file) return;
+    const okType = accept === 'image/*' ? file.type.startsWith('image/') : accept.split(',').some((t) => {
+      const s = t.trim();
+      return s.startsWith('.') ? file.name.toLowerCase().endsWith(s.toLowerCase()) : file.type === s;
+    });
+    if (!okType) { setErr(`That file is a ${file.type || 'unknown type'} — this slot takes ${uploadHint(accept, maxMB)}`); return; }
+    const mb = file.size / (1024 * 1024);
+    if (mb > maxMB) { setErr(`That file is ${mb.toFixed(1)}MB — the limit is ${maxMB}MB`); return; }
+    setErr(null);
+    const fr = new FileReader();
+    fr.onload = () => onFile(String(fr.result));
+    fr.readAsDataURL(file);
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        disabled={disabled}
+        aria-label={label}
+        aria-describedby={hintId}
+        title={disabled ? disabledReason : undefined}
+        onClick={() => ref.current?.click()}
+        onDragOver={(e) => { if (disabled) return; e.preventDefault(); e.stopPropagation(); setOver(true); setErr(null); }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => {
+          if (disabled) return;
+          e.preventDefault(); e.stopPropagation(); setOver(false);
+          take(e.dataTransfer.files?.[0]);
+        }}
+        className={`flex w-full flex-col items-center justify-center rounded-[8px] border border-dashed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3D8BD0] focus-visible:ring-offset-1 ${z.pad} ${z.min} ${
+          disabled ? 'cursor-not-allowed border-[#D9E0EA] bg-white opacity-50'
+            : over ? 'border-[#3D8BD0] bg-[#EBF5FF]'
+              : err ? 'border-[#EF4444] bg-white'
+                : 'group border-[#D9E0EA] bg-white hover:border-[#3D8BD0]'
+        }`}
+      >
+        {/* ⚠️ TWO layers, not one glyph — an outlined file with a filled badge straddling its lower
+            body. One upload arrow reads as a toolbar button; the lockup reads as a place a file
+            goes, which is what tells you the whole box is the target rather than the icon. */}
+        <span className="relative inline-flex">
+          <File size={z.file} strokeWidth={1.5} className="text-[#D0D5DD]" />
+          <span
+            className={`absolute left-1/2 top-[62%] flex ${z.badge} -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full ring-2 ring-white transition-colors ${
+              over ? 'bg-[#2d6ca0]' : 'bg-[#3D8BD0] group-hover:bg-[#2d6ca0]'
+            }`}
+          >
+            <UploadCloud size={z.glyph} strokeWidth={2} className="text-white" />
+          </span>
+        </span>
+
+        {/* ⚠️ The underline is the whole signal. Colouring "Click to upload" blue as well would
+            over-signal a link inside a box that is already entirely clickable. */}
+        <span className={`${z.gap1} ${z.l1} text-[#364658]`}>
+          <span className="font-medium underline">Click to upload</span> or drag and drop
+        </span>
+        <span
+          id={hintId}
+          role={err ? 'status' : undefined}
+          aria-live={err ? 'polite' : undefined}
+          className={`${z.gap2} ${z.l2} ${err ? 'font-medium text-[#B42318]' : 'text-[#9CA3AF]'}`}
+        >{err ?? uploadHint(accept, maxMB, multiple, maxFiles)}</span>
+      </button>
+      <input
+        ref={ref}
+        type="file"
+        accept={accept}
+        multiple={multiple}
+        className="hidden"
+        onChange={(e) => { take(e.target.files?.[0]); e.target.value = ''; }}
+      />
+    </>
+  );
+}
+
+export function UploadZone({ value, onChange, accept = 'image/*', label, gallery }: {
+  value?: string; onChange: (dataUrl?: string) => void; accept?: string;
+  /* ⚠️ Names the SLOT for screen readers — "Upload logo image", not "Upload". The zone below is a
+     real button, so this is the only thing that says WHICH of the page's image slots it fills. */
+  label?: string;
   /* ⚠️ BANNER only. Every other slot on this panel is a logo, a favicon or a picture the admin
      already has — there is nothing to offer them a gallery OF. The banner is the one image most
      portals never get, because nobody on the team makes artwork. */
@@ -680,7 +818,6 @@ export function UploadZone({ value, onChange, accept = 'image/*', hint = 'PNG, J
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const chooseRef = useRef<HTMLButtonElement>(null);
-  const [over, setOver] = useState(false);
 
   const read = (file?: File) => {
     if (!file) return;
@@ -703,9 +840,6 @@ export function UploadZone({ value, onChange, accept = 'image/*', hint = 'PNG, J
             backgroundSize: 'contain, 10px 10px',
           }}
         />
-        {/* ⚠️ REPLACE, not Remove. Every one of these slots is filled because something has to be
-            there — a logo, a banner, a favicon — so the move people make is swapping one for
-            another, and offering "remove" put the destructive verb on the common action. */}
         <div className="mt-2 flex items-center gap-2">
           {gallery && (
             <button
@@ -718,11 +852,11 @@ export function UploadZone({ value, onChange, accept = 'image/*', hint = 'PNG, J
             onClick={() => ref.current?.click()}
             className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded border border-[#DFE5ED] bg-white text-[12px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
           ><Upload size={13} /> Replace</button>
-          <button
-            onClick={() => onChange(undefined)}
-            title="Remove image"
-            className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#FEF3F2] hover:text-[#EF4444]"
-          ><X size={14} /></button>
+          {/* ⚠️ No Remove. Every one of these slots is filled because something has to be there — a
+              logo, a banner, an icon — so swapping is the whole job and a destructive button sat
+              next to the common action for no one's benefit. Emptying a slot is still reachable
+              where it is a real choice rather than an undo: the banner switches to Colour, the icon
+              slot has a "none" glyph. */}
         </div>
         <input ref={ref} type="file" accept={accept} onChange={(e) => read(e.target.files?.[0])} className="hidden" />
       </div>
@@ -738,20 +872,10 @@ export function UploadZone({ value, onChange, accept = 'image/*', hint = 'PNG, J
           className="mb-2 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded border border-[#DFE5ED] bg-white text-[12px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
         ><Images size={13} /> Choose a ready-made banner</button>
       )}
-      <button
-        onClick={() => ref.current?.click()}
-        onDragOver={(e) => { e.preventDefault(); setOver(true); }}
-        onDragLeave={() => setOver(false)}
-        onDrop={(e) => { e.preventDefault(); setOver(false); read(e.dataTransfer.files?.[0]); }}
-        className={`flex w-full flex-col items-center gap-1 rounded border border-dashed px-3 py-4 transition-colors ${
-          over ? 'border-[#3D8BD0] bg-[#EBF5FF]' : 'border-[#C3CBD6] bg-white hover:border-[#3D8BD0]'
-        }`}
-      >
-        <Upload size={16} className="text-[#7B8FA5]" />
-        <span className="text-[12px] text-[#364658]">Drop an image or <span className="font-medium text-[#3D8BD0]">browse</span></span>
-        <span className="text-[11px] text-[#9CA3AF]">{hint}</span>
-      </button>
-      <input ref={ref} type="file" accept={accept} className="hidden" onChange={(e) => read(e.target.files?.[0] ?? undefined)} />
+      {/* ⚠️ The ONE zone. This used to be its own dashed box with its own icon and its own
+          sentence; it is now the same component the canvas and the icon picker draw, so the three
+          can no longer disagree about what an empty image slot looks like. */}
+      <ImageUploadZone onFile={onChange} accept={accept} label={label ?? 'Upload an image'} />
     </>
   );
 }

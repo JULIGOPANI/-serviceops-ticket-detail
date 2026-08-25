@@ -16,7 +16,7 @@ import { toast } from 'sonner';
  * search is there for when they do. Upload covers the rest, because every service desk eventually
  * has a service no stock set has a glyph for. */
 
-import { UploadZone } from './PortalControls';
+import { ImageUploadZone, UploadZone } from './PortalControls';
 
 export interface IconChoice {
   /** Registry key, `upload` for a custom glyph, or `image` for a picture filling the slot. */
@@ -138,7 +138,10 @@ export function IconPopover({ value, onPick, onClose, anchor }: {
 
   return createPortal(
     <div ref={ref} style={{ top, left }} className="fixed z-[10000] flex max-h-[420px] w-[300px] flex-col rounded-lg border border-[#E5E7EB] bg-white shadow-[0_12px_24px_-6px_rgba(16,24,40,0.18)]">
-      <div className="flex-shrink-0 border-b border-[#F0F2F5] p-3">
+      {/* ⚠️ No rule under the tabs. A tab strip and the panel it switches ARE one block — a line
+          between them cuts the control from the thing it controls, which is the same reason the
+          Branding panel's section heads lost theirs. */}
+      <div className="flex-shrink-0 p-3">
         {/* Two ways to fill one slot, named up front. */}
         <div className="mb-2.5 flex gap-1 rounded bg-[#F1F5F9] p-0.5">
           {(['icon', 'image'] as const).map((m) => (
@@ -162,8 +165,14 @@ export function IconPopover({ value, onPick, onClose, anchor }: {
 
       {mode === 'image' ? (
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          {isImageChoice(value) && (
-            <div className="mb-3">
+          {/* ⚠️ FILLED shows the preview and ONE action: Replace.
+              It used to show a red "Remove image" link AND a second dashed "Choose a different
+              image" box below the picture — three things where there is one move. This slot is
+              filled because a card needs an icon, so swapping is what people come here to do, and
+              the destructive verb was sitting on top of the common one. Removing is still possible
+              from the Icon tab, where "none" is a real choice rather than an undo. */}
+          {isImageChoice(value) ? (
+            <>
               {/* Shown CROPPED the way the card will crop it, not letterboxed — a preview that
                   fits the whole picture in tells you nothing about what the card will show. */}
               <span
@@ -171,20 +180,19 @@ export function IconPopover({ value, onPick, onClose, anchor }: {
                 style={{ backgroundImage: `url(${value!.src})` }}
               />
               <button
-                onClick={() => { onPick({ key: 'none' }); onClose(); }}
-                className="mt-2 text-[12px] font-medium text-[#DC2626] hover:underline"
-              >Remove image</button>
-            </div>
+                onClick={() => imgRef.current?.click()}
+                className="mt-2 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded border border-[#DFE5ED] bg-white text-[12px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
+              ><Upload size={13} /> Replace image</button>
+            </>
+          ) : (
+            <ImageUploadZone
+              onFile={(src) => { onPick({ key: 'image', src }); onClose(); }}
+              accept="image/png,image/jpeg,image/webp"
+              label="Upload an image for this icon slot"
+            />
           )}
-          <button
-            onClick={() => imgRef.current?.click()}
-            className="flex h-[92px] w-full flex-col items-center justify-center gap-1.5 rounded border border-dashed border-[#C3CBD6] text-[13px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
-          >
-            <Upload size={16} />
-            {isImageChoice(value) ? 'Choose a different image' : 'Upload an image'}
-          </button>
           <p className="mt-2 text-[11px] leading-[1.5] text-[#9CA3AF]">
-            Fills the icon slot and is cropped to it. PNG, JPG or WebP.
+            Fills the icon slot and is cropped to it.
           </p>
           <input
             ref={imgRef} type="file" accept="image/png,image/jpeg,image/webp"

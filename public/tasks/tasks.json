@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 11:06",
-  "builtAt": "2026-08-25T05:54:27.187Z",
+  "builtAt": "2026-08-25T06:19:01.475Z",
   "tasks": [
     {
       "n": 15,
@@ -87,7 +87,7 @@
         "Where": "`SupportPortalPreview.tsx`, `supportPortalData.ts`, `portalWidgetSpec.ts`",
         "You asked": "two sections of up to four cards, styled like the action cards rather than the old list. ⚠️ You chose **restyle the existing Most Used Services and add Favourite Services** — so the page carries each name once, not twice.",
         "How I check it": "both sections render four cards with icon-on-top, name and category (Employee Off-boarding / HR, Microsoft Office 2019 / Software, Payroll Setup / Finance, Flight Booking / Travel), and they match the action cards' shape.",
-        "Verified": "Both sections render four tiles — icon on top, name over category, centred, in the action cards' chrome — at identical 117px heights and 1027px card widths. Favourite Services carries the reference's four (Employee Off-boarding/HR, Microsoft Office 2019/Software, Payroll Setup/Finance, Flight Booking/Travel); Most Used Services carries four different ones so two adjacent grids do not read as a rendering bug."
+        "Verified": "⚠️ REVISED — neither section is in the library (15 rows, both absent); they are fixed page blocks sitting directly under Quick Actions (measured: quick 408 → favourites 497 → services 678 → work 830). Both render four tiles, icon-top, name over category, identical 117px height and column direction on load. Card templates is its own group under Content and is SHARED: picking Icon left turned both grids to row, Icon top turned both back to column."
       }
     },
     {
@@ -108,6 +108,17 @@
         "Where": "`portalCollectionSpecs.ts`, a new table renderer",
         "You asked": "drop the whole current table configuration. Insert by choosing rows × columns from a 10×10 grid; edit cells inline with a floating toolbar; drag rows and columns; insert and delete row / column / table / cell. Keep only Title in Content and Spacing in Style.",
         "How I check it": "⚠️ Your line 24 ends mid-sentence (\"other given instructions like table row column selecting will\"). I will ask what was cut off, plus the specific interaction questions, before building."
+      }
+    },
+    {
+      "n": 90,
+      "title": "Image-upload empty state — one component everywhere",
+      "status": "done",
+      "fields": {
+        "Where": "`PortalControls.tsx` (`ImageUploadZone`), + PortalIconPicker, PortalPlacedElement, PortalCanvas, SupportPortalBuilder",
+        "You asked": "from [IMAGE-UPLOAD-ZONE-PROMPT.md](IMAGE-UPLOAD-ZONE-PROMPT.md) — replace every image-upload empty state with ONE shared component. Plus: a filled slot shows only a **Replace** CTA (no Remove link, no second dashed box), and no divider between the tab row and the upload container.",
+        "How I check it": "the same lockup at both sizes, drag-over responds, an oversized file errors and stays usable, and no hand-rolled image dropzone survives the §7.7 grep.",
+        "Verified": "sm (panel) = 132px min / 24×16 pad / 32px file glyph; md (canvas) = 180px / 40×24 / 40px — same lockup, same copy. Drag-over paints #EBF5FF on #3D8BD0. A 9MB drop gives \"That file is 9.0MB — the limit is 5MB\" in red with the zone still enabled; a .txt gives the type message. A real PNG dropped on the canvas image element lands and replaces the zone. Filled = 92px chequerboard preview + a single Replace. §7.7 grep leaves only the one component plus the out-of-scope placeholders."
       }
     },
     {

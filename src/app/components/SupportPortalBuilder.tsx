@@ -1196,13 +1196,27 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   }, []);
 
   const canvasCtx = {
-    selectedId, hoverId, select, setHover: setHoverId, styles, setStyle, setText,
+    selectedId, hoverId, select, setHover: setHoverId, styles, setStyle, setText, setCfg: patchCfg,
     addSection, addColumnBeside, dropInColumn, dropAtSeam, dropInRow,
     moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, moveToSeam, addChildBlock, areSiblings, replaceElement, pickIcon, applyPreset,
     onWholePage: () => { const on = cfgFor('hero').bgWholePage === true; patchCfg('hero', { bgWholePage: !on }); toast.success(on ? 'Background is banner-only again' : 'Background applied to the whole page'); },
     /* The text toolbar names the theme fonts, so it needs the live theme. */
     theme,
   };
+
+  /* ⚠️ A file dropped OUTSIDE a zone must do nothing. The browser's default for a dropped file is
+     to navigate to it — so a near miss on any dropzone in this builder replaced the whole canvas
+     with the raw image, losing everything unsaved. The zones themselves stopPropagation, so this
+     only ever fires for a genuine miss. */
+  useEffect(() => {
+    const swallow = (e: DragEvent) => { e.preventDefault(); };
+    document.addEventListener('dragover', swallow);
+    document.addEventListener('drop', swallow);
+    return () => {
+      document.removeEventListener('dragover', swallow);
+      document.removeEventListener('drop', swallow);
+    };
+  }, []);
 
   // Title — inline edit, committed on Enter or blur, abandoned on Escape.
   const [editing, setEditing] = useState(false);
