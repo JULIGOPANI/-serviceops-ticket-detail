@@ -54,6 +54,7 @@ export type ControlKind =
   /** Opens the table's content as a SHEET — a grid is edited in a grid. */
   | 'tableContent'
   | 'videoSource'
+  | 'addLinkCard'
   /** Circle / square / banner, shown as the shapes themselves. */
   | 'shape';
 
@@ -456,6 +457,12 @@ export const WIDGET_SPECS: WidgetSpec[] = [
        card an admin adds and points wherever they like. Sharing the factory is what guarantees its
        Style, Alignment, Size and Spacing sections are the ones Quick Actions uses. */
     ['act_custom', 'Action Card', 'Describe what this card does', '', 'incident'],
+    /* ⚠️ The Quick Actions row's ONE addable card, built from the same factory so its Style,
+       Alignment and Spacing are the row's — a lookalike would drift the first time either changed.
+       It differs from `act_custom` in exactly one way: its destination is FIXED. This card exists to
+       open a link, so a dropdown offering Incident / Service / AD / Knowledge would spend four of
+       its five options duplicating cards the row already carries. */
+    ['act_link', 'External link', 'Where this link goes', '', 'incident'],
   ] as const).map<WidgetSpec>(([id, title, sub, perm, icon]) => ({
     id, name: title, group: 'Actions', reuse: id === 'act_custom' ? 'many' : 'single', family: 'flat',
     ...(perm ? { gate: { kind: 'permission' as const, setting: perm, section: 'Organization' } } : {}),
@@ -477,7 +484,15 @@ export const WIDGET_SPECS: WidgetSpec[] = [
        loser would be whichever was touched last. */
     panel: {
       content: [
-        { key: 'title', label: 'Title', control: 'text' },
+        /* ⚠️ TITLE is withheld from the four FIXED cards. They are the product's destinations, and
+           renaming "New Incident" is how a card ends up describing something it does not do — the
+           same reason its title is not inline-editable on the canvas either. The custom card and the
+           external-link card keep it, because what they say is the whole of what they are.
+           ⚠️ Subtitle and Icon stay on all five: you asked only for the TITLE to be locked, and the
+           subtitle being editable was a deliberate earlier decision. */
+        ...(id === 'act_custom' || id === 'act_link'
+          ? [{ key: 'title', label: 'Title', control: 'text' as const }]
+          : []),
         { key: 'sub', label: 'Subtitle', control: 'text' },
         { key: 'icon', label: 'Icon', control: 'icon' },
         /* The only place this is chosen now (see SECTION_SPEC). */
@@ -490,6 +505,14 @@ export const WIDGET_SPECS: WidgetSpec[] = [
          It gets its OWN section rather than a row inside Content: where a card GOES is neither what
          it says nor how it looks, and a destination buried among titles is how one ends up pointing
          nowhere. */
+      /* ⚠️ The external-link card's ACTION is one field. Its destination is not a choice — the card
+         is named for where it goes — so a dropdown here would be a control with one honest answer. */
+      ...(id === 'act_link' ? {
+      action: [
+        { key: 'url', label: 'URL', control: 'text' as const, help: 'Where a requester lands when they click this card.' },
+        { key: 'newTab', label: 'Open in a new tab', control: 'toggle' as const },
+      ],
+      } : {}),
       ...(id === 'act_custom' ? {
       action: [
         {
@@ -861,6 +884,7 @@ export const WIDGET_FOR_NODE: Record<string, string> = {
   favourites: 'favourite_services',
   services: 'featured_services',
   'quick-incident': 'act_incident',
+  'quick-link': 'act_link',
   'quick-service': 'act_service',
   'quick-knowledge': 'act_knowledge',
   'quick-ad': 'act_ad',

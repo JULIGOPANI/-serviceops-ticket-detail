@@ -143,6 +143,13 @@ export const SECTION_SPEC: WidgetSpec = {
      with border + radius only. Fields that do not apply are removed, never greyed. */
   panel: {
     content: [
+      /* ⚠️ ONLY on the Quick Actions row. `__quickRow` is seeded by `cfgFor` for that one node, so
+         every other section's Content section stays empty and drops out entirely — the same
+         `hasContentSection` rule that hides a heading introducing nothing.
+         ⚠️ This does NOT reopen `LOCKED_ROWS`. The row still refuses everything the palette can
+         offer, by drag or by click; it gains ONE card, from its own panel, with a fixed destination.
+         A locked row and a row with one door are different things. */
+      { key: '__addLink', label: '', control: 'addLinkCard', when: (c) => c.__quickRow === true },
       /* ⚠️ NO Name field. It was editor-only — "Only you see this" — and NOTHING read it: the hover
          chip, the breadcrumb and the drawer title all take their words from `nodeById`, which
          hard-codes them, which is why the panel says "Cards Row / Section" whatever you typed. A

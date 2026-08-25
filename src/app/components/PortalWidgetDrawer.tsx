@@ -16,7 +16,7 @@ import { useEffect, Fragment, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   ChevronLeft, ChevronRight, Copy, EyeOff, Layers, List, MoreVertical, PanelLeft, RotateCcw,
-  Info, Rows3, Search as SearchIcon, Square, Trash2, Type as TypeIcon,
+  Info, Link2, Rows3, Search as SearchIcon, Square, Trash2, Type as TypeIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -574,10 +574,12 @@ export interface WidgetDrawerProps {
   canDuplicate?: boolean;
   /** Opens an admin destination, for the "where this value actually lives" links. */
   onOpenSetting?: (section: string, card?: string) => void;
+  /** Appends the Quick Actions row's one external-link card. */
+  onAddLinkCard?: () => void;
 }
 
 export function PortalWidgetDrawer(props: WidgetDrawerProps) {
-  const { nodeId, spec, cfg, setCfg, styles, setStyle, replaceStyle, onSelect, onReset, applyPreset, icon, setIcon } = props;
+  const { nodeId, spec, cfg, setCfg, styles, setStyle, replaceStyle, onSelect, onReset, applyPreset, icon, setIcon, onAddLinkCard } = props;
   const node = nodeById(nodeId);
   const path = nodePath(nodeId);
   /* What arrives OPEN. ⚠️ CONTENT only — every DESIGN accordion starts collapsed.
@@ -761,6 +763,37 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
         return <UploadZone value={v as string} onChange={(x) => set(f.key, x ?? '')} />;
       case 'videoSource':
         return <VideoSource value={v as string} onChange={(x) => set(f.key, x)} />;
+      /* The Quick Actions row's one addable card.
+         ⚠️ At the limit the CTA stays VISIBLE and disabled with the reason on it — the same rule
+         every other cap in this builder follows. A CTA that vanished once used would leave an admin
+         wondering whether they had imagined it. */
+      case 'addLinkCard': {
+        const has = cfg.__hasLink === true;
+        return (
+          <div className="rounded-lg border border-dashed border-[#D9E0EA] bg-white px-4 py-4 text-center">
+            <span className="mx-auto flex size-9 items-center justify-center rounded-full bg-[#F1F5F9] text-[#3D8BD0]">
+              <Link2 size={17} />
+            </span>
+            <p className="mt-2 text-[13px] font-medium text-[#364658]">External link card</p>
+            <p className="mt-0.5 text-[11px] leading-[1.5] text-[#9CA3AF]">
+              {has
+                ? 'Already on this row — select the card to edit its link.'
+                : 'The one card you can add here. Opens a link of your choosing.'}
+            </p>
+            <button
+              type="button"
+              disabled={has}
+              title={has ? 'This row already has its external-link card' : undefined}
+              onClick={() => onAddLinkCard?.()}
+              className={`mt-2.5 w-full rounded py-1.5 text-[12px] font-medium transition-colors ${
+                has
+                  ? 'cursor-not-allowed border border-[#EDF0F4] text-[#C3CBD6]'
+                  : 'bg-[#3D8BD0] text-white hover:bg-[#2d6ca0]'
+              }`}
+            >{has ? 'Added' : 'Add card'}</button>
+          </div>
+        );
+      }
       /* The banner's slot: the same zone, plus the gallery route. */
       case 'bannerUpload':
         return (

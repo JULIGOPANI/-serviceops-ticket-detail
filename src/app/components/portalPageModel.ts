@@ -69,6 +69,12 @@ export const PORTAL_NODES: PortalNodeDef[] = [
   /* ⚠️ Declared but NOT in DEFAULT_CONTENT.quick — the node has to exist for selection and for the
      drawer to describe it, while the page stays three cards until an admin adds the fourth. */
   { id: 'quick-ad', name: 'AD Self Service', kind: 'card', parent: 'quick', content: 'actionCard' },
+  /* ⚠️ DECLARED even though the page does not ship with one. A card that is not a node still
+     RENDERS — `Sel` falls back to a plain div — but it cannot be selected, cannot be named in the
+     breadcrumb and opens a blank panel: exactly what "I added a card and nothing happened" looks
+     like from the outside, with the card sitting there in plain sight. Same reason `quick-ad` is
+     declared here and only sometimes on the page. */
+  { id: 'quick-link', name: 'External link', kind: 'card', parent: 'quick', content: 'actionCard' },
 
   /* ── the two service rows ──
    * ⚠️ Fixed page blocks, NOT palette elements. What they list is chosen by the REQUESTER — their
@@ -469,6 +475,9 @@ export const fontCss = (id?: string) => PORTAL_FONTS.find((f) => f.id === id)?.c
  * SUBTITLES stay editable while their titles do not.
  * ⚠️ Both spellings are covered — the fixed page nodes AND the catalogue types — because the same
  * widget dropped from the library gets an `el-N` id and has to behave identically. */
+/* ⚠️ `quick-link` is deliberately ABSENT. Every other card in this row is a product destination
+   whose name the product owns; that one exists to say where an admin's link goes, so its title is
+   theirs to write — which is the whole difference between it and the four beside it. */
 const FIXED_TITLE_NODES = new Set([
   'requests', 'approvals', 'knowledge', 'assets', 'cis', 'news', 'services', 'favourites', 'contact',
   'quick-incident', 'quick-service', 'quick-ad', 'quick-knowledge',

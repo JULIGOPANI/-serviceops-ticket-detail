@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import {
   Bell, Check, Info, Keyboard, KeyRound, House, MessageSquare, MessagesSquare, Plus, PanelLeft,
-  RotateCcw, Search, ShoppingCart, Type, X, ChevronsRight, LayoutGrid,
+  Link2, RotateCcw, Search, ShoppingCart, Type, X, ChevronsRight, LayoutGrid,
 } from 'lucide-react';
 import { FavouriteServicesRender, FeaturedServicesRender } from './PortalCollectionRender';
 import { MotadataLogo } from './Header';
@@ -1233,6 +1233,10 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                             ?? (a.id === 'quick-incident' ? <IconRequest size={Number(iconSize)} />
                               : a.id === 'quick-service' ? <ShoppingCart size={Number(iconSize) - 1} strokeWidth={1.7} />
                               : a.id === 'quick-ad' ? <KeyRound size={Number(iconSize)} strokeWidth={1.7} />
+                              /* The row's one addable card. It ships with a link glyph and can be
+                                 changed like any other — the icon is the one thing about a card
+                                 nobody argues over. */
+                              : a.id === 'quick-link' ? <Link2 size={Number(iconSize)} strokeWidth={1.7} />
                               : <IconKnowledge size={Number(iconSize)} />)}
                         </span>
                         </Sel>}

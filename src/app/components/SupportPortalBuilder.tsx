@@ -155,6 +155,13 @@ function PanelEmptyState({ active }: { active: RailKey | null }) {
 
 /* ── Builder ─────────────────────────────────────────────────────────────── */
 
+/* The Quick Actions row's ONE addable card.
+ *
+ * ⚠️ A FIXED id, not a minted one. The row holds at most one of these, the panel disables its CTA by
+ * testing for exactly this id, and `WIDGET_FOR_NODE` maps it to the spec — three places that have
+ * to agree, so the name is written once. */
+export const LINK_CARD_ID = 'quick-link';
+
 export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit, openOn, onOpenConsumed }: SupportPortalBuilderProps & {
   /* Which rail panel to land on. The listing's "Portal settings" action opens the portal AT its
      settings rather than at the canvas — asking for settings and being given a blank widget library
@@ -195,6 +202,11 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [content, setContent] = useState<PortalPageContent>(DEFAULT_CONTENT);
+  /* ⚠️ Read by `addLinkCard`, which must know whether the row already HAS its one link card before
+     the state settles. Reading `content` inside the updater only works while that hook's queue is
+     empty — the same trap `detachElement` records. */
+  const contentRef = useRef(content);
+  contentRef.current = content;
   const [styles, setStyles] = useState<PortalStyles>({});
 
   const setStyle = useCallback((id: string, p: Partial<NodeStyle>) => {
@@ -339,6 +351,13 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
          own still wins — this only fills the gap before it chooses. */
       ...(/^quick-/.test(owner) ? { cardTemplate: widgetCfgRef.current.quick?.cardTemplate ?? 'left' } : {}),
       __noData: PORTAL_EMPTY_WIDGETS.has(owner),
+      /* ⚠️ Which section is allowed the external-link CTA, and whether it already has one. Seeded
+         here rather than tested in the spec, because a spec is data and has no way to look at the
+         page. `__hasLink` is what disables the CTA with a reason instead of letting a second card
+         land in a row sized for one. */
+      ...(owner === 'quick'
+        ? { __quickRow: true, __hasLink: content.quick.some((q) => q.id === LINK_CARD_ID) }
+        : {}),
       ...(widgetCfg[owner] ?? {}),
       /* ⚠️ LAST, and read from the TREE — the behaviour control's value is the box's own `dir`, and
          config must not be able to answer over the top of it. A stored copy would be a second
@@ -797,6 +816,25 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     const last = blockOrder.filter((b) => !removed.includes(b)).slice(-1)[0] ?? 'hero';
     dropAtSeam(last, type);
   }, [content.quick, selectedId, sections, rowOrder, blockOrder, removed, placedPredefined, dropInColumn, dropInRow, dropAtSeam, select, patchCfg]);
+
+  /* Add the row's one external-link card.
+   *
+   * ⚠️ It appends to `content.quick` — a REAL fifth action card, not a placed element standing in
+   * for one. That is the only way it comes out identical to the four beside it: same renderer, same
+   * templates, same share of the row. It also widens the row to five, because a fifth card in a
+   * four-column row wraps to a full-width row of its own, which is a different block that happens
+   * to look like a card. */
+  const addLinkCard = useCallback(() => {
+    if (contentRef.current.quick.some((q) => q.id === LINK_CARD_ID)) {
+      toast.error('This row already has its external-link card');
+      return;
+    }
+    setContent((c) => ({ ...c, quick: [...c.quick, { id: LINK_CARD_ID, title: 'External link', desc: 'Where this link goes' }] }));
+    setRowOrder((o) => ({ ...o, quick: [...(o.quick ?? DEFAULT_ROW_ORDER.quick), LINK_CARD_ID] }));
+    patchCfg('quick', { cols: String((rowOrderRef.current.quick ?? DEFAULT_ROW_ORDER.quick).length + 1) });
+    select(LINK_CARD_ID);
+    toast.success('External link card added');
+  }, [select, patchCfg]);
 
   const moveNode = useCallback((id: string, dir: 'prev' | 'next') => {
     const step = dir === 'prev' ? -1 : 1;
@@ -1325,7 +1363,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
   const canvasCtx = {
     selectedId, hoverId, select, setHover: setHoverId, styles, setStyle, setText, setCfg: patchCfg,
-    addSection, addColumnBeside, splitNode, setNodeDir, splitInfo, dropInColumn, dropAtSeam, dropInRow,
+    addSection, addColumnBeside, splitNode, setNodeDir, splitInfo, addLinkCard, dropInColumn, dropAtSeam, dropInRow,
     moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, moveToSeam, addChildBlock, areSiblings, replaceElement, pickIcon, applyPreset,
     /* The text toolbar names the theme fonts, so it needs the live theme. */
     theme,
@@ -1643,6 +1681,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
                   nodeId={selectedId}
                   spec={specForNode(selectedId)!}
                   cfg={cfgFor(selectedId)}
+                  onAddLinkCard={addLinkCard}
                   setCfg={(patch) => patchCfg(ownerOf(selectedId), patch)}
                   styles={styles}
                   setStyle={setStyle}

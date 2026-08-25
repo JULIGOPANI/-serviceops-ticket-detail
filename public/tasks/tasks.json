@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-25T10:20:29.183Z",
+  "builtAt": "2026-08-25T10:38:51.350Z",
   "tasks": [
     {
       "n": 1,
@@ -388,11 +388,14 @@
     {
       "n": 31,
       "title": "Action Cards — one addable card, the external link",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalStructureSpecs.ts` (the Quick Actions section panel), `portalPageModel.ts` (`LOCKED_ROWS`), `portalWidgetSpec.ts`",
         "You asked": "the action-cards row is predefined, but ONE thing can join it — an **external link** card. Selecting the parent section offers a card in the sidebar; it takes a **URL** field and opens that link when clicked. That card alone may have its **title, subtext and icon** edited from the sidebar. The other four may not be edited from the sidebar OR inline.",
-        "How I check it": "selecting the Quick Actions section shows the add-external-link card; adding one widens the row and the new card takes a URL, title, subtext and icon; the other four cards have no title/subtext editor in the panel and are not inline-editable on the canvas."
+        "How I check it": "selecting the Quick Actions section shows the add-external-link card; adding one widens the row and the new card takes a URL, title, subtext and icon; the other four have no title editor in the panel and no inline title on the canvas.",
+        "Settled first": "**one** card per row (the CTA then disables with the reason on it), and its destination is **fixed** — a URL field, no dropdown. A dropdown would have spent four of its five options duplicating cards the row already carries.",
+        "What I built": "an `act_link` spec from the SAME factory as the four fixed cards, so its Style, Alignment and Spacing are theirs — a lookalike would drift the first time either changed. It differs in exactly one way: the destination is fixed, so its ACTION section is a URL and an Open-in-a-new-tab. Adding appends a REAL fifth card to `content.quick`, not a placed element standing in for one — that is the only way it comes out identical to the four beside it — and widens the row to five, because a fifth card in a four-column row wraps to a full-width row of its own, which is a different block that happens to look like a card.",
+        "Verified": "the section panel shows the CTA only on Quick Actions (the work and records rows show no Content section at all). Adding gives five cards at 193px each, the new one carrying a link glyph. Its panel is CONTENT (Title · Subtitle · Icon · Card templates) → ACTION (URL · Open in a new tab) → DESIGN (Style · Spacing). New Incident's panel is CONTENT (**Subtitle · Icon** · Card templates) — no Title. The CTA then reads \"Added\", disabled, titled \"This row already has its external-link card\". No `-title` node exists on any of the five, so no title is inline-editable."
       }
     },
     {
