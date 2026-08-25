@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-25T10:13:39.869Z",
+  "builtAt": "2026-08-25T10:20:29.183Z",
   "tasks": [
     {
       "n": 1,
@@ -442,11 +442,14 @@
     {
       "n": 36,
       "title": "Video widget",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`supportPortalData.ts` (the palette), a new spec + renderer",
         "You asked": "a **Video** widget in the Visual group. Design keeps **Spacing and Style** only. Content is an empty container offering **Select video** or **Upload a link**; once one is set it offers **Replace video**.",
-        "How I check it": "the Visual group lists Video; a placed one is empty with the two choices; after setting one it shows the video and a Replace CTA."
+        "How I check it": "the Visual group lists Video; a placed one is empty with the two choices; after setting one it shows the video and a Replace CTA.",
+        "What I built": "a `video` spec whose Content is ONE control and whose Design is Style + Spacing. ⚠️ **`VideoSource` is one control, not an upload field beside a URL field** — a video comes from a file or from a link and never from both, so two always-visible inputs would ask a question with a wrong answer permanently on screen and leave the widget to decide which wins when both are filled. Empty it offers **Select video** and **Upload link**; filled it shows what is there and offers **Replace video**, which is the only thing you do to a video already in place.",
+        "Left out deliberately": "ratio, autoplay, loop, mute and a poster frame. A support portal plays a video when somebody presses play, at the size the column gives it.",
+        "Verified": "Visual lists Video. Placed empty it reads \"Choose a video in the panel\"; the panel reads Video → No video yet → Select video · Upload link → \"MP4, WebM or MOV · max 50MB, or a YouTube or Vimeo link\". Pasting `youtube.com/watch?v=dQw4w9WgXcQ` produced an iframe at `youtube.com/embed/dQw4w9WgXcQ`, 1027×578 (16:9), with the panel showing Video link → the URL → **Replace video**. Clicking the frame still selects the widget."
       }
     },
     {

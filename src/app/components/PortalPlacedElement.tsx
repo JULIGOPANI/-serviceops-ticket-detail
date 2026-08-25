@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Image as ImageIcon, Search, Star } from 'lucide-react';
+import { Image as ImageIcon, PlayCircle, Search, Star } from 'lucide-react';
 import { PORTAL_ELEMENTS } from './supportPortalData';
 import { ACTION_TYPES, fillCss, renderSpec } from './portalPageModel';
 import type { PlacedElement } from './portalPageModel';
@@ -77,6 +77,20 @@ const BTN_SIZE: Record<string, string> = { sm: 'h-7 px-3 text-[12px]', md: 'h-9 
    whole element was the smallest selectable thing, so a KPI's label or a custom card's title could
    be read on the canvas and changed only from the panel — which is exactly the knowledge a canvas
    exists to make unnecessary. The suffix matches the config key it writes. */
+/** A watch URL turned into its EMBED address, or null for anything else.
+ *
+ * ⚠️ Pasting a YouTube or Vimeo watch link and rendering it directly puts the whole SITE in the
+ * frame — chrome, sidebar, cookie banner — which is not what anybody who pasted a video link is
+ * asking for. Everything that is not one of these two is treated as a direct file, which is what a
+ * .mp4 on a CDN needs. */
+function ytOrVimeo(url: string): string | null {
+  const yt = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{6,})/.exec(url);
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+  const vi = /vimeo\.com\/(?:video\/)?([0-9]{5,})/.exec(url);
+  if (vi) return `https://player.vimeo.com/video/${vi[1]}`;
+  return null;
+}
+
 function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, glyph: React.ReactNode, nodeId: string) {
   if (!cfg) return null;
   /* eslint-disable-next-line react-hooks/rules-of-hooks -- called unconditionally from one caller. */
@@ -255,6 +269,42 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
     return <span className="block" style={{ textAlign: (cfg.contentAlign as never) ?? 'left' }}>{btn}</span>;
   }
 
+  if (type === 'v-video') {
+    const src = String(cfg.src ?? '');
+    if (!src) return null;
+    const bw = Number(cfg.borderWidth ?? 0);
+    const box: React.CSSProperties = {
+      borderWidth: bw || undefined,
+      borderStyle: bw ? 'solid' : undefined,
+      borderColor: bw ? String(cfg.borderColor ?? '#E5E7EB') : undefined,
+      borderRadius: Number(cfg.radius ?? 8),
+      overflow: 'hidden',
+    };
+    /* ⚠️ A pasted YouTube or Vimeo link is turned into its EMBED address. The watch URL renders the
+       whole site in an iframe — the chrome, the sidebar, the cookie banner — which is not what
+       anybody who pasted a video link is asking for. Anything else is treated as a direct file. */
+    const embed = ytOrVimeo(src);
+    /* ⚠️ INERT on the canvas. A click on this element has to mean "select it", and an iframe eats
+       every event that reaches it — so while the builder is live the frame is covered and nothing
+       inside it can be reached. In Preview and on the real portal it is a real player. */
+    return (
+      <div className="relative w-full" style={box}>
+        {embed ? (
+          <iframe
+            src={embed}
+            title="Video"
+            allow="accelerometer; clipboard-write; encrypted-media; picture-in-picture"
+            allowFullScreen
+            className="block aspect-video w-full"
+          />
+        ) : (
+          <video src={src} controls={!enabled} className="block aspect-video w-full bg-black object-contain" />
+        )}
+        {enabled && <span className="absolute inset-0 z-10" />}
+      </div>
+    );
+  }
+
   if (type === 'v-image') {
     const src = String(cfg.src ?? '');
     const caption = String(cfg.caption ?? '');
@@ -407,6 +457,19 @@ function PlacedBody({ item, icon, text, cfg }: {
         <button className="inline-flex h-9 items-center rounded border border-dashed border-[#C3CBD6] px-4 text-[13px] font-medium text-[#9CA3AF]">
           Button
         </button>
+      );
+
+    case 'v-video':
+      /* ⚠️ Says what it is and how to fill it, rather than being a grey rectangle. A video has two
+         routes in and neither is a drag onto the canvas, so unlike the image slot this is a SIGN,
+         not a dropzone — it must not look like one it cannot honour. */
+      return (
+        <div className="flex w-full flex-col items-center justify-center rounded border border-dashed border-[#C3CBD6] bg-white px-4 py-8">
+          <span className="flex size-10 items-center justify-center rounded-full bg-[#F1F5F9] text-[#C3CBD6]">
+            <PlayCircle size={22} />
+          </span>
+          <span className={`mt-2 ${empty}`}>Choose a video in the panel</span>
+        </div>
       );
 
     case 'v-image':

@@ -329,10 +329,18 @@ Updated: 2026-08-25 12:11
 - **How I check it:** to be agreed — I will come to you with the specific questions before writing any of it.
 
 ## 36. Video widget
-- **Status:** todo
+- **Status:** done
 - **Where:** `supportPortalData.ts` (the palette), a new spec + renderer
 - **You asked:** a **Video** widget in the Visual group. Design keeps **Spacing and Style** only. Content is an empty container offering **Select video** or **Upload a link**; once one is set it offers **Replace video**.
 - **How I check it:** the Visual group lists Video; a placed one is empty with the two choices; after setting one it shows the video and a Replace CTA.
+- **What I built:** a `video` spec whose Content is ONE control and whose Design is Style + Spacing. ⚠️ **`VideoSource` is one control, not an upload field beside a URL field** — a video comes from a file or from a link and never from both, so two always-visible inputs would ask a question with a wrong answer permanently on screen and leave the widget to decide which wins when both are filled. Empty it offers **Select video** and **Upload link**; filled it shows what is there and offers **Replace video**, which is the only thing you do to a video already in place.
+- **⚠️ A pasted watch URL becomes an EMBED URL.** Rendering `youtube.com/watch?v=…` directly puts the whole site in the frame — chrome, sidebar, cookie banner — which is not what anybody who pasted a video link is asking for. YouTube and Vimeo are converted; everything else is treated as a direct file, which is what a .mp4 on a CDN needs.
+- **⚠️ The frame is INERT on the canvas.** An iframe eats every event that reaches it, and a click on this element has to mean "select it" — so while the builder is live the frame is covered by a shield. In Preview and on the real portal it is a real player.
+- **⚠️ The empty state is a SIGN, not a dropzone.** A video has two routes in and neither is a drag onto the canvas, so unlike the image slot it must not look like a target it cannot honour.
+- **Left out deliberately:** ratio, autoplay, loop, mute and a poster frame. A support portal plays a video when somebody presses play, at the size the column gives it.
+- **Verified:** Visual lists Video. Placed empty it reads "Choose a video in the panel"; the panel reads Video → No video yet → Select video · Upload link → "MP4, WebM or MOV · max 50MB, or a YouTube or Vimeo link". Pasting `youtube.com/watch?v=dQw4w9WgXcQ` produced an iframe at `youtube.com/embed/dQw4w9WgXcQ`, 1027×578 (16:9), with the panel showing Video link → the URL → **Replace video**. Clicking the frame still selects the widget.
+
+
 
 ## 90. Image-upload empty state — one component everywhere
 - **Status:** done

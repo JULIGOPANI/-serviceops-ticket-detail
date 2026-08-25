@@ -29,7 +29,7 @@ import type { BackdropSpec } from './PortalContrastMeter';
 import { ALL_PACKS, packBadge } from './PortalStylePacks';
 import {
   ALIGN_OPTIONS, Badge, ChipEditor, Chips, Field, GridPicker, Group, Note, NumberField, RichText,
-  SelectField, Segmented, SliderRow, TextField, ToggleRow, UploadZone,
+  SelectField, Segmented, SliderRow, TextField, ToggleRow, UploadZone, VideoSource,
   MultiSelect,
 } from './PortalControls';
 import { PortalItemList } from './PortalItemList';
@@ -759,6 +759,8 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
         return <ColorField value={(v as string) ?? '#3D8BD0'} onChange={(x) => set(f.key, x)} />;
       case 'upload':
         return <UploadZone value={v as string} onChange={(x) => set(f.key, x ?? '')} />;
+      case 'videoSource':
+        return <VideoSource value={v as string} onChange={(x) => set(f.key, x)} />;
       /* The banner's slot: the same zone, plus the gallery route. */
       case 'bannerUpload':
         return (

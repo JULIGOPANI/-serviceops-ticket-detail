@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-  Boxes, Check, ChevronsUpDown, ClipboardList, Download, GalleryHorizontal, Gauge, Heading,
+  Boxes, Check, ChevronsUpDown, ClipboardList, Download, GalleryHorizontal, Gauge, Heading, PlayCircle,
   HelpCircle, Image as ImageIcon, Images, KeyRound, LayoutGrid, LayoutTemplate, LifeBuoy, Link2, List, Mail,
   Megaphone, Minus, MousePointerClick, MoveVertical, Network, PanelTop, Phone, Rows3, Search, Shapes, Share2,
   ShoppingCart, Smile, Square, Star, Table, Timer, Type, X, Zap,
@@ -69,6 +69,7 @@ const ICONS: Record<string, ReactNode> = {
   card: <Square size={16} />,
   // Visual
   image: <ImageIcon size={16} />,
+  video: <PlayCircle size={16} />,
   slider: <GalleryHorizontal size={16} />,
   gallery: <Images size={16} />,
   icon: <Smile size={16} />,

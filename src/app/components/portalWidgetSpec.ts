@@ -53,6 +53,7 @@ export type ControlKind =
   | 'iconFrame'
   /** Opens the table's content as a SHEET — a grid is edited in a grid. */
   | 'tableContent'
+  | 'videoSource'
   /** Circle / square / banner, shown as the shapes themselves. */
   | 'shape';
 
@@ -727,6 +728,22 @@ export const WIDGET_SPECS: WidgetSpec[] = [
     },
   },
 
+  /* ─────────── Video ───────────
+   *
+   * ⚠️ Content is ONE control and Design is Style + Spacing, nothing else. A video has exactly one
+   * thing to author — which video — and its box is the same box every other element has. Ratio,
+   * autoplay, loop, mute and a poster frame were all tempting and all left out: a support portal
+   * plays a video when somebody presses play, at the size the column gives it. */
+  {
+    id: 'video', name: 'Video', group: 'Content', reuse: 'many', family: 'flat',
+    fields: [
+      { key: 'src', label: 'Video', control: 'videoSource', group: 'Content' },
+    ],
+    /* P1 is the shared Style pack; Spacing is added to every widget by the drawer. */
+    packs: ['P1'],
+    defaults: { src: '' },
+  },
+
   /* ─────────── §7.14 Image ─────────── */
   {
     id: 'image', name: 'Image', group: 'Content', reuse: 'many', family: 'flat',
@@ -869,6 +886,7 @@ export const WIDGET_FOR_TYPE: Record<string, string> = {
   'act-ad': 'act_ad',
   'b-text': 'text',
   'v-image': 'image',
+  'v-video': 'video',
   'b-button': 'button',
   'x-kpi': 'count_tile',
   // Collection widgets. `b-accordion` and `c-faq` are the same widget reached two ways.

@@ -362,6 +362,7 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
 
   // ── Visual ──
   { id: 'v-image', name: 'Image', icon: 'image', group: 'Visual', keywords: 'picture photo' },
+  { id: 'v-video', name: 'Video', icon: 'video', group: 'Visual', keywords: 'youtube vimeo mp4 embed player clip' },
   { id: 'v-slider', name: 'Media Slider', icon: 'slider', group: 'Visual', keywords: 'carousel gallery', hidden: true }, // hidden 20 Aug 2026 — 22 of 33 controls inert
 
 

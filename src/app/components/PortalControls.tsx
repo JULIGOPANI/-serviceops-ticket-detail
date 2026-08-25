@@ -14,7 +14,7 @@ import type { ReactNode } from 'react';
 import {
   AlignCenter, AlignLeft, AlignRight, Bold, Check, ChevronDown, Eraser,
   IndentDecrease, IndentIncrease, Info, Italic, Link2, List, ListOrdered, Quote, Redo2, Strikethrough,
-  File, Images, TriangleAlert, Underline, Undo2, Upload, UploadCloud, X,
+  File, Images, PlayCircle, TriangleAlert, Underline, Undo2, Upload, UploadCloud, X,
 } from 'lucide-react';
 
 /* ── shared chrome ───────────────────────────────────────────────────────── */
@@ -697,13 +697,105 @@ const ZONE = {
 export function uploadHint(accept: string, maxMB: number, multiple = false, maxFiles?: number) {
   const types = accept.includes('image/*')
     ? 'PNG, JPG, SVG or WebP'
-    : accept.split(',')
+    /* ⚠️ A wildcard has to be SPELLED OUT, not split on commas — `video/*` came out as "VIDEO/*",
+       which is a MIME type shown to somebody choosing a file. */
+    : accept.includes('video/*')
+      ? 'MP4, WebM or MOV'
+      : accept.split(',')
       .map((t) => t.trim().replace(/^image\//, '').replace(/^\./, '').replace('+xml', '').toUpperCase())
       .filter(Boolean).join(', ');
   const parts = [types, `max ${maxMB}MB`];
   /* Multi-file wording ONLY where multi-file is true — one flag drives the input and the copy. */
   if (multiple && maxFiles) parts.push(`up to ${maxFiles} files`);
   return parts.join(' · ');
+}
+
+/* Two ways to give a widget a video, in one control.
+ *
+ * ⚠️ ONE control, not an upload field beside a URL field. A video comes from a file or from a link
+ * and never from both, so two always-visible inputs would ask a question with a wrong answer
+ * permanently on screen — and leave the widget to decide which one wins when both are filled.
+ * Empty, it offers the two routes; filled, it shows what is there and offers to REPLACE it, which
+ * is the only thing you do to a video that is already in place. */
+export function VideoSource({ value, onChange }: { value?: string; onChange: (v: string) => void }) {
+  const [linking, setLinking] = useState(false);
+  const [draft, setDraft] = useState('');
+  const file = useRef<HTMLInputElement>(null);
+
+  const take = (f?: File | null) => {
+    if (!f) return;
+    const fr = new FileReader();
+    fr.onload = () => onChange(String(fr.result));
+    fr.readAsDataURL(f);
+  };
+
+  if (value) {
+    const isFile = value.startsWith('data:');
+    return (
+      <div className="rounded-lg border border-[#E5E7EB] bg-white p-2.5">
+        {/* ⚠️ The real frame, muted and without controls. It is a confirmation that the right video
+            landed, not a player — you are choosing a file, not watching it. */}
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-11 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#3D8BD0]">
+            <PlayCircle size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-medium text-[#364658]">{isFile ? 'Uploaded video' : 'Video link'}</span>
+            <span className="block truncate text-[11px] text-[#9CA3AF]">{isFile ? 'Stored with this page' : value}</span>
+          </span>
+        </div>
+        {/* ⚠️ "Replace", not "Remove". A video slot that has one is a slot that wants one — swapping
+            is the common move, and the destructive verb must not sit on it. */}
+        <button
+          type="button"
+          onClick={() => { setDraft(isFile ? '' : value); setLinking(false); onChange(''); }}
+          className="mt-2.5 w-full rounded border border-[#DFE5ED] py-1.5 text-[12px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
+        >Replace video</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-dashed border-[#D9E0EA] bg-white px-4 py-5 text-center">
+      <span className="mx-auto flex size-10 items-center justify-center rounded-full bg-[#F1F5F9] text-[#C3CBD6]">
+        <PlayCircle size={22} />
+      </span>
+      <p className="mt-2.5 text-[13px] text-[#364658]">No video yet</p>
+      {linking ? (
+        <div className="mt-3 flex gap-1.5">
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && draft.trim()) onChange(draft.trim()); if (e.key === 'Escape') setLinking(false); }}
+            placeholder="https://youtu.be/…"
+            className="h-8 min-w-0 flex-1 rounded border border-[#d1d5db] px-2.5 text-[13px] text-[#364658] outline-none focus:border-[#3D8BD0]"
+          />
+          <button
+            type="button"
+            disabled={!draft.trim()}
+            onClick={() => onChange(draft.trim())}
+            className="h-8 flex-shrink-0 rounded bg-[#3D8BD0] px-3 text-[12px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >Add</button>
+        </div>
+      ) : (
+        <div className="mt-3 flex items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => file.current?.click()}
+            className="rounded border border-[#DFE5ED] px-3 py-1.5 text-[12px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
+          >Select video</button>
+          <button
+            type="button"
+            onClick={() => setLinking(true)}
+            className="rounded border border-[#DFE5ED] px-3 py-1.5 text-[12px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
+          >Upload link</button>
+        </div>
+      )}
+      <p className="mt-2 text-[11px] text-[#9CA3AF]">{uploadHint('video/*', 50)}, or a YouTube or Vimeo link</p>
+      <input ref={file} type="file" accept="video/*" className="hidden" onChange={(e) => { take(e.target.files?.[0]); e.target.value = ''; }} />
+    </div>
+  );
 }
 
 export function ImageUploadZone({
