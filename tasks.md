@@ -262,6 +262,15 @@ Updated: 2026-08-25 12:11
 - **(4)** Adding an item no longer calls `onSelect`, which used to swap the whole sidebar for that item's drawer — you asked for one more row and the panel you were working in disappeared. The list opens the new row **in place** (the item is always appended, so its index is the length before the add). A new `blankOnAdd` flag empties every declared field, and `placeholder` on the two inline fields says what belongs there. ⚠️ Both are **opt-in**: the seeds exist so an untouched page shows a realistic accordion, and a gallery slide added blank is a broken slide. A collection with no inline editor still opens its drawer, because it has nowhere else to go.
 - **Verified:** a column's Design now reads "Style | Fill | None | Colour | Border | px | Corner radius | px | %" — the current component. No "Behaviour" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens "Item 4" expanded, both fields empty, showing "How do I reset my password?" and "Answer it in a sentence or two." as placeholders, with the Add link CTA below them.
 
+## 37. An empty section is one box, not a box inside a box
+- **Status:** done
+- **Where:** `SupportPortalPreview.tsx` (`ColumnBody`)
+- **You asked:** remove the column from an empty section added with the + Add Section CTA.
+- **What it was:** a section that has never been SPLIT has a root box whose id IS the section's — same node, same bounds — but `ColumnBody` still drew the empty-column treatment around it: a dashed 120px frame inside the section's own outline. Two borders and two sets of padding describing one place.
+- **The test is `dir`**, which is undefined exactly when a box has no parent — the same thing as "this IS the section". A split section's columns keep their dashed frames, because there the frame is telling you where one column ends and the next begins.
+- **The "+" stays either way** — it is the offer to put something here, and without it an empty section would be a blank gap on the page. The drag-over tint keeps its dashed edge so a drop target still reads as one.
+- **Verified:** a section added from + Add Section contains **0 dashed boxes**, is 112px tall and shows the "+".
+
 ## 33. FAQ matches the Accordion, and the per-item arrow goes
 - **Status:** done
 - **Where:** `portalCollectionSpecs.ts` (`FAQ_SPEC`), `PortalCollectionRender.tsx` (`FaqRender`), `PortalItemList.tsx`, `PortalWidgetDrawer.tsx`
@@ -273,6 +282,43 @@ Updated: 2026-08-25 12:11
 - **⚠️ Follow-on the arrow's removal forced:** the inline editor hard-coded its two labels as "Title" and "Description". That was tolerable while the chevron could open a drawer that named the fields properly; with the chevron gone this editor is the ONLY way into an item, so a FAQ would have had no surface anywhere using its own words. The labels and the hide-tooltip now come from the collection's own fields.
 - **Verified:** FAQ panel = CONTENT (Title, Questions, Add question) → DESIGN (Style, Spacing). Item rows show Move up · Move down · Duplicate · Delete — **no arrow**; the Accordion's show the same plus its hide toggle. On the canvas the new FAQ arrives with **nothing open**; opening Q1 shows only Q1; opening Q2 closes Q1. The FAQ's inline editor is labelled **Question / Answer**, the Accordion's **Title or question / Description**.
 - **⚠️ Flagged:** FAQ and Accordion are now the same widget with different seed copy. You chose to keep both for now — worth revisiting, since an earlier pass split them apart precisely because one widget with two palette names was confusing.
+
+## 31. Action Cards — one addable card, the external link
+- **Status:** todo
+- **Where:** `portalStructureSpecs.ts` (the Quick Actions section panel), `portalPageModel.ts` (`LOCKED_ROWS`), `portalWidgetSpec.ts`
+- **You asked:** the action-cards row is predefined, but ONE thing can join it — an **external link** card. Selecting the parent section offers a card in the sidebar; it takes a **URL** field and opens that link when clicked. That card alone may have its **title, subtext and icon** edited from the sidebar. The other four may not be edited from the sidebar OR inline.
+- **⚠️ This resolves the flag I raised against task 3.** Task 3 was "nobody can add any extra widget or element into the action cards' parent section", which is why `LOCKED_ROWS` exists. This does not reopen that: the row still refuses everything from the palette — it gains ONE card, offered from the section's own panel, which is a different door with a fixed destination.
+- **How I check it:** selecting the Quick Actions section shows the add-external-link card; adding one widens the row and the new card takes a URL, title, subtext and icon; the other four cards have no title/subtext editor in the panel and are not inline-editable on the canvas.
+
+## 32. Button — trim the Action and Design sections
+- **Status:** todo
+- **Where:** `portalPanelSpecs.ts` / the Button spec
+- **You asked:** remove **Share this page** from the Action section's destination dropdown; remove the **Button text** tab from the Design section's Button group; remove **Size of button** from Button style.
+- **How I check it:** the destination dropdown has no Share-this-page option; Design ▸ Button has no Button-text tab and no size control.
+
+## 33. Remove the Knowledge tag from the search bar
+- **Status:** todo
+- **Where:** `SupportPortalPreview.tsx` (the hero search), `portalStructureSpecs.ts` (`SEARCH_SPEC`)
+- **You asked:** drop the "Knowledge" scope pill from inside the banner's search field.
+- **How I check it:** the banner search shows the placeholder and the magnifier only.
+
+## 34. Remove the Settings item from the builder's right rail
+- **Status:** todo
+- **Where:** `SupportPortalBuilder.tsx` (the rail)
+- **You asked:** remove the Settings menu from the right-hand menubar.
+- **How I check it:** the rail reads Widgets · Theme · Branding.
+
+## 35. The two-step create flow, made intuitive
+- **Status:** todo — ⚠️ needs a conversation before I build it
+- **Where:** `CreateSupportPortalModal.tsx`, `SupportPortalTemplateGallery.tsx`
+- **You asked:** step 1's details survive going forward to step 2. Step 2 drops the two clickable cards ("Create from scratch" / "Use template"); instead **Create from scratch is shown by default at the top**, the default template is removed from there, and it becomes the **first square in the templates grid, carrying the Default tag**. You attached a reference for the stepper UI and said to ask if anything.
+- **How I check it:** to be agreed — I will come to you with the specific questions before writing any of it.
+
+## 36. Video widget
+- **Status:** todo
+- **Where:** `supportPortalData.ts` (the palette), a new spec + renderer
+- **You asked:** a **Video** widget in the Visual group. Design keeps **Spacing and Style** only. Content is an empty container offering **Select video** or **Upload a link**; once one is set it offers **Replace video**.
+- **How I check it:** the Visual group lists Video; a placed one is empty with the two choices; after setting one it shows the video and a Replace CTA.
 
 ## 90. Image-upload empty state — one component everywhere
 - **Status:** done

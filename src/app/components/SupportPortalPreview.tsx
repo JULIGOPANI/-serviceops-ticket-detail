@@ -146,12 +146,19 @@ function ColumnBody({ id, item, live, dir, icons, placedText, cfg }: { id: strin
          it is asking you to fill — so it sat in a corner of a large empty rectangle instead of in
          the middle of it. With nothing inside, the setting has nothing to act on and the placeholder
          is centred both ways, which is also where the live column's own centre button appears. */
+      /* ⚠️ A section that has never been SPLIT draws no column of its own. Its root box IS the
+         section — same id, same bounds — so the dashed 120px frame was a second container drawn
+         inside the first: an empty section came out as a box inside a box, with two borders and two
+         sets of padding describing one place. `dir` is undefined exactly when this box has no
+         parent, which is the same thing as "this is the section itself", so it is the test.
+         The "+" stays either way: it is the offer to put something here, and without it an empty
+         section would be a blank gap on the page. */
       className={`relative flex h-full flex-col ${
         !item ? 'justify-center'
           : ({ start: 'justify-start', center: 'justify-center', end: 'justify-end' } as Record<string, string>)[String(cfg?.(id)?.blockAlign ?? 'center')] ?? 'justify-center'
       } rounded transition-colors ${
-        item ? '' : 'min-h-[120px] items-center border border-dashed'
-      } ${over ? 'border-[#3D8BD0] bg-[#EBF5FF]' : item ? '' : 'border-[#C3CBD6]'}`}
+        item ? '' : dir ? 'min-h-[120px] items-center border border-dashed' : 'min-h-[88px] items-center'
+      } ${over ? 'border border-dashed border-[#3D8BD0] bg-[#EBF5FF]' : item || !dir ? '' : 'border-[#C3CBD6]'}`}
     >
       {/* ⚠️ The element gets its OWN Sel. Without one the column was the innermost selectable thing,
           so clicking a collection widget selected the column — and with items now selectable inside
