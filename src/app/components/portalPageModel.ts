@@ -111,6 +111,22 @@ const PLACED: Record<string, { name: string; type: string; parent: string }> = {
 export const registerPlaced = (id: string, name: string, type: string, parent: string) => {
   PLACED[id] = { name, type, parent };
 };
+/* Boxes register their place in the tree so `nodeById` stays a pure lookup.
+ *
+ * ⚠️ This replaces a REGEX. The old ids carried their own shape (`sec-3-c0` was column 0 of
+ * section 3), which is what let the canvas describe a node without being handed the sections array.
+ * A tree has no such shape — depth and parentage are not recoverable from `sec-3-b7` — so the
+ * renderer registers each box as it draws it. Same pattern, same file, no new concept.
+ *
+ * ⚠️ `parentDir` is the PARENT's direction, because that is what names the box: a child of a row is
+ * a Column, a child of a column is a Row. Derived, never stored, so flipping a parent renames its
+ * children and the words can never go stale. */
+const BOXES: Record<string, { parent?: string; parentDir: BoxDir; depth: number }> = {};
+export const registerBox = (id: string, parentDir: BoxDir, depth: number, parent?: string) => {
+  BOXES[id] = { parent, parentDir, depth };
+};
+export const boxInfo = (id: string) => BOXES[id];
+
 /** The element sitting inside this container, if one is. A column holds at most one. */
 export const placedIn = (parentId: string) => Object.keys(PLACED).find((k) => PLACED[k].parent === parentId) ?? null;
 
@@ -186,8 +202,11 @@ export function nodeById(id: string): PortalNodeDef | undefined {
       content: 'text',
     };
   }
-  const col = /^(sec-\d+)-c\d+$/.exec(id);
-  if (col) return { id, name: 'Column', kind: 'column', parent: col[1], content: 'none' };
+  /* ⚠️ A box is named by its PARENT’s direction — a child of a row is a Column, a child of a
+     column is a Row — so a section flipped from row to column renames every child for free.
+     Storing the name would leave "Column" written on something that is now stacked. */
+  const box = BOXES[id];
+  if (box) return { id, name: box.parentDir === 'row' ? 'Column' : 'Row', kind: 'column', parent: box.parent, content: 'none' };
   if (/^sec-\d+$/.test(id)) return { id, name: 'Section', kind: 'section', content: 'none' };
   return undefined;
 }
@@ -505,12 +524,290 @@ export interface PlacedElement {
   name: string;
 }
 
+/* ── The section tree ─────────────────────────────────────────────────────
+ *
+ * ONE node type does all of it: a BOX. A section is a box, a column is a box, a row is a box, and
+ * the cell a widget sits in is a box. They are not four things — they are one thing in four
+ * positions.
+ *
+ * ⚠️ That is the whole design, and it is what the note's "all level feasibility in row, col. split"
+ * asks for. The moment there are three kinds of container, "split" has to mean three different
+ * things, the panel has to choose between three editors, and one feature becomes three that drift
+ * apart. One type, one split, one panel. See SECTION-TREE-SPEC.md.
+ */
+
+/** How a box lays its CHILDREN out. Literally `flex-direction`, and literally the note's
+ *  "section's behaviour — how user wants to treat sec? row / column".
+ *
+ *  `row`    children run left → right, so each child reads as a COLUMN and Split adds a column.
+ *  `column` children run top → bottom, so each child reads as a ROW and Split adds a row. */
+export type BoxDir = 'row' | 'column';
+
+export interface Box {
+  /** Stable, minted ONCE — never positional. See the note on `mintBox`. */
+  id: string;
+  dir: BoxDir;
+  /** Share of the parent's main axis. Siblings are reset to equal on split. */
+  weight: number;
+  /** A BRANCH. Mutually exclusive with `el` — a box is a branch or a leaf, never both. */
+  children?: Box[];
+  /** A LEAF holding one widget. An empty leaf has neither. */
+  el?: PlacedElement;
+}
+
 export interface CustomSection {
   id: string;
-  /** Rows of column weights. Column ids are derived: `${id}-c${index}` across the whole section. */
-  rows: number[][];
-  /** What sits in each column, keyed by column id. A column may still be empty. */
-  items: Record<string, PlacedElement>;
+  /** The section IS the root box of its own tree. */
+  root: Box;
+  /** Monotonic counter behind `mintBox`. Only ever increases, including across deletes. */
+  next: number;
+}
+
+/* ⚠️ Ids are MINTED, never derived from position.
+ *
+ * The old model numbered columns across the whole section (`sec-3-c0`), so inserting one renamed
+ * every column after it and `addColumn` had to re-key `items` to compensate — the comment on that
+ * function records Duplicate once writing a clone straight over its neighbour because of exactly
+ * this: one element gained, one destroyed, no error, no way back.
+ *
+ * In a TREE that failure gets much worse. `widgetCfg`, `styles`, `placedText` and `icons` are all
+ * keyed by node id, so a split near the top would silently renumber a whole subtree and every
+ * stored value would land on the wrong box — a page that quietly rearranges its own styling, which
+ * is the hardest class of bug there is to report. Position lives in the tree; identity does not. */
+export function mintBox(section: { id: string; next: number }, dir: BoxDir, weight = 1): Box {
+  return { id: `${section.id}-b${section.next++}`, dir, weight };
+}
+
+/** Depth cap, counted BELOW the section: Section > Column > Row > Column > Row. */
+export const MAX_BOX_DEPTH = 4;
+/** Columns in one row. Rows stacked in a column are deliberately uncapped — a tall column costs
+ *  nothing, a wide row costs readability, so the cap belongs on one axis only. */
+export const MAX_COLUMNS = 4;
+
+export const isBranch = (b: Box) => Array.isArray(b.children) && b.children.length > 0;
+
+/** Every box in the tree, root first. */
+export function boxList(root: Box): Box[] {
+  const out: Box[] = [];
+  const walk = (b: Box) => { out.push(b); b.children?.forEach(walk); };
+  walk(root);
+  return out;
+}
+
+/** Root → … → the box with this id. Empty when it is not in this tree. */
+export function boxPath(root: Box, id: string): Box[] {
+  const walk = (b: Box, trail: Box[]): Box[] | null => {
+    const next = [...trail, b];
+    if (b.id === id) return next;
+    for (const c of b.children ?? []) { const hit = walk(c, next); if (hit) return hit; }
+    return null;
+  };
+  return walk(root, []) ?? [];
+}
+
+export const findBox = (root: Box, id: string): Box | undefined => boxList(root).find((b) => b.id === id);
+export const parentOfBox = (root: Box, id: string): Box | undefined => boxPath(root, id).at(-2);
+/** 0 for the section root. */
+export const boxDepth = (root: Box, id: string): number => Math.max(0, boxPath(root, id).length - 1);
+
+/** Rebuilds the tree with `fn` applied to the box with this id. Structural sharing is not the point
+ *  — a new object every time is what makes React re-render the branch that changed. */
+export function mapBox(root: Box, id: string, fn: (b: Box) => Box): Box {
+  const walk = (b: Box): Box => (b.id === id ? fn(b) : (b.children ? { ...b, children: b.children.map(walk) } : b));
+  return walk(root);
+}
+
+/** Equal shares. Split resets rather than inheriting, the way the old `addColumn` did — an even row
+ *  is the whole point of the affordance, so carrying the old weights forward would be wrong. */
+const evenly = (boxes: Box[]) => boxes.map((b) => ({ ...b, weight: 1 }));
+
+/** Why Split is unavailable on this box, or null when it is available.
+ *
+ *  ⚠️ Returns a REASON, not a boolean. At a limit the control stays visible and disabled with the
+ *  reason on it — never missing, never a silent no-op — which is how every other cap in this
+ *  product behaves (the OS-upgrade single-select, a collection's `max`). */
+export function splitBlockedBecause(root: Box, id: string): string | null {
+  const box = findBox(root, id);
+  if (!box) return null;
+  const depth = boxDepth(root, id);
+  /* A LEAF split adds a level, so it needs room below it; a BRANCH split adds a sibling at the
+     level its children already occupy, so it needs room for them. Same check either way. */
+  if (depth + 1 > MAX_BOX_DEPTH) return `Nested as deep as a section goes (${MAX_BOX_DEPTH} levels)`;
+  if (box.dir === 'row' && isBranch(box) && box.children!.length >= MAX_COLUMNS) {
+    return `A row holds ${MAX_COLUMNS} columns at most`;
+  }
+  return null;
+}
+
+/** Split, the ONE structural operation, identical at every level.
+ *
+ *  On a LEAF the box becomes a branch of two: whatever was in it moves into the first child, the
+ *  second is empty. ⚠️ The element is never destroyed — Word, Figma and Duda all preserve it, and
+ *  nobody expects splitting a cell to throw its contents away.
+ *
+ *  On a BRANCH one more empty child is appended.
+ *
+ *  The DIRECTION is always the box's own `dir`. Nothing else decides it — not where you clicked,
+ *  not what is inside, not the depth. */
+export function splitBox(section: CustomSection, id: string): CustomSection {
+  if (splitBlockedBecause(section.root, id)) return section;
+  const next = { ...section };
+  const root = mapBox(section.root, id, (b) => {
+    if (isBranch(b)) return { ...b, children: evenly([...b.children!, mintBox(next, flip(b.dir))]) };
+    /* The leaf's own content moves down a level. Its `dir` stays on the box being split — that is
+       what the split is along — and the two new children take the opposite direction, so the next
+       split one level down goes the other way without anyone choosing it. */
+    const kept = { ...mintBox(next, flip(b.dir)), el: b.el };
+    return { id: b.id, dir: b.dir, weight: b.weight, children: [kept, mintBox(next, flip(b.dir))] };
+  });
+  return { ...next, root };
+}
+
+export const flip = (d: BoxDir): BoxDir => (d === 'row' ? 'column' : 'row');
+
+/** Flip a box's behaviour. ⚠️ Non-destructive by construction: the children and their order are
+ *  untouched and only the axis changes, which is what makes the note's "sub section as column, but
+ *  I can rearrange to top & bottom" one click rather than a rebuild. */
+export const setBoxDir = (section: CustomSection, id: string, dir: BoxDir): CustomSection =>
+  ({ ...section, root: mapBox(section.root, id, (b) => ({ ...b, dir })) });
+
+/** Insert an empty sibling beside `id`. This is what the axis-aware `+` adders call — `before` is
+ *  left on a row and above on a column, which is the same question asked once. */
+export function addSibling(section: CustomSection, id: string, before: boolean): CustomSection {
+  const parent = parentOfBox(section.root, id);
+  if (!parent) return section;
+  if (parent.dir === 'row' && (parent.children?.length ?? 0) >= MAX_COLUMNS) return section;
+  const next = { ...section };
+  const fresh = mintBox(next, flip(parent.dir));
+  const root = mapBox(section.root, parent.id, (b) => {
+    const at = b.children!.findIndex((c) => c.id === id) + (before ? 0 : 1);
+    const kids = [...b.children!];
+    kids.splice(at, 0, fresh);
+    return { ...b, children: evenly(kids) };
+  });
+  return { ...next, root };
+}
+
+/** Remove a box. ⚠️ A branch left with ONE child collapses into it, so deleting the second of two
+ *  columns returns the section to the single column it started as rather than leaving a branch that
+ *  looks and behaves exactly like a leaf but answers differently to every structural question. */
+export function removeBox(section: CustomSection, id: string): CustomSection {
+  const parent = parentOfBox(section.root, id);
+  if (!parent) return section;
+  const root = mapBox(section.root, parent.id, (b) => {
+    const kids = evenly((b.children ?? []).filter((c) => c.id !== id));
+    if (kids.length === 0) return { id: b.id, dir: b.dir, weight: b.weight };
+    if (kids.length === 1) {
+      /* Collapse: the survivor's CONTENT moves up, but the surviving box keeps the PARENT's id so
+         anything selected or styled against it still resolves. */
+      const only = kids[0];
+      return { id: b.id, dir: only.dir, weight: b.weight, children: only.children, el: only.el };
+    }
+    return { ...b, children: kids };
+  });
+  return { ...section, root };
+}
+
+/** Put an element into a leaf. Returns the section unchanged when the target is a branch — a branch
+ *  has no content of its own, only children. */
+export const setBoxEl = (section: CustomSection, id: string, el: PlacedElement | undefined): CustomSection =>
+  ({ ...section, root: mapBox(section.root, id, (b) => (isBranch(b) ? b : { ...b, el })) });
+
+/** Every empty leaf, in reading order — what "the first free column" means to click-to-add. */
+export const freeLeaves = (root: Box): Box[] => boxList(root).filter((b) => !isBranch(b) && !b.el);
+/** Every leaf that holds something. */
+export const filledLeaves = (root: Box): Box[] => boxList(root).filter((b) => !isBranch(b) && !!b.el);
+
+/** `rows: number[][]` → a tree, with no visual change to any existing layout.
+ *
+ *  ⚠️ A SINGLE-row layout flattens: the root becomes the row itself rather than a column holding one
+ *  row. Otherwise the commonest shape on the page — two columns — would arrive a level deeper than
+ *  it needs, and its breadcrumb would read `Section > Row > Column > Text` for the simplest thing
+ *  anyone builds. */
+export function sectionFromRows(id: string, rows: number[][], startAt = 0): CustomSection {
+  /* ⚠️ `startAt` is not decoration. Rebuilding a section (a Layout preset) must not restart the
+     counter, or the new cells take ids the old cells already own and every id-keyed store —
+     config, style, text, icons — silently applies the old cell's settings to the new one. */
+  const section: CustomSection = { id, root: { id, dir: 'row', weight: 1 }, next: startAt };
+  const cells = (weights: number[], dir: BoxDir) => weights.map((w) => ({ ...mintBox(section, flip(dir)), weight: w }));
+
+  if (rows.length <= 1) {
+    const row = rows[0] ?? [1];
+    /* One cell is a plain leaf — a root with a single child is a branch that behaves like a leaf. */
+    section.root = row.length <= 1
+      ? { id, dir: 'row', weight: 1 }
+      : { id, dir: 'row', weight: 1, children: cells(row, 'row') };
+    return section;
+  }
+
+  section.root = {
+    id,
+    dir: 'column',
+    weight: 1,
+    children: rows.map((row) => (row.length <= 1
+      ? { ...mintBox(section, 'row'), weight: row[0] ?? 1 }
+      : { ...mintBox(section, 'row'), children: cells(row, 'row') })),
+  };
+  return section;
+}
+
+
+
+/** `sec-3-b7` and `sec-3` both belong to section `sec-3`. ⚠️ One function, because the ROOT box
+ *  carries the section's own id with no suffix — every call site that split the id itself got the
+ *  root wrong. */
+export const sectionIdOfBox = (boxId: string) => boxId.replace(/-b[0-9]+$/, '');
+
+/** Register a whole tree, so `nodeById` can name every box in it.
+ *
+ * ⚠️ The ROOT is deliberately NOT registered. Its id is the section id, and `nodeById` answers
+ *  that with 'Section' — registering it too would shadow that and label the section a Column. */
+export function registerTree(section: CustomSection) {
+  const walk = (b: Box, parentDir: BoxDir, depth: number, parent?: string) => {
+    if (parent) registerBox(b.id, parentDir, depth, parent);
+    b.children?.forEach((c) => walk(c, b.dir, depth + 1, b.id));
+  };
+  walk(section.root, 'row', 0);
+}
+
+/* ── Reading a tree the way the old flat model was read ───────────────────
+ *
+ * The Layout PRESETS ("Columns", "Grid", "Three across", "Stacked") are whole-section restructures,
+ * and they have always been expressed as `rows: number[][]`. They stay that way: a preset is a
+ * top-level shape, so it is described at the top level and rebuilt from there.
+ *
+ * ⚠️ Applying a preset therefore FLATTENS any nesting below the first two levels — which is what
+ * "a preset is not a picture of a layout, it IS the layout" has always meant. It rewrites the shape
+ * and reflows what is inside; it does not merge with what was there. */
+export function sectionRows(section: CustomSection): number[][] {
+  const root = section.root;
+  if (!isBranch(root)) return [[1]];
+  if (root.dir === 'row') return [root.children!.map((c) => c.weight)];
+  return root.children!.map((c) => (isBranch(c) && c.dir === 'row' ? c.children!.map((g) => g.weight) : [c.weight]));
+}
+
+/** Every placed element in the section, in reading order. */
+export const sectionElements = (section: CustomSection): PlacedElement[] =>
+  filledLeaves(section.root).map((b) => b.el!);
+
+/** The leaf holding this element, if the section has it. */
+export const boxOfElement = (root: Box, elementId: string): Box | undefined =>
+  boxList(root).find((b) => b.el?.id === elementId);
+
+/** Rebuild a section to `rows`, pouring `els` back into the new leaves in order.
+ *
+ * ⚠️ Ids are MINTED FRESH here, and that is correct rather than careless: a preset is a new shape,
+ * so its cells are new cells. Keeping the old ids would carry a two-column section's per-column
+ * padding onto the three cells of a "Three across" that has no third column to inherit from. The
+ * ELEMENTS keep their ids — their config and styling are theirs, and they are only being moved. */
+export function sectionRebuild(section: CustomSection, rows: number[][], els: PlacedElement[]): CustomSection {
+  /* ⚠️ Minted ids CONTINUE from where this section had got to — they do not restart. Restarting
+     would hand the new cells ids the old ones already own, and every store keyed by node id
+     (config, style, text, icons) would then apply the old cell’s settings to the new one. */
+  const next = sectionFromRows(section.id, rows, section.next);
+  const slots = freeLeaves(next.root);
+  els.slice(0, slots.length).forEach((el, i) => { slots[i].el = el; });
+  return next;
 }
 
 /* Catalogue type → how the canvas treats it.
@@ -609,37 +906,6 @@ export function paintsOwnSurface(id: string): boolean {
      an Action Card's padding went onto the wrapper and appeared outside the card it was supposed to
      be inside. Bare means nobody wraps it; it does not mean there is nothing to pad. */
   return ACTION_TYPES.has(t) || !renderSpec(t).bare;
-}
-
-export const colId = (sectionId: string, index: number) => `${sectionId}-c${index}`;
-
-/** Inserts a column beside `colIndex`, keeping every column in that row equal width. */
-export function addColumn(section: CustomSection, colIndex: number, side: 'left' | 'right'): CustomSection {
-  let seen = 0;
-  const rows = section.rows.map((row) => {
-    const start = seen;
-    seen += row.length;
-    if (colIndex < start || colIndex >= seen) return row;
-    const at = colIndex - start + (side === 'right' ? 1 : 0);
-    const next = [...row];
-    next.splice(at, 0, 1);
-    // Equal width is the point of the affordance — reset the weights rather than inheriting them.
-    return next.map(() => 1);
-  });
-  /* ⚠️ The ITEMS have to move with the columns. Column ids are positional (`-c3` is the fourth
-     column counted across every row), so inserting a column silently renames every column after it
-     — and this function used to return the new `rows` while leaving `items` keyed by the OLD
-     numbering. Everything to the right of the insertion therefore stayed under a key that now
-     belongs to its neighbour, and Duplicate wrote the clone straight over the element beside it:
-     one element gained, one destroyed, no error, no way back. Positional keys are only safe if
-     every insertion re-keys, which is why this belongs here rather than in each caller. */
-  const at = colIndex + (side === 'right' ? 1 : 0);
-  const items: Record<string, PlacedElement> = {};
-  Object.entries(section.items).forEach(([col, el]) => {
-    const n = Number(/-c([0-9]+)$/.exec(col)?.[1] ?? -1);
-    items[n >= at ? colId(section.id, n + 1) : col] = el;
-  });
-  return { ...section, rows, items };
 }
 
 /* The container styling a widget writes through its own CONFIG — fill, background image, border and

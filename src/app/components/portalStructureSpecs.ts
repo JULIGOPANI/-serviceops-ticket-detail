@@ -162,6 +162,19 @@ export const SECTION_SPEC: WidgetSpec = {
       {
         id: 'layout', open: true,
         fields: [
+          /* ⚠️ FIRST, because it decides what every row under it means. "Content alignment" reads
+             as across-then-down on a row and down-then-across on a column, and the preset tiles are
+             drawn along whichever axis this sets — so a reader who meets those before this one is
+             being asked to interpret them without the key.
+             ⚠️ This is the note's "how user wants to treat sec? row / column", and it is the ONE
+             property in the panel that does not live in widget config: it is the box's own `dir` in
+             the section tree, read and written through `cfgFor`/`patchCfg`. Two copies of the
+             property the whole layout is laid out by is what this model exists to avoid.
+             ⚠️ Flipping it is NON-DESTRUCTIVE — the children and their order are untouched and only
+             the axis changes, which is what makes "rearrange to top & bottom" one click. */
+          { key: 'dir', label: 'Behaviour', control: 'segmented',
+            options: [{ value: 'row', label: 'Row' }, { value: 'column', label: 'Column' }],
+            info: 'Row — the blocks inside sit side by side, and Split adds a column. Column — they stack, and Split adds a row.' },
           { key: 'preset', label: 'Presets', control: 'sectionPreset', when: (c) => Number(c.__count ?? 0) > 1 },
           /* ⚠️ On the PARENT, not on each column — the same reason Card templates sits here. How a
              row redistributes is a property of the row: two columns in one section answering that
@@ -214,6 +227,13 @@ export const SECTION_SPEC: WidgetSpec = {
 export const COLUMN_SPEC: WidgetSpec = {
   id: 'column', name: 'Column', group: 'Structure', reuse: 'many', family: 'container',
   fields: [
+    /* ⚠️ A column gets Behaviour too, and that is the whole point of the tree: a column is not a
+       lesser kind of container, it is the same box one level down. Its `dir` decides which way
+       Split divides it AND where a second element dropped into it lands — the note's "in sub
+       section, always add row-wise widget" is simply the leaf default of `column`. */
+    { key: 'dir', label: 'Behaviour', control: 'segmented', tab: 'style', group: 'Column',
+      options: [{ value: 'row', label: 'Row' }, { value: 'column', label: 'Column' }],
+      info: "Row — the blocks inside sit side by side, and Split adds a column. Column — they stack, and Split adds a row." },
     { key: 'width', label: 'Width', control: 'slider', tab: 'style', group: 'Column', min: 10, max: 90, unit: '%' },
     {
       key: 'blockAlign', label: 'Align the blocks inside', control: 'segmented', tab: 'style', group: 'Column',

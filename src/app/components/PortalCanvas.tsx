@@ -5,20 +5,20 @@ import type { ReactNode } from 'react';
 import {
   AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical,
   AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, ArrowDown, ArrowLeft, ArrowRight,
-  ArrowUp, Baseline, Bold, ChevronRight, Copy, GripHorizontal, GripVertical, Italic, Link2,
+  ArrowUp, Baseline, Bold, ChevronRight, Columns2, Copy, GripHorizontal, GripVertical, Italic, Link2, Rows2,
   Braces, Globe, Highlighter, Maximize2, UnfoldVertical, Move, MoveHorizontal, MoveVertical, Plus, RemoveFormatting,
   Replace, SquareDashed, Trash2, Underline, X,
 } from 'lucide-react';
 // ArrowLeft stays in use by the card toolbar's "Move left".
 import { toast } from 'sonner';
-import { HEADING_SIZE, PORTAL_FONTS, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, nodeById, paintsOwnSurface, nodePath, placedIn, placedType } from './portalPageModel';
+import { HEADING_SIZE, PORTAL_FONTS, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, boxInfo, nodeById, paintsOwnSurface, nodePath, placedIn, placedType } from './portalPageModel';
 import { DEFAULT_THEME } from './PortalThemePanel';
 import type { PortalTheme } from './PortalThemePanel';
 import { boxCss, containerCss } from './portalStyleResolver';
 import { PORTAL_ELEMENTS, PORTAL_ELEMENT_GROUPS } from './supportPortalData';
 import { elementIcon } from './SupportPortalAddPanel';
 import { PortalColorPicker } from './PortalColorPicker';
-import type { NodeStyle, PortalStyles, SpacingBox } from './portalPageModel';
+import type { BoxDir, NodeStyle, PortalStyles, SpacingBox } from './portalPageModel';
 
 /* Canvas selection layer.
  *
@@ -331,12 +331,16 @@ function useNodeDragHandle(id: string) {
 }
 
 function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: string }) {
-  const { styles, setStyle, moveNode, duplicateNode, deleteNode, canDuplicate, addInside, replaceElement, addChildBlock, onWholePage } = useCanvas();
+  const { styles, setStyle, moveNode, duplicateNode, deleteNode, canDuplicate, addInside, replaceElement, addChildBlock, onWholePage, splitNode, splitInfo } = useCanvas();
   const [picking, setPicking] = useState(false);
   const [axis, setAxis] = useState<'h' | 'v' | null>(null);
 
-  /** Side-by-side things move on the horizontal axis; stacked bands move on the vertical one. */
-  const horizontal = kind === 'card' || kind === 'column';
+  /* Side-by-side things move on the horizontal axis; stacked bands move on the vertical one.
+     ⚠️ For a BOX the axis is its parent's direction, not its kind. Every box reports kind 'column',
+     so a box stacked inside a column would otherwise offer left/right for a move that can only ever
+     go up and down. */
+  const parentDir = boxInfo(id)?.parentDir;
+  const horizontal = parentDir ? parentDir === 'row' : (kind === 'card' || kind === 'column');
   const moves: [string, ReactNode, 'prev' | 'next'][] = horizontal
     ? [['Move left', <ArrowLeft key="l" size={15} />, 'prev'], ['Move right', <ArrowRight key="r" size={15} />, 'next']]
     : [['Move down', <ArrowDown key="d" size={15} />, 'next'], ['Move up', <ArrowUp key="u" size={15} />, 'prev']];
@@ -358,11 +362,13 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
      another child, so they keep Add however much is already inside them. Testing "does this contain
      anything" instead of "can this contain more" put Replace on the Quick Actions row, which has
      room for a fourth card. */
-  const occupant = /^sec-[0-9]+-c[0-9]+$/.test(id) ? placedIn(id) : null;
+  const occupant = /^sec-[0-9]+-b[0-9]+$/.test(id) || /^sec-[0-9]+$/.test(id) ? placedIn(id) : null;
   const childTypes = childTypesOf(id);
   const swaps = !childTypes?.length && (placed || !!occupant || kind === 'card');
   const swapTarget = placed ? id : occupant ?? (kind === 'card' ? id : null);
   const dupOk = canDuplicate(id);
+  /* Null for anything that is not a box, which is how Split stays off cards, text and page bands. */
+  const split = splitInfo?.(id) ?? null;
 
   /* ⚠️ THREE buttons, not one that cycles. A cycling control makes you read the tooltip to find out
      what state you are in and click up to twice to reach the one you want — for three mutually
@@ -430,6 +436,19 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
       {moves.map(([label, ic, dir]) => (
         <button key={label} className={btn} data-tip={label} onClick={() => moveNode(id, dir)}>{ic}</button>
       ))}
+      {/* SPLIT — the one structural operation, identical at every level: a leaf becomes two, a
+          branch grows one more child, and the direction is always the box's own.
+          ⚠️ The label says what will HAPPEN, not what the button is. "Split" alone leaves you to
+          work out which way from the icon, and the answer depends on a setting two panels away.
+          ⚠️ At the depth or column limit it stays VISIBLE and disabled with the reason on it —
+          missing controls read as bugs, and a silent no-op reads as a broken one. */}
+      {split && (
+        <button
+          className={split.blocked ? btnOff : btn}
+          data-tip={split.blocked ?? (split.dir === 'row' ? 'Split into columns' : 'Split into rows')}
+          onClick={() => !split.blocked && splitNode(id)}
+        >{split.dir === 'row' ? <Columns2 size={15} /> : <Rows2 size={15} />}</button>
+      )}
       {/* ⚠️ "+" opens the list HERE rather than swapping the side panel to it. Sending you to
           another surface to pick, then back to the canvas to see the result, is three steps for one
           decision — and on a FILLED element the same gesture means swap, which is a change you want
@@ -1382,30 +1401,43 @@ function ColumnAddIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-export function ColumnAdders({ columnId, filled }: { columnId: string; filled?: boolean }) {
+export function ColumnAdders({ columnId, dir, filled }: { columnId: string; dir?: BoxDir; filled?: boolean }) {
   const { addColumnBeside, addInside } = useCanvas();
   /* ⚠️ SECONDARY buttons — white, bordered, dark icon — not blue dots. Adding a column is a
      structural move made while you are looking at content, and three blue dots on a live column
      competed with the page for attention every time the cursor passed over it. A secondary control
      is the honest weight for something you reach for occasionally and deliberately. */
   const side = 'flex size-6 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#1E293B] shadow-sm transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]';
+
+  /* ⚠️ The adders follow the PARENT's axis, they do not assume horizontal. A box inside a `row`
+     gets a sibling to its left or right; a box inside a `column` gets one above or below. Same
+     button, same call, one question asked correctly — which is what stops "add a column" appearing
+     on a stack where there is no sideways for it to go.
+     ⚠️ No parent (a section root) means no siblings are possible at all, so only the centre "add an
+     element" offer survives. The way to give a root a neighbour is Split. */
+  const stacked = dir === 'column';
+  const before = stacked
+    ? { title: 'Add a row above', cls: `${side} absolute -top-3 left-1/2 z-20 -translate-x-1/2`, spin: '-rotate-90' }
+    : { title: 'Add a column to the left', cls: `${side} absolute -left-3 top-1/2 z-20 -translate-y-1/2`, spin: '-scale-x-100' };
+  const after = stacked
+    ? { title: 'Add a row below', cls: `${side} absolute -bottom-3 left-1/2 z-20 -translate-x-1/2`, spin: 'rotate-90' }
+    : { title: 'Add a column to the right', cls: `${side} absolute -right-3 top-1/2 z-20 -translate-y-1/2`, spin: '' };
+
   return (
     <>
-      <button
-        onClick={(e) => { e.stopPropagation(); addColumnBeside(columnId, 'left'); }}
-        title="Add a column to the left"
-        className={`${side} absolute -left-3 top-1/2 z-20 -translate-y-1/2`}
-      ><span className="-scale-x-100"><ColumnAddIcon size={15} /></span></button>
+      {dir && (
+        <button
+          onClick={(e) => { e.stopPropagation(); addColumnBeside(columnId, 'left'); }}
+          title={before.title}
+          className={before.cls}
+        ><span className={before.spin}><ColumnAddIcon size={15} /></span></button>
+      )}
 
       {/* The middle one swaps the right panel to the element library — the list you pick from is
           the answer to "add what?", so it takes the panel rather than opening a second surface. */}
       {/* ⚠️ Only on an EMPTY column. On a filled one it would sit on top of the element it is
           offering to replace, and a column holds one thing — so the side adders, which make room
           rather than compete for it, are the whole offer there. */}
-      {/* ⚠️ BLUE while the column is live, grey at rest — the three affordances arrive together and
-          look like one set. The rest state's grey plus is a hint that something can go here; once
-          the column is under the cursor all three are armed, and a middle button still painted like
-          the hint would be the only live control on the column that did not look live. */}
       {!filled && (
         <button
           onClick={(e) => { e.stopPropagation(); addInside(columnId); }}
@@ -1414,11 +1446,13 @@ export function ColumnAdders({ columnId, filled }: { columnId: string; filled?: 
         ><Plus size={14} /></button>
       )}
 
-      <button
-        onClick={(e) => { e.stopPropagation(); addColumnBeside(columnId, 'right'); }}
-        title="Add a column to the right"
-        className={`${side} absolute -right-3 top-1/2 z-20 -translate-y-1/2`}
-      ><ColumnAddIcon size={15} /></button>
+      {dir && (
+        <button
+          onClick={(e) => { e.stopPropagation(); addColumnBeside(columnId, 'right'); }}
+          title={after.title}
+          className={after.cls}
+        ><span className={after.spin}><ColumnAddIcon size={15} /></span></button>
+      )}
     </>
   );
 }

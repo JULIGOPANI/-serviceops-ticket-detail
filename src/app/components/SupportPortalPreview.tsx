@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import {
   Bell, Check, Info, Keyboard, KeyRound, House, MessageSquare, MessagesSquare, Plus, PanelLeft,
   RotateCcw, Search, ShoppingCart, Type, X, ChevronsRight, LayoutGrid,
@@ -17,8 +17,8 @@ import { AddSectionSeam, ColumnAdders, Sel, draggedElement, styleOf, useCanvas }
 import { PAGE_ID, chosen, roleStyle } from './portalStyleResolver';
 import { shadowCss } from './PortalBoxControls';
 import { PortalPlacedElement } from './PortalPlacedElement';
-import { DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, fillCss, colId, nodePath, isLockedRow, hasFixedTitle } from './portalPageModel';
-import type { CustomSection, PlacedElement, PortalPageContent } from './portalPageModel';
+import { DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, fillCss, isBranch, nodePath, isLockedRow, hasFixedTitle } from './portalPageModel';
+import type { Box, BoxDir, CustomSection, PlacedElement, PortalPageContent } from './portalPageModel';
 import { iconNode, isImageChoice } from './PortalIconPicker';
 import type { IconChoice } from './PortalIconPicker';
 
@@ -121,7 +121,7 @@ function RowDrop({ rowId, className, style, resize, children }: {
 
 /* A column: empty and dashed until something is dropped in, then just the element on the section's
    own surface. No wrapper card — the element brings whatever chrome it actually needs. */
-function ColumnBody({ id, item, live, icons, placedText, cfg }: { id: string; item?: PlacedElement; live: boolean; icons?: Record<string, IconChoice | undefined>; placedText?: Record<string, { title?: string; desc?: string }>; cfg?: (id: string) => Record<string, unknown> }) {
+function ColumnBody({ id, item, live, dir, icons, placedText, cfg }: { id: string; item?: PlacedElement; live: boolean; dir?: BoxDir; icons?: Record<string, IconChoice | undefined>; placedText?: Record<string, { title?: string; desc?: string }>; cfg?: (id: string) => Record<string, unknown> }) {
   const { styles, dropInColumn, addInside } = useCanvas();
   const [over, setOver] = useState(false);
 
@@ -164,10 +164,10 @@ function ColumnBody({ id, item, live, icons, placedText, cfg }: { id: string; it
           {/* ⚠️ A FILLED column keeps its adders too. They used to appear only on an empty column,
               so the moment you put something in one — or selected what was already there — the way
               to add a column beside it vanished, and the only remaining route was to empty it. */}
-          {live && <ColumnAdders columnId={id} filled />}
+          {live && <ColumnAdders columnId={id} dir={dir} filled />}
         </>
       ) : (
-        live ? <ColumnAdders columnId={id} /> : (
+        live ? <ColumnAdders columnId={id} dir={dir} /> : (
           /* Unselected columns stay grey but are NOT dead — clicking still opens the element
              library, so you can fill any column without selecting it first. */
           <button
@@ -203,77 +203,120 @@ export const SECTION_PAD = 'px-6 py-3';
 /* Re-exported from the model so the many call sites here keep their import. */
 export { fillCss };
 
+const BOX_GAP = 16;
+
+/* One box, drawn. A section, a column, a row and the cell a widget sits in are the same thing in
+ * four positions, so there is ONE renderer for all four — which is what makes "all level
+ * feasibility in row, col. split" a property of the model rather than four features kept in step.
+ *
+ * ⚠️ `weight` sizes the ROW axis only. A row's columns share a measured width, so a share means
+ * something there; a column's rows are content-height, and giving them flex shares would need the
+ * section to have a height of its own — which it does not, and should not. Stacked boxes take the
+ * height of what is in them, exactly as the page does today. */
+function BoxView({
+  box, parentDir, resize, icons, placedText, cfg, siblings,
+}: {
+  box: Box;
+  /** The PARENT's direction — what decides whether this box is a Column or a Row, and which way
+   *  its `+` adders point. `undefined` on a section root, which has no siblings to add. */
+  parentDir?: BoxDir;
+  resize: string;
+  icons?: Record<string, IconChoice | undefined>;
+  placedText?: Record<string, { title?: string; desc?: string }>;
+  cfg?: (id: string) => Record<string, unknown>;
+  /** The weights of every child in this row, for the basis calculation. */
+  siblings: number[];
+}) {
+  const { selectedId, hoverId } = useCanvas();
+  const branch = isBranch(box);
+
+  /* Blue adders belong to ONE box at a time — the selected one, or the one the pointer is over.
+     ⚠️ Hover is matched against the whole PATH, not the id: with an element selected inside a box
+     the pointer is over the element, not the box, and an exact match silently took the affordance
+     away. Same rule "+ Add Section" already follows on section hover. */
+  const live = selectedId === box.id || (!!hoverId && nodePath(hoverId).some((n) => n.id === box.id));
+
+  const total = siblings.reduce((a, b) => a + b, 0) || 1;
+  /* ⚠️ Fixed columns need a real BASIS, not `flex: weight`. That shorthand is "grow by weight from a
+     basis of zero" — turn grow off and a zero-basis column is a column of zero width, so every one
+     would vanish the moment the section was switched. Written as the share it already had, the
+     switch is invisible, which is the point. */
+  const style: CSSProperties = parentDir === 'row'
+    ? { flex: `${resize === 'fixed' ? 0 : box.weight} ${resize === 'fixed' ? 0 : 1} calc((100% - ${(siblings.length - 1) * BOX_GAP}px) * ${box.weight / total})` }
+    : {};
+
+  return (
+    <Sel id={box.id} className="min-w-0" style={style}>
+      {branch ? (
+        <BoxChildren box={box} resize={resize} icons={icons} placedText={placedText} cfg={cfg} />
+      ) : (
+        <ColumnBody id={box.id} item={box.el} live={live} dir={parentDir} icons={icons} placedText={placedText} cfg={cfg} />
+      )}
+    </Sel>
+  );
+}
+
+/** A branch's children, laid out along its own `dir`. Shared by `BoxView` and the section root so
+ *  the root is not a second, slightly different renderer for the same job. */
+function BoxChildren({ box, resize, icons, placedText, cfg }: {
+  box: Box;
+  resize: string;
+  icons?: Record<string, IconChoice | undefined>;
+  placedText?: Record<string, { title?: string; desc?: string }>;
+  cfg?: (id: string) => Record<string, unknown>;
+}) {
+  const kids = box.children ?? [];
+  const weights = kids.map((c) => c.weight);
+  return (
+    <div
+      className="flex min-w-0"
+      /* `dir` IS `flex-direction`. That is the whole of the behaviour setting: a row lays its
+         children left-to-right so each reads as a column, a column stacks them so each reads as a
+         row. Flipping it moves nothing and destroys nothing. */
+      style={{ flexDirection: box.dir, gap: BOX_GAP, alignItems: box.dir === 'row' ? 'stretch' : undefined }}
+      data-dir={box.dir}
+    >
+      {kids.map((child) => (
+        <BoxView
+          key={child.id}
+          box={child}
+          parentDir={box.dir}
+          resize={resize}
+          icons={icons}
+          placedText={placedText}
+          cfg={cfg}
+          siblings={weights}
+        />
+      ))}
+    </div>
+  );
+}
+
 function AddedSection({ section, icons, placedText, cfg }: { section: CustomSection; icons?: Record<string, IconChoice | undefined>; placedText?: Record<string, { title?: string; desc?: string }>; cfg?: (id: string) => Record<string, unknown> }) {
-  const { styles, selectedId, hoverId } = useCanvas();
-  let index = -1;
+  const { selectedId, hoverId } = useCanvas();
   /* An added section answers Responsive behaviour exactly as a built-in band does — it is the same
      Section spec, so an empty section you just dropped in has the control from its first column. */
   const resize = String(cfg?.(section.id)?.resize ?? 'fill');
-  const ROW_GAP = 16;
+  const root = section.root;
+  const live = selectedId === root.id || (!!hoverId && nodePath(hoverId).some((n) => n.id === root.id));
+
   return (
+    /* ⚠️ A section paints NOTHING by default — no white card, no border, no radius. A divider, a
+       line of text or a button dropped on the page should sit on the page, the way it does in every
+       website editor. A surface is something you ADD: Style → Fill paints one.
+       ⚠️ Padding stays. Without it a dropped element would touch the page edge, and the page's own
+       gutter is not the section's to borrow.
+       ⚠️ No style on an inner box — `Sel` applies the node style ONCE, here. It used to be spread
+       again inside, so every padding value was applied around the section and again within it. */
     <Sel id={section.id} className={SECTION_PAD} style={fillCss(cfg?.(section.id) ?? {})}>
-      {/* ⚠️ A section paints NOTHING by default — no white card, no border, no radius.
-          A divider, a line of text or a button dropped on the page should sit on the page, the way
-          it does in every website editor. The card chrome made every drop look like it had landed
-          inside a panel it never asked for, and a page built from six elements came out as six
-          stacked boxes.
-          A surface is now something you ADD: Style → Fill → Colour or Image paints one, and the
-          Border and shadow section draws its edges. Both already write through `styleOf`, so the
-          only change here is that the default is bare rather than a card.
-          ⚠️ Padding stays. Without it a dropped element would touch the page edge, and the page's
-          own gutter is not the section's to borrow. */}
-      {/* ⚠️ No style here. This inner box was spreading the section's OWN style a second time, so
-          every padding value was applied once around the section and once again inside it. */}
-      <div>
-        <div className="flex flex-col gap-4">
-          {section.rows.map((row, r) => {
-            const total = row.reduce((a, b) => a + b, 0) || 1;
-            return (
-            <div
-              key={r}
-              className={resize === 'fixed' && row.length > 1 ? 'gap-4' : 'flex gap-4'}
-              /* ⚠️ Fixed rows are a GRID of equal tracks — see the note on `secGrid`. The class is
-                  swapped rather than overridden because `flex` and `grid` are the same property. */
-              style={resize === 'fixed' && row.length > 1
-                ? { display: 'grid', gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }
-                : undefined}
-              data-resize={resize}
-            >
-              {row.map((weight, c) => {
-                index += 1;
-                const id = colId(section.id, index);
-                /* Blue adders belong to ONE column at a time — the selected one, or the one the
-                   pointer is over. Lighting every column at once put two `+` buttons either side of
-                   each shared edge and made the row noisy.
-                   ⚠️ Hover counts even while something ELSE is selected, and the hover is matched
-                   against the whole PATH rather than the column id: with an element selected inside
-                   a column, the pointer is over the element, not the column, and requiring an exact
-                   match meant selecting a child silently took the add affordance away. That is the
-                   same rule "+ Add Section" already follows on section hover. */
-                const live = selectedId === id
-                  || (!!hoverId && nodePath(hoverId).some((n) => n.id === id));
-                const item = section.items[id];
-                return (
-                  /* ⚠️ Fixed columns need a real BASIS, not `flex: weight`. That shorthand is
-                     "grow by weight from a basis of zero" — turn grow off and a column with a zero
-                     basis is a column of zero width, so every one of them would vanish the moment
-                     the section was switched. Written as the share it already had, the switch is
-                     invisible, which is the point. */
-                  <Sel
-                    key={c}
-                    id={id}
-                    className="min-w-0"
-                    style={{ flex: `${resize === 'fixed' ? 0 : weight} ${resize === 'fixed' ? 0 : 1} calc((100% - ${(row.length - 1) * ROW_GAP}px) * ${weight / total})` }}
-                  >
-                    <ColumnBody id={id} item={item} live={live} icons={icons} placedText={placedText} cfg={cfg} />
-                  </Sel>
-                );
-              })}
-            </div>
-            );
-          })}
-        </div>
-      </div>
+      {isBranch(root) ? (
+        <BoxChildren box={root} resize={resize} icons={icons} placedText={placedText} cfg={cfg} />
+      ) : (
+        /* A section nobody has split yet IS a single cell — it just has nothing beside it. It gets
+           the same body a leaf gets anywhere else; the way to give it a neighbour is Split, since
+           the root has no parent for a sibling to go into. */
+        <ColumnBody id={root.id} item={root.el} live={live} icons={icons} placedText={placedText} cfg={cfg} />
+      )}
     </Sel>
   );
 }

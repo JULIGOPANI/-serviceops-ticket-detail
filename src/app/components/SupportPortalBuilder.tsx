@@ -18,13 +18,16 @@ import type { PortalTheme } from './PortalThemePanel';
 import { PortalElementPanel } from './PortalElementPanel';
 import { CanvasProvider } from './PortalCanvas';
 import {
-  DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, addColumn, moveIn, nodeById, parseItemId,
-  placedType, registerPlaced, colId, isLockedRow,
+  DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, moveIn, nodeById, parseItemId,
+  placedType, registerPlaced, isLockedRow,
+  addSibling, boxOfElement, findBox, freeLeaves, isBranch, mapBox, parentOfBox, registerTree, removeBox,
+  sectionElements, sectionFromRows, sectionIdOfBox, sectionRebuild, sectionRows, setBoxDir, setBoxEl,
+  splitBlockedBecause, splitBox,
 } from './portalPageModel';
 import { PortalWidgetDrawer } from './PortalWidgetDrawer';
 import { WIDGET_FOR_NODE, WIDGET_FOR_TYPE, specById, structureSpecId } from './portalWidgetSpec';
 import type { Cfg, WidgetSpec } from './portalWidgetSpec';
-import type { CustomSection, NodeStyle, PlacedElement, PortalPageContent, PortalStyles } from './portalPageModel';
+import type { Box, BoxDir, CustomSection, NodeStyle, PlacedElement, PortalPageContent, PortalStyles } from './portalPageModel';
 import { PORTAL_ELEMENTS, PORTAL_EMPTY_WIDGETS } from './supportPortalData';
 import { IconPopover } from './PortalIconPicker';
 import type { IconChoice } from './PortalIconPicker';
@@ -272,7 +275,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      so it is always current by the time anything calls this. */
   const sectionHasContent = useCallback((id: string) => {
     const sec = sectionsRef.current.find((s) => s.section.id === id)?.section;
-    if (sec) return Object.keys(sec.items).length > 0;
+    if (sec) return sectionElements(sec).length > 0;
     // A built-in band always holds its own widgets.
     return true;
   }, []);
@@ -287,11 +290,12 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
       /* ⚠️ Same substitution the preset itself makes, or the tile ROW and the tile ACTION disagree:
          an empty two-row section reported 0 and was offered the two-item tile set, so the shape it
          already had was not among the shapes it could be given. */
-      const cells = sec.rows.reduce((a, r) => a + r.length, 0);
+      const rows = sectionRows(sec);
+      const cells = rows.reduce((a, r) => a + r.length, 0);
       return {
-        __count: Math.max(Object.keys(sec.items).length, cells),
-        __preset: presetOf(sec.rows),
-        __rowAxis: isRowAxis(sec.rows),
+        __count: Math.max(sectionElements(sec).length, cells),
+        __preset: presetOf(rows),
+        __rowAxis: isRowAxis(rows),
       };
     }
     /* ⚠️ A BUILT-IN band, whose shape is a column COUNT on its config rather than a `rows` array.
@@ -306,6 +310,14 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     const cols = Number(widgetCfgRef.current[id]?.cols ?? items);
     const preset: PresetId = cols <= 1 ? 'stack' : cols >= items ? 'cols' : cols === 3 ? 'three' : 'grid';
     return { __count: items, __preset: preset, __rowAxis: cols > 1 };
+  }, []);
+
+  /* ⚠️ Through the REF, like `sectionHasContent` beside it: `cfgFor` is declared above `sections`,
+     so naming the state here is a use-before-initialisation that throws at module evaluation and
+     blanks the page. */
+  const boxDirOf = useCallback((id: string): BoxDir | undefined => {
+    const sec = sectionsRef.current.find((s) => s.section.id === sectionIdOfBox(id))?.section;
+    return sec ? findBox(sec.root, id)?.dir : undefined;
   }, []);
 
   const cfgFor = useCallback((id: string): Cfg => {
@@ -327,6 +339,12 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
       ...(/^quick-/.test(owner) ? { cardTemplate: widgetCfgRef.current.quick?.cardTemplate ?? 'left' } : {}),
       __noData: PORTAL_EMPTY_WIDGETS.has(owner),
       ...(widgetCfg[owner] ?? {}),
+      /* ⚠️ LAST, and read from the TREE — the behaviour control's value is the box's own `dir`, and
+         config must not be able to answer over the top of it. A stored copy would be a second
+         source of truth for the one property the whole layout is laid out by: flip the box on the
+         canvas and the panel would go on showing what config remembered. `patchCfg` writes this
+         key into the tree and never stores it, so there is nothing here to go stale. */
+      ...(boxDirOf(owner) ? { dir: boxDirOf(owner) } : {}),
     };
   }, [specForNode, widgetCfg, sectionHasContent]);
 
@@ -335,6 +353,19 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      goes through this function, so there is no path that sets one and misses the other. It is the
      only key in the builder that behaves this way, which is why it is named rather than inferred. */
   const patchCfg = useCallback((id: string, patch: Cfg) => {
+    /* ⚠️ Behaviour is TREE state, so it is applied there and REMOVED from the patch rather than
+       written to both. Two copies of the property everything is laid out by is the one thing this
+       model exists to avoid — and a stored `dir` would win in `cfgFor` the moment the two drifted. */
+    if (patch.dir !== undefined) {
+      const secId = sectionIdOfBox(id);
+      setSections((prev) => prev.map((s) => (
+        s.section.id === secId ? { ...s, section: setBoxDir(s.section, id, patch.dir as BoxDir) } : s
+      )));
+      const rest = { ...patch };
+      delete rest.dir;
+      if (!Object.keys(rest).length) return;
+      patch = rest;
+    }
     const SERVICE_ROWS = ['favourites', 'services'];
     if (SERVICE_ROWS.includes(id) && patch.cardTemplate !== undefined) {
       const other = SERVICE_ROWS.find((rr) => rr !== id)!;
@@ -402,20 +433,28 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     const pool = PORTAL_ELEMENTS.filter((e) => !e.onPage && !e.hidden);
     return pool.map((def, i) => {
       const id = `sec-${i + 1}`;
-      const cid = colId(id, 0);
+      const section = sectionFromRows(id, [[1]]);
       const inst: PlacedElement = { id: `el-${i + 1}`, type: def.id, name: def.name };
-      registerPlaced(inst.id, inst.name, inst.type, cid);
-      return { afterId: 'records', section: { id, rows: [[1]], items: { [cid]: inst } } };
+      /* ⚠️ An unsplit section IS its own single cell, so the element goes on the ROOT box and its
+         parent is the section id. There is no separate column to put it in until something splits. */
+      section.root.el = inst;
+      registerPlaced(inst.id, inst.name, inst.type, id);
+      return { afterId: 'records', section };
     });
   });
   sectionsRef.current = sections;
+  /* ⚠️ Every box re-registers whenever the trees change. `nodeById` used to read a column straight
+     off its id shape; a tree has no shape to read, so the boxes have to tell it. Done here, beside
+     the ref assignment that is already a render-time sync, so there is one place that keeps the
+     registry and the state in step. */
+  sections.forEach((s) => registerTree(s.section));
   const nextSectionId = useRef(sectionsRef.current.length + 1);
   /* ⚠️ Past the seeded ids. Starting at 1 would mint an `el-1` that already exists, and config and
      style are keyed by id — the new element would silently wear the seeded one's settings. */
-  const seededElements = sectionsRef.current.reduce((n, x) => n + Object.keys(x.section.items).length, 0);
+  const seededElements = sectionsRef.current.reduce((n, x) => n + sectionElements(x.section).length, 0);
 
   const addSection = useCallback((afterId: string, rows: number[][]) => {
-    const section: CustomSection = { id: `sec-${nextSectionId.current++}`, rows, items: {} };
+    const section = sectionFromRows(`sec-${nextSectionId.current++}`, rows);
     setSections((prev) => {
       /* ⚠️ When the seam belongs to an ADDED section, the new one goes directly after it and
          inherits its anchor. Pushing to the end of the array put it at the foot of the page
@@ -468,12 +507,10 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   }, [makeElement, select]);
 
   const dropInColumn = useCallback((columnId: string, type: string) => {
-    const sectionId = columnId.replace(/-c\d+$/, '');
+    const sectionId = sectionIdOfBox(columnId);
     const el = makeElement(type, columnId);
     setSections((prev) => prev.map((s) => (
-      s.section.id === sectionId
-        ? { ...s, section: { ...s.section, items: { ...s.section.items, [columnId]: el } } }
-        : s
+      s.section.id === sectionId ? { ...s, section: setBoxEl(s.section, columnId, el) } : s
     )));
     select(el.id);
     toast.success(`${el.name} added`);
@@ -481,20 +518,44 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
   /* Dropping on a seam builds the section for you — one column, the element inside it. */
   const dropAtSeam = useCallback((afterId: string, type: string) => {
-    const section: CustomSection = { id: `sec-${nextSectionId.current++}`, rows: [[1]], items: {} };
-    const col = `${section.id}-c0`;
-    const el = makeElement(type, col);
-    section.items[col] = el;
+    const section = sectionFromRows(`sec-${nextSectionId.current++}`, [[1]]);
+    const el = makeElement(type, section.id);
+    section.root.el = el;
     setSections((prev) => [...prev, { afterId, section }]);
     select(el.id);
     toast.success(`${el.name} added in a new section`);
   }, [makeElement, select]);
 
+  /* The axis-aware "+". `side` is 'left'/'right' on a row and reads as above/below on a column —
+     one call, because "add a sibling before me" is the same operation whichever way the parent
+     happens to be laid out. */
   const addColumnBeside = useCallback((columnId: string, side: 'left' | 'right') => {
-    const sectionId = columnId.replace(/-c\d+$/, '');
-    const index = Number(/-c(\d+)$/.exec(columnId)?.[1] ?? 0);
+    const sectionId = sectionIdOfBox(columnId);
     setSections((prev) => prev.map((s) => (
-      s.section.id === sectionId ? { ...s, section: addColumn(s.section, index, side) } : s
+      s.section.id === sectionId ? { ...s, section: addSibling(s.section, columnId, side === 'left') } : s
+    )));
+  }, []);
+
+  /* Split — the ONE structural operation, identical at every level. A leaf becomes two, a branch
+     grows one more child, and the direction is always the box's own. */
+  const splitNode = useCallback((boxId: string) => {
+    const sectionId = sectionIdOfBox(boxId);
+    let blocked: string | null = null;
+    setSections((prev) => prev.map((s) => {
+      if (s.section.id !== sectionId) return s;
+      blocked = splitBlockedBecause(s.section.root, boxId);
+      return blocked ? s : { ...s, section: splitBox(s.section, boxId) };
+    }));
+    if (blocked) toast.error(blocked);
+  }, []);
+
+  /* Behaviour — the note's "how user wants to treat sec? row / column". ⚠️ Non-destructive by
+     construction: the children and their order are untouched and only the axis changes, which is
+     what makes "rearrange to top & bottom" one click rather than a rebuild. */
+  const setNodeDir = useCallback((boxId: string, dir: BoxDir) => {
+    const sectionId = sectionIdOfBox(boxId);
+    setSections((prev) => prev.map((s) => (
+      s.section.id === sectionId ? { ...s, section: setBoxDir(s.section, boxId, dir) } : s
     )));
   }, []);
 
@@ -592,10 +653,8 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     toast.success('Page reset to default');
   }, []);
 
-  const sectionOfColumn = (id: string) => id.replace(/-c\d+$/, '');
   const placedParent = (id: string) => nodeById(id)?.parent;
 
-  /** Every column id in a section, in render order — ids run across rows, not per row. */
   /* ⚠️ A preset RESTRUCTURES, and the widgets come with it. Reading the items out in cell order and
      writing them back into the new cells in the same order is what makes "3 across → stacked" keep
      A, B, C as A, B, C — rebuilding the rows alone would leave every item keyed to a column id that
@@ -617,32 +676,23 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     setSections((prev) => prev.map((entry) => {
       if (entry.section.id !== sectionId) return entry;
       const sec = entry.section;
-      const ordered: PlacedElement[] = [];
-      let n = -1;
-      sec.rows.forEach((row) => row.forEach(() => { n += 1; const it = sec.items[colId(sec.id, n)]; if (it) ordered.push(it); }));
-      const cells = sec.rows.reduce((a, r) => a + r.length, 0);
+      const ordered = sectionElements(sec);
+      const cells = sectionRows(sec).reduce((a, r) => a + r.length, 0);
       const rows = PRESETS[preset].rows(Math.max(ordered.length, cells, 1));
-      const items: Record<string, PlacedElement> = {};
-      let i = -1;
-      rows.forEach((row) => row.forEach(() => {
-        i += 1;
-        const el = ordered[i];
-        if (!el) return;
-        const cid = colId(sec.id, i);
-        items[cid] = el;
-        registerPlaced(el.id, el.name, el.type, cid);
-      }));
-      return { ...entry, section: { ...sec, rows, items } };
+      const next = sectionRebuild(sec, rows, ordered);
+      /* Every element now sits in a NEW cell, so each has to be told its new parent — without this
+         the panel breadcrumb keeps naming a column that no longer exists. */
+      ordered.forEach((el) => {
+        const box = boxOfElement(next.root, el.id);
+        if (box) registerPlaced(el.id, el.name, el.type, box.id);
+      });
+      return { ...entry, section: next };
     }));
     toast.success(`${PRESETS[preset].title} layout applied`);
   }, []);
 
-  const columnIds = (s: CustomSection) => {
-    const ids: string[] = [];
-    let i = 0;
-    s.rows.forEach((row) => row.forEach(() => ids.push(`${s.id}-c${i++}`)));
-    return ids;
-  };
+  /** Every cell in the section that can still take something, in reading order. */
+  const openCells = (s: CustomSection) => freeLeaves(s.root).map((b) => b.id);
 
   /* Click-to-add. The library is not a catalogue you can only drag out of.
    *
@@ -679,8 +729,11 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     const secId = anchor ? /^sec-\d+/.exec(anchor)?.[0] : undefined;
     const sec = secId ? sections.find((s) => s.section.id === secId)?.section : undefined;
     if (sec) {
-      const aimed = anchor && /^sec-\d+-c\d+$/.test(anchor) && !sec.items[anchor] ? anchor : undefined;
-      const target = aimed ?? columnIds(sec).find((c) => !sec.items[c]);
+      /* ⚠️ The aimed cell has to be a LEAF that is empty — a branch has no content of its own, and
+         a full leaf would mean silently replacing somebody's element. */
+      const aimedBox = anchor ? findBox(sec.root, anchor) : undefined;
+      const aimed = aimedBox && !isBranch(aimedBox) && !aimedBox.el ? aimedBox.id : undefined;
+      const target = aimed ?? openCells(sec)[0];
       // Every column full falls through: a new section beats silently replacing someone's element.
       if (target) { dropInColumn(target, type); return; }
     }
@@ -714,8 +767,34 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
       });
       return;
     }
+    /* A BOX moves among its siblings. ⚠️ This is new with the tree: under the flat model a column
+       had no ordered list of its own to move within, so every column landed on the message below.
+       'prev'/'next' read as left/right on a row and up/down on a column, which is the same question
+       the toolbar's arrows already ask by axis. */
+    const secId = sectionIdOfBox(id);
+    const sec = sectionsRef.current.find((s) => s.section.id === secId)?.section;
+    const parent = sec ? parentOfBox(sec.root, id) : undefined;
+    if (sec && parent) {
+      setSections((prev) => prev.map((s) => (
+        s.section.id !== secId ? s : {
+          ...s,
+          section: { ...s.section, root: mapBox(s.section.root, parent.id, (p) => ({ ...p, children: moveIn(p.children!, p.children!.find((c) => c.id === id)!, step) })) },
+        }
+      )));
+      return;
+    }
     toast.success('This element sits on its own — nothing to swap it with');
   }, [blockOrder, rowOrder]);
+
+  /* What the toolbar's Split button needs to know: which way this box splits, and why it cannot.
+     ⚠️ Returns a REASON rather than a boolean, so the button can stay visible and disabled with the
+     reason on it — the way every other cap in this product behaves. Null for anything that is not a
+     box, which is how the toolbar knows not to offer Split at all. */
+  const splitInfo = useCallback((id: string): { dir: BoxDir; blocked: string | null } | null => {
+    const sec = sectionsRef.current.find((s) => s.section.id === sectionIdOfBox(id))?.section;
+    const box = sec ? findBox(sec.root, id) : undefined;
+    return box ? { dir: box.dir, blocked: splitBlockedBecause(sec!.root, id) } : null;
+  }, []);
 
   /** Which ordered list an id lives in, so a drag knows what it can be dropped among. */
   const listOf = useCallback((id: string): 'block' | 'section' | string | null => {
@@ -741,8 +820,8 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
        page with no toast and no home. Reading first and writing second cannot half-move anything. */
     let taken: PlacedElement | null = null;
     for (const sec of sectionsRef.current) {
-      const col = Object.keys(sec.section.items).find((c) => sec.section.items[c].id === id);
-      if (col) { taken = sec.section.items[col]; break; }
+      const box = boxOfElement(sec.section.root, id);
+      if (box) { taken = box.el!; break; }
     }
     if (!taken) {
       const rows = rowExtrasRef.current;
@@ -754,11 +833,8 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     /* Clear BOTH homes — a column and a built-in row are two different stores, and an element that
        half-moves is an element that gets duplicated. */
     setSections((prev) => prev.map((sec) => {
-      const col = Object.keys(sec.section.items).find((c) => sec.section.items[c].id === id);
-      if (!col) return sec;
-      const items = { ...sec.section.items };
-      delete items[col];
-      return { ...sec, section: { ...sec.section, items } };
+      const box = boxOfElement(sec.section.root, id);
+      return box ? { ...sec, section: setBoxEl(sec.section, box.id, undefined) } : sec;
     }));
     setRowExtras((prev) => {
       const hit = Object.keys(prev).find((r) => prev[r].some((e) => e.id === id));
@@ -773,30 +849,30 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      overwriting — dropping onto a filled column used to be the one gesture that could destroy work,
      and a swap is what you meant by dragging one thing onto another anyway. */
   const relocateElement = useCallback((id: string, destCol: string) => {
-    const destSec = destCol.replace(/-c[0-9]+$/, '');
+    const destSec = sectionIdOfBox(destCol);
     let occupant: PlacedElement | null = null;
     let sourceCol: string | null = null;
-    setSections((prev) => {
-      prev.forEach((sec) => {
-        const col = Object.keys(sec.section.items).find((c) => sec.section.items[c].id === id);
-        if (col) sourceCol = col;
-        if (sec.section.id === destSec && sec.section.items[destCol]) occupant = sec.section.items[destCol];
-      });
-      return prev;
+    /* ⚠️ Read from the REF before anything is written. Reading inside an updater only works while
+       that hook's queue is empty, which is what made a move out of a built-in row return null. */
+    sectionsRef.current.forEach((sec) => {
+      const box = boxOfElement(sec.section.root, id);
+      if (box) sourceCol = box.id;
+      if (sec.section.id === destSec) {
+        const dest = findBox(sec.section.root, destCol);
+        if (dest?.el) occupant = dest.el;
+      }
     });
     const moving = detachElement(id);
     if (!moving) return;
-    setSections((prev) => prev.map((sec) => {
-      if (sec.section.id !== destSec) return sec;
-      const items = { ...sec.section.items, [destCol]: moving };
-      return { ...sec, section: { ...sec.section, items } };
-    }));
+    setSections((prev) => prev.map((sec) => (
+      sec.section.id === destSec ? { ...sec, section: setBoxEl(sec.section, destCol, moving) } : sec
+    )));
     registerPlaced(moving.id, moving.name, moving.type, destCol);
     if (occupant && sourceCol) {
-      setSections((prev) => prev.map((sec) => {
-        if (!sourceCol!.startsWith(sec.section.id)) return sec;
-        return { ...sec, section: { ...sec.section, items: { ...sec.section.items, [sourceCol!]: occupant! } } };
-      }));
+      const srcSec = sectionIdOfBox(sourceCol);
+      setSections((prev) => prev.map((sec) => (
+        sec.section.id === srcSec ? { ...sec, section: setBoxEl(sec.section, sourceCol!, occupant!) } : sec
+      )));
       registerPlaced(occupant.id, occupant.name, occupant.type, sourceCol);
     }
     select(id);
@@ -823,17 +899,27 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   }, [listOf]);
 
   /** Where a node lives: a section column, or a built-in row. Null for a page-level band. */
+  /* ⚠️ A cell is any LEAF box, at any depth — and the section ROOT is one until it is split, which
+     is why the test is "does this section have a leaf with this id" rather than a pattern on the id.
+     A branch is deliberately excluded: it has no content of its own, only children, so dropping an
+     element on one has nowhere to land. */
+  const cellId = useCallback((id: string) => {
+    const sec = sectionsRef.current.find((s) => s.section.id === sectionIdOfBox(id))?.section;
+    const box = sec ? findBox(sec.root, id) : undefined;
+    return !!box && !isBranch(box);
+  }, []);
+
   const homeOf = useCallback((id: string): { kind: 'col' | 'row'; id: string } | null => {
-    if (/^sec-\d+-c\d+$/.test(id)) return { kind: 'col', id };
+    if (cellId(id)) return { kind: 'col', id };
     if (/^el-\d+$/.test(id)) {
       const p = nodeById(id)?.parent;
-      if (p && /^sec-\d+-c\d+$/.test(p)) return { kind: 'col', id: p };
+      if (p && cellId(p)) return { kind: 'col', id: p };
       if (p && rowOrderRef.current[p]) return { kind: 'row', id: p };
     }
     const row = listOf(id);
     if (row && row !== 'block' && row !== 'section') return { kind: 'row', id: row };
     return null;
-  }, [listOf]);
+  }, [listOf, cellId]);
 
   /* Moving a placed element into a built-in row — Quick Actions, the work row, the records row.
      ⚠️ Detach first, in both stores: an element that half-moves is an element that gets duplicated. */
@@ -872,10 +958,9 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   const moveToSeam = useCallback((id: string, afterId: string) => {
     const moving = detachElement(id);
     if (!moving) return;
-    const section: CustomSection = { id: `sec-${nextSectionId.current++}`, rows: [[1]], items: {} };
-    const col = colId(section.id, 0);
-    section.items[col] = moving;
-    registerPlaced(moving.id, moving.name, moving.type, col);
+    const section = sectionFromRows(`sec-${nextSectionId.current++}`, [[1]]);
+    section.root.el = moving;
+    registerPlaced(moving.id, moving.name, moving.type, section.id);
     setSections((prev) => [...prev, { afterId, section }]);
     select(id);
     toast.success(`${moving.name} moved to a new section`);
@@ -978,14 +1063,22 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
         const found = prev.find((s) => s.section.id === id);
         if (!found) return prev;
         const copyId = `sec-${nextSectionId.current++}`;
-        const items: Record<string, PlacedElement> = {};
-        Object.entries(found.section.items).forEach(([col, el]) => {
-          const newCol = col.replace(found.section.id, copyId);
-          const clone = { ...el, id: `el-${nextElementId.current++}` };
-          registerPlaced(clone.id, clone.name, clone.type, newCol);
-          items[newCol] = clone;
+        /* ⚠️ The copy is built from the ORIGINAL's shape, so nesting at any depth comes across
+           intact — `sectionRows` would only describe the top two levels, which is right for a
+           preset and wrong for a duplicate. Box ids are re-minted under the new section id; the
+           elements are cloned because two sections cannot both hold the same instance. */
+        const clone = (b: Box): Box => ({
+          ...b,
+          id: b.id === found.section.id ? copyId : b.id.replace(found.section.id, copyId),
+          children: b.children?.map(clone),
+          el: b.el ? { ...b.el, id: `el-${nextElementId.current++}` } : undefined,
         });
-        return [...prev, { afterId: found.afterId, section: { id: copyId, rows: found.section.rows, items } }];
+        const section: CustomSection = { id: copyId, root: clone(found.section.root), next: found.section.next };
+        sectionElements(section).forEach((el) => {
+          const box = boxOfElement(section.root, el.id);
+          if (box) registerPlaced(el.id, el.name, el.type, box.id);
+        });
+        return [...prev, { afterId: found.afterId, section }];
       });
       toast.success('Section duplicated');
       return;
@@ -993,25 +1086,24 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     // A placed element clones into a fresh column beside its own.
     const col = placedParent(id);
     if (!col) return;
-    const secId = sectionOfColumn(col);
-    const index = Number(/-c(\d+)$/.exec(col)?.[1] ?? 0);
+    const secId = sectionIdOfBox(col);
     let cloneId: string | null = null;
     setSections((prev) => prev.map((s) => {
       if (s.section.id !== secId) return s;
-      const grown = addColumn(s.section, index, 'right');
-      const newCol = `${secId}-c${index + 1}`;
-      const src = s.section.items[col];
-      /* ⚠️ Read the items off GROWN, not off the original. addColumn now re-keys them for the new
-         column numbering, so spreading the pre-insert map would put every neighbour back under its
-         old key and undo the shift the clone depends on. */
-      const items: Record<string, PlacedElement> = { ...grown.items };
-      if (src) {
-        const clone = { ...src, id: `el-${nextElementId.current++}` };
-        registerPlaced(clone.id, clone.name, clone.type, newCol);
-        items[newCol] = clone;
-        cloneId = clone.id;
-      }
-      return { ...s, section: { ...grown, items } };
+      const src = findBox(s.section.root, col)?.el;
+      if (!src) return s;
+      /* ⚠️ A clone needs a cell of its own, and where that cell comes from depends on where the
+         original sits. A box with a PARENT gets a sibling beside it. The section ROOT has no parent
+         to take a sibling, so it SPLITS — which is the same gesture, one level up: the original
+         keeps its content and the second cell is the empty one the clone lands in. */
+      const parent = parentOfBox(s.section.root, col);
+      const grown = parent ? addSibling(s.section, col, false) : splitBox(s.section, col);
+      const slot = freeLeaves(grown.root)[0];
+      if (!slot) return s;
+      const clone = { ...src, id: `el-${nextElementId.current++}` };
+      registerPlaced(clone.id, clone.name, clone.type, slot.id);
+      cloneId = clone.id;
+      return { ...s, section: setBoxEl(grown, slot.id, clone) };
     }));
     /* ⚠️ A copy has to arrive as a COPY — same content, same design, and open for editing. Cloning
        the placement alone produced a blank element wearing the original's name, and left the panel
@@ -1028,44 +1120,30 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   const deleteNode = useCallback((id: string) => {
     if (/^sec-\d+$/.test(id)) {
       setSections((prev) => prev.filter((s) => s.section.id !== id));
-    } else if (/^sec-\d+-c\d+$/.test(id)) {
+    } else if (/^sec-\d+-b\d+$/.test(id)) {
       /* ⚠️ A COLUMN, which is what you actually have selected when you click an empty section —
          the column is the innermost selectable thing inside it. Delete used to fall through to the
          `removed` branch here and silently do nothing, which is why deleting an empty section
          appeared broken. Removing the last column removes the section: a section with no columns
          is not an empty section, it is nothing. */
-      const secId = /^sec-\d+/.exec(id)?.[0];
-      setSections((prev) => prev.flatMap((s) => {
-        if (s.section.id !== secId) return [s];
-        const ids = columnIds(s.section);
-        if (ids.length <= 1) return [];
-        const at = ids.indexOf(id);
-        let seen = 0;
-        const rows = s.section.rows
-          .map((row) => {
-            const start = seen;
-            seen += row.length;
-            return at >= start && at < seen ? row.filter((_, i) => start + i !== at) : row;
-          })
-          .filter((row) => row.length > 0);
-        const items = { ...s.section.items };
-        delete items[id];
-        return [{ ...s, section: { ...s.section, rows, items } }];
-      }));
+      const secId = sectionIdOfBox(id);
+      setSections((prev) => prev.map((s) => (
+        /* ⚠️ `removeBox` collapses a branch left holding ONE child into that child, so deleting the
+           second of two columns returns the section to the single cell it started as rather than
+           leaving a branch that looks like a leaf but answers differently to every structural
+           question. The section itself is never removed here — a root has no parent to be removed
+           from, and deleting the section is the `sec-N` branch above. */
+        s.section.id === secId ? { ...s, section: removeBox(s.section, id) } : s
+      )));
     } else if (/^el-\d+$/.test(id)) {
       /* ⚠️ A placed element has TWO possible homes — a section column, or a built-in row via
          `rowExtras`. Delete only ever looked in the columns, so anything dropped into Quick Actions
          or a cards row reported "Removed" and stayed on the page. Both homes are cleared; an element
          lives in one of them, so the other pass is a no-op. */
-      const col = placedParent(id);
-      if (col) {
-        setSections((prev) => prev.map((s) => {
-          if (s.section.items[col]?.id !== id) return s;
-          const items = { ...s.section.items };
-          delete items[col];
-          return { ...s, section: { ...s.section, items } };
-        }));
-      }
+      setSections((prev) => prev.map((s) => {
+        const box = boxOfElement(s.section.root, id);
+        return box ? { ...s, section: setBoxEl(s.section, box.id, undefined) } : s;
+      }));
       setRowExtras((prev) => {
         const hit = Object.keys(prev).find((r) => prev[r].some((e) => e.id === id));
         return hit ? { ...prev, [hit]: prev[hit].filter((e) => e.id !== id) } : prev;
@@ -1170,8 +1248,8 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     const made = makeElement(type, home);
     if (/^sec-[0-9]+-c[0-9]+$/.test(home)) {
       setSections((prev) => prev.map((sec) => (
-        sec.section.items[home]?.id === id
-          ? { ...sec, section: { ...sec.section, items: { ...sec.section.items, [home]: made } } }
+        findBox(sec.section.root, home)?.el?.id === id
+          ? { ...sec, section: setBoxEl(sec.section, home, made) }
           : sec
       )));
     } else {
@@ -1197,7 +1275,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
   const canvasCtx = {
     selectedId, hoverId, select, setHover: setHoverId, styles, setStyle, setText, setCfg: patchCfg,
-    addSection, addColumnBeside, dropInColumn, dropAtSeam, dropInRow,
+    addSection, addColumnBeside, splitNode, setNodeDir, splitInfo, dropInColumn, dropAtSeam, dropInRow,
     moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, moveToSeam, addChildBlock, areSiblings, replaceElement, pickIcon, applyPreset,
     onWholePage: () => { const on = cfgFor('hero').bgWholePage === true; patchCfg('hero', { bgWholePage: !on }); toast.success(on ? 'Background is banner-only again' : 'Background applied to the whole page'); },
     /* The text toolbar names the theme fonts, so it needs the live theme. */
