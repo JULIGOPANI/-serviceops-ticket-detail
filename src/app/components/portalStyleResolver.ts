@@ -311,6 +311,13 @@ export function containerCss(styles: PortalStyles, id: string): React.CSSPropert
   const fs = g('fontSize'); const heading = g('heading');
   if (fs) css.fontSize = `${fs}px`;
   else if (heading) css.fontSize = `${HEADING_SIZE_MAP[heading as string] ?? 15}px`;
+  /* ⚠️ The CSS VARIABLE, not the resolved family. `--portal-heading` is set on the canvas wrapper
+     from the live theme, so a text bound to the heading face re-renders the moment the theme
+     changes — exactly like an untouched block. Body is the wrapper's own `fontFamily`, so
+     'inherit' is the honest way to say "the theme's body face" without naming it. */
+  const face = g('face');
+  if (face === 'heading') css.fontFamily = 'var(--portal-heading, inherit)';
+  else if (face === 'body') css.fontFamily = 'inherit';
   const bold = g('bold'); if (bold !== undefined) css.fontWeight = bold ? 700 : undefined;
   if (g('italic')) css.fontStyle = 'italic';
   if (g('underline')) css.textDecoration = 'underline';

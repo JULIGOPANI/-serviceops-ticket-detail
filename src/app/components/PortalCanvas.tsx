@@ -12,6 +12,8 @@ import {
 // ArrowLeft stays in use by the card toolbar's "Move left".
 import { toast } from 'sonner';
 import { HEADING_SIZE, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, nodeById, paintsOwnSurface, nodePath, placedIn, placedType } from './portalPageModel';
+import { DEFAULT_THEME, faceOf } from './PortalThemePanel';
+import type { PortalTheme } from './PortalThemePanel';
 import { boxCss, containerCss } from './portalStyleResolver';
 import { PORTAL_ELEMENTS, PORTAL_ELEMENT_GROUPS } from './supportPortalData';
 import { elementIcon } from './SupportPortalAddPanel';
@@ -70,6 +72,11 @@ interface CanvasCtx {
   areSiblings: (a: string, b: string) => boolean;
   /** Writes a text node's words back to whichever store owns them — the inline-edit path. */
   setText: (id: string, text: string) => void;
+  /* The live theme. ⚠️ Only the text toolbar's font picker reads it, and it reads it to NAME the two
+     faces rather than to apply them — the faces themselves are applied as CSS variables set on the
+     canvas wrapper, so a themed block re-renders on a theme change without anything re-reading
+     this. Passing the theme down is what keeps the dropdown's labels from going stale. */
+  theme: PortalTheme;
 }
 
 const Ctx = createContext<CanvasCtx>({
@@ -78,6 +85,7 @@ const Ctx = createContext<CanvasCtx>({
   addSection: () => {}, addColumnBeside: () => {}, dropInColumn: () => {}, dropAtSeam: () => {}, dropInRow: () => {}, moveToSeam: () => {}, addChildBlock: () => {},
   moveNode: () => {}, duplicateNode: () => {}, deleteNode: () => {}, canDuplicate: () => false, addInside: () => {},
   moveTo: () => {}, areSiblings: () => false, replaceElement: () => {}, pickIcon: () => {},
+  theme: DEFAULT_THEME,
 });
 
 /** Reads a dragged catalogue element off a drop event, or null when it isn't one of ours. */
@@ -813,7 +821,11 @@ function useToolbarTip() {
 function TextToolbar({ id }: { id: string }) {
   const drag = useNodeDragHandle(id);
   const { tip, setTip, readTip } = useToolbarTip();
-  const { styles, setStyle, setText } = useCanvas();
+  const { styles, setStyle, setText, theme } = useCanvas();
+  /* ⚠️ Read from the LIVE theme every render, not captured once. The names in this dropdown are the
+     faces the portal is actually using, so they have to change when the Theme panel does. */
+  const headingFace = faceOf(theme, 'heading');
+  const bodyFace = faceOf(theme, 'body');
   const [pop, setPop] = useState<'link' | 'ph' | null>(null);
   /* The trigger's rect, captured on click — a fixed popover has to be told where its button is. */
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
@@ -859,6 +871,29 @@ function TextToolbar({ id }: { id: string }) {
         className={sel}
       >
         {TEXT_STYLES.map((t) => <option key={t} value={t}>{t}{s.fontSize ? '*' : ''}</option>)}
+      </select>
+
+      {/* ⚠️ The THEME's two faces, not a font library. A long list of real families lets one page
+          end up in fonts its theme has never heard of, and switching theme then changes nothing —
+          the picker quietly becomes the reason the Theme panel stops working. Two options are also
+          the whole truth about this portal: a theme has a heading face and a body face.
+          The options are labelled with the LIVE face names and rendered IN those faces, so the
+          choice is legible without opening anything, and they rename themselves when the theme
+          changes rather than going stale. */}
+      <select
+        value={s.face ?? ''}
+        onChange={(e) => setStyle(id, { face: (e.target.value || undefined) as 'heading' | 'body' | undefined })}
+        className={`${sel} max-w-[132px]`}
+        title="Font"
+      >
+        <option value="">Default</option>
+        {/* ⚠️ Labelled by ROLE first, face second. Several theme packs use ONE family for both roles
+            — Inter, Source Sans, Roboto and IBM Plex all do — so naming the options by face alone
+            printed "Inter" twice and offered a choice with no visible difference. The role is what
+            you are actually binding to and the one that stays meaningful when the theme changes;
+            the face name is what it resolves to today. */}
+        <option value="heading" style={{ fontFamily: headingFace.css }}>Heading · {headingFace.name}</option>
+        <option value="body" style={{ fontFamily: bodyFace.css }}>Body · {bodyFace.name}</option>
       </select>
 
       <select

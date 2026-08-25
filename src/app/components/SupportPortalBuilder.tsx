@@ -1191,6 +1191,8 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     addSection, addColumnBeside, dropInColumn, dropAtSeam, dropInRow,
     moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, moveToSeam, addChildBlock, areSiblings, replaceElement, pickIcon, applyPreset,
     onWholePage: () => { const on = cfgFor('hero').bgWholePage === true; patchCfg('hero', { bgWholePage: !on }); toast.success(on ? 'Background is banner-only again' : 'Background applied to the whole page'); },
+    /* The text toolbar names the theme fonts, so it needs the live theme. */
+    theme,
   };
 
   // Title — inline edit, committed on Enter or blur, abandoned on Escape.

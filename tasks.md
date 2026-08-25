@@ -10,7 +10,7 @@ Shipped already — **1–14** (Quick Actions card templates · Custom Action Ca
 locked · six live-data panels · Contact Us · count badge · inner request list · standalone action
 cards · action-card ACTION section), and an earlier six on 24 Aug.
 
-Updated: 2026-08-24 23:59
+Updated: 2026-08-25 07:45
 
 ## 15. Most Used Services — keep only "Show description"
 - **Status:** done
@@ -34,10 +34,11 @@ Updated: 2026-08-24 23:59
 - **Verified:** Top bar → DESIGN → Style expanded reads Background colour, Bar height, Divider under the bar. No Shadow row.
 
 ## 18. Text toolbar — an inline font-style editor
-- **Status:** todo
+- **Status:** done
 - **Where:** `PortalCanvas.tsx` → `TextToolbar`
 - **You asked:** an inline font-style editor on every text element's floating toolbar. ⚠️ You chose **the theme's fonts only** — the heading and body faces from the Theme panel, so nothing on a page can drift outside its theme and switching theme still moves everything.
 - **How I check it:** select a text element — the toolbar offers Heading face / Body face, picking one changes the rendered font, and changing the theme moves it with the theme.
+- **Verified:** Toolbar gains a Font select reading Default / Heading · <face> / Body · <face>, renamed live from the theme. Binding the hero subtitle to Heading rendered Merriweather; to Body, Inter; Default restored it. ⚠️ Then changing the theme's heading face to Poppins moved the bound text with it — the proof that storing a ROLE rather than a family is what keeps the Theme panel in charge.
 
 ## 19. Button — trim the Action section
 - **Status:** todo

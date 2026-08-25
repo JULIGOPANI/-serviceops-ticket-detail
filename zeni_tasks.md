@@ -5,6 +5,7 @@
 3.Video/GIF as a Widget
 4.'Set as default' functionality from templates
 5.2 stepper changes for 1.support portal details 2.support portal customization
+6.Theme, settings, Branding..
 
 # Need to discuss with Sahilbhai
 1.KB for FAQs

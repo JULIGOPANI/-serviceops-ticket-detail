@@ -393,6 +393,14 @@ export interface NodeStyle {
   underline?: boolean;
   /** DFLT / PAR / H1…H6 — the theme style this text is bound to. */
   heading?: string;
+  /* Which of the THEME's two faces this text uses.
+   *
+   * ⚠️ A ROLE, not a font name. Storing "Poppins" would pin the words to a face the theme may not
+   * be using tomorrow — change the theme and every block that had been touched would stay behind,
+   * which is the one thing that makes a theme panel untrustworthy. Storing 'heading' | 'body' means
+   * the choice survives a theme change and still means what it said. Unset follows the element's
+   * natural face, which is what every untouched block does today. */
+  face?: 'heading' | 'body';
 }
 
 export type PortalStyles = Record<string, NodeStyle>;
