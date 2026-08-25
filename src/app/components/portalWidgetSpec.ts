@@ -586,13 +586,11 @@ export const WIDGET_SPECS: WidgetSpec[] = [
         options: [
           { value: 'url', label: 'External link' },
           { value: 'download', label: 'Download a file' }, { value: 'email', label: 'Compose an email' },
-          { value: 'share', label: 'Share this page' },
+          /* ⚠️ "Share this page" is gone, and `shareVia` went with it in the same edit. The comment
+             above already states the rule: a dependent field whose parent option no longer exists is
+             a control nothing can ever reveal — it survives in the spec looking like a feature and
+             behaves like a bug. Leaving the chips behind would have been exactly that. */
         ],
-      },
-      {
-        key: 'shareVia', label: 'Share via', control: 'chips', group: 'Action', when: (c) => c.action === 'share',
-        options: ['Email', 'Copy link', 'Teams', 'Slack', 'WhatsApp'],
-        help: 'Shares the portal page the button sits on.',
       },
       { key: 'url', label: 'URL', control: 'text', group: 'Action', when: (c) => c.action === 'url' },
       /* ⚠️ No "Open in a new tab" and no Page picker. The `newTab` KEY stays in `defaults` and the
@@ -605,43 +603,22 @@ export const WIDGET_SPECS: WidgetSpec[] = [
       },
       { key: 'email', label: 'Send to', control: 'text', group: 'Action', when: (c) => c.action === 'email' },
       /* The Number field left with "Call a number" above. */
-      /* ── The two tabs ──────────────────────────────────────────────────────
+      /* ── Button style ──────────────────────────────────────────────────────
        *
-       * A real switch, built from the field engine rather than new drawer machinery: §2.2 already
-       * says a field that does not apply is REMOVED, so gating each side on `designTab` gives one
-       * group that shows one tab's fields at a time. The BOX and the WORDS are genuinely two
-       * questions — you size and colour the button, then you set its type — and separating them is
-       * what stops one long column of eleven controls. */
-      {
-        key: 'designTab', label: '', control: 'segmented', tab: 'style', group: 'Button',
-        options: [{ value: 'style', label: 'Button style' }, { value: 'text', label: 'Button text' }],
-      },
-
-      // ── Button style — unchanged, exactly the rows that were here before ──
-      {
-        key: 'size', label: 'Size', control: 'segmented', tab: 'style', group: 'Button',
-        options: [{ value: 'sm', label: 'Small' }, { value: 'md', label: 'Medium' }, { value: 'lg', label: 'Large' }],
-        when: (c) => (c.designTab ?? 'style') === 'style',
-      },
-      { key: 'fullWidth', label: 'Full width', control: 'toggle', tab: 'style', group: 'Button', when: (c) => (c.designTab ?? 'style') === 'style' },
-      { key: 'radius', label: 'Corner radius', control: 'slider', tab: 'style', group: 'Button', min: 0, max: 24, when: (c) => (c.designTab ?? 'style') === 'style' },
-      { key: 'fillColor', label: 'Fill colour', control: 'color', tab: 'style', group: 'Button', when: (c) => (c.designTab ?? 'style') === 'style' && c.style !== 'link' },
-      { key: 'borderColor', label: 'Border colour', control: 'color', tab: 'style', group: 'Button', when: (c) => (c.designTab ?? 'style') === 'style' && c.style === 'outline' },
-
-      // ── Button text ──
-      { key: 'font', label: 'Font', control: 'select', tab: 'style', group: 'Button', when: (c) => c.designTab === 'text',
-        options: ['Inherit from theme', 'Inter', 'Poppins', 'Roboto', 'Source Sans 3', 'Merriweather'] },
-      { key: 'fontWeight', label: 'Font weight', control: 'select', tab: 'style', group: 'Button', when: (c) => c.designTab === 'text',
-        options: ['Light', 'Normal', 'Medium', 'Semibold', 'Bold'] },
-      { key: 'fontSize', label: 'Font size', control: 'sliderUnit', tab: 'style', group: 'Button', min: 10, max: 32, unit: 'px', when: (c) => c.designTab === 'text' },
-      /* ⚠️ The SAME key the style tab used to show as "Text colour". One value, one control — a
-         second colour field for the same thing is how a panel and a page start disagreeing. */
-      { key: 'textColor', label: 'Font colour', control: 'color', tab: 'style', group: 'Button', when: (c) => c.designTab === 'text' },
-      { key: 'fontFormat', label: 'Font format', control: 'chips', tab: 'style', group: 'Button', options: ['Bold', 'Underline', 'Italic'], when: (c) => c.designTab === 'text' },
-      { key: 'textAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Button', when: (c) => c.designTab === 'text',
-        options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Right' }] },
-      { key: 'hoverColor', label: 'Hover font colour', control: 'color', tab: 'style', group: 'Button', divider: true, when: (c) => c.designTab === 'text' },
-      { key: 'hoverFormat', label: 'Hover font format', control: 'chips', tab: 'style', group: 'Button', options: ['Bold', 'Underline', 'Italic'], when: (c) => c.designTab === 'text' },
+       * ⚠️ ONE list now, not two tabs. The **Button text** tab is gone, and every field only it
+       * could show went with it — font, weight, size, colour, format, alignment and the two hover
+       * rows. A tab you cannot reach hiding nine controls nothing can reveal is worse than either
+       * having them or not; the spec's own §2.2 rule says an unreachable field is removed.
+       * ⚠️ **Size** is gone too. A button already has Full width and Corner radius, and its type
+       * scale comes from the theme — three ways to change how big a button is was two too many.
+       * ⚠️ Every removed key stays in `defaults` and is still read by the renderer, so every button
+       * on every page looks exactly as it did. The `designTab` gates went with the tab that set
+       * them: with nothing writing that key, `(c.designTab ?? 'style') === 'style'` was a condition
+       * that could only ever be true. */
+      { key: 'fullWidth', label: 'Full width', control: 'toggle', tab: 'style', group: 'Button' },
+      { key: 'radius', label: 'Corner radius', control: 'slider', tab: 'style', group: 'Button', min: 0, max: 24 },
+      { key: 'fillColor', label: 'Fill colour', control: 'color', tab: 'style', group: 'Button', when: (c) => c.style !== 'link' },
+      { key: 'borderColor', label: 'Border colour', control: 'color', tab: 'style', group: 'Button', when: (c) => c.style === 'outline' },
 
       {
         key: 'contentAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Alignment',
@@ -662,7 +639,10 @@ export const WIDGET_SPECS: WidgetSpec[] = [
     defaults: {
       label: 'Contact the service desk', style: 'primary', action: 'url', url: 'https://', newTab: true,
       page: 'My Requests', size: 'md', fullWidth: false, radius: 6, contentAlign: 'left',
-      designTab: 'style',
+      /* ⚠️ `designTab` is GONE from the defaults, not merely from the fields — with the tab removed
+         nothing writes it and nothing gates on it, so a stored value would be a fact about a control
+         that does not exist. `size` stays: it lost its control but the renderer still reads it, and
+         removing it would resize every button on every page. */
       font: 'Inherit from theme', fontWeight: 'Medium', fontSize: 13, fontFormat: [], textAlign: 'center', hoverFormat: [],
     },
   },

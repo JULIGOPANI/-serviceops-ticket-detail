@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   ArrowLeft, ChevronLeft, Eye, RotateCcw,
-  Palette, PanelRight, Paintbrush, Pencil, Plus, Redo2, SlidersHorizontal, Undo2, X,
+  Palette, PanelRight, Paintbrush, Pencil, Plus, Redo2, Undo2, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
@@ -63,10 +63,11 @@ const RAIL: { key: RailKey; label: string; icon: (on: boolean) => ReactNode }[] 
   { key: 'add', label: 'Widgets', icon: () => <Plus size={18} /> },
   { key: 'theme', label: 'Theme', icon: () => <Paintbrush size={18} /> },
   { key: 'branding', label: 'Branding', icon: () => <Palette size={18} /> },
-  /* ⚠️ BELOW Branding, and inside the portal rather than beside the listing. What a requester may
-     DO on this portal is a property of this portal — the same kind of statement as its theme and
-     its logo — so it belongs on the rail with them. */
-  { key: 'settings', label: 'Settings', icon: () => <SlidersHorizontal size={18} /> },
+  /* ⚠️ Settings is OFF the rail (25 Aug 2026). It used to sit below Branding on the reasoning that
+     what a requester may DO on this portal is a property of this portal — but the rail is where you
+     go while you are ARRANGING a page, and a nine-accordion permissions screen is not a thing you
+     reach for mid-layout. The panel, its `PANEL_COPY` entry and the `RailKey` union all stay, so
+     bringing it back is one line here. */
   /* Hidden 21 Aug 2026 — see future-tasks.md §1. Uncomment to bring the panel back; the union,
      PANEL_COPY entry and the rail's gradient treatment for this key are all still in place. */
   // { key: 'ai', label: 'AI', icon: (on) => <AiSparkle size={18} className={on ? '' : 'opacity-90'} /> },

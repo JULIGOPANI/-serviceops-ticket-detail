@@ -291,22 +291,36 @@ Updated: 2026-08-25 12:11
 - **How I check it:** selecting the Quick Actions section shows the add-external-link card; adding one widens the row and the new card takes a URL, title, subtext and icon; the other four cards have no title/subtext editor in the panel and are not inline-editable on the canvas.
 
 ## 32. Button — trim the Action and Design sections
-- **Status:** todo
+- **Status:** done
 - **Where:** `portalPanelSpecs.ts` / the Button spec
 - **You asked:** remove **Share this page** from the Action section's destination dropdown; remove the **Button text** tab from the Design section's Button group; remove **Size of button** from Button style.
 - **How I check it:** the destination dropdown has no Share-this-page option; Design ▸ Button has no Button-text tab and no size control.
+- **What went with each removal.** "Share this page" took the **Share via** chips with it — the spec's own note two lines above already states the rule: a dependent field whose parent option no longer exists is a control nothing can ever reveal, so it survives looking like a feature and behaves like a bug. The **Button text** tab took all nine fields only it could show (font, weight, size, colour, format, alignment and the two hover rows) and the `designTab` segmented that switched them — with nothing writing that key, every `(c.designTab ?? 'style') === 'style'` gate was a condition that could only be true, so the gates went too, along with the stored default. **Size** went because a button already has Full width and Corner radius and takes its type scale from the theme; three ways to change how big a button is was two too many.
+- ⚠️ Every removed key stays in `defaults` and is still read by the renderer, so every button on every page looks exactly as it did — except `designTab`, which is gone entirely, because a stored value for a control that does not exist is a fact about nothing.
+- **Verified:** ACTION ▸ Opens = External link · Download a file · Compose an email. DESIGN ▸ Button = Full width · Corner radius · Fill colour, then Alignment and Spacing.
+
+
 
 ## 33. Remove the Knowledge tag from the search bar
-- **Status:** todo
+- **Status:** done
 - **Where:** `SupportPortalPreview.tsx` (the hero search), `portalStructureSpecs.ts` (`SEARCH_SPEC`)
 - **You asked:** drop the "Knowledge" scope pill from inside the banner's search field.
 - **How I check it:** the banner search shows the placeholder and the magnifier only.
+- **What it was:** the pill sat INSIDE the field, so the search bar came with a grey chip permanently occupying the space just before its own icon — a label for a setting, on the one control a requester is meant to type into without reading anything.
+- ⚠️ **The scope itself is untouched.** It still decides which results come back and is still set in the panel; what went is the badge announcing it on the page.
+- **Verified:** the banner reads "Welcome to Support Portal / Search our support center knowledge base / How can we help you?" — no Knowledge pill.
+
+
 
 ## 34. Remove the Settings item from the builder's right rail
-- **Status:** todo
+- **Status:** done
 - **Where:** `SupportPortalBuilder.tsx` (the rail)
 - **You asked:** remove the Settings menu from the right-hand menubar.
 - **How I check it:** the rail reads Widgets · Theme · Branding.
+- ⚠️ It used to sit below Branding on the reasoning that what a requester may DO on this portal is a property of this portal — the same kind of statement as its theme and its logo. What that missed is that the rail is where you go while you are **arranging a page**, and a nine-accordion permissions screen is not something you reach for mid-layout. The panel, its `PANEL_COPY` entry and the `RailKey` union all stay, so bringing it back is one line.
+- **Verified:** the rail reads Widgets · Theme · Branding.
+
+
 
 ## 35. The two-step create flow, made intuitive
 - **Status:** todo — ⚠️ needs a conversation before I build it

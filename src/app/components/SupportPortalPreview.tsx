@@ -385,10 +385,12 @@ function HeroSearch({ cfg, fallback, style }: {
             className="min-w-0 flex-1 truncate bg-transparent text-left text-[14px] text-[#364658] outline-none placeholder:text-[#9CA3AF]"
           />
         )}
-        {/* The pill is what makes Scope a visible setting rather than a stored one. */}
-        <span className="flex-shrink-0 rounded-sm bg-[#F1F5F9] px-2 py-0.5 text-[11px] font-medium text-[#64748B]">
-          {scope === 'knowledge' ? 'Knowledge' : 'All'}
-        </span>
+        {/* ⚠️ No scope pill. It sat INSIDE the field, so a search bar came with a grey chip
+            permanently occupying the space just before its own icon — a label for a setting, on the
+            one control a requester is meant to type into without reading anything. The scope still
+            works: it decides which results come back, and it is still set in the panel. What is gone
+            is the badge announcing it on the page.
+            ⚠️ `scope` is still read below by `hits` — the setting is intact, only its display went. */}
         <Search size={18} className="flex-shrink-0 text-[#64748B]" />
       </div>
       {!enabled && suggestOn && open && hits.length > 0 && (

@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-25T10:08:38.433Z",
+  "builtAt": "2026-08-25T10:13:39.869Z",
   "tasks": [
     {
       "n": 1,
@@ -398,31 +398,35 @@
     {
       "n": 32,
       "title": "Button — trim the Action and Design sections",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`portalPanelSpecs.ts` / the Button spec",
         "You asked": "remove **Share this page** from the Action section's destination dropdown; remove the **Button text** tab from the Design section's Button group; remove **Size of button** from Button style.",
-        "How I check it": "the destination dropdown has no Share-this-page option; Design ▸ Button has no Button-text tab and no size control."
+        "How I check it": "the destination dropdown has no Share-this-page option; Design ▸ Button has no Button-text tab and no size control.",
+        "Verified": "ACTION ▸ Opens = External link · Download a file · Compose an email. DESIGN ▸ Button = Full width · Corner radius · Fill colour, then Alignment and Spacing."
       }
     },
     {
       "n": 33,
       "title": "Remove the Knowledge tag from the search bar",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`SupportPortalPreview.tsx` (the hero search), `portalStructureSpecs.ts` (`SEARCH_SPEC`)",
         "You asked": "drop the \"Knowledge\" scope pill from inside the banner's search field.",
-        "How I check it": "the banner search shows the placeholder and the magnifier only."
+        "How I check it": "the banner search shows the placeholder and the magnifier only.",
+        "What it was": "the pill sat INSIDE the field, so the search bar came with a grey chip permanently occupying the space just before its own icon — a label for a setting, on the one control a requester is meant to type into without reading anything.",
+        "Verified": "the banner reads \"Welcome to Support Portal / Search our support center knowledge base / How can we help you?\" — no Knowledge pill."
       }
     },
     {
       "n": 34,
       "title": "Remove the Settings item from the builder's right rail",
-      "status": "todo",
+      "status": "done",
       "fields": {
         "Where": "`SupportPortalBuilder.tsx` (the rail)",
         "You asked": "remove the Settings menu from the right-hand menubar.",
-        "How I check it": "the rail reads Widgets · Theme · Branding."
+        "How I check it": "the rail reads Widgets · Theme · Branding.",
+        "Verified": "the rail reads Widgets · Theme · Branding."
       }
     },
     {
