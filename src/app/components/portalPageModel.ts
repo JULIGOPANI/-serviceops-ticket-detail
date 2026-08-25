@@ -393,15 +393,39 @@ export interface NodeStyle {
   underline?: boolean;
   /** DFLT / PAR / H1…H6 — the theme style this text is bound to. */
   heading?: string;
-  /* Which of the THEME's two faces this text uses.
+  /* The font family this text is set in — a `PORTAL_FONTS` id.
    *
-   * ⚠️ A ROLE, not a font name. Storing "Poppins" would pin the words to a face the theme may not
-   * be using tomorrow — change the theme and every block that had been touched would stay behind,
-   * which is the one thing that makes a theme panel untrustworthy. Storing 'heading' | 'body' means
-   * the choice survives a theme change and still means what it said. Unset follows the element's
-   * natural face, which is what every untouched block does today. */
-  face?: 'heading' | 'body';
+   * ⚠️ This USED to store a role ('heading' | 'body') so a bound text followed the theme. Changed on
+   * request: the toolbar is a plain font picker now and the theme section is being reworked
+   * separately. The consequence is worth knowing — a text given a family here KEEPS it when the
+   * theme changes, which is the trade a direct picker always makes. Unset still follows the theme,
+   * so an untouched block behaves exactly as before. */
+  font?: string;
 }
+
+/* The portal's font library — six families, and the only ones anything here offers.
+ *
+ * ⚠️ Deliberately SHORT. A long list is how a page ends up in a face nobody chose on purpose, and
+ * every family costs a webfont request on a page requesters load cold. Six covers the range a
+ * support portal actually needs: three neutral sans, one geometric, one serif, one technical.
+ * ⚠️ It lives HERE, not in the theme panel, because two places now read it — the Theme panel's own
+ * face pickers and the canvas text toolbar. Two copies of one list is two places for a family to be
+ * added and only half-supported. `PortalThemePanel` re-exports it as `FONT_FACES` so its existing
+ * call sites are untouched.
+ * ⚠️ Every family here MUST be loaded in `src/styles/fonts.css`. Only Inter was, so the other five
+ * silently fell back to the generic sans and the picker offered six options that rendered
+ * identically — a control that looks broken rather than one that does nothing. */
+export const PORTAL_FONTS = [
+  { id: 'inter', name: 'Inter', css: 'Inter, sans-serif', note: 'Neutral and highly legible.' },
+  { id: 'poppins', name: 'Poppins', css: 'Poppins, sans-serif', note: 'Geometric and friendly.' },
+  { id: 'source', name: 'Source Sans 3', css: '"Source Sans 3", sans-serif', note: 'Humanist. Good at small sizes.' },
+  { id: 'merri', name: 'Merriweather', css: 'Merriweather, serif', note: 'Serif. Editorial and calm.' },
+  { id: 'roboto', name: 'Roboto', css: 'Roboto, sans-serif', note: 'Tight and compact.' },
+  { id: 'plex', name: 'IBM Plex Sans', css: '"IBM Plex Sans", sans-serif', note: 'Technical and even.' },
+];
+
+/** The CSS family for a stored font id, or undefined when it names nothing we ship. */
+export const fontCss = (id?: string) => PORTAL_FONTS.find((f) => f.id === id)?.css;
 
 export type PortalStyles = Record<string, NodeStyle>;
 

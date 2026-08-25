@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PORTAL_FONTS } from './portalPageModel';
 import { Check, ChevronDown, Moon, Sun } from 'lucide-react';
 import { toast } from 'sonner';
 import { ColorDot } from './PortalColorPicker';
@@ -100,14 +101,9 @@ export const FONT_PACKS = [
    and took the other half away — "Merriweather & Inter" was the only route to a serif heading, and
    it brought Inter along whether or not that was the body you wanted. A pack still SEEDS both, so
    picking a theme style still sets a sensible pair; from there each is its own field. */
-export const FONT_FACES = [
-  { id: 'inter', name: 'Inter', css: 'Inter, sans-serif', note: 'Neutral and highly legible.' },
-  { id: 'poppins', name: 'Poppins', css: 'Poppins, sans-serif', note: 'Geometric and friendly.' },
-  { id: 'source', name: 'Source Sans 3', css: '"Source Sans 3", sans-serif', note: 'Humanist. Good at small sizes.' },
-  { id: 'merri', name: 'Merriweather', css: 'Merriweather, serif', note: 'Serif. Editorial and calm.' },
-  { id: 'roboto', name: 'Roboto', css: 'Roboto, sans-serif', note: 'Tight and compact.' },
-  { id: 'plex', name: 'IBM Plex Sans', css: '"IBM Plex Sans", sans-serif', note: 'Technical and even.' },
-];
+/* ⚠️ ONE list, defined in `portalPageModel` because the canvas text toolbar reads it too. Kept
+   exported under this name so every call site below is unchanged. */
+export const FONT_FACES = PORTAL_FONTS;
 
 /** The face a theme is using for each role — its own choice if it has one, else the pack's. */
 export const faceOf = (t: PortalTheme, role: 'heading' | 'body') => {

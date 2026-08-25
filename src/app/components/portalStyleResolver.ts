@@ -15,7 +15,7 @@
  * a real editing layer (L0) but it is not a node on the canvas.
  */
 
-import { nodePath } from './portalPageModel';
+import { fontCss, nodePath } from './portalPageModel';
 import type { NodeStyle, PortalStyles, RoleType, TypeRole } from './portalPageModel';
 
 /** L0. Not in PORTAL_NODES because nothing on the canvas draws it, but it owns the theme. */
@@ -311,13 +311,11 @@ export function containerCss(styles: PortalStyles, id: string): React.CSSPropert
   const fs = g('fontSize'); const heading = g('heading');
   if (fs) css.fontSize = `${fs}px`;
   else if (heading) css.fontSize = `${HEADING_SIZE_MAP[heading as string] ?? 15}px`;
-  /* ⚠️ The CSS VARIABLE, not the resolved family. `--portal-heading` is set on the canvas wrapper
-     from the live theme, so a text bound to the heading face re-renders the moment the theme
-     changes — exactly like an untouched block. Body is the wrapper's own `fontFamily`, so
-     'inherit' is the honest way to say "the theme's body face" without naming it. */
-  const face = g('face');
-  if (face === 'heading') css.fontFamily = 'var(--portal-heading, inherit)';
-  else if (face === 'body') css.fontFamily = 'inherit';
+  /* ⚠️ Resolved through `fontCss`, so an id that names nothing we ship paints NOTHING rather than
+     writing an invalid `font-family` the browser silently drops to the default — the two look the
+     same on screen but only one of them can be debugged. */
+  const fam = fontCss(g('font') as string | undefined);
+  if (fam) css.fontFamily = fam;
   const bold = g('bold'); if (bold !== undefined) css.fontWeight = bold ? 700 : undefined;
   if (g('italic')) css.fontStyle = 'italic';
   if (g('underline')) css.textDecoration = 'underline';

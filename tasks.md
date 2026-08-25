@@ -36,9 +36,9 @@ Updated: 2026-08-25 07:45
 ## 18. Text toolbar — an inline font-style editor
 - **Status:** done
 - **Where:** `PortalCanvas.tsx` → `TextToolbar`
-- **You asked:** an inline font-style editor on every text element's floating toolbar. ⚠️ You chose **the theme's fonts only** — the heading and body faces from the Theme panel, so nothing on a page can drift outside its theme and switching theme still moves everything.
+- **You asked:** an inline font-style editor on every text element's floating toolbar. ⚠️ REVISED — first built against the theme's two faces; you changed it to a plain font-family picker over 6–7 families, with the theme section to be reworked separately.
 - **How I check it:** select a text element — the toolbar offers Heading face / Body face, picking one changes the rendered font, and changing the theme moves it with the theme.
-- **Verified:** Toolbar gains a Font select reading Default / Heading · <face> / Body · <face>, renamed live from the theme. Binding the hero subtitle to Heading rendered Merriweather; to Body, Inter; Default restored it. ⚠️ Then changing the theme's heading face to Poppins moved the bound text with it — the proof that storing a ROLE rather than a family is what keeps the Theme panel in charge.
+- **Verified:** Toolbar gains a Font select: Default plus the six families, each option rendered in its own face. Selecting Merriweather / Poppins / IBM Plex changed the rendered font-family each time and Default restored it. ⚠️ Only Inter was actually loaded, so the other five would have fallen back to the generic sans and the picker would have offered six identical-looking options — all six are now requested in fonts.css and measure at six distinct widths.
 
 ## 19. Button — trim the Action section
 - **Status:** todo
@@ -85,3 +85,15 @@ Updated: 2026-08-25 07:45
 - Two-stepper for portal details / portal customization
 - List widget (task 23 — to be written up for later)
 - Media slider, Advanced tabs, Text with image, Spacer (task 23 — later)
+
+## 25. Bring the predefined widgets back to the library, disabled with an "Added" mark
+- **Status:** todo
+- **Where:** `supportPortalData.ts`, `SupportPortalAddPanel.tsx`
+- **You asked:** removing the action cards from the sidebar was not right — bring them back. Every predefined card, in Live data and in Actions, shows a disabled state with an added icon on the right. Nothing is removed from the widget sidebar.
+- **How I check it:** the library lists every widget again; the ones already on the page render disabled with the mark; the rest stay addable. ⚠️ This reverses **task 2** (Custom Action Card hidden) and **task 13**'s library half — I will restore those and keep 13's other half (no duplicate on the toolbar) unless you say otherwise. ⚠️ It also reverses an earlier decision that nothing greys out; that is fine, it is your call, but the Divider and the other hidden elements are a separate question I will ask before touching.
+
+## 26. Contact Us — the card is still editable and still shows Hours
+- **Status:** todo
+- **Where:** `SupportPortalPreview.tsx` (the Contact Us renderer)
+- **You asked:** Contact Us still has inline-editable fields on the canvas and the Hours line is still on the card. The empty section was also not removed from the sidebar.
+- **How I check it:** clicking any Contact Us line selects the widget rather than an editable text node; the card shows Email and Phone only. ⚠️ Task 10 removed the hours CONTROL but left the rendered line — I read "remove the Show-hours section" as panel-only. This says the line itself goes from the card.

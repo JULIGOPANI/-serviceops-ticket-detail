@@ -11,8 +11,8 @@ import {
 } from 'lucide-react';
 // ArrowLeft stays in use by the card toolbar's "Move left".
 import { toast } from 'sonner';
-import { HEADING_SIZE, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, nodeById, paintsOwnSurface, nodePath, placedIn, placedType } from './portalPageModel';
-import { DEFAULT_THEME, faceOf } from './PortalThemePanel';
+import { HEADING_SIZE, PORTAL_FONTS, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, nodeById, paintsOwnSurface, nodePath, placedIn, placedType } from './portalPageModel';
+import { DEFAULT_THEME } from './PortalThemePanel';
 import type { PortalTheme } from './PortalThemePanel';
 import { boxCss, containerCss } from './portalStyleResolver';
 import { PORTAL_ELEMENTS, PORTAL_ELEMENT_GROUPS } from './supportPortalData';
@@ -821,11 +821,7 @@ function useToolbarTip() {
 function TextToolbar({ id }: { id: string }) {
   const drag = useNodeDragHandle(id);
   const { tip, setTip, readTip } = useToolbarTip();
-  const { styles, setStyle, setText, theme } = useCanvas();
-  /* ⚠️ Read from the LIVE theme every render, not captured once. The names in this dropdown are the
-     faces the portal is actually using, so they have to change when the Theme panel does. */
-  const headingFace = faceOf(theme, 'heading');
-  const bodyFace = faceOf(theme, 'body');
+  const { styles, setStyle, setText } = useCanvas();
   const [pop, setPop] = useState<'link' | 'ph' | null>(null);
   /* The trigger's rect, captured on click — a fixed popover has to be told where its button is. */
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
@@ -873,27 +869,23 @@ function TextToolbar({ id }: { id: string }) {
         {TEXT_STYLES.map((t) => <option key={t} value={t}>{t}{s.fontSize ? '*' : ''}</option>)}
       </select>
 
-      {/* ⚠️ The THEME's two faces, not a font library. A long list of real families lets one page
-          end up in fonts its theme has never heard of, and switching theme then changes nothing —
-          the picker quietly becomes the reason the Theme panel stops working. Two options are also
-          the whole truth about this portal: a theme has a heading face and a body face.
-          The options are labelled with the LIVE face names and rendered IN those faces, so the
-          choice is legible without opening anything, and they rename themselves when the theme
-          changes rather than going stale. */}
+      {/* ⚠️ A plain FONT-FAMILY picker over the six families in `PORTAL_FONTS`.
+          It used to offer the theme's two ROLES, so a bound text followed the theme when the theme
+          changed. Swapped on request for a direct picker — the trade being that a family chosen here
+          now stays put when the theme changes, which is what a direct picker always means.
+          ⚠️ Each option is rendered IN its own face, which is the whole reason a font picker is a
+          list rather than a text field: you choose by looking, not by recognising a name. That only
+          works because all six are loaded in fonts.css. */}
       <select
-        value={s.face ?? ''}
-        onChange={(e) => setStyle(id, { face: (e.target.value || undefined) as 'heading' | 'body' | undefined })}
-        className={`${sel} max-w-[132px]`}
+        value={s.font ?? ''}
+        onChange={(e) => setStyle(id, { font: e.target.value || undefined })}
+        className={`${sel} max-w-[136px]`}
         title="Font"
       >
         <option value="">Default</option>
-        {/* ⚠️ Labelled by ROLE first, face second. Several theme packs use ONE family for both roles
-            — Inter, Source Sans, Roboto and IBM Plex all do — so naming the options by face alone
-            printed "Inter" twice and offered a choice with no visible difference. The role is what
-            you are actually binding to and the one that stays meaningful when the theme changes;
-            the face name is what it resolves to today. */}
-        <option value="heading" style={{ fontFamily: headingFace.css }}>Heading · {headingFace.name}</option>
-        <option value="body" style={{ fontFamily: bodyFace.css }}>Body · {bodyFace.name}</option>
+        {PORTAL_FONTS.map((f) => (
+          <option key={f.id} value={f.id} style={{ fontFamily: f.css }}>{f.name}</option>
+        ))}
       </select>
 
       <select

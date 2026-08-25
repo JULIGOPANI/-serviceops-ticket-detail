@@ -1,1 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* The portal's font library — the six families `PORTAL_FONTS` offers.
+ *
+ * ⚠️ Every family in that list has to be loaded HERE. Only Inter was, so the canvas text toolbar
+ * offered six options that all rendered as the browser's default sans: a picker that looks broken
+ * rather than one that plainly does nothing. If a family is ever added to `PORTAL_FONTS`, it has to
+ * be added to this request too.
+ * ⚠️ ONE request for all six. Six separate @imports would serialise six round trips on a page
+ * requesters load cold; `family=` repeats in a single URL and Google returns one stylesheet.
+ * `display=swap` so text paints in the fallback immediately rather than staying invisible. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Roboto:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
