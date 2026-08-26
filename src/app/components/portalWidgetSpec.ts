@@ -64,6 +64,12 @@ export type Cfg = Record<string, unknown>;
 export interface WidgetField {
   /** Example text shown in an empty input. ⚠️ Example copy, never a repeat of the label above it. */
   placeholder?: string;
+  /* The image size that fits this slot, e.g. "1600 × 400" — shown in an upload zone's EMPTY state.
+   *
+   * ⚠️ Declared per FIELD, because it is a fact about the slot rather than about uploading. A banner,
+   * a logo and an icon want three different shapes, and the zone has no way to know which of them it
+   * is being used for. */
+  suggested?: string;
   key: string;
   label: string;
   control: ControlKind;

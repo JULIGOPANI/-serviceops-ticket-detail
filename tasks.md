@@ -277,6 +277,17 @@ Updated: 2026-08-25 12:11
 - **(4)** Adding an item no longer calls `onSelect`, which used to swap the whole sidebar for that item's drawer — you asked for one more row and the panel you were working in disappeared. The list opens the new row **in place** (the item is always appended, so its index is the length before the add). A new `blankOnAdd` flag empties every declared field, and `placeholder` on the two inline fields says what belongs there. ⚠️ Both are **opt-in**: the seeds exist so an untouched page shows a realistic accordion, and a gallery slide added blank is a broken slide. A collection with no inline editor still opens its drawer, because it has nowhere else to go.
 - **Verified:** a column's Design now reads "Style | Fill | None | Colour | Border | px | Corner radius | px | %" — the current component. No "Behaviour" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens "Item 4" expanded, both fields empty, showing "How do I reset my password?" and "Answer it in a sentence or two." as placeholders, with the Add link CTA below them.
 
+## 40. Suggested image sizes in the empty upload state
+- **Status:** done — *(your task 38)*
+- **Where:** `PortalControls.tsx` (`ImageUploadZone`, `UploadZone`), `portalWidgetSpec.ts`, `portalStructureSpecs.ts`, `PortalIconPicker.tsx`
+- **You asked:** show a suggested size in the empty upload container for banner, logo and icon, so the size is known before choosing a file.
+- **The sizes, and why each:** **Banner 1600 × 400** — the band is full-width and about 200px tall, so this is a 2× asset that stays sharp on a retina screen without being a photograph nobody needs. **Logo 240 × 64** — the top bar renders the mark at about 28px tall, and wider than tall because every logo in that bar is. **Icon 128 × 128** — the slot renders at 44px and CROPS to it, so a square is the only shape that survives the crop with nothing lost off its sides.
+- **⚠️ Its own line, not appended to the format hint.** "PNG, JPG, SVG or WebP · max 5MB" is a RULE — break it and the file is rejected — while a suggested size is advice you are free to ignore. Running the two together makes the advice read as a fourth condition of upload.
+- **⚠️ Suppressed while an error is showing.** The reason a file was rejected is the only thing worth reading at that moment, and advice underneath it competes for the same glance.
+- **⚠️ Per SLOT, never a default.** Declared on the field, because the zone has no way to know which of the page's image slots it is being used for — and one number offered to all three would be wrong for at least two.
+- **⚠️ The icon slot has TWO doors** — the panel's Icon field and clicking the icon on the canvas — and both now say 128 × 128. An admin who reached it one way would otherwise have been given a different answer from one who reached it the other.
+- **Verified:** the banner zone reads "PNG, JPG, SVG or WebP · max 5MB / **Suggested 1600 × 400 px**"; the logo zone "**Suggested 240 × 64 px**"; the action card's Icon ▸ Image tab "**Suggested 128 × 128 px**".
+
 ## 39. Table — the picker, the grips and the flyouts
 - **Status:** done
 - **Where:** `PortalTable.tsx`, `portalTableModel.ts`, `PortalWidgetDrawer.tsx`, `portalCollectionSpecs.ts`

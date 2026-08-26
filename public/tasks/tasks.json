@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-26T16:59:21.674Z",
+  "builtAt": "2026-08-26T18:05:22.424Z",
   "tasks": [
     {
       "n": 1,
@@ -363,6 +363,17 @@
         "Where": "`portalWidgetSpec.ts` (`structureSpecId`), `portalStructureSpecs.ts`, `supportPortalData.ts`, `PortalItemList.tsx` + `PortalWidgetDrawer.tsx`",
         "You asked": "(1) an empty section shows the OLD Style component; (2) remove Layout ▸ Behaviour from every sidebar in the module; (3) Most Used Services and Favourite Services belong under Live data; (4) task 29's Add item should open the box inline with empty fields and placeholders instead of replacing the sidebar.",
         "Verified": "a column's Design now reads \"Style | Fill | None | Colour | Border | px | Corner radius | px | %\" — the current component. No \"Behaviour\" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens \"Item 4\" expanded, both fields empty, showing \"How do I reset my password?\" and \"Answer it in a sentence or two.\" as placeholders, with the Add link CTA below them."
+      }
+    },
+    {
+      "n": 40,
+      "title": "Suggested image sizes in the empty upload state",
+      "status": "done — *(your task 38)*",
+      "fields": {
+        "Where": "`PortalControls.tsx` (`ImageUploadZone`, `UploadZone`), `portalWidgetSpec.ts`, `portalStructureSpecs.ts`, `PortalIconPicker.tsx`",
+        "You asked": "show a suggested size in the empty upload container for banner, logo and icon, so the size is known before choosing a file.",
+        "The sizes, and why each": "**Banner 1600 × 400** — the band is full-width and about 200px tall, so this is a 2× asset that stays sharp on a retina screen without being a photograph nobody needs. **Logo 240 × 64** — the top bar renders the mark at about 28px tall, and wider than tall because every logo in that bar is. **Icon 128 × 128** — the slot renders at 44px and CROPS to it, so a square is the only shape that survives the crop with nothing lost off its sides.",
+        "Verified": "the banner zone reads \"PNG, JPG, SVG or WebP · max 5MB / **Suggested 1600 × 400 px**\"; the logo zone \"**Suggested 240 × 64 px**\"; the action card's Icon ▸ Image tab \"**Suggested 128 × 128 px**\"."
       }
     },
     {

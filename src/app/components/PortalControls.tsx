@@ -799,7 +799,7 @@ export function VideoSource({ value, onChange }: { value?: string; onChange: (v:
 }
 
 export function ImageUploadZone({
-  onFile, accept = 'image/*', maxMB = 5, size = 'sm', label, multiple = false, maxFiles, disabled, disabledReason,
+  onFile, accept = 'image/*', maxMB = 5, size = 'sm', label, multiple = false, maxFiles, disabled, disabledReason, suggested,
 }: {
   /** Called with the data URL once the file has passed validation. */
   onFile: (dataUrl: string) => void;
@@ -812,6 +812,14 @@ export function ImageUploadZone({
   maxFiles?: number;
   disabled?: boolean;
   disabledReason?: string;
+  /* The size that fits this SLOT, e.g. "1600 × 400".
+   *
+   * ⚠️ Its own line, not appended to the format hint. "PNG, JPG, SVG or WebP · max 5MB" is a rule —
+   * break it and the file is rejected — while a suggested size is advice you are free to ignore, and
+   * running the two together makes the advice read as a fourth condition of upload.
+   * ⚠️ Per SLOT, never a default. A banner, a logo and an icon want three different shapes, and one
+   * number offered to all of them would be wrong for at least two. */
+  suggested?: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
@@ -885,6 +893,11 @@ export function ImageUploadZone({
           aria-live={err ? 'polite' : undefined}
           className={`${z.gap2} ${z.l2} ${err ? 'font-medium text-[#B42318]' : 'text-[#9CA3AF]'}`}
         >{err ?? uploadHint(accept, maxMB, multiple, maxFiles)}</span>
+        {/* ⚠️ Suppressed while an ERROR is showing. The reason a file was rejected is the only thing
+            worth reading at that moment, and advice underneath it competes for the same glance. */}
+        {suggested && !err && (
+          <span className={`${z.gap2} ${z.l2} font-medium text-[#7B8FA5]`}>Suggested {suggested} px</span>
+        )}
       </button>
       <input
         ref={ref}
@@ -898,8 +911,10 @@ export function ImageUploadZone({
   );
 }
 
-export function UploadZone({ value, onChange, accept = 'image/*', label, gallery }: {
+export function UploadZone({ value, onChange, accept = 'image/*', label, gallery, suggested }: {
   value?: string; onChange: (dataUrl?: string) => void; accept?: string;
+  /** The size that fits this slot — see the note on `ImageUploadZone`. */
+  suggested?: string;
   /* ⚠️ Names the SLOT for screen readers — "Upload logo image", not "Upload". The zone below is a
      real button, so this is the only thing that says WHICH of the page's image slots it fills. */
   label?: string;
@@ -967,7 +982,7 @@ export function UploadZone({ value, onChange, accept = 'image/*', label, gallery
       {/* ⚠️ The ONE zone. This used to be its own dashed box with its own icon and its own
           sentence; it is now the same component the canvas and the icon picker draw, so the three
           can no longer disagree about what an empty image slot looks like. */}
-      <ImageUploadZone onFile={onChange} accept={accept} label={label ?? 'Upload an image'} />
+      <ImageUploadZone onFile={onChange} accept={accept} label={label ?? 'Upload an image'} suggested={suggested} />
     </>
   );
 }

@@ -800,7 +800,7 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
       case 'color':
         return <ColorField value={(v as string) ?? '#3D8BD0'} onChange={(x) => set(f.key, x)} />;
       case 'upload':
-        return <UploadZone value={v as string} onChange={(x) => set(f.key, x ?? '')} />;
+        return <UploadZone value={v as string} onChange={(x) => set(f.key, x ?? '')} suggested={f.suggested} />;
       case 'videoSource':
         return <VideoSource value={v as string} onChange={(x) => set(f.key, x)} />;
       /* The Quick Actions row's one addable card.
@@ -840,6 +840,7 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
           <UploadZone
             value={v as string}
             onChange={(x) => set(f.key, x ?? '')}
+            suggested={f.suggested}
             gallery={(anchor, chooseFile) => setBannerPick({ anchor, chooseFile, key: f.key })}
           />
         );

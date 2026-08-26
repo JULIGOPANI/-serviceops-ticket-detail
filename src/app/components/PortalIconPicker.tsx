@@ -186,9 +186,12 @@ export function IconPopover({ value, onPick, onClose, anchor }: {
             </>
           ) : (
             <ImageUploadZone
+              /* ⚠️ 128 SQUARE. The slot renders at 44px and CROPS to it, so a square asset is the only
+                 shape that survives the crop with nothing lost off its sides. */
               onFile={(src) => { onPick({ key: 'image', src }); onClose(); }}
               accept="image/png,image/jpeg,image/webp"
               label="Upload an image for this icon slot"
+              suggested="128 × 128"
             />
           )}
           <p className="mt-2 text-[11px] leading-[1.5] text-[#9CA3AF]">
@@ -277,6 +280,10 @@ export function IconField({ value, onChange }: { value?: IconChoice; onChange: (
         ? <UploadZone
             value={isImageChoice(value) ? value?.src : undefined}
             onChange={(src) => onChange(src ? { key: 'image', src } : undefined)}
+            /* ⚠️ The SAME 128 square the popover suggests. Two ways into one slot must not disagree
+               about what fits it — an admin who reached it from the panel would otherwise be given a
+               different answer from one who clicked the icon on the canvas. */
+            suggested="128 × 128"
           />
         : <IconOnlyField value={isImageChoice(value) ? undefined : value} onChange={onChange} />}
     </div>

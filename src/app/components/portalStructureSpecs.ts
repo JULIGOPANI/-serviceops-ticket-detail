@@ -78,7 +78,9 @@ export const HERO_SPEC: WidgetSpec = {
       options: [{ value: 'image', label: 'Image' }, { value: 'color', label: 'Colour' }],
     },
     {
-      key: 'bannerImage', label: 'Banner image', control: 'bannerUpload', tab: 'style', group: 'Banner',
+      /* ⚠️ 1600 × 400 — the band is full-width and about 200px tall, so this is a 2× asset that
+         stays sharp on a retina screen without being a photograph nobody needs. */
+      key: 'bannerImage', label: 'Banner image', control: 'bannerUpload', suggested: '1600 × 400', tab: 'style', group: 'Banner',
       when: (c) => (c.bgKind ?? 'image') === 'image',
     },
     {
@@ -345,7 +347,9 @@ const NAV_ITEMS = [
 export const LOGO_SPEC: WidgetSpec = {
   id: 'logo', name: 'Logo', group: 'Chrome', reuse: 'single', family: 'flat',
   panel: {
-    content: [{ key: 'logoSrc', label: 'Logo image', control: 'upload' }],
+    /* ⚠️ 240 × 64 — the top bar renders the mark at about 28px tall, so this is the 2× of a
+       comfortable wordmark. Wider than tall, because every logo in that bar is. */
+    content: [{ key: 'logoSrc', label: 'Logo image', control: 'upload', suggested: '240 × 64' }],
     /* ⚠️ NO Design section. A logo is one supplied image sitting in the product's own bar: filling
        it, bordering it or rounding it styles a mark somebody else's brand guidelines own, and its
        spacing belongs to the bar — which is already why `logoPos` lives there. The panel is the
