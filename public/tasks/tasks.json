@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-26T18:05:22.424Z",
+  "builtAt": "2026-08-26T18:15:22.125Z",
   "tasks": [
     {
       "n": 1,
@@ -366,10 +366,22 @@
       }
     },
     {
+      "n": 41,
+      "title": "The light/dark switcher, and colour-picker tabs that follow it",
+      "status": "done",
+      "fields": {
+        "Your numbering": "line **39** in zeni_tasks.md.",
+        "Where": "`PortalThemePanel.tsx`, `PortalColorPicker.tsx`",
+        "You asked": "make the light/dark switcher prominent and primary-coloured; give the colour picker Light/Dark tabs; and have the tab follow the switcher — light selected → every primary/secondary/neutral picker opens on Light, flip to dark → they all open on Dark.",
+        "Verified in both directions": "the active switcher side measures **rgb(61, 139, 208)** — #3D8BD0. In light mode the Primary picker opens on the **Light** tab showing `3D8BD0`, and clicking Dark shows `5AA7E5`. Flipping the switcher to Dark and reopening the same picker lands on the **Dark** tab with `5AA7E5` already selected."
+      }
+    },
+    {
       "n": 40,
       "title": "Suggested image sizes in the empty upload state",
-      "status": "done — *(your task 38)*",
+      "status": "done",
       "fields": {
+        "Your numbering": "this is line **38** in zeni_tasks.md — the board numbers drifted when interim work was added, so each entry names its source line rather than pretending the two lists match.",
         "Where": "`PortalControls.tsx` (`ImageUploadZone`, `UploadZone`), `portalWidgetSpec.ts`, `portalStructureSpecs.ts`, `PortalIconPicker.tsx`",
         "You asked": "show a suggested size in the empty upload container for banner, logo and icon, so the size is known before choosing a file.",
         "The sizes, and why each": "**Banner 1600 × 400** — the band is full-width and about 200px tall, so this is a 2× asset that stays sharp on a retina screen without being a photograph nobody needs. **Logo 240 × 64** — the top bar renders the mark at about 28px tall, and wider than tall because every logo in that bar is. **Icon 128 × 128** — the slot renders at 44px and CROPS to it, so a square is the only shape that survives the crop with nothing lost off its sides.",

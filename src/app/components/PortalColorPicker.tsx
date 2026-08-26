@@ -88,18 +88,30 @@ function Swatch({ color, on, onPick, none }: { color: string; on?: boolean; onPi
 
 /* ── picker ──────────────────────────────────────────────────────────────── */
 
-export function PortalColorPicker({ value, onChange, onClose, anchor }: {
+export function PortalColorPicker({ value, onChange, onClose, anchor, modeTab }: {
   value: string;
   onChange: (hex: string) => void;
   onClose: () => void;
   /** Viewport rect of the trigger — the popover is portalled, so it positions itself. */
   anchor: DOMRect;
+  /** Light / dark, for a swatch that has one of each. See the note on `ColorDot`. */
+  modeTab?: { value: 'light' | 'dark'; onChange: (m: 'light' | 'dark') => void };
 }) {
   /* ⚠️ No Saved list. A portal is built from its THEME palette, and a per-browser set of saved
      swatches is a second palette that nobody else on the team can see — it quietly competes with
      the one place colour is supposed to be defined. Recent stays because it is a shortcut back to
      what you just used, not an alternative source of truth. */
   const [hsv, setHsv] = useState(() => hexToHsv(value || '#000000'));
+  /* ⚠️ RE-SEEDED when the incoming value changes, which is what happens the moment the Light/Dark
+     tab is switched. `useState` only ever reads its initial argument, so without this the spectrum
+     and the hex field disagreed the instant you changed tab — the field said the dark value and the
+     wheel was still sitting on the light one. */
+  const modeKey = modeTab?.value;
+  useEffect(() => {
+    setHsv(hexToHsv(value || '#000000'));
+    setHex((value || '#000000').toUpperCase());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modeKey]);
   const [hex, setHex] = useState((value || '#000000').toUpperCase());
   const [opacity, setOpacity] = useState(100);
   const ref = useRef<HTMLDivElement>(null);
@@ -211,6 +223,24 @@ export function PortalColorPicker({ value, onChange, onClose, anchor }: {
       style={{ top, left }}
       className="fixed z-[10000] w-[286px] rounded-lg border border-[#E5E7EB] bg-white p-3.5 shadow-[0_12px_24px_-6px_rgba(16,24,40,0.18)]"
     >
+      {/* ⚠️ ABOVE the spectrum, because it says which of two values everything below it is editing.
+          Underneath, you would have picked a colour before being told where it was going. */}
+      {modeTab && (
+        <div className="mb-3 flex items-center gap-0.5 rounded bg-[#F1F5F9] p-0.5">
+          {(['light', 'dark'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => modeTab.onChange(m)}
+              className={`flex-1 rounded py-1 text-[12px] font-medium capitalize transition-colors ${
+                modeTab.value === m
+                  ? 'bg-white text-[#364658] shadow-[0_1px_2px_rgba(16,24,40,0.06)]'
+                  : 'text-[#9CA3AF] hover:text-[#364658]'
+              }`}
+            >{m}</button>
+          ))}
+        </div>
+      )}
       {/* Spectrum */}
       <div
         ref={svRef}
@@ -324,19 +354,53 @@ export function PortalColorPicker({ value, onChange, onClose, anchor }: {
 /* ⚠️ Circle only, no hex. In a palette of seventeen rows the code beside every one turned the list
    into a spreadsheet — and nobody recognises a colour by its code, so the text was noise sitting
    where the colour should be. The value is what the picker is for. */
-export function ColorDot({ value, onChange, title }: { value: string; onChange: (v: string) => void; title?: string }) {
+export function ColorDot({ value, onChange, title, modes }: {
+  value: string;
+  onChange: (v: string) => void;
+  title?: string;
+  /* Both of a swatch's values, so the picker can offer a tab per mode.
+   *
+   * ⚠️ Every swatch in this palette HAS two values — one for the light portal and one for the dark
+   * one — and the dot could only ever edit whichever the switcher happened to be showing. Editing the
+   * other meant flipping the whole panel to a mode you were not designing, changing the colour, and
+   * flipping back. The tab edits the value directly; the switcher still decides which one you SEE.
+   * Omitted where a colour has no dark counterpart, and then no tabs are drawn. */
+  modes?: {
+    mode: 'light' | 'dark';
+    light: string;
+    dark: string;
+    onChange: (mode: 'light' | 'dark', v: string) => void;
+  };
+}) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  /* ⚠️ Seeded from the THEME's mode every time the picker opens, never remembered. The rule you
+     asked for is that the tab follows the switcher — a tab that remembered its last position would
+     start disagreeing with the panel the second time you opened it. */
+  const [tab, setTab] = useState<'light' | 'dark'>(modes?.mode ?? 'light');
   const btnRef = useRef<HTMLButtonElement>(null);
+  const open = () => {
+    setTab(modes?.mode ?? 'light');
+    setAnchor(anchor ? null : btnRef.current!.getBoundingClientRect());
+  };
+  const shown = modes ? (tab === 'dark' ? modes.dark : modes.light) : value;
   return (
     <>
       <button
         ref={btnRef}
         title={title}
-        onClick={() => setAnchor(anchor ? null : btnRef.current!.getBoundingClientRect())}
+        onClick={open}
         className="size-6 flex-shrink-0 rounded-full border border-black/15 shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] transition-transform hover:scale-110"
         style={{ background: value }}
       />
-      {anchor && <PortalColorPicker value={value} onChange={onChange} anchor={anchor} onClose={() => setAnchor(null)} />}
+      {anchor && (
+        <PortalColorPicker
+          value={shown}
+          onChange={(v) => (modes ? modes.onChange(tab, v) : onChange(v))}
+          anchor={anchor}
+          onClose={() => setAnchor(null)}
+          modeTab={modes ? { value: tab, onChange: setTab } : undefined}
+        />
+      )}
     </>
   );
 }

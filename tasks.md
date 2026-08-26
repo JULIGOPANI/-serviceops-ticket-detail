@@ -277,8 +277,20 @@ Updated: 2026-08-25 12:11
 - **(4)** Adding an item no longer calls `onSelect`, which used to swap the whole sidebar for that item's drawer — you asked for one more row and the panel you were working in disappeared. The list opens the new row **in place** (the item is always appended, so its index is the length before the add). A new `blankOnAdd` flag empties every declared field, and `placeholder` on the two inline fields says what belongs there. ⚠️ Both are **opt-in**: the seeds exist so an untouched page shows a realistic accordion, and a gallery slide added blank is a broken slide. A collection with no inline editor still opens its drawer, because it has nowhere else to go.
 - **Verified:** a column's Design now reads "Style | Fill | None | Colour | Border | px | Corner radius | px | %" — the current component. No "Behaviour" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens "Item 4" expanded, both fields empty, showing "How do I reset my password?" and "Answer it in a sentence or two." as placeholders, with the Add link CTA below them.
 
+## 41. The light/dark switcher, and colour-picker tabs that follow it
+- **Status:** done
+- **Your numbering:** line **39** in zeni_tasks.md.
+- **Where:** `PortalThemePanel.tsx`, `PortalColorPicker.tsx`
+- **You asked:** make the light/dark switcher prominent and primary-coloured; give the colour picker Light/Dark tabs; and have the tab follow the switcher — light selected → every primary/secondary/neutral picker opens on Light, flip to dark → they all open on Dark.
+- **The switcher** is labelled and accent-filled now, not two grey icon glyphs. It decides which of two palettes every swatch below it shows AND which tab their pickers open on — the most consequential switch on the panel, and it was the quietest thing on its row.
+- **⚠️ This needed a model change, and it fixed a real bug.** An override was ONE value per swatch, so a colour edited for the light portal silently became the dark portal's colour too. Every swatch ships with two values precisely because the two modes want different ones; a single override threw that away the first time anybody touched a dot. Overrides are keyed **per mode** now (`light:primary1`), with the bare key still read as a fallback so a theme carrying older overrides keeps them.
+- **⚠️ The tab is seeded from the theme's mode on every open, never remembered.** The rule you asked for is that it follows the switcher — a tab that remembered its last position would start disagreeing with the panel the second time you opened it.
+- **⚠️ The spectrum had to be re-seeded on tab change.** `useState` only ever reads its initial argument, so switching tabs left the wheel sitting on the other mode's colour while the hex field showed the right one.
+- **Verified in both directions:** the active switcher side measures **rgb(61, 139, 208)** — #3D8BD0. In light mode the Primary picker opens on the **Light** tab showing `3D8BD0`, and clicking Dark shows `5AA7E5`. Flipping the switcher to Dark and reopening the same picker lands on the **Dark** tab with `5AA7E5` already selected.
+
 ## 40. Suggested image sizes in the empty upload state
-- **Status:** done — *(your task 38)*
+- **Status:** done
+- **Your numbering:** this is line **38** in zeni_tasks.md — the board numbers drifted when interim work was added, so each entry names its source line rather than pretending the two lists match.
 - **Where:** `PortalControls.tsx` (`ImageUploadZone`, `UploadZone`), `portalWidgetSpec.ts`, `portalStructureSpecs.ts`, `PortalIconPicker.tsx`
 - **You asked:** show a suggested size in the empty upload container for banner, logo and icon, so the size is known before choosing a file.
 - **The sizes, and why each:** **Banner 1600 × 400** — the band is full-width and about 200px tall, so this is a 2× asset that stays sharp on a retina screen without being a photograph nobody needs. **Logo 240 × 64** — the top bar renders the mark at about 28px tall, and wider than tall because every logo in that bar is. **Icon 128 × 128** — the slot renders at 44px and CROPS to it, so a square is the only shape that survives the crop with nothing lost off its sides.

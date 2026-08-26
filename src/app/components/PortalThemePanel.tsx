@@ -144,8 +144,22 @@ export const buttonOf = (t: PortalTheme) => BUTTON_STYLES.find((b) => b.id === t
 export const styleOfTheme = (t: PortalTheme) =>
   THEME_STYLES.find((s) => s.paletteId === t.paletteId && s.packId === t.packId && s.buttonId === t.buttonId) ?? null;
 
-/** One swatch's value for the mode that is on, with any override applied. */
-export const colorOf = (t: PortalTheme, s: Swatch) => t.custom?.[s.key] ?? (t.mode === 'dark' ? s.dark : s.light);
+/* An override is stored PER MODE — `light:primary1`, `dark:primary1`.
+ *
+ * ⚠️ It used to be one value per swatch, which meant a colour edited for the light portal silently
+ * became the dark portal's colour too. Every swatch in this palette ships with two values precisely
+ * because the two modes want different ones; a single override threw that away the first time
+ * anybody touched a dot.
+ * ⚠️ The bare key is still read as a FALLBACK, so a theme carrying overrides from before this change
+ * keeps them rather than snapping back to the palette. */
+export const customKey = (mode: 'light' | 'dark', key: string) => `${mode}:${key}`;
+
+/** One swatch's value for a given mode, with any override applied. */
+export const colorIn = (t: PortalTheme, s: Swatch, mode: 'light' | 'dark') =>
+  t.custom?.[customKey(mode, s.key)] ?? t.custom?.[s.key] ?? (mode === 'dark' ? s.dark : s.light);
+
+/** One swatch's value for the mode that is on. */
+export const colorOf = (t: PortalTheme, s: Swatch) => colorIn(t, s, t.mode);
 
 /** page · surface · muted · accent · ink — what the canvas paints with. */
 export const swatchesOf = (t: PortalTheme): [string, string, string, string, string] => {
@@ -236,6 +250,11 @@ function StylePreview({ packId, buttonId, accent }: { packId: string; buttonId: 
 /** Light / dark, as one control. Exported because it renders on the panel's TITLE row — it governs
  *  every field below it, so it cannot belong to any one of them. */
 export function ThemeModeToggle({ mode, onChange }: { mode: 'light' | 'dark'; onChange: (m: 'light' | 'dark') => void }) {
+  /* ⚠️ LABELLED and accent-filled, not two grey icon buttons. This control decides which of two
+     palettes every swatch below it is showing AND which tab their pickers open on — the most
+     consequential switch on the panel, and it was the quietest thing on its row: a pair of 24px
+     glyphs in the same grey as the heading beside them. The active side now carries the primary
+     colour, which is the one weight on this panel that reads as "this is on". */
   return (
     <span className="flex flex-shrink-0 items-center gap-0.5 rounded bg-[#F1F5F9] p-0.5">
       {([['light', Sun], ['dark', Moon]] as const).map(([m, Ic]) => (
@@ -243,10 +262,12 @@ export function ThemeModeToggle({ mode, onChange }: { mode: 'light' | 'dark'; on
           key={m}
           onClick={() => onChange(m)}
           title={m === 'light' ? 'Light mode' : 'Dark mode'}
-          className={`flex size-6 items-center justify-center rounded transition-colors ${
-            mode === m ? 'bg-white text-[#364658] shadow-[0_1px_2px_rgba(16,24,40,0.06)]' : 'text-[#9CA3AF] hover:text-[#364658]'
+          className={`flex h-7 items-center gap-1.5 rounded px-2.5 text-[12px] font-medium capitalize transition-colors ${
+            mode === m
+              ? 'bg-[#3D8BD0] text-white shadow-[0_1px_2px_rgba(16,24,40,0.10)]'
+              : 'text-[#7B8FA5] hover:text-[#364658]'
           }`}
-        ><Ic size={13} /></button>
+        ><Ic size={13} /> {m}</button>
       ))}
     </span>
   );
@@ -281,7 +302,8 @@ export function PortalThemePanel({ theme, onChange }: { theme: PortalTheme; onCh
     toast.success(`${st.name} applied`);
   };
 
-  const setCustom = (key: string, value: string) => onChange({ custom: { ...(theme.custom ?? {}), [key]: value } });
+  const setCustom = (key: string, value: string, mode: 'light' | 'dark' = theme.mode) =>
+    onChange({ custom: { ...(theme.custom ?? {}), [customKey(mode, key)]: value } });
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
@@ -381,7 +403,17 @@ export function PortalThemePanel({ theme, onChange }: { theme: PortalTheme; onCh
              every row turns a palette into a spreadsheet, and nobody recognises a colour by its code. */
           <div key={sw.key} className="flex items-center gap-3 border-b border-dashed border-[#E5E7EB] py-2 last:border-b-0">
             <span className="flex-1 truncate text-[13px] text-[#364658]">{sw.label}</span>
-            <ColorDot value={colorOf(theme, sw)} onChange={(v) => setCustom(sw.key, v)} title={sw.label} />
+            <ColorDot
+              value={colorOf(theme, sw)}
+              onChange={(v) => setCustom(sw.key, v)}
+              title={sw.label}
+              modes={{
+                mode: theme.mode,
+                light: colorIn(theme, sw, 'light'),
+                dark: colorIn(theme, sw, 'dark'),
+                onChange: (m, v) => setCustom(sw.key, v, m),
+              }}
+            />
           </div>
         ))}
       </div>
