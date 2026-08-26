@@ -514,6 +514,20 @@ export function applyGrid(base: TableModel, grid: string[][]): TableModel {
 export const gridOf = (m: TableModel): string[][] =>
   m.rows.map((r) => r.cells.flatMap((c) => [c.content, ...Array.from({ length: c.colspan - 1 }, () => '')]));
 
+/** Resize a table to R × C, keeping whatever content still has a cell.
+ *
+ *  ⚠️ It does NOT rebuild from scratch. Choosing a size from the picker on a table you have already
+ *  filled in should not empty it — growing adds blank cells, shrinking drops only what falls outside
+ *  the new shape, and everything inside it keeps its text, its colour and its alignment. */
+export function resizeTable(base: TableModel, rows: number, cols: number): TableModel {
+  const r = Math.min(Math.max(1, rows), MAX_DIM);
+  const c = Math.min(Math.max(1, cols), MAX_DIM);
+  const grid = gridOf(base);
+  const next = Array.from({ length: r }, (_, i) =>
+    Array.from({ length: c }, (_, j) => grid[i]?.[j] ?? ''));
+  return applyGrid(base, next);
+}
+
 /* ── reading older config ────────────────────────────────────────────────── */
 
 /** Build a model from whatever the widget's config currently holds.

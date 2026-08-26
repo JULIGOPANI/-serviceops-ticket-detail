@@ -180,6 +180,9 @@ export const TABLE_SPEC: WidgetSpec = {
        that changes what the other fields are even editing. */
     /* ⚠️ One CTA, not a size sweeper plus a row list. The sheet decides its own size by what you
        type into it, so asking for R × C first was asking a question the content already answers. */
+    /* ⚠️ SIZE first, content second — you decide the shape before you fill it, and the picker is
+       the only control here that changes what the sheet below is even editing. */
+    { key: 'table', label: 'Select row / column cells', control: 'tableSize', group: 'Content' },
     { key: 'table', label: 'Table content', control: 'tableContent', group: 'Content' },
     { key: 'title', label: 'Title', control: 'text', group: 'Content', help: 'Optional.' },
     /* ⚠️ The two header switches sit TOGETHER, in Content (§6). "First column" used to live under

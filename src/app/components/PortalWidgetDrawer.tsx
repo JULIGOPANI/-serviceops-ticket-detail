@@ -14,9 +14,10 @@
 
 import { useEffect, Fragment, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ChevronLeft, ChevronRight, Copy, EyeOff, Layers, List, MoreVertical, PanelLeft, RotateCcw,
-  Info, Link2, Rows3, Search as SearchIcon, Square, Trash2, Type as TypeIcon,
+  Info, Link2, Rows3, Search as SearchIcon, Square, Table as TableIcon, Trash2, Type as TypeIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -49,7 +50,8 @@ import { IconField } from './PortalIconPicker';
 import type { IconChoice } from './PortalIconPicker';
 import { GATE_COPY, gateOpen, specById } from './portalWidgetSpec';
 import type { Cfg, WidgetField, WidgetSpec } from './portalWidgetSpec';
-import { applyGrid, gridOf, tableFrom } from './portalTableModel';
+import { applyGrid, columnCount, gridOf, resizeTable, tableFrom } from './portalTableModel';
+import { TableGridPicker } from './PortalTable';
 
 /* Which groups are open is remembered per widget TYPE for the session: someone styling five cards
    in a row should not have to re-open the same drawer each time. Module-level on purpose — it is
@@ -553,6 +555,44 @@ function firstDesignKey(spec: WidgetSpec, cfg: Cfg): string | null {
   return '__spacing';
 }
 
+/** The Table's size field: a button that says the current shape, and the 10 × 10 grid behind it.
+ *
+ * ⚠️ The popover is PORTALLED and positioned from the trigger. The design panel scrolls, so a
+ * popover living inside it is clipped the moment it is taller than the room below its field — the
+ * same trap the colour and icon pickers already document. */
+function TableSizeField({ rows, cols, onPick }: { rows: number; cols: number; onPick: (r: number, c: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const [at, setAt] = useState<DOMRect | null>(null);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => { setAt((e.currentTarget as HTMLElement).getBoundingClientRect()); setOpen(true); }}
+        className="flex h-9 w-full items-center gap-2 rounded border border-[#d1d5db] bg-white px-3 text-left text-[13px] text-[#364658] transition-colors hover:border-[#3D8BD0]"
+      >
+        <TableIcon size={15} className="flex-shrink-0 text-[#7B8FA5]" />
+        <span className="flex-1">{rows} × {cols}</span>
+        <ChevronRight size={14} className="flex-shrink-0 text-[#9CA3AF]" />
+      </button>
+      {open && at && createPortal(
+        <>
+          <span className="fixed inset-0 z-[10000]" onClick={() => setOpen(false)} />
+          <div
+            className="fixed z-[10001]"
+            style={{
+              left: Math.max(8, Math.min(at.left, window.innerWidth - 244)),
+              top: Math.min(at.bottom + 6, window.innerHeight - 250),
+            }}
+          >
+            <TableGridPicker onPick={(r, c) => { onPick(r, c); setOpen(false); }} onCancel={() => setOpen(false)} />
+          </div>
+        </>,
+        document.body,
+      )}
+    </>
+  );
+}
+
 export interface WidgetDrawerProps {
   nodeId: string;
   spec: WidgetSpec;
@@ -860,6 +900,20 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
               >{mark(o.value)}</button>
             ))}
           </span>
+        );
+      }
+      /* The 10 × 10 grid picker, reached from the panel rather than only on a fresh drop.
+         ⚠️ It RESIZES rather than rebuilding: choosing a size on a table you have already filled in
+         must not empty it. Growing adds blank cells, shrinking drops only what falls outside the new
+         shape, and everything inside keeps its text, colour and alignment. */
+      case 'tableSize': {
+        const model = tableFrom(viewCfg);
+        return (
+          <TableSizeField
+            rows={model.rows.length}
+            cols={columnCount(model)}
+            onPick={(r, c) => set(f.key, resizeTable(model, r, c))}
+          />
         );
       }
       case 'tableContent': {

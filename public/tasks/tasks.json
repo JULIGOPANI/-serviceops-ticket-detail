@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-25T12:29:04.717Z",
+  "builtAt": "2026-08-26T16:59:21.674Z",
   "tasks": [
     {
       "n": 1,
@@ -363,6 +363,16 @@
         "Where": "`portalWidgetSpec.ts` (`structureSpecId`), `portalStructureSpecs.ts`, `supportPortalData.ts`, `PortalItemList.tsx` + `PortalWidgetDrawer.tsx`",
         "You asked": "(1) an empty section shows the OLD Style component; (2) remove Layout ▸ Behaviour from every sidebar in the module; (3) Most Used Services and Favourite Services belong under Live data; (4) task 29's Add item should open the box inline with empty fields and placeholders instead of replacing the sidebar.",
         "Verified": "a column's Design now reads \"Style | Fill | None | Colour | Border | px | Corner radius | px | %\" — the current component. No \"Behaviour\" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens \"Item 4\" expanded, both fields empty, showing \"How do I reset my password?\" and \"Answer it in a sentence or two.\" as placeholders, with the Add link CTA below them."
+      }
+    },
+    {
+      "n": 39,
+      "title": "Table — the picker, the grips and the flyouts",
+      "status": "done",
+      "fields": {
+        "Where": "`PortalTable.tsx`, `portalTableModel.ts`, `PortalWidgetDrawer.tsx`, `portalCollectionSpecs.ts`",
+        "You asked": "(1) a proper 10×10 row/column picker like your reference, opened from a **\"select row / column cells\"** field; (2) the drag grip as **6 dots, on hover only**, filling when selected; (3) Colour and Alignment must open on hover — they were not opening at all.",
+        "Verified with real input": "the grip measures **opacity 0 at rest, 1 on table hover**, and its icon is **6 paths**. Hovering Colour opens a 190px flyout fully on screen; Alignment likewise. The panel field reads **3 × 3**, opens a **100-cell** grid with the \"Choose row and column\" footer, and picking 4 × 5 gave a 4-row × 5-column table with \"L1 · Service Desk\" still in place."
       }
     },
     {

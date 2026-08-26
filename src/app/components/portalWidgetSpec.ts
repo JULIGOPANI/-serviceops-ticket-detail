@@ -55,6 +55,7 @@ export type ControlKind =
   | 'tableContent'
   | 'videoSource'
   | 'addLinkCard'
+  | 'tableSize'
   /** Circle / square / banner, shown as the shapes themselves. */
   | 'shape';
 

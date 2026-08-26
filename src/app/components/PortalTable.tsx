@@ -12,11 +12,12 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { CSSProperties } from 'react';
 import {
   AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowDownAZ, ArrowDownZA, ArrowLeft, ArrowRight,
   ArrowUp, ChevronRight, Copy, Eraser, Group, GripHorizontal, GripVertical, Heading, Maximize2,
-  Palette, Plus, Trash2, Ungroup,
+  Palette, Plus, Table as TableIcon, Trash2, Ungroup,
 } from 'lucide-react';
 import { useCanvas } from './PortalCanvas';
 import {
@@ -37,12 +38,17 @@ type Cfg = Record<string, unknown>;
  *  every later insert, so the picker cannot offer a shape the table would then refuse to keep. */
 export function TableGridPicker({ onPick, onCancel }: { onPick: (rows: number, cols: number) => void; onCancel?: () => void }) {
   const [over, setOver] = useState<{ r: number; c: number } | null>(null);
-  const label = over ? `${over.r} × ${over.c}` : 'Insert table';
+  const label = over ? `${over.r} × ${over.c}` : '';
   return (
-    <div className="inline-block rounded-lg border border-[#E5E7EB] bg-white p-3 shadow-[0_12px_16px_-4px_rgba(16,24,40,0.10)]">
+    <div className="inline-block w-[228px] rounded-lg border border-[#E5E7EB] bg-white p-3 shadow-[0_12px_16px_-4px_rgba(16,24,40,0.10)]">
+      <p className="mb-2 text-[13px] font-semibold text-[#364658]">Insert table</p>
+      {/* ⚠️ A CONTIGUOUS grid — cells sharing their borders, the way a table's cells do. Spaced
+          squares read as a set of buttons; the thing you are sizing is a grid, so the picker is one.
+          The border comes from the wrapper plus each cell's right and bottom edge, which is what
+          keeps the outer rule a single line rather than a doubled one. */}
       <div
-        className="grid gap-[3px]"
-        style={{ gridTemplateColumns: `repeat(${MAX_DIM}, 16px)` }}
+        className="grid overflow-hidden rounded-[3px] border border-[#D9E0EA]"
+        style={{ gridTemplateColumns: `repeat(${MAX_DIM}, 1fr)` }}
         onMouseLeave={() => setOver(null)}
       >
         {Array.from({ length: MAX_DIM * MAX_DIM }).map((_, i) => {
@@ -56,17 +62,20 @@ export function TableGridPicker({ onPick, onCancel }: { onPick: (rows: number, c
               aria-label={`${r} by ${c}`}
               onMouseEnter={() => setOver({ r, c })}
               onClick={() => onPick(r, c)}
-              className={`size-4 rounded-[2px] border transition-colors ${
-                on ? 'border-[#3D8BD0] bg-[#3D8BD0]' : 'border-[#D9E0EA] bg-white hover:border-[#3D8BD0]'
-              }`}
+              className={`h-[18px] border-b border-r border-[#E8ECF1] transition-colors last:border-r-0 ${
+                on ? 'bg-[#3D8BD0]' : 'bg-white hover:bg-[#EBF5FF]'
+              } ${c === MAX_DIM ? 'border-r-0' : ''} ${r === MAX_DIM ? 'border-b-0' : ''}`}
             />
           );
         })}
       </div>
-      {/* The label reads the LIVE dimensions, so the number is decided before the click rather than
-          discovered after it. */}
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <span className="text-[12px] font-medium text-[#364658]">{label}</span>
+      {/* ⚠️ The footer reads the LIVE dimensions while you hover and names the action when you are
+          not, so the number is decided before the click rather than discovered after it. */}
+      <div className="mt-2.5 flex items-center gap-2 border-t border-[#F1F5F9] pt-2.5">
+        <TableIcon size={15} className="flex-shrink-0 text-[#3D8BD0]" />
+        <span className="flex-1 text-[12px] font-medium text-[#364658]">
+          {over ? label : 'Choose row and column'}
+        </span>
         {onCancel && (
           <button type="button" onClick={onCancel} className="text-[12px] text-[#6B7280] hover:text-[#364658]">Cancel</button>
         )}
@@ -161,6 +170,8 @@ function AlignFlyout({ onH, onV }: { onH: (v: CellAlign) => void; onV: (v: VertA
 function HandleMenu({ items, x, y, onClose }: { items: MenuItem[]; x: number; y: number; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [openSub, setOpenSub] = useState<string | null>(null);
+  /** Viewport rect of the row whose flyout is open — the flyout is portalled, so it needs one. */
+  const [subAt, setSubAt] = useState<{ left: number; top: number } | null>(null);
   useEffect(() => {
     const away = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) onClose(); };
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -176,7 +187,12 @@ function HandleMenu({ items, x, y, onClose }: { items: MenuItem[]; x: number; y:
       /* ⚠️ A capped height with its own scroll. The column menu is twelve items and the table can
          sit anywhere on a long page — without this the last few rows fall off the bottom of the
          canvas, which is exactly where Delete lives. */
-      className="absolute z-[70] max-h-[320px] min-w-[214px] overflow-y-auto overflow-x-visible rounded-lg border border-[#E5E7EB] bg-white py-1 shadow-[0_12px_16px_-4px_rgba(16,24,40,0.10)]"
+      /* ⚠️ `overflow-x-visible` next to `overflow-y-auto` DOES NOTHING — CSS forbids one axis being
+         visible while the other scrolls, so the x axis silently computes to `auto` as well and the
+         Colour and Alignment flyouts were clipped at the menu's edge. They open in a PORTAL now,
+         positioned from the trigger's own rect, so the menu can keep its scroll and the flyout can
+         leave it. */
+      className="absolute z-[70] max-h-[320px] min-w-[214px] overflow-y-auto rounded-lg border border-[#E5E7EB] bg-white py-1 shadow-[0_12px_16px_-4px_rgba(16,24,40,0.10)]"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
@@ -188,7 +204,15 @@ function HandleMenu({ items, x, y, onClose }: { items: MenuItem[]; x: number; y:
             role="menuitem"
             disabled={!!it.blocked}
             title={it.blocked ?? undefined}
-            onMouseEnter={() => setOpenSub(it.children ? it.label : null)}
+            /* ⚠️ HOVER opens it, and the rect is measured at the same moment. Requiring a click on
+               a row that only has children was the thing that made Colour and Alignment feel dead:
+               you hovered, nothing happened, and the row looked like a disabled item. */
+            onMouseEnter={(ev) => {
+              if (!it.children) { setOpenSub(null); return; }
+              const b = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+              setSubAt({ left: b.right, top: b.top - 6 });
+              setOpenSub(it.label);
+            }}
             onClick={() => {
               if (it.blocked) return;
               if (it.children) { setOpenSub((s) => (s === it.label ? null : it.label)); return; }
@@ -203,16 +227,22 @@ function HandleMenu({ items, x, y, onClose }: { items: MenuItem[]; x: number; y:
             <span className="flex-1">{it.label}</span>
             {it.children && <ChevronRight size={13} className="flex-shrink-0 text-[#9CA3AF]" />}
           </button>
-          {it.children && openSub === it.label && (
-            /* ⚠️ Rendered to the LEFT when there is no room on the right. The menu itself is already
-               positioned against the handle, so a flyout that always opened right ran off the canvas
-               on any column past the middle of the table. */
+          {it.children && openSub === it.label && subAt && createPortal(
+            /* ⚠️ Flipped to the LEFT when the right would run off the window, and clamped so the
+               bottom of a long colour list stays on screen. It is portalled to the body, so neither
+               the menu's scroll nor the canvas's own clipping can cut it. */
             <div
-              className={`absolute top-0 z-[80] rounded-lg border border-[#E5E7EB] bg-white shadow-[0_12px_16px_-4px_rgba(16,24,40,0.10)] ${
-                x > 420 ? 'right-full mr-1' : 'left-full ml-1'
-              }`}
+              style={{
+                position: 'fixed',
+                left: subAt.left + 214 + 190 > window.innerWidth ? subAt.left - 190 - 4 : subAt.left + 4,
+                top: Math.min(subAt.top, Math.max(8, window.innerHeight - 320)),
+              }}
+              className="z-[10001] rounded-lg border border-[#E5E7EB] bg-white shadow-[0_12px_16px_-4px_rgba(16,24,40,0.10)]"
+              onMouseEnter={() => setOpenSub(it.label)}
               onMouseLeave={() => setOpenSub(null)}
-            >{it.children}</div>
+              onClick={(e) => e.stopPropagation()}
+            >{it.children}</div>,
+            document.body,
           )}
         </div>
       ))}
@@ -248,6 +278,10 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
   /** Where the dragged ghost sits, in viewport coordinates. Null when nothing is being dragged. */
   const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null);
   const [hoverRow, setHoverRow] = useState<number | null>(null);
+  /* ⚠️ The rails are hidden until the pointer is over the TABLE. Permanently-visible grips put two
+     grey bars around every table on the page, on a canvas whose whole job is showing what the
+     portal looks like — the handles are for the moment you reach for them, not for the page. */
+  const [overTable, setOverTable] = useState(false);
   const [hoverCol, setHoverCol] = useState<number | null>(null);
   const [menu, setMenu] = useState<{ kind: 'row' | 'col' | 'cell'; index: number; x: number; y: number } | null>(null);
   const [sel, setSel] = useState<{ r0: number; c0: number; r1: number; c1: number } | null>(null);
@@ -576,7 +610,8 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
     <div
       className="relative"
       style={enabled ? { paddingTop: RAIL + 4, paddingLeft: RAIL + 4 } : undefined}
-      onMouseLeave={() => { setHoverRow(null); setHoverCol(null); }}
+      onMouseEnter={() => setOverTable(true)}
+      onMouseLeave={() => { setOverTable(false); setHoverRow(null); setHoverCol(null); }}
     >
       <div ref={wrapRef} className={`relative ${cfg.hScroll !== false ? 'overflow-x-auto' : ''}`}>
         {/* ⚠️ A real <table> with a real <colgroup> and `table-fixed`. Column width is a property of
@@ -666,11 +701,16 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
               /* ⚠️ A GRIP, not a chevron. The bar is a drag handle first and a menu button second —
                  a chevron says "this opens something" and says nothing at all about picking it up,
                  which is exactly the half of the control people could not find. */
-              className={`absolute z-[50] flex items-center justify-center rounded-full transition-colors ${
-                drag?.kind === 'col' && drag.from === i
+              /* ⚠️ SIX DOTS, and only while the table is under the pointer. Selected or being dragged it
+                 fills with the accent — the same grip in two weights, so "this is the one I have
+                 hold of" needs no second control to say it. */
+              className={`absolute z-[50] flex items-center justify-center rounded-full transition-opacity transition-colors ${
+                overTable || drag ? 'opacity-100' : 'opacity-0'
+              } ${
+                (drag?.kind === 'col' && drag.from === i)
+                  || (sel && Math.min(sel.c0, sel.c1) <= i && i <= Math.max(sel.c0, sel.c1))
                   ? 'bg-[#3D8BD0] text-white'
-                  : hoverCol === i || (sel && Math.min(sel.c0, sel.c1) <= i && i <= Math.max(sel.c0, sel.c1))
-                    ? 'bg-[#3D8BD0] text-white' : 'bg-[#EEF2F6] text-[#9CA3AF] hover:bg-[#DDE5EC]'
+                  : hoverCol === i ? 'bg-[#B6C2D5] text-white' : 'bg-[#EEF2F6] text-[#9CA3AF]'
               }`}
             ><GripHorizontal size={12} /></button>
           ))}
@@ -690,11 +730,13 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
                 setMenu({ kind: 'row', index: i, x: RAIL + 6, y: b.top - w.top + RAIL });
               }}
               style={{ top: y + RAIL + 4, height: geo.h[i] - 2, left: 0, width: RAIL, cursor: drag?.kind === 'row' ? 'grabbing' : 'grab' }}
-              className={`absolute z-[50] flex items-center justify-center rounded-full transition-colors ${
-                drag?.kind === 'row' && drag.from === i
+              className={`absolute z-[50] flex items-center justify-center rounded-full transition-opacity transition-colors ${
+                overTable || drag ? 'opacity-100' : 'opacity-0'
+              } ${
+                (drag?.kind === 'row' && drag.from === i)
+                  || (sel && Math.min(sel.r0, sel.r1) <= i && i <= Math.max(sel.r0, sel.r1))
                   ? 'bg-[#3D8BD0] text-white'
-                  : hoverRow === i || (sel && Math.min(sel.r0, sel.r1) <= i && i <= Math.max(sel.r0, sel.r1))
-                    ? 'bg-[#3D8BD0] text-white' : 'bg-[#EEF2F6] text-[#9CA3AF] hover:bg-[#DDE5EC]'
+                  : hoverRow === i ? 'bg-[#B6C2D5] text-white' : 'bg-[#EEF2F6] text-[#9CA3AF]'
               }`}
             ><GripVertical size={12} /></button>
           ))}
@@ -705,7 +747,9 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
             aria-label="Select the whole table"
             onClick={(e) => { e.stopPropagation(); setSel({ r0: 0, c0: 0, r1: rows - 1, c1: cols - 1 }); }}
             style={{ width: RAIL, height: RAIL }}
-            className="absolute left-0 top-0 z-[50] rounded-[3px] bg-[#EEF2F6] transition-colors hover:bg-[#DDE5EC]"
+            className={`absolute left-0 top-0 z-[50] rounded-[3px] bg-[#EEF2F6] transition-opacity transition-colors hover:bg-[#DDE5EC] ${
+              overTable || drag ? 'opacity-100' : 'opacity-0'
+            }`}
           />
 
           {/* live drop indicator while reordering */}
