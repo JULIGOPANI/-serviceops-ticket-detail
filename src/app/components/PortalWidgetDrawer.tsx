@@ -34,6 +34,9 @@ import {
   MultiSelect,
 } from './PortalControls';
 import { PortalItemList } from './PortalItemList';
+import { RecordFilterField } from './PortalRecordFilter';
+import type { RecordFilter } from './portalRecordFilters';
+import { recordModule } from './supportPortalData';
 import { TemplatePicker } from './PortalSectionControls';
 import { ACROSS_ROW, ACROSS_STACK, DOWN_ROW, DOWN_STACK, SectionPresets } from './PortalSectionLayout';
 import type { PresetId } from './PortalSectionLayout';
@@ -807,6 +810,21 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
         return <UploadZone value={v as string} onChange={(x) => set(f.key, x ?? '')} suggested={f.suggested} />;
       case 'videoSource':
         return <VideoSource value={v as string} onChange={(x) => set(f.key, x)} />;
+      /* The Record List's filter — the named presets and a condition builder, in one popover.
+         ⚠️ Both halves are per module, so the control is handed the CHOSEN module rather than
+         reading one itself: the fields it offers and the statuses behind its Status field have to
+         be the ones that module actually has. */
+      case 'recordFilter': {
+        const mk = String(viewCfg.module ?? 'request');
+        return (
+          <RecordFilterField
+            value={v as RecordFilter | undefined}
+            moduleKey={mk}
+            statuses={recordModule(mk).statuses}
+            onChange={(x) => set(f.key, x)}
+          />
+        );
+      }
       /* The Quick Actions row's one addable card.
          ⚠️ At the limit the CTA stays VISIBLE and disabled with the reason on it — the same rule
          every other cap in this builder follows. A CTA that vanished once used would leave an admin

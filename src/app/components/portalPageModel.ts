@@ -831,6 +831,12 @@ const CARD_TYPES = new Set([
      the same page: without it Favourite Services drew its tiles straight onto the page background
      while Most Used Services sat in a white card, so two identical grids read as two different
      kinds of thing for no reason anyone could name. */
+  /* ⚠️ 'c-records' belongs here for the same reason 'c-favourites' does, one line up. It is a live
+     card — it renders the header, the count, the View-all and the rows that My Open Requests does —
+     so drawing it straight onto the page background put two cards of the same kind on one page
+     reading as two different kinds of thing: one in a white bordered box, one floating on the
+     canvas with no boundary at all. */
+  'c-records',
   'c-services', 'c-favourites', 'c-categories', 'c-requests', 'c-approvals', 'c-assets', 'c-tasks',
   'c-announcements', 'c-knowledge', 'c-faq', 'c-contact',
   'b-card', 'b-table', 'b-accordion', 'b-text-image',

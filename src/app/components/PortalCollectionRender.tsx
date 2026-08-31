@@ -22,6 +22,8 @@ import { IconFrameBox } from './PortalIconFrame';
 import type { IconFrame } from './PortalIconFrame';
 import type { Cfg } from './portalWidgetSpec';
 import { PORTAL_APPROVALS, PORTAL_ARTICLES, PORTAL_OPEN_REQUESTS, recordModule, statusTone } from './supportPortalData';
+import { activeConditions, matchesConditions } from './portalRecordFilters';
+import type { RecordFilter } from './portalRecordFilters';
 
 type Item = Cfg & { id: string; hidden?: boolean };
 
@@ -1214,12 +1216,16 @@ function CisRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
  * requester genuinely lands on when their filter matches nothing. */
 function RecordListRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
   const mod = recordModule(cfg.module as string);
-  const want = (cfg.statuses as string[]) ?? [];
-  /* An empty status list means EVERY status, the same way the request card's does — "I have not
-     narrowed this" and "I have narrowed it to nothing" are different intentions, and only one of
+  /* ⚠️ ONE reader for both halves of the control. A preset and a hand-built condition list are the
+     same setting shown two ways, so `activeConditions` resolves whichever is set and the renderer
+     never has to know which — which is what stops the canvas and the panel disagreeing about what
+     the card is showing.
+     ⚠️ No conditions means EVERY record, the way the request card's empty status list does: "I have
+     not narrowed this" and "I have narrowed it to nothing" are different intentions and only one of
      them should empty the card. */
+  const conds = activeConditions(cfg.filter as RecordFilter | undefined, String(cfg.module ?? 'request'));
   const rows = mod.rows
-    .filter((x) => want.length === 0 || want.includes(x.status))
+    .filter((x) => matchesConditions(x, conds))
     .slice(0, Number(cfg.show ?? 3));
   const dark = typeof document !== 'undefined' && !!document.querySelector('.portal-dark');
   return (
