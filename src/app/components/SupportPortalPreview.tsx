@@ -55,6 +55,10 @@ interface SupportPortalPreviewProps {
      that wants it should say which — a flag would have put the choice in the renderer, where the
      next layout that wants a different rail could not reach it. */
   rail?: string[];
+  /* The page's own background image, set in Theme › Home page background. The page paints it on the
+     theme wrapper; this is here only so the BANNER can stand aside for it — a full-bleed artwork
+     under an opaque band is an upload nobody can see. */
+  pageImage?: string;
   /* Resolved widget config per node (spec §9). Every field in the drawer reads back through this,
      which is what makes "live apply" real — a control that looks right and changes nothing teaches
      people to distrust the panel. */
@@ -874,7 +878,14 @@ function CardShell({ nodeId, titleNodeId, title, count, cfg = EMPTY_CFG, childre
             {/* ⚠️ The LABEL is its own node, the chevron is not. The words are the admin's to rewrite;
                 the chevron is the affordance that says "this goes somewhere" and belongs to the
                 product. Wrapping both would offer to edit an arrow. */}
-            {cfg.viewAllLabel && rid ? (
+            {/* ⚠️ `hasFixedTitle` gates the LINK as well as the heading. A predefined widget's
+                words are the product's — that rule was applied to the title and missed here, so the
+                one thing still editable on My Open Requests was "View all", which is the last text
+                on the card anybody should be renaming. Same predicate, so the two cannot drift: if a
+                widget's heading is fixed, its link is too.
+                A Record List and anything else an admin builds keeps both, because there the words
+                genuinely are theirs. */}
+            {cfg.viewAllLabel && rid && !hasFixedTitle(rid) ? (
               <Sel id={`${rid}-viewall`} className="hidden px-0.5 @min-[240px]:inline-block">
                 <span className="text-[12px] font-medium">{String(cfg.viewAllLabel)}</span>
               </Sel>
@@ -917,7 +928,7 @@ function Row({ nodeId, children }: { nodeId: string; children: ReactNode }) {
 
 /* ── The page ────────────────────────────────────────────────────────────── */
 
-export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CONTENT, sections = [], icons, placedText, blockOrder = DEFAULT_BLOCK_ORDER, rowOrder = DEFAULT_ROW_ORDER, removed = [], rowExtras, cfg, setCfg, blank = false, rail }: SupportPortalPreviewProps) {
+export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CONTENT, sections = [], icons, placedText, blockOrder = DEFAULT_BLOCK_ORDER, rowOrder = DEFAULT_ROW_ORDER, removed = [], rowExtras, cfg, setCfg, blank = false, rail, pageImage }: SupportPortalPreviewProps) {
   const { styles, enabled, select, pickIcon } = useCanvas();
   /* Which mode the surrounding theme wrapper is in. Inline styles cannot be answered by the dark
      stylesheet, so the few values that are data rather than utilities read it here. */
@@ -1015,8 +1026,15 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
     left: 'left center', center: 'center center', right: 'right center',
     'bottom left': 'left bottom', bottom: 'center bottom', 'bottom right': 'right bottom',
   };
-  const heroBg: React.CSSProperties = heroCfg.bgKind === 'color'
-    ? { background: String(heroCfg.bannerColor ?? '#3D8BD0'), backgroundImage: 'none' }
+  /* ⚠️ A full-page picture and a banner picture are two artworks competing for one screen, and the
+     banner is on top — so the page background an admin just uploaded would be entirely invisible.
+     The banner falls back to its COLOUR here rather than being blanked: a transparent band would
+     drop the search field onto the artwork with no contrast guarantee at all, which is the one thing
+     `portalContrast` exists to prevent. The panel says this will happen before it happens. */
+  const heroBg: React.CSSProperties = pageImage
+    ? { backgroundColor: String(heroCfg.bannerColor ?? '#3D8BD0'), backgroundImage: 'none' }
+    : heroCfg.bgKind === 'color'
+    ? { backgroundColor: String(heroCfg.bannerColor ?? '#3D8BD0'), backgroundImage: 'none' }
     : heroImg
       ? {
         backgroundImage: heroShade > 0
@@ -1026,7 +1044,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
         backgroundPosition: NINE[String(heroCfg.bannerPos ?? 'center')] ?? 'center center',
         backgroundRepeat: heroFit === 'auto' && heroCfg.bannerRepeat === true ? 'repeat' : 'no-repeat',
       }
-      : { background: `linear-gradient(135deg, ${pageAccent} 0%, #050B18 100%)` };
+      : { backgroundColor: 'transparent', backgroundImage: `linear-gradient(135deg, ${pageAccent} 0%, #050B18 100%)` };
 
   const heroLine = (nodeId: string): React.CSSProperties => {
     const own = styles[nodeId]?.align;
@@ -1243,6 +1261,15 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                    still looks designed rather than blank. */
                 ...heroBg,
                 minHeight: Number(wc('hero').height ?? 260),
+                /* ⚠️ FILL THE WRAPPER. A dragged height is written into `styles.hero` and applied by
+                   `sizeOf` on the Sel WRAPPER — this inner div is what actually paints the banner,
+                   and it was still sizing itself from `minHeight` alone. So stretching the banner
+                   grew the outline and the eight handles while the artwork stayed exactly where it
+                   was, leaving a band of page showing underneath: the selection said one thing and
+                   the picture said another.
+                   ⚠️ `100%` resolves to auto while the wrapper has no explicit height, so an
+                   untouched banner still sizes from its minHeight and nothing moved. */
+                height: '100%',
                 ...st('hero'),
               }}
             >

@@ -3,6 +3,7 @@ import { PORTAL_FONTS } from './portalPageModel';
 import { Check, ChevronDown, Moon, Sun } from 'lucide-react';
 import { toast } from 'sonner';
 import { ColorDot } from './PortalColorPicker';
+import { Segmented, UploadZone } from './PortalControls';
 
 /* Theme — the portal's own style system.
  *
@@ -309,6 +310,14 @@ export function PortalThemePanel({ theme, onChange }: { theme: PortalTheme; onCh
   const setCustom = (key: string, value: string, mode: 'light' | 'dark' = theme.mode) =>
     onChange({ custom: { ...(theme.custom ?? {}), [customKey(mode, key)]: value } });
 
+  /* ⚠️ UNSCOPED, unlike `setCustom`. Every colour in this panel is a light/dark PAIR, so its writer
+     stamps the mode into the key — but a background PHOTOGRAPH is one artwork, and asking an admin
+     to upload it twice would be asking them to answer a question that has one answer. The kind
+     (colour or image) goes the same way for the same reason: it is which of the two you are using,
+     not a property of the mode you are using it in. */
+  const setFlat = (key: string, value: string) =>
+    onChange({ custom: { ...(theme.custom ?? {}), [key]: value } });
+
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
             <Dropdown
@@ -422,23 +431,66 @@ export function PortalThemePanel({ theme, onChange }: { theme: PortalTheme; onCh
         ))}
       </div>
 
-      {/* ── Custom ── */}
-      <p className="mt-6 text-[11px] font-semibold uppercase tracking-wider text-[#7B8FA5]">Custom</p>
+      {/* ── Home page background ──
+          ⚠️ This REPLACES the Custom section. Custom offered three loose overrides — page
+          background, heading text, body text — sitting on top of whichever style was chosen, which
+          is a second colour authority beside the palette above it: two places to answer "what colour
+          is the heading", and the one you were not looking at won. Heading and body text belong to
+          the palette; the page's own backdrop is the one of the three that is genuinely a decision
+          about THIS page, so it is what stays, and it gets a picture as well as a colour. */}
+      <p className="mt-6 text-[11px] font-semibold uppercase tracking-wider text-[#7B8FA5]">Home page background</p>
       <p className="mt-1.5 text-[11px] leading-[1.5] text-[#9CA3AF]">
-        Three overrides that sit on top of whichever style is chosen.
+        A colour or an image behind the whole page.
       </p>
-      <div className="mt-1.5">
-        {[
-          { key: 'pageBg', label: 'Page background', from: palette.primary.find((x) => x.key === 'pageBg')! },
-          { key: 'pageText', label: 'Heading text', from: palette.primary.find((x) => x.key === 'pageText')! },
-          { key: 'bodyText', label: 'Body text', from: NEUTRAL.find((x) => x.key === 'dark')! },
-        ].map((f) => (
-          <div key={f.key} className="flex items-center gap-3 border-b border-dashed border-[#E5E7EB] py-2 last:border-b-0">
-            <span className="flex-1 truncate text-[13px] text-[#364658]">{f.label}</span>
-            <ColorDot value={theme.custom?.[f.key] ?? colorOf(theme, f.from)} onChange={(v) => setCustom(f.key, v)} title={f.label} />
-          </div>
-        ))}
+      <div className="mt-2.5">
+        <Segmented
+          value={String(theme.custom?.pageBgKind ?? 'color')}
+          onChange={(v) => setFlat('pageBgKind', v)}
+          options={[{ value: 'color', label: 'Colour' }, { value: 'image', label: 'Image' }]}
+        />
       </div>
+      {String(theme.custom?.pageBgKind ?? 'color') === 'color' ? (
+        <div className="mt-2 flex items-center gap-3 py-2">
+          <span className="flex-1 truncate text-[13px] text-[#364658]">Page background</span>
+          {/* The colour DOES carry a light/dark pair, so it keeps the mode tabs every other swatch
+              in this panel has — the page's backdrop is the one most worth checking in both. */}
+          {(() => {
+            const sw = palette.primary.find((x) => x.key === 'pageBg')!;
+            return (
+              <ColorDot
+                value={colorOf(theme, sw)}
+                onChange={(v) => setCustom('pageBg', v)}
+                title="Page background"
+                modes={{
+                  mode: theme.mode,
+                  light: colorIn(theme, sw, 'light'),
+                  dark: colorIn(theme, sw, 'dark'),
+                  onChange: (m, v) => setCustom('pageBg', v, m),
+                }}
+              />
+            );
+          })()}
+        </div>
+      ) : (
+        <div className="mt-2">
+          {/* ⚠️ The suggested size is stated in the EMPTY state, before a file is chosen — the same
+              rule the banner and the logo follow. A size printed after the upload is a verdict on a
+              decision already made. */}
+          <UploadZone
+            value={theme.custom?.pageBgImage}
+            onChange={(v) => setFlat('pageBgImage', v ?? '')}
+            suggested="1920 × 1080"
+          />
+          {/* ⚠️ A full-page picture and a banner picture are two artworks fighting for the same
+              screen, and the banner is on top — so a page background nobody can see reads as an
+              upload that failed. Saying it here is the difference between a rule and a surprise. */}
+          {theme.custom?.pageBgImage ? (
+            <p className="mt-2 rounded border border-[#FDE68A] bg-[#FFFBEB] px-2.5 py-2 text-[11px] leading-[1.55] text-[#92400E]">
+              The banner's own image is hidden while this is set, so the page background is what shows.
+            </p>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

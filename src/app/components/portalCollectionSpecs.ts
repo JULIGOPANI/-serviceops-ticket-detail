@@ -317,7 +317,9 @@ export const SLIDER_SPEC: WidgetSpec = {
         key: 'ctaAction', label: 'CTA opens', control: 'select', group: 'Action', when: (c) => c.ctaEnabled === true,
         options: [
           { value: 'url', label: 'External link' }, { value: 'page', label: 'A page in this portal' },
-          { value: 'download', label: 'Download a file' }, { value: 'email', label: 'Compose an email' },
+          /* ⚠️ "Compose an email" removed here too — the Opens dropdown is one control wherever it
+             appears, and leaving it in one spec would mean two lists claiming to be the same one. */
+          { value: 'download', label: 'Download a file' },
           { value: 'phone', label: 'Call a number' },
         ],
       },

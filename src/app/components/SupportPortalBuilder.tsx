@@ -1632,9 +1632,16 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      for one palette meant picking ServiceOps-light silently produced a different colour from the one
      shown in its swatch strip — a palette you cannot trust to be the palette. */
   const themeAccent = themeSw[3];
+  /* ⚠️ The page's own background image. It rides on the SAME wrapper the page colour does, so it
+     obeys `background-size: cover` across the whole portal rather than tiling per band — and it is
+     read from the unscoped key, because one artwork does not have a dark variant. */
+  const pageImg = theme.custom?.pageBgKind === 'image' ? theme.custom?.pageBgImage : undefined;
   const themeWrap = {
     fontFamily: faceOf(theme, 'body').css,
-    background: themeSw[0],
+    backgroundColor: themeSw[0],
+    ...(pageImg
+      ? { backgroundImage: `url(${pageImg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }
+      : null),
     color: themeSw[4],
     '--portal-heading': faceOf(theme, 'heading').css,
     '--portal-accent': themeAccent,
@@ -1764,7 +1771,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
             style={themeWrap}
           >
             <CanvasProvider value={{ ...canvasCtx, enabled: true }}>
-              <SupportPortalPreview accent={themeAccent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} setCfg={patchCfg} blank={page.start === 'blank'} rail={isV2 ? RAIL_V2 : undefined} />
+              <SupportPortalPreview accent={themeAccent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} setCfg={patchCfg} blank={page.start === 'blank'} rail={isV2 ? RAIL_V2 : undefined} pageImage={pageImg} />
             </CanvasProvider>
           </div>
 

@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-31T12:04:34.974Z",
+  "builtAt": "2026-08-31T15:10:34.827Z",
   "tasks": [
     {
       "n": 1,
@@ -696,6 +696,76 @@
         "You asked": "from [IMAGE-UPLOAD-ZONE-PROMPT.md](IMAGE-UPLOAD-ZONE-PROMPT.md) — replace every image-upload empty state with ONE shared component. Plus: a filled slot shows only a **Replace** CTA (no Remove link, no second dashed box), and no divider between the tab row and the upload container.",
         "How I check it": "the same lockup at both sizes, drag-over responds, an oversized file errors and stays usable, and no hand-rolled image dropzone survives the §7.7 grep.",
         "Verified": "sm (panel) = 132px min / 24×16 pad / 32px file glyph; md (canvas) = 180px / 40×24 / 40px — same lockup, same copy. Drag-over paints #EBF5FF on #3D8BD0. A 9MB drop gives \"That file is 9.0MB — the limit is 5MB\" in red with the zone still enabled; a .txt gives the type message. A real PNG dropped on the canvas image element lands and replaces the zone. Filled = 92px chequerboard preview + a single Replace. §7.7 grep leaves only the one component plus the out-of-scope placeholders."
+      }
+    },
+    {
+      "n": 42,
+      "title": "Banner stretches its own image",
+      "status": "done",
+      "fields": {
+        "Where": "`SupportPortalPreview.tsx`",
+        "You asked": "the banner's resize handles grow the outlined section without growing the banner itself.",
+        "What I found": "the drag writes `height` into `styles.hero`, and `sizeOf` applies it to the **Sel wrapper**. The div that actually paints the banner is inside it and was still sizing itself from `minHeight: 260` alone — so the outline and the eight handles moved and the artwork did not, leaving a strip of page showing underneath. The selection said one thing and the picture said another.",
+        "What I built": "the painted div takes `height: 100%`. ⚠️ `100%` resolves to auto while the wrapper has no explicit height, so an untouched banner still sizes from its minHeight and nothing moved for anyone who never dragged it.",
+        "Also fixed": "three style objects mixed the `background` shorthand with `backgroundImage`, which React warns about and which genuinely misbehaves — a rerender that swaps between two such objects removes the longhand key while the shorthand still claims it. All three now write `backgroundColor` + `backgroundImage`.",
+        "Verified": "with a banner image on, dragging the south handle down 120px took the painted band 260 → 380px at `background-size: cover`, wrapper and band both 380 (gap 0); dragging back up returned it to 260 with gap 0 and the artwork re-covering. Before the fix the wrapper grew and the band stayed at 260."
+      }
+    },
+    {
+      "n": 43,
+      "title": "\"View all\" is the product's words too",
+      "status": "done",
+      "fields": {
+        "Where": "`SupportPortalPreview.tsx`",
+        "You asked": "a predefined widget's \"View all\" link is still inline-editable — make it uneditable like the rest of the card.",
+        "What I built": "the link is gated on the same `hasFixedTitle` predicate that already fixes those widgets' headings, so the two cannot drift: if a widget's heading is the product's, its link is too. A Record List and anything else an admin builds keeps both, because there the words genuinely are theirs.",
+        "Verified": "clicking View all on My Open Requests produces no `contenteditable` node anywhere on the canvas and opens the WIDGET's panel (Fill · Border · Corner radius) rather than a text node's."
+      }
+    },
+    {
+      "n": 44,
+      "title": "No Image fill on the action row",
+      "status": "done",
+      "fields": {
+        "Where": "`portalStructureSpecs.ts`, `portalWidgetSpec.ts`",
+        "You asked": "remove the Image tab from Fill on the Quick Actions parent section and on all five action cards. Keep None and Colour.",
+        "What I built": "both segmented controls are now None/Colour and the `bgImage` upload row is gone. ⚠️ `bgImage` stays in `defaults` and the renderer still reads it, so anything already carrying one keeps drawing it; there is simply no longer a way to set one here.",
+        "Why it is right": "a background photograph behind a card or a band is not a fill, it is artwork — it needs a crop, a focal point and a contrast guard to stay readable, and a segmented control offers none of the three. Where a picture genuinely belongs (the banner, an icon slot) it has its own field that does all three.",
+        "Verified": "the Quick Actions section's Style reads `Fill · None · Colour`; `quick-incident`'s reads the same. No Image option on either."
+      }
+    },
+    {
+      "n": 45,
+      "title": "Card widget off the palette",
+      "status": "done",
+      "fields": {
+        "Where": "`supportPortalData.ts`",
+        "You asked": "remove the Card widget from the widget section.",
+        "What I built": "`hidden: true` — the spec, the renderer and the panel all stay, so a page already carrying a Card keeps working and restoring the row is one word. ⚠️ The hidden filter runs BEFORE the search, so it is not reachable by typing its name either.",
+        "Verified": "searching \"card\" in the library returns \"No elements found — Nothing matches 'card'\"."
+      }
+    },
+    {
+      "n": 46,
+      "title": "\"Compose an email\" leaves the Opens dropdown",
+      "status": "done",
+      "fields": {
+        "Where": "`portalWidgetSpec.ts`, `portalCollectionSpecs.ts`, `portalPanelSpecs.ts`",
+        "You asked": "remove \"Compose an email\" from the Action section's Opens field.",
+        "What I built": "removed from all three specs that declare that dropdown — it is one control wherever it appears, and leaving it in one spec would mean two lists claiming to be the same one. `mailto` values stay in `defaults`, so a card already configured that way keeps working.",
+        "Why it is right": "a card that opens the requester's mail client leaves the portal for an app the portal cannot see — nothing comes back and nothing is logged, and capturing the request is the one thing a support portal exists to do.",
+        "Verified": "a placed Button's Opens select holds exactly `[\"External link\", \"Download a file\"]`."
+      }
+    },
+    {
+      "n": 47,
+      "title": "Theme › Home page background",
+      "status": "done",
+      "fields": {
+        "Where": "`PortalThemePanel.tsx`, `SupportPortalBuilder.tsx`, `SupportPortalPreview.tsx`",
+        "You asked": "remove the Custom section from the Theme menu and add a **Home page background** section with colour and image tabs applying to the whole page; a full-page image removes the banner image; show the image size.",
+        "What I built": "Custom's three loose overrides are gone. Heading text and body text belong to the palette above them — two places answering \"what colour is the heading\" means the one you are not looking at wins — and the page's own backdrop is the one of the three that is genuinely a decision about THIS page, so it is what stays and it gains a picture as well as a colour.",
+        "Verified": "the Theme panel ends \"HOME PAGE BACKGROUND · A colour or an image behind the whole page · Colour | Image\"; no Custom heading, no Heading-text or Body-text row. The Image tab reads \"Suggested 1920 × 1080 px\". Uploading took the canvas `background-image` from `none` to the file at `background-size: cover` and raised the warning line; with it set the hero's `background-image` is `none` over `rgb(61,139,208)`, and switching back to Colour restored the gradient."
       }
     }
   ],

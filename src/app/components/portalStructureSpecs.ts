@@ -212,10 +212,16 @@ export const SECTION_SPEC: WidgetSpec = {
       {
         id: 'style',
         fields: [
+          /* ⚠️ NO Image fill — None and Colour only, the same two P1 already offers everywhere else.
+             A background photograph behind a card or a band is not a fill, it is artwork: it needs a
+             crop, a focal point and a contrast guard to stay readable, and a segmented control can
+             offer none of the three. Where a picture genuinely belongs — the banner, an action
+             card's icon slot — it has its own field that does all three properly.
+             ⚠️ `bgImage` stays in `defaults` and the renderer still reads it, so anything already
+             carrying one keeps drawing it; there is simply no longer a way to set one here. */
           { key: 'fill', label: 'Fill', control: 'segmented',
-            options: [{ value: 'none', label: 'None' }, { value: 'color', label: 'Colour' }, { value: 'image', label: 'Image' }] },
+            options: [{ value: 'none', label: 'None' }, { value: 'color', label: 'Colour' }] },
           { key: 'bg', label: 'Background colour', control: 'color', when: (c) => c.fill === 'color' },
-          { key: 'bgImage', label: 'Image', control: 'upload', when: (c) => c.fill === 'image' },
           { key: 'borderWidth', label: 'Border', control: 'borderRow', when: (c) => c.fill !== 'none' },
           { key: 'radius', label: 'Corner radius', control: 'radius', when: (c) => c.fill !== 'none' },
         ],

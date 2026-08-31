@@ -506,7 +506,9 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
   { id: 'b-table', name: 'Table', icon: 'table', group: 'Basic', keywords: 'grid rows columns data' },
   { id: 'b-accordion', name: 'Accordion', icon: 'accordion', group: 'Basic', keywords: 'collapse faq expand' },
   { id: 'b-text-image', name: 'Text with Image', icon: 'textImage', group: 'Basic', keywords: 'media split', hidden: true },
-  { id: 'b-card', name: 'Card', icon: 'card', group: 'Basic', keywords: 'tile panel' },
+  /* ⚠️ HIDDEN, not deleted — the spec, the renderer and the panel all stay, so a page already
+     carrying a Card keeps working and restoring the row is one word. */
+  { id: 'b-card', name: 'Card', icon: 'card', group: 'Basic', hidden: true, keywords: 'tile panel' },
 
   // ── Visual ──
   { id: 'v-image', name: 'Image', icon: 'image', group: 'Visual', keywords: 'picture photo' },

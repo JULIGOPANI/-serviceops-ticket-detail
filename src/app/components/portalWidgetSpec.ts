@@ -563,10 +563,16 @@ export const WIDGET_SPECS: WidgetSpec[] = [
         {
           id: 'style', open: true,
           fields: [
+          /* ⚠️ NO Image fill — None and Colour only, the same two P1 already offers everywhere else.
+             A background photograph behind a card or a band is not a fill, it is artwork: it needs a
+             crop, a focal point and a contrast guard to stay readable, and a segmented control can
+             offer none of the three. Where a picture genuinely belongs — the banner, an action
+             card's icon slot — it has its own field that does all three properly.
+             ⚠️ `bgImage` stays in `defaults` and the renderer still reads it, so anything already
+             carrying one keeps drawing it; there is simply no longer a way to set one here. */
             { key: 'fill', label: 'Fill', control: 'segmented',
-              options: [{ value: 'none', label: 'None' }, { value: 'color', label: 'Colour' }, { value: 'image', label: 'Image' }] },
+              options: [{ value: 'none', label: 'None' }, { value: 'color', label: 'Colour' }] },
             { key: 'bg', label: 'Background colour', control: 'color', when: (c) => c.fill === 'color' },
-            { key: 'bgImage', label: 'Image', control: 'upload', when: (c) => c.fill === 'image' },
             { key: 'borderWidth', label: 'Border', control: 'borderRow', when: (c) => c.fill !== 'none' },
             { key: 'radius', label: 'Corner radius', control: 'radius', when: (c) => c.fill !== 'none' },
             /* ⚠️ No Shadow control. The card already carries the one soft shadow the page's card
@@ -625,8 +631,13 @@ export const WIDGET_SPECS: WidgetSpec[] = [
            nothing can ever reveal: it survives in the spec looking like a feature and behaves like
            a bug. */
         options: [
+          /* ⚠️ "Compose an email" is gone. A card that opens the requester's mail client leaves the
+             portal for an app the portal cannot see — nothing comes back, nothing is logged, and the
+             one thing a support portal exists to do is capture the request. The two destinations
+             left both stay inside it or hand over a file. `mailto` fields stay in `defaults`, so a
+             card already configured that way keeps working. */
           { value: 'url', label: 'External link' },
-          { value: 'download', label: 'Download a file' }, { value: 'email', label: 'Compose an email' },
+          { value: 'download', label: 'Download a file' },
           /* ⚠️ "Share this page" is gone, and `shareVia` went with it in the same edit. The comment
              above already states the rule: a dependent field whose parent option no longer exists is
              a control nothing can ever reveal — it survives in the spec looking like a feature and

@@ -160,7 +160,9 @@ export const ICON_SPEC: WidgetSpec = {
         key: 'link', label: 'Link', control: 'select',
         options: [
           { value: 'none', label: 'Not a link' }, { value: 'url', label: 'External link' },
-          { value: 'page', label: 'A page in this portal' }, { value: 'email', label: 'Compose an email' },
+          /* ⚠️ "Compose an email" removed here too — the Opens dropdown is one control wherever it
+             appears, and leaving it in one spec would mean two lists claiming to be the same one. */
+          { value: 'page', label: 'A page in this portal' },
           { value: 'phone', label: 'Call a number' },
         ],
       },
