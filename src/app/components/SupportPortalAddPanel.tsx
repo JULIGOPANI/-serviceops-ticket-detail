@@ -70,6 +70,7 @@ const ICONS: Record<string, ReactNode> = {
   // Visual
   image: <ImageIcon size={16} />,
   video: <PlayCircle size={16} />,
+  records: <ClipboardList size={16} />,
   slider: <GalleryHorizontal size={16} />,
   gallery: <Images size={16} />,
   icon: <Smile size={16} />,

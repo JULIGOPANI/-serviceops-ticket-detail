@@ -11,6 +11,10 @@
  */
 
 import type { TypeRole } from './portalPageModel';
+/* ⚠️ A VALUE import from portalPageModel, not just a type. REQUEST_SCOPES is the same list the fixed
+   request card scopes by — a second copy here would be two answers to one question. */
+import { REQUEST_SCOPES } from './portalPageModel';
+import { RECORD_MODULES, recordModule } from './supportPortalData';
 import { COLLECTION_SPECS } from './portalCollectionSpecs';
 import { STRUCTURE_SPECS } from './portalStructureSpecs';
 import { PANEL_FOR_TYPE, PANEL_SPECS } from './portalPanelSpecs';
@@ -758,6 +762,55 @@ export const WIDGET_SPECS: WidgetSpec[] = [
     },
   },
 
+  /* ─────────── Record List ───────────
+   *
+   * The six live-data cards with the question left open: same card, same rows, same empty state,
+   * but the admin picks which records and which of them.
+   *
+   * ⚠️ It has a CONTENT panel where the six fixed cards have none, and that is not a contradiction.
+   * Those lost theirs because the backend already owns the answer — what "My Open Requests" means is
+   * the product's decision. Here the admin owns it, so the panel is the only place the widget can
+   * learn what it is for. */
+  {
+    id: 'record_list', name: 'Record List', group: 'Content', reuse: 'many', family: 'flat',
+    fields: [
+      /* ⚠️ The title is AUTHORED. Every fixed card's title is the product's word for a fixed query;
+         this one lists whatever the admin asked for, so only they can name it. */
+      { key: 'title', label: 'Title', control: 'text', group: 'Content' },
+      {
+        key: 'module', label: 'Module', control: 'select', group: 'Content',
+        options: RECORD_MODULES.map((m) => ({ value: m.key, label: m.label })),
+        help: 'Which records this card lists.',
+        /* ⚠️ Changing the module CLEARS the statuses, and says so. Statuses are per module — a
+           request is Open, a change is Draft — so a list left holding the previous module's words
+           matches nothing and the card comes back empty for a reason nobody can see. §2.2's rule:
+           a parent field that invalidates its children clears them and tells you. */
+        consequence: () => ({ patch: { statuses: [] }, say: 'Statuses cleared — they belong to the module you just left' }),
+      },
+      /* ⚠️ Options are a FUNCTION of the config, resolved per render — the statuses on offer have to
+         be the ones the chosen module actually has. */
+      {
+        key: 'statuses', label: 'Statuses', control: 'chips', group: 'Content',
+        options: (c) => recordModule(c.module as string).statuses,
+        help: 'Leave empty to show every status.',
+      },
+      {
+        key: 'scope', label: 'Scope', control: 'select', group: 'Content',
+        options: REQUEST_SCOPES,
+        help: 'Whose records the card looks through.',
+      },
+      { key: 'show', label: 'Rows to show', control: 'slider', group: 'Content', min: 1, max: 10 },
+    ],
+    /* The same Style the trimmed live cards keep. ⚠️ No P8: you asked for the empty state My CIs
+       has, which is the product's — not one an admin writes per card. */
+    packs: ['P1'],
+    notes: [{
+      tone: 'info',
+      text: 'Shows sample rows here so you can see the shape. On the live portal it queries the module you chose, and shows the same “No Data Found” state as My CIs when nothing matches.',
+    }],
+    defaults: { title: 'My records', module: 'request', statuses: [], scope: REQUEST_SCOPES[0], show: 3 },
+  },
+
   /* ─────────── Video ───────────
    *
    * ⚠️ Content is ONE control and Design is Style + Spacing, nothing else. A video has exactly one
@@ -918,6 +971,7 @@ export const WIDGET_FOR_TYPE: Record<string, string> = {
   'b-text': 'text',
   'v-image': 'image',
   'v-video': 'video',
+  'c-records': 'record_list',
   'b-button': 'button',
   'x-kpi': 'count_tile',
   // Collection widgets. `b-accordion` and `c-faq` are the same widget reached two ways.

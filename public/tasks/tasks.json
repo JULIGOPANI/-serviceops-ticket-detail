@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-26T18:15:22.125Z",
+  "builtAt": "2026-08-31T04:08:08.367Z",
   "tasks": [
     {
       "n": 1,
@@ -363,6 +363,18 @@
         "Where": "`portalWidgetSpec.ts` (`structureSpecId`), `portalStructureSpecs.ts`, `supportPortalData.ts`, `PortalItemList.tsx` + `PortalWidgetDrawer.tsx`",
         "You asked": "(1) an empty section shows the OLD Style component; (2) remove Layout ▸ Behaviour from every sidebar in the module; (3) Most Used Services and Favourite Services belong under Live data; (4) task 29's Add item should open the box inline with empty fields and placeholders instead of replacing the sidebar.",
         "Verified": "a column's Design now reads \"Style | Fill | None | Colour | Border | px | Corner radius | px | %\" — the current component. No \"Behaviour\" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens \"Item 4\" expanded, both fields empty, showing \"How do I reset my password?\" and \"Answer it in a sentence or two.\" as placeholders, with the Add link CTA below them."
+      }
+    },
+    {
+      "n": 42,
+      "title": "Record List — the live card with the question left open",
+      "status": "done",
+      "fields": {
+        "Your numbering": "line **37** in zeni_tasks.md.",
+        "Where": "`supportPortalData.ts` (`RECORD_MODULES`), `portalWidgetSpec.ts` (`record_list`), `PortalCollectionRender.tsx` (`RecordListRender`)",
+        "You asked": "a custom card like the predefined live-data ones — the admin adds it, it lands with dummy data, they pick a module and filters, and it fetches from the backend. Matching records render; nothing matching shows the same empty state My CIs has.",
+        "Modules (your call, all of them)": "Requests · Problems · Changes · Releases · Assets · Configuration Items · Patches · Vulnerabilities · Approvals · Tasks. ⚠️ I had proposed limiting it to what a requester owns, because a Change is technician-side and would come back empty for most people — you chose the full set, so a card pointed at one is the admin's decision to make. Adding another module is one row in `RECORD_MODULES`; nothing else knows the set.",
+        "Verified": "the palette went 22 → 23 rows with Record List under Custom. Added, it lands showing three request rows. Switching the module to Configuration Items swapped the rows to CI-104 / CI-121 and fired the clear toast. Filtering to **Down** — a status no CI row carries — gave \"My records | 0 | View all | **No Data Found**\", the same state My CIs shows. Two of them coexist on the page, which is the repeatability the Custom group buys."
       }
     },
     {

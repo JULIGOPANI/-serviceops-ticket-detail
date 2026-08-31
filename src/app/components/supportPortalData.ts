@@ -284,6 +284,113 @@ export interface PortalElement {
    quite did. What a page RENDERS and what an admin may ADD are two questions, and this answers the
    first. */
 
+/* ── Record List — the modules an admin can point one at ──────────────────
+ *
+ * A Record List is the six live-data cards with the question left open: same card, same rows, same
+ * empty state, but the admin chooses WHICH records and WHICH of them.
+ *
+ * ⚠️ Statuses are declared PER MODULE, because they are not the same words. A request is Open or
+ * Resolved, a change is Draft or Approved, a patch is Missing or Installed — one shared status list
+ * would offer every module several options that can never match anything.
+ * ⚠️ The rows here are DUMMY DATA, and deliberately so: the card lands on the page showing its shape
+ * before it has been configured, the way every other widget in this builder does. The real query is
+ * the backend's, and these rows are what stands in for it until then.
+ * ⚠️ Adding a module is adding a row to this list — nothing else knows the set. */
+export interface RecordModule {
+  key: string;
+  label: string;
+  statuses: string[];
+  rows: { id: string; title: string; status: string; meta: string }[];
+}
+
+export const RECORD_MODULES: RecordModule[] = [
+  {
+    key: 'request', label: 'Requests',
+    statuses: ['Open', 'In Progress', 'Pending', 'On Hold', 'Resolved', 'Closed'],
+    rows: [
+      { id: 'INC-178', title: 'Password reset required', status: 'Pending', meta: 'Raised 05 Aug 2026' },
+      { id: 'INC-170', title: 'Laptop slow and lagging', status: 'In Progress', meta: 'Raised 04 Aug 2026' },
+      { id: 'SR-180', title: 'Employee on-boarding', status: 'Open', meta: 'Raised 05 Aug 2026' },
+    ],
+  },
+  {
+    key: 'problem', label: 'Problems',
+    statuses: ['Open', 'Known Error', 'Under Investigation', 'Resolved', 'Closed'],
+    rows: [
+      { id: 'PRB-4412', title: 'Recurring VPN drops on the Pune link', status: 'Under Investigation', meta: 'Network' },
+      { id: 'PRB-4390', title: 'Outlook profile corruption after update', status: 'Known Error', meta: 'End user computing' },
+    ],
+  },
+  {
+    key: 'change', label: 'Changes',
+    statuses: ['Draft', 'Submitted', 'Approved', 'Scheduled', 'Implemented', 'Closed'],
+    rows: [
+      { id: 'CHG-2091', title: 'Core switch firmware upgrade', status: 'Scheduled', meta: 'Window 16 Aug, 02:00' },
+      { id: 'CHG-2088', title: 'Exchange mailbox quota increase', status: 'Approved', meta: 'Standard' },
+    ],
+  },
+  {
+    key: 'release', label: 'Releases',
+    statuses: ['Planning', 'Build', 'Testing', 'Deployed', 'Closed'],
+    rows: [
+      { id: 'REL-118', title: 'ServiceOps 8.4 rollout', status: 'Testing', meta: 'Go-live 22 Aug' },
+      { id: 'REL-114', title: 'Payroll portal refresh', status: 'Deployed', meta: 'Finance' },
+    ],
+  },
+  {
+    key: 'asset', label: 'Assets',
+    statuses: ['In Use', 'In Stock', 'In Repair', 'Retired'],
+    rows: [
+      { id: 'AST-3', title: 'Dell Latitude 5440', status: 'In Use', meta: 'Laptop' },
+      { id: 'AST-12', title: 'Jabra Evolve2 65', status: 'In Use', meta: 'Headset' },
+      { id: 'AST-9', title: 'iPhone 14', status: 'In Stock', meta: 'Mobile' },
+    ],
+  },
+  {
+    key: 'ci', label: 'Configuration Items',
+    statuses: ['Operational', 'Degraded', 'Down', 'Retired'],
+    rows: [
+      { id: 'CI-104', title: 'app-prod-01', status: 'Operational', meta: 'Server' },
+      { id: 'CI-121', title: 'core-switch-b', status: 'Degraded', meta: 'Switch' },
+    ],
+  },
+  {
+    key: 'patch', label: 'Patches',
+    statuses: ['Missing', 'Installed', 'Ignored', 'Failed'],
+    rows: [
+      { id: 'PCH-4345', title: 'Cumulative update for Windows 11', status: 'Missing', meta: 'Critical' },
+      { id: 'PCH-4302', title: 'Chrome 128 security update', status: 'Installed', meta: 'Important' },
+    ],
+  },
+  {
+    key: 'vulnerability', label: 'Vulnerabilities',
+    statuses: ['Detected', 'Exploited', 'Patched', 'Accepted Risk'],
+    rows: [
+      { id: 'CVE-2024-30080', title: 'Windows MSMQ remote code execution', status: 'Exploited', meta: 'CVSS 9.8' },
+      { id: 'CVE-2024-30078', title: 'Wi-Fi driver remote code execution', status: 'Detected', meta: 'CVSS 8.8' },
+    ],
+  },
+  {
+    key: 'approval', label: 'Approvals',
+    statuses: ['Pending', 'Approved', 'Rejected'],
+    rows: [
+      { id: 'AST-13', title: 'Approval required for DESKTOP-5JPPI6F', status: 'Pending', meta: 'Requested by Keya' },
+      { id: 'SR-166', title: 'Adobe Creative Cloud licence', status: 'Approved', meta: 'Software' },
+    ],
+  },
+  {
+    key: 'task', label: 'Tasks',
+    statuses: ['Open', 'In Progress', 'Completed', 'Cancelled'],
+    rows: [
+      { id: 'TA-2201', title: 'Collect the returned laptop', status: 'Open', meta: 'Due 18 Aug' },
+      { id: 'TA-2194', title: 'Revoke building access', status: 'Completed', meta: 'Facilities' },
+    ],
+  },
+];
+
+export const recordModule = (key?: string) =>
+  RECORD_MODULES.find((m) => m.key === key) ?? RECORD_MODULES[0];
+
 export const PORTAL_ELEMENTS: PortalElement[] = [
   /* ── The ServiceOps portal's own blocks, in the two groups they actually divide into ──
    *
@@ -329,6 +436,11 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
   /* Placed: the FAQ block already sits in the banner area of this portal, so the palette shows it
      as added rather than offering a second one. */
   { id: 'c-faq', name: 'FAQ', icon: 'faq', group: 'Custom', onPage: true, keywords: 'questions help answers' },
+  /* ⚠️ CUSTOM, not Live data — and that placement does real work. Live data and Actions are
+     group-gated as predefined: one instance each, greyed with a tick once placed. This one is
+     repeatable, which is exactly what it needs — two Record Lists filtered differently is a
+     reasonable page, and the whole point is that the admin asks the question. */
+  { id: 'c-records', name: 'Record List', icon: 'records', group: 'Custom', keywords: 'list records requests assets cis filter module query data' },
 
   // ── Actions — fixed destinations, the same for every requester ──
   /* ⚠️ The four action cards are BACK in the palette. Hiding them was the wrong answer to a real

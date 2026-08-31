@@ -21,7 +21,7 @@ import { chosen, roleStyle } from './portalStyleResolver';
 import { IconFrameBox } from './PortalIconFrame';
 import type { IconFrame } from './PortalIconFrame';
 import type { Cfg } from './portalWidgetSpec';
-import { PORTAL_APPROVALS, PORTAL_ARTICLES, PORTAL_OPEN_REQUESTS, statusTone } from './supportPortalData';
+import { PORTAL_APPROVALS, PORTAL_ARTICLES, PORTAL_OPEN_REQUESTS, recordModule, statusTone } from './supportPortalData';
 
 type Item = Cfg & { id: string; hidden?: boolean };
 
@@ -1204,7 +1204,52 @@ function CisRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
   );
 }
 
+/* A Record List: the live card, with the query left to the admin.
+ *
+ * ⚠️ The rows are the module's DUMMY data and the filter runs over them, so the card behaves here
+ * exactly as it will on the portal — narrow the statuses and rows drop out, narrow too far and you
+ * get the empty state. A card that ignored its own filters on the canvas would teach the admin that
+ * the controls do nothing, which is the one thing a builder must never do.
+ * ⚠️ The empty state is the SAME one My CIs draws, not a copy — asked for by name, and the state a
+ * requester genuinely lands on when their filter matches nothing. */
+function RecordListRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
+  const mod = recordModule(cfg.module as string);
+  const want = (cfg.statuses as string[]) ?? [];
+  /* An empty status list means EVERY status, the same way the request card's does — "I have not
+     narrowed this" and "I have narrowed it to nothing" are different intentions, and only one of
+     them should empty the card. */
+  const rows = mod.rows
+    .filter((x) => want.length === 0 || want.includes(x.status))
+    .slice(0, Number(cfg.show ?? 3));
+  const dark = typeof document !== 'undefined' && !!document.querySelector('.portal-dark');
+  return (
+    <LiveCard nodeId={nodeId} cfg={cfg} title={mod.label} count={rows.length} rows={
+      rows.length === 0 ? (
+        <div className="flex items-center justify-center rounded border border-dashed border-[#E5E7EB] py-7 text-[13px] text-[#9CA3AF]">
+          No Data Found
+        </div>
+      ) : rows.map((x) => {
+        const tone = statusTone(x.status, dark);
+        return (
+          <div key={x.id} className={liveRow}>
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+              <span className={livePill}>{x.id}</span>
+              <span className="min-w-0 flex-1 truncate text-[13px] text-[#364658]">{x.title}</span>
+              <span
+                className="flex-shrink-0 whitespace-nowrap rounded-sm px-2 py-0.5 text-[12px] font-medium"
+                style={{ color: tone.fg, background: tone.bg }}
+              >{x.status}</span>
+            </div>
+            <div className="mt-1 text-[12px] text-[#7B8FA5]">{x.meta}</div>
+          </div>
+        );
+      })
+    } />
+  );
+}
+
 export const COLLECTION_RENDERERS: Record<string, (p: { nodeId: string; cfg: Cfg }) => ReactNode> = {
+  'c-records': RecordListRender,
   'c-requests': RequestsRender,
   'c-approvals': ApprovalsRender,
   'c-knowledge': KnowledgeRender,
