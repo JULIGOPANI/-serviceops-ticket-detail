@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-31T11:49:34.162Z",
+  "builtAt": "2026-08-31T12:04:34.974Z",
   "tasks": [
     {
       "n": 1,
@@ -363,6 +363,15 @@
         "Where": "`portalWidgetSpec.ts` (`structureSpecId`), `portalStructureSpecs.ts`, `supportPortalData.ts`, `PortalItemList.tsx` + `PortalWidgetDrawer.tsx`",
         "You asked": "(1) an empty section shows the OLD Style component; (2) remove Layout ▸ Behaviour from every sidebar in the module; (3) Most Used Services and Favourite Services belong under Live data; (4) task 29's Add item should open the box inline with empty fields and placeholders instead of replacing the sidebar.",
         "Verified": "a column's Design now reads \"Style | Fill | None | Colour | Border | px | Corner radius | px | %\" — the current component. No \"Behaviour\" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens \"Item 4\" expanded, both fields empty, showing \"How do I reset my password?\" and \"Answer it in a sentence or two.\" as placeholders, with the Add link CTA below them."
+      }
+    },
+    {
+      "n": 61,
+      "title": "Two sub-parent sections, and an element that is the size of its own content",
+      "status": "done",
+      "fields": {
+        "Where": "`portalPageModel.ts` (nodes, `HUGS_CONTENT`) · `portalWidgetSpec.ts` (node map) · `SupportPortalBuilder.tsx` (`sectionShape`) · `SupportPortalPreview.tsx`",
+        "⚠️ A stale-HMR trap worth remembering": "an intermediate save left mismatched JSX, Vite served a **500** for that module, and the browser went on running the last good copy — so a drag test \"failed\" against code that was never loaded. The build was green the whole time. Hard-reload after any edit that briefly broke a file."
       }
     },
     {

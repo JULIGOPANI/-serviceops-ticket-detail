@@ -912,6 +912,11 @@ export const STRUCTURE_FOR_NODE: Record<string, string> = {
   // The three built-in bands are sections like any other.
   quick: 'section',
   work: 'section',
+  /* ⚠️ Both regions resolve to the SAME section spec the band does. They are sections in every
+     sense that matters — they hold cards, they own a column count, they lay out along an axis — so
+     giving them a spec of their own would be a second Layout panel to keep in step with the first. */
+  'work-main': 'section',
+  'work-rail': 'section',
   records: 'section',
 };
 

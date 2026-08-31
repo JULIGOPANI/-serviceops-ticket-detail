@@ -351,12 +351,22 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
        presetsFor() offered the two-item set, so a three-card band was missing a tile it had earned.
        The current preset has to be DERIVED from the same number applyPreset writes, or the control
        is describing a section other than the one in front of you. */
-    const items = rowOrderRef.current[id]?.length ?? 0;
+    /* ⚠️ On the rail layout the work band holds TWO things, not five. Its members are counted out
+       of `rowOrder`, which lists every card in it — but four of those live in the main region and
+       three in the rail, and the band itself only ever arranges the two REGIONS. Counting the cards
+       gave the parent a five-cell preset row describing a shape it does not have; two children mean
+       the two-preset set, which is the honest offer.
+       The regions carry their own counts for the same reason: each is a section now, and each has
+       its own Layout panel describing what IT holds. */
+    const REGIONS: Record<string, number> = { work: 2, 'work-main': 4, 'work-rail': 3 };
+    const items = (isV2 && REGIONS[id] !== undefined)
+      ? REGIONS[id]
+      : rowOrderRef.current[id]?.length ?? 0;
     if (!items) return { __count: 0, __preset: 'cols' as PresetId, __rowAxis: true };
     const cols = Number(widgetCfgRef.current[id]?.cols ?? items);
     const preset: PresetId = cols <= 1 ? 'stack' : cols >= items ? 'cols' : cols === 3 ? 'three' : 'grid';
     return { __count: items, __preset: preset, __rowAxis: cols > 1 };
-  }, []);
+  }, [isV2]);
 
   /* ⚠️ Through the REF, like `sectionHasContent` beside it: `cfgFor` is declared above `sections`,
      so naming the state here is a use-before-initialisation that throws at module evaluation and

@@ -87,6 +87,13 @@ export const PORTAL_NODES: PortalNodeDef[] = [
 
   // ── the work row — one section, three cards ──
   { id: 'work', name: 'Cards Row', kind: 'section', content: 'row' },
+  /* ⚠️ The work band's two REGIONS, as sections of their own. The band holds a main area of work
+     cards and a rail beside it, and until now both were anonymous divs — so the only Layout panel
+     anywhere near them belonged to the band, and it described five cards that are really two groups.
+     As nodes they are each selectable and each carry their own Layout, which is what lets the 2×2
+     be re-laid-out without touching the rail and the other way round. */
+  { id: 'work-main', name: 'Work Cards', kind: 'section', parent: 'work', content: 'row' },
+  { id: 'work-rail', name: 'Side Rail', kind: 'section', parent: 'work', content: 'row' },
   { id: 'requests', name: 'My Requests', kind: 'card', parent: 'work', content: 'requests' },
   /* ⚠️ No '-title' nodes for these three — see hasFixedTitle. A node nothing renders is a
      breadcrumb waiting to name a layer that is not there. */
@@ -1048,6 +1055,22 @@ export const isLockedRow = (rowId: string) => LOCKED_ROWS.has(rowId);
 const SELF_SURFACED = ACTION_TYPES;
 
 const TEXT_TYPES = new Set(['b-text', 'b-large-title', 'b-small-title']);
+
+/** Elements whose natural size IS their content — they hug it rather than filling their column.
+ *
+ * ⚠️ A placed element used to be `w-full`, so a two-word sentence claimed the whole column and its
+ * selection outline and eight handles came with it: the box said "this text is 540px wide" about
+ * something 74px wide. Everything you can do to a selected element — resize it, see where it ends,
+ * judge its padding — is a lie while the outline is describing the column instead.
+ *
+ * ⚠️ It is a LIST, not a rule derived from `bare` or from the group, because the question is not
+ * "does this paint a card" but "does this have a width of its own". A divider is bare and spans by
+ * definition; a table is a card and spans too; a button is neither and does not. Only the things
+ * that genuinely size to their content are here, and everything absent keeps the full width it
+ * always had — which is why adding one to this set is a deliberate act rather than a side effect. */
+export const HUGS_CONTENT = new Set([
+  'b-text', 'b-large-title', 'b-small-title', 'b-button', 'v-icon', 'v-shape',
+]);
 
 export function renderSpec(type: string): ElementRenderSpec {
   if (TEXT_TYPES.has(type)) return { kind: 'text', bare: true };

@@ -15,6 +15,7 @@ import {
   PORTAL_APPROVALS, PORTAL_ARTICLES, PORTAL_OPEN_REQUESTS, statusTone,
 } from './supportPortalData';
 import { AddSectionSeam, ColumnAdders, MOVE_MIME, Sel, draggedElement, draggedNode, styleOf, useCanvas } from './PortalCanvas';
+import { HUGS_CONTENT } from './portalPageModel';
 import { PAGE_ID, chosen, roleStyle } from './portalStyleResolver';
 import { shadowCss } from './PortalBoxControls';
 import { PortalPlacedElement } from './PortalPlacedElement';
@@ -266,6 +267,8 @@ function ColumnBody({ id, item, live, dir, icons, placedText, cfg }: { id: strin
          The "+" stays either way: it is the offer to put something here, and without it an empty
          section would be a blank gap on the page. */
       className={`relative flex h-full flex-col ${
+        item && HUGS_CONTENT.has(item.type) ? 'items-start ' : ''
+      }${
         !item ? 'justify-center'
           : ({ start: 'justify-start', center: 'justify-center', end: 'justify-end' } as Record<string, string>)[String(cfg?.(id)?.blockAlign ?? 'center')] ?? 'justify-center'
       } rounded transition-colors ${
@@ -277,7 +280,12 @@ function ColumnBody({ id, item, live, dir, icons, placedText, cfg }: { id: strin
           it, the widget itself became reachable only through the breadcrumb. */}
       {item ? (
         <>
-          <Sel id={item.id} className="w-full">
+          {/* ⚠️ `w-fit` for anything that sizes to its own content, `w-full` otherwise — and the
+              COLUMN has to stop stretching it too, which is what `items-start` below does: a flex
+              column stretches its children across by default, so `w-fit` alone would have been
+              overruled and the outline would still have spanned the column. Two changes, one
+              effect; either on its own does nothing. */}
+          <Sel id={item.id} className={HUGS_CONTENT.has(item.type) ? 'w-fit max-w-full' : 'w-full'}>
             <PortalPlacedElement item={item} icon={icons?.[item.id]} text={placedText?.[item.id]} cfg={cfg?.(item.id)} />
           </Sel>
           {/* ⚠️ A FILLED column keeps its adders too. They used to appear only on an empty column,
@@ -1585,18 +1593,31 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                     ⚠️ The flex basis `card()` writes is inert on a grid item, which is fine — the
                     two tracks own the width now. CSS `order` still applies, so the explicit
                     `orderAt` sequence still holds. */}
-                <div
+                {/* ⚠️ A SECTION of its own, so it carries its own Layout panel. Its column count
+                    comes from its OWN config rather than a hard-coded pair of tracks — otherwise
+                    the Layout presets on this region would move a control and change nothing. */}
+                <Sel
+                  id="work-main"
                   className="grid min-w-0"
-                  style={{ flex: '2 1 0%', gap: secGap("work"), gridTemplateColumns: '1fr 1fr', gridAutoRows: '1fr' }}
+                  style={{
+                    flex: '2 1 0%',
+                    gap: secGap("work-main"),
+                    gridTemplateColumns: `repeat(${secCols("work-main", 2)}, minmax(0, 1fr))`,
+                    gridAutoRows: '1fr',
+                  }}
                 >
                   {requestsCard}
                   {approvalsCard}
                   {card('assets', <RecordTiles nodeId="assets" titleFallback={content.assets.title} cfg={wc('assets')} rows={MY_ASSETS} icon={<HardDrive size={17} />} />, 2, secGap("work"), 1, 2)}
                   {card('cis', <RecordTiles nodeId="cis" titleFallback={content.cis.title} cfg={wc('cis')} rows={MY_CIS} icon={<Server size={17} />} />, 2, secGap("work"), 1, 3)}
-                </div>
-                <div
+                </Sel>
+                {/* ⚠️ A SECTION too, and for the same reason: the rail owns how its three cards
+                    stack, and that is a different question from how the four beside it are laid
+                    out. One Layout panel could not answer both. */}
+                <Sel
+                  id="work-rail"
                   className="flex min-w-0 flex-col"
-                  style={{ flex: '1 1 0%', gap: secGap("work") }}
+                  style={{ flex: '1 1 0%', gap: secGap("work-rail") }}
                 >
                   {rail.map((id) => (
                     id === 'knowledge' ? <Fragment key={id}>{knowledgeCard}</Fragment>
@@ -1615,7 +1636,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                         : id === 'contact' ? <Fragment key={id}>{card('contact', <div className="p-4"><ContactRender nodeId="contact" cfg={{ title: 'Contact Us', ...wc('contact') }} /></div>, 1, secGap("work"), 1)}</Fragment>
                           : null
                   ))}
-                </div>
+                </Sel>
                 </>
               );
               })()}
