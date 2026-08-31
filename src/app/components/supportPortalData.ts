@@ -439,7 +439,11 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
      all greyed out. */
   { id: 'c-announcements', name: 'Announcements', icon: 'announcements', group: 'Live data', keywords: 'news broadcast banner' },
   { id: 'c-knowledge', name: 'Most Read Knowledge', icon: 'knowledge', group: 'Live data', onPage: true, node: 'knowledge', keywords: 'articles kb most read' },
-  { id: 'c-contact', name: 'Contact Us', icon: 'contact', group: 'Custom', keywords: 'support escalate raise' },
+  /* ⚠️ LIVE DATA, not Custom. Its own spec has said `group: 'Live data'` all along — only the
+     PALETTE entry disagreed, and the palette is the one an admin reads. The group is not decoration
+     either: Live data and Actions are the predefined groups, so moving it is what makes Contact Us
+     behave like the card it is — one instance, ticked once it is on the page. */
+  { id: 'c-contact', name: 'Contact Us', icon: 'contact', group: 'Live data', node: 'contact', keywords: 'support escalate raise' },
   /* ⚠️ NOT onPage. This is spec §7.8 Featured Services — a requester's favourites list. The page
      carries the "Request Service" ACTION CARD, which is a different widget with a fixed
      destination. Flagging this one as placed made Featured Services unreachable. */

@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-31T09:30:22.091Z",
+  "builtAt": "2026-08-31T09:42:49.350Z",
   "tasks": [
     {
       "n": 1,
@@ -363,6 +363,15 @@
         "Where": "`portalWidgetSpec.ts` (`structureSpecId`), `portalStructureSpecs.ts`, `supportPortalData.ts`, `PortalItemList.tsx` + `PortalWidgetDrawer.tsx`",
         "You asked": "(1) an empty section shows the OLD Style component; (2) remove Layout ▸ Behaviour from every sidebar in the module; (3) Most Used Services and Favourite Services belong under Live data; (4) task 29's Add item should open the box inline with empty fields and placeholders instead of replacing the sidebar.",
         "Verified": "a column's Design now reads \"Style | Fill | None | Colour | Border | px | Corner radius | px | %\" — the current component. No \"Behaviour\" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens \"Item 4\" expanded, both fields empty, showing \"How do I reset my password?\" and \"Answer it in a sentence or two.\" as placeholders, with the Add link CTA below them."
+      }
+    },
+    {
+      "n": 52,
+      "title": "Contact Us joins Live data, and stops being editable",
+      "status": "done",
+      "fields": {
+        "Where": "`supportPortalData.ts` (palette) · `portalWidgetSpec.ts` (`contact_us` fields, `WIDGET_FOR_NODE`)",
+        "⚠️ A gap from task 50, found while testing this": "the `news` and `contact` nodes I added for the v2 rail were never added to `WIDGET_FOR_NODE`, so they resolved to nothing and the drawer fell through to their PARENT's panel — selecting Contact Us opened the work row's editor, which greets you with \"select a card inside it to edit that card\" about the card you had just selected. A node in `PORTAL_NODES` is only half of a block; this map is the other half. Both ids already sat in `WIDGET_FOR_TYPE` for the placed versions, and ⚠️ both routes must reach the SAME spec or one widget edits two ways."
       }
     },
     {

@@ -353,10 +353,17 @@ export const WIDGET_SPECS: WidgetSpec[] = [
        with no toggle there is no way to hide a line, so a label and a value you could blank but
        never remove would have been worse than a fixed one. Every string is still in `defaults`, so
        the card renders exactly as it does today. */
-    fields: [
-      { key: 'cv0', label: 'Email address', control: 'text', group: 'Content' },
-      { key: 'cv1', label: 'Phone number', control: 'text', group: 'Content' },
-    ],
+    /* ⚠️ NO FIELDS AT ALL — the panel is Design only, like every other Live-data card.
+       The labels went first, because "Email" and "Phone" are the product's words and letting one
+       page rename them is how two portals stop describing the same thing the same way. The two
+       VALUES have now followed, for the same reason one step further out: what a portal publishes
+       as its support address is an organisation record, not a page layout, and a copy of it
+       editable here is a second answer that goes stale the day the real one changes.
+       ⚠️ Every string stays in `defaults` and the renderer still reads them, so the card looks
+       exactly as it did — the values simply stopped being editable. Restoring one is a line in
+       `fields`. With nothing left, the CONTENT section is dropped whole, which is the same panel
+       the six other live-data widgets already have. */
+    fields: [],
     /* ⚠️ No P6. Contact Us has no icon of its own — the group was styling a glyph that is not on
        the widget, which is a control with nothing to act on. P4 goes with the global removal. */
     /* ⚠️ No P8 either. An Empty-state group asks what to show when there is nothing to show —
@@ -938,6 +945,14 @@ export const WIDGET_FOR_NODE: Record<string, string> = {
   requests: 'my_requests',
   approvals: 'pending_approvals',
   knowledge: 'most_read',
+  /* ⚠️ The rail's two blocks. Without these rows they resolved to NOTHING and the drawer fell
+     through to their parent's panel — selecting Contact Us on the canvas opened the work row's
+     editor, which greets you with "select a card inside it to edit that card" about the card you
+     had just selected. A node added to `PORTAL_NODES` is only half of a block; this map is the
+     other half, and the same two ids already sit in `WIDGET_FOR_TYPE` for the placed versions —
+     both routes have to reach the SAME spec or one widget edits two ways. */
+  news: 'announcements',
+  contact: 'contact_us',
   assets: 'my_assets',
   cis: 'my_cis',
   favourites: 'favourite_services',
