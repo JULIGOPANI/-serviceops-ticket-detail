@@ -1684,6 +1684,10 @@ const MY_CIS = [
   { id: 'CI-8', name: 'hostname', type: 'Base CI' },
   { id: 'CI-7', name: 'P1', type: 'Base CI' },
   { id: 'CI-5', name: 'localhost.localdomain', type: 'Linux Desktop' },
+  /* ⚠️ A FOURTH, so the card fills the same 2×2 My Assets does. Three tiles left the bottom-right
+     cell empty beside a card that had none, and two cards of the same kind side by side reading as
+     two different shapes is the thing this whole layout pass keeps closing. */
+  { id: 'CI-3', name: 'app-prod-01', type: 'Server' },
 ];
 
 /* A records TILE: the icon block, the blue ID pill and the type beside it, the name underneath.

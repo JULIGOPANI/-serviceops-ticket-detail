@@ -3,11 +3,12 @@ import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ChevronDown, Copy, ExternalLink, LayoutTemplate, MonitorSmartphone, Pencil, PenLine, Plus,
-  Eye, SlidersHorizontal, Trash2, X,
+  Eye, Settings, SlidersHorizontal, Trash2, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { portalSlug } from '../routes';
 import { CreateSupportPortalModal, EditPortalDetailsModal } from './CreateSupportPortalModal';
+import { AdminSupportPortalSettings } from './AdminSupportPortalSettings';
 import type { PortalDetails } from './CreateSupportPortalModal';
 import { Pagination } from './Pagination';
 import { SupportPortalBuilder } from './SupportPortalBuilder';
@@ -30,10 +31,10 @@ import type { PortalPage, PortalTemplate } from './supportPortalData';
  * both reachable inside the builder (the rail's Settings item, and the theme panel's reset), and
  * Copy link duplicates the URL column, which is already a working link to the same place. An icon
  * for each would have been three glyphs standing for phrases no glyph says. */
-function RowActions({ isDefault, onEditDetails, onCustomize, onPreview, onCopy, onDelete }: {
+function RowActions({ isDefault, onEditDetails, onCustomize, onPreview, onSettings, onCopy, onDelete }: {
   isDefault: boolean;
   onEditDetails: () => void; onCustomize: () => void;
-  onPreview: () => void; onCopy: () => void; onDelete: () => void;
+  onPreview: () => void; onSettings: () => void; onCopy: () => void; onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -84,6 +85,12 @@ function RowActions({ isDefault, onEditDetails, onCustomize, onPreview, onCopy, 
         className={`flex items-center gap-0.5 ${icon} ${open ? 'text-[#3D8BD0]' : ''}`}
       ><Pencil size={15} /><ChevronDown size={11} /></button>
       <button onClick={onPreview} title="Preview" className={icon}><Eye size={15} /></button>
+      {/* ⚠️ PER PORTAL, which is the whole reason it belongs on a row rather than anywhere else.
+          Settings used to sit on the builder's rail below Branding, and the rail is where you go
+          while ARRANGING a page — a nine-accordion permissions screen is not something you reach
+          for mid-layout. But what a requester may DO is a property of ONE portal, so a row is
+          exactly where it can say which portal it is about. */}
+      <button onClick={onSettings} title="Settings" className={icon}><Settings size={15} /></button>
       {/* ⚠️ "Copy", not "Duplicate layout" — it copies the whole portal, details included, and then
           asks for the details that cannot be shared (see the handler). */}
       <button onClick={onCopy} title="Copy" className={icon}><Copy size={15} /></button>
@@ -374,6 +381,8 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
 
   /* Which portal's details are being asked for. `null` while nothing is open. */
   const [detailsId, setDetailsId] = useState<string | null>(null);
+  /** Which portal's settings drawer is open. */
+  const [settingsId, setSettingsId] = useState<string | null>(null);
 
   /* Copy → the whole portal, then immediately ask for the details that cannot be shared.
    *
@@ -436,6 +445,44 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
           onStartBlank={startBlank}
         />
       )}
+      {/* ── the settings drawer ──
+          ⚠️ A SIDE DRAWER, not a route and not a modal. These settings belong to the portal in the
+          row you pressed, so leaving the listing to read them would lose the one piece of context
+          that says which portal they are about — and a centred modal over a table reads as "confirm
+          something", which nine accordions of permissions are not.
+          ⚠️ `compact`, the variant `AdminSupportPortalSettings` already had for the builder's 340px
+          rail. Only the CHROME differs — the settings themselves are the same rows in the same
+          order, because they are the same settings. */}
+      {settingsId && (() => {
+        const target = pages.find((s) => s.id === settingsId);
+        if (!target) return null;
+        return createPortal(
+          <div className="fixed inset-0 z-[10000] flex justify-end bg-[#0F172A]/40" onMouseDown={() => setSettingsId(null)}>
+            <div
+              className="flex h-full w-[560px] max-w-[92vw] flex-col bg-white shadow-[0_0_40px_rgba(16,24,40,0.18)]"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div className="flex flex-shrink-0 items-start gap-3 border-b border-[#E5E7EB] px-5 py-3.5">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-[15px] font-semibold text-[#364658]">Settings</h2>
+                  {/* ⚠️ The portal's NAME under the title. A drawer opened from one row among several
+                      has to say which row, or every portal's settings look identical. */}
+                  <p className="mt-0.5 truncate text-[12px] text-[#7B8FA5]">{target.name}</p>
+                </div>
+                <button
+                  onClick={() => setSettingsId(null)}
+                  className="flex size-8 items-center justify-center rounded transition-colors hover:bg-[#F3F4F6]"
+                ><X size={16} /></button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <AdminSupportPortalSettings compact />
+              </div>
+            </div>
+          </div>,
+          document.body,
+        );
+      })()}
+
       {detailsId && (() => {
         const target = pages.find((p) => p.id === detailsId);
         if (!target) return null;
@@ -638,6 +685,7 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
                       onEditDetails={() => setDetailsId(p.id)}
                       onCustomize={() => setEditingId(p.id)}
                       onPreview={() => toast.success(`Opening ${p.name} in preview`)}
+                      onSettings={() => setSettingsId(p.id)}
                       onCopy={() => copyPortal(p)}
                       onDelete={() => setConfirmId(p.id)}
                     />
