@@ -21,7 +21,7 @@ import {
   BLOCK_ORDER_V2, ROW_ORDER_V2, RAIL_V2,
   DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, moveIn, nodeById, parseItemId,
   placedType, registerPlaced, isLockedRow,
-  addNeighbour, addSibling, neighbourBlockedBecause, rowTargetOf, boxOfElement, findBox, freeLeaves, isBranch, mapBox, parentOfBox, registerTree, removeBox,
+  MAX_COLUMNS, addNeighbour, addNeighbourAt, addSibling, neighbourBlockedBecause, rowTargetOf, boxOfElement, findBox, freeLeaves, isBranch, mapBox, parentOfBox, registerTree, removeBox,
   sectionElements, sectionFromRows, sectionIdOfBox, sectionRebuild, sectionRows, setBoxDir, setBoxEl,
   splitBlockedBecause, splitBox,
 } from './portalPageModel';
@@ -547,6 +547,16 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     toast.success(`${el.name} added`);
   }, [makeElement, select]);
 
+
+  /* ⚠️ Read from the REF, not from state: this is called from inside a dragover handler, many times
+     a second, and it must answer about the tree as it is right now. */
+  const columnsFull = useCallback((boxId: string) => {
+    const sec = sectionsRef.current.find((s) => s.section.id === sectionIdOfBox(boxId))?.section;
+    if (!sec) return false;
+    const parent = parentOfBox(sec.root, boxId);
+    return !!parent && parent.dir === 'row' && (parent.children?.length ?? 0) >= MAX_COLUMNS;
+  }, []);
+
   const dropInColumn = useCallback((columnId: string, type: string) => {
     const sectionId = sectionIdOfBox(columnId);
     const el = makeElement(type, columnId);
@@ -1014,6 +1024,49 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     toast.success(occupant ? 'Swapped places' : `${moving.name} moved`);
   }, [detachElement, select]);
 
+  /* ── the split-drop ────────────────────────────────────────────────────────
+   *
+   * One action behind the blue line, whatever it was that was dragged. `payload` is either a
+   * catalogue TYPE (a new element from the library) or a MOVE of something already on the page —
+   * the two differ only in where the element comes from, and everything after that is identical:
+   * make the box the line promised, put the element in it.
+   *
+   * ⚠️ Rows resolve through `rowTargetOf` exactly as the adders do, so a line drawn across the
+   * whole section lands a full-width row wherever the pointer happened to be. A column stays on the
+   * box that was hovered, because that is what "beside this" means.
+   * ⚠️ The move case DETACHES first and only then adds. Adding first would leave the element in two
+   * boxes for one render, and the source box is found by searching for the element. */
+  const dropBeside = useCallback((
+    boxId: string,
+    payload: { type: string } | { move: string },
+    side: 'left' | 'right' | 'above' | 'below',
+  ) => {
+    const sectionId = sectionIdOfBox(boxId);
+    const current = sectionsRef.current.find((s) => s.section.id === sectionId)?.section;
+    if (!current) return;
+    const dir: BoxDir = side === 'left' || side === 'right' ? 'row' : 'column';
+    const before = side === 'left' || side === 'above';
+    const target = dir === 'column' ? rowTargetOf(current.root, boxId) : boxId;
+    const blocked = neighbourBlockedBecause(current.root, target, dir);
+    if (blocked) { toast.error(blocked); return; }
+
+    const moving = 'move' in payload ? detachElement(payload.move) : null;
+    if ('move' in payload && !moving) return;
+
+    /* Re-read AFTER the detach: it rewrites the tree, so `current` is a stale shape and the id the
+       next mint will take has moved on with it. */
+    const live = sectionsRef.current.find((s) => s.section.id === sectionId)?.section ?? current;
+    const made = addNeighbourAt(live, target, dir, before);
+    if (!made.id) return;
+    const el = moving ?? makeElement((payload as { type: string }).type, made.id);
+    setSections((prev) => prev.map((s) => (
+      s.section.id === sectionId ? { ...s, section: setBoxEl(made.section, made.id!, el) } : s
+    )));
+    registerPlaced(el.id, el.name, el.type, made.id);
+    select(el.id);
+    toast.success(dir === 'row' ? `${el.name} placed in a new column` : `${el.name} placed in a new row`);
+  }, [detachElement, makeElement, select]);
+
   /** Drag-to-reorder: lift `source` out of its list and drop it at `target`'s index. */
   /* ⚠️ Resolve a dragged or dropped node to the thing that can actually BE placed.
      A drag aims at what you can see, and what you can see is usually a CHILD: a card's title, an
@@ -1410,7 +1463,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
   const canvasCtx = {
     selectedId, hoverId, select, setHover: setHoverId, styles, setStyle, setText, setCfg: patchCfg,
-    addSection, addBeside, splitNode, setNodeDir, splitInfo, addLinkCard, dropInColumn, dropAtSeam, dropInRow,
+    addSection, addBeside, dropBeside, columnsFull, splitNode, setNodeDir, splitInfo, addLinkCard, dropInColumn, dropAtSeam, dropInRow,
     moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, moveToSeam, addChildBlock, areSiblings, replaceElement, pickIcon, applyPreset,
     /* The text toolbar names the theme fonts, so it needs the live theme. */
     theme,

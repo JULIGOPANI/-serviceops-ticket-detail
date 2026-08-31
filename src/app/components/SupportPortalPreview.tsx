@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import {
   Bell, Check, Info, Keyboard, KeyRound, House, MessageSquare, MessagesSquare, Plus, PanelLeft,
@@ -14,7 +14,7 @@ import {
 import {
   PORTAL_APPROVALS, PORTAL_ARTICLES, PORTAL_OPEN_REQUESTS, statusTone,
 } from './supportPortalData';
-import { AddSectionSeam, ColumnAdders, Sel, draggedElement, styleOf, useCanvas } from './PortalCanvas';
+import { AddSectionSeam, ColumnAdders, MOVE_MIME, Sel, draggedElement, draggedNode, styleOf, useCanvas } from './PortalCanvas';
 import { PAGE_ID, chosen, roleStyle } from './portalStyleResolver';
 import { shadowCss } from './PortalBoxControls';
 import { PortalPlacedElement } from './PortalPlacedElement';
@@ -126,23 +126,128 @@ function RowDrop({ rowId, className, style, resize, children }: {
   );
 }
 
+/* ── the blue placement line ────────────────────────────────────────────────
+ *
+ * Duda's visual language, measured off its live editor, with our own edge-drop mechanic behind it.
+ * Three layers at once, because a line alone says WHERE and not WHAT IT LANDS INSIDE: with columns
+ * side by side, a line at a boundary is ambiguous until the box around it is outlined.
+ *
+ * ⚠️ The line is inset to the CONTENT box, not the border box. A line running the full width reads
+ * as belonging to the section rather than to the box it is actually about.
+ *
+ * ⚠️ The orientation rule is not a preference, it is what the geometry means: a line ACROSS a stack
+ * is horizontal, a line WITHIN a row is vertical. */
+const LINE = '#188DF8';
+
+type Zone = 'left' | 'right' | 'above' | 'below' | 'in';
+
+/* ⚠️ 8px of HYSTERESIS on every boundary: once a zone is entered the pointer must travel 8px back
+   out of it before the line switches. Without this the line strobes between two states whenever the
+   pointer rests on a boundary, which is the single most common way this feature reads as broken. */
+const HYST = 8;
+
+function zoneFor(r: DOMRect, x: number, y: number, held: Zone | null, edgesOff: boolean): Zone {
+  const px = x - r.left;
+  const py = y - r.top;
+  const edge = Math.min(r.width * 0.25, 56);
+  const grow = (z: Zone) => (held === z ? HYST : 0);
+  /* ⚠️ The edge zones are SUPPRESSED when the row is already at its column cap. A vertical line
+     promising a column the row cannot take is a lie; it falls back to the horizontal rule. */
+  if (!edgesOff) {
+    if (px < edge + grow('left')) return 'left';
+    if (px > r.width - edge - grow('right')) return 'right';
+  }
+  return py < r.height / 2 + (held === 'above' ? HYST : held === 'below' ? -HYST : 0) ? 'above' : 'below';
+}
+
+/** The line, the outline and the chip for one hovered box. */
+function DropLine({ zone, inset }: { zone: Zone; inset: number }) {
+  if (zone === 'in') return null;
+  const vertical = zone === 'left' || zone === 'right';
+  const label = vertical ? 'Insert in new column' : 'Insert in new row';
+  const pos: React.CSSProperties = vertical
+    ? { top: inset, bottom: inset, width: 3, [zone === 'left' ? 'left' : 'right']: -1.5 }
+    : { left: inset, right: inset, height: 3, [zone === 'above' ? 'top' : 'bottom']: -1.5 };
+  return (
+    <>
+      {/* Layer 2 — the box that will receive the drop. */}
+      <span className="pointer-events-none absolute inset-0 z-30 rounded" style={{ outline: `3px solid ${LINE}`, outlineOffset: -1 }} />
+      {/* Layer 3 — the line itself, at the gap the drop lands in. */}
+      <span className="pointer-events-none absolute z-30 rounded-full" style={{ ...pos, background: LINE }} />
+      {/* Layer 4 — the chip. ⚠️ THREE strings, not Duda's one: our gesture makes rows AND columns,
+          and an admin about to split a row needs to know that before they let go. */}
+      <span
+        className="pointer-events-none absolute left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-sm px-3 py-[3px] text-[12px] font-bold text-white"
+        style={{ background: LINE, top: -24 }}
+      >{label}</span>
+    </>
+  );
+}
+
 /* A column: empty and dashed until something is dropped in, then just the element on the section's
    own surface. No wrapper card — the element brings whatever chrome it actually needs. */
 function ColumnBody({ id, item, live, dir, icons, placedText, cfg }: { id: string; item?: PlacedElement; live: boolean; dir?: BoxDir; icons?: Record<string, IconChoice | undefined>; placedText?: Record<string, { title?: string; desc?: string }>; cfg?: (id: string) => Record<string, unknown> }) {
-  const { styles, dropInColumn, addInside } = useCanvas();
+  const { styles, dropInColumn, dropBeside, addInside, columnsFull } = useCanvas();
   const [over, setOver] = useState(false);
+  /* Which zone the pointer is in, held across renders so the hysteresis has a previous answer. */
+  const [zone, setZone] = useState<Zone | null>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  /* ⚠️ BOTH payloads. A drag is either a new element from the library or one already on the page
+     being moved; the line has to appear for each, and the drop has to tell them apart. */
+  const payloadOf = (e: React.DragEvent): { type: string } | { move: string } | null => {
+    const t = draggedElement(e);
+    if (t) return { type: t };
+    const mv = draggedNode(e);
+    return mv ? { move: mv } : null;
+  };
+  const accepts = (e: React.DragEvent) =>
+    e.dataTransfer.types.includes('text/portal-element') || e.dataTransfer.types.includes(MOVE_MIME);
 
   return (
     <div
-      onDragOver={(e) => { if (e.dataTransfer.types.includes('text/portal-element')) { e.preventDefault(); setOver(true); } }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(e) => {
-        const type = draggedElement(e);
-        setOver(false);
-        if (!type) return;
+      ref={boxRef}
+      /* ⚠️ CAPTURE phase, both of them. `Sel` wraps the element INSIDE this box and has its own
+         MOVE_MIME handlers that `stopPropagation` — so on the bubble phase the inner Sel answered
+         first and this box never saw a move-drag at all: the line appeared for a palette drag and
+         not for dragging something already on the page, which is half the gesture. Capturing runs
+         the ancestor first, so the line decides, and the drop is consumed here.
+         The consequence, deliberately: dragging one element onto another now SPLITS at the edge you
+         aimed at rather than swapping the two. The line is the promise on screen, and a gesture that
+         showed a line and then swapped would be lying about what it was going to do. */
+      onDragOverCapture={(e) => {
+        if (!accepts(e)) return;
         e.preventDefault();
         e.stopPropagation();
-        dropInColumn(id, type);
+        setOver(true);
+        /* ⚠️ An EMPTY box takes no line — a line is a statement about a neighbour and there is no
+           neighbour. It gets the tinted fill instead. */
+        if (!item) { setZone('in'); return; }
+        const r = boxRef.current?.getBoundingClientRect();
+        if (!r) return;
+        setZone((held) => zoneFor(r, e.clientX, e.clientY, held, columnsFull(id)));
+      }}
+      onDragLeave={(e) => {
+        /* ⚠️ Only when the pointer really left. dragleave fires crossing onto a CHILD too, and
+           clearing on that made the line flicker off every time it passed over the element. */
+        if (boxRef.current?.contains(e.relatedTarget as Node)) return;
+        setOver(false); setZone(null);
+      }}
+      onDropCapture={(e) => {
+        const payload = payloadOf(e);
+        const z = zone;
+        setOver(false); setZone(null);
+        if (!payload) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (!z || z === 'in') {
+          if ('type' in payload) dropInColumn(id, payload.type);
+          return;
+        }
+        /* ⚠️ Dropping an element onto ITSELF is a no-op, not a split. Without this the source box
+           is detached and then asked to be its own neighbour, which loses the element. */
+        if ('move' in payload && item?.id === payload.move) return;
+        dropBeside(id, payload, z);
       }}
       /* ⚠️ No styleOf here either — Sel applies the node style once, above. */
       /* ⚠️ justify comes from the column's OWN setting. It was hard-coded to `justify-center`, so the
@@ -191,7 +296,13 @@ function ColumnBody({ id, item, live, dir, icons, placedText, cfg }: { id: strin
           ><Plus size={14} /></button>
         )
       )}
-      {over && <span className="pointer-events-none absolute inset-0 rounded ring-2 ring-[#3D8BD0]" />}
+      {/* ⚠️ The empty-box treatment and the LINE are mutually exclusive — one says "this box takes
+          it", the other says "a new box beside this one takes it", and showing both at once is the
+          ambiguity the outline exists to remove. */}
+      {over && zone === 'in' && (
+        <span className="pointer-events-none absolute inset-0 rounded ring-2 ring-[#3D8BD0]" />
+      )}
+      {over && zone && zone !== 'in' && <DropLine zone={zone} inset={8} />}
     </div>
   );
 }
@@ -618,7 +729,10 @@ function PortalHeader({ cfg = EMPTY_CFG, onLogoPos }: {
             });
           }}
           onClick={(e) => e.stopPropagation()}
-          title={enabled ? 'Drag to reorder — stays inside this group' : undefined}
+          /* ⚠️ It no longer stays inside its group. Dropping at another element's edge splits there,
+             which is the whole of the new gesture — so the old tooltip described a rule the drag had
+             stopped following, and a tooltip that lies is worse than none. */
+          title={enabled ? 'Drag to move — drop at an edge to split' : undefined}
           className={`${iconBtn} ${enabled ? 'cursor-grab active:cursor-grabbing' : ''} ${
             dragKey === ic.key ? 'opacity-35' : ''
           } ${overKey === ic.key && dragKey !== ic.key ? 'ring-1 ring-[#3D8BD0]' : ''}`}

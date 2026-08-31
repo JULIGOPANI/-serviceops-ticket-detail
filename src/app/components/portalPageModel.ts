@@ -627,9 +627,15 @@ export function mintBox(section: { id: string; next: number }, dir: BoxDir, weig
 
 /** Depth cap, counted BELOW the section: Section > Column > Row > Column > Row. */
 export const MAX_BOX_DEPTH = 4;
-/** Columns in one row. Rows stacked in a column are deliberately uncapped — a tall column costs
- *  nothing, a wide row costs readability, so the cap belongs on one axis only. */
-export const MAX_COLUMNS = 4;
+/** Columns in one row. */
+export const MAX_COLUMNS = 8;
+/** Rows stacked in one column.
+ *  ⚠️ Rows used to be UNCAPPED, on the reasoning that a tall column costs nothing while a wide row
+ *  costs readability. That is still true of the page, but not of the CONTROLS: an uncapped axis has
+ *  no state in which its adder is disabled, so the one axis with a limit looked arbitrary beside the
+ *  one without. Both are 8 now, which is the number the brief asks for and reads as a rule rather
+ *  than as a quirk of whichever axis someone thought about first. */
+export const MAX_ROWS = 8;
 
 export const isBranch = (b: Box) => Array.isArray(b.children) && b.children.length > 0;
 
@@ -683,6 +689,9 @@ export function splitBlockedBecause(root: Box, id: string): string | null {
   if (box.dir === 'row' && isBranch(box) && box.children!.length >= MAX_COLUMNS) {
     return `A row holds ${MAX_COLUMNS} columns at most`;
   }
+  if (box.dir === 'column' && isBranch(box) && box.children!.length >= MAX_ROWS) {
+    return `A column holds ${MAX_ROWS} rows at most`;
+  }
   return null;
 }
 
@@ -724,6 +733,9 @@ export function addSibling(section: CustomSection, id: string, before: boolean):
   const parent = parentOfBox(section.root, id);
   if (!parent) return section;
   if (parent.dir === 'row' && (parent.children?.length ?? 0) >= MAX_COLUMNS) return section;
+  /* ⚠️ Both axes, or this function is a hole in the cap: every route that goes through
+     `neighbourBlockedBecause` is guarded, and a direct call here was not. */
+  if (parent.dir === 'column' && (parent.children?.length ?? 0) >= MAX_ROWS) return section;
   const next = { ...section };
   const fresh = mintBox(next, flip(parent.dir));
   const root = mapBox(section.root, parent.id, (b) => {
@@ -744,6 +756,9 @@ export function neighbourBlockedBecause(root: Box, id: string, dir: BoxDir): str
   if (parent && parent.dir === dir) {
     if (dir === 'row' && (parent.children?.length ?? 0) >= MAX_COLUMNS) {
       return `A row holds ${MAX_COLUMNS} columns at most`;
+    }
+    if (dir === 'column' && (parent.children?.length ?? 0) >= MAX_ROWS) {
+      return `A column holds ${MAX_ROWS} rows at most`;
     }
     return null;
   }
@@ -793,6 +808,24 @@ export function rowTargetOf(root: Box, id: string): string {
  *  ⚠️ The OUTER box keeps the original id. Anything selected, styled or configured against it still
  *  resolves — the same rule `removeBox`'s collapse follows, and the reason a wrap is not visible as
  *  a loss of everything the admin had set on that box. */
+/** ⚠️ Returns the NEW BOX's id as well as the section. A drop that splits has to put the element
+ *  into the box it just made, and the id was previously unknowable from outside: the wrap branch
+ *  mints twice, so `section.next` read beforehand is right in one branch and off by one in the
+ *  other. Guessing it is the kind of arithmetic that works until somebody adds a mint. */
+export function addNeighbourAt(
+  section: CustomSection, id: string, dir: BoxDir, before: boolean,
+): { section: CustomSection; id: string | null } {
+  if (neighbourBlockedBecause(section.root, id, dir)) return { section, id: null };
+  const parent = parentOfBox(section.root, id);
+  if (parent && parent.dir === dir) {
+    const minted = `${section.id}-b${section.next}`;
+    return { section: addSibling(section, id, before), id: minted };
+  }
+  /* The wrap branch mints the KEPT box first and the empty neighbour second. */
+  const mintedId = `${section.id}-b${section.next + 1}`;
+  return { section: addNeighbour(section, id, dir, before), id: mintedId };
+}
+
 export function addNeighbour(section: CustomSection, id: string, dir: BoxDir, before: boolean): CustomSection {
   if (neighbourBlockedBecause(section.root, id, dir)) return section;
   const parent = parentOfBox(section.root, id);

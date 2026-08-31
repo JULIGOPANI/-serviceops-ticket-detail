@@ -43,6 +43,14 @@ interface CanvasCtx {
   addSection: (afterId: string, rows: number[][]) => void;
   /** Splits a column, keeping every column in that row equal width. */
   addBeside: (boxId: string, side: 'left' | 'right' | 'top' | 'bottom') => void;
+  /** Is the row holding this box already at its column cap? Suppresses the edge zones. */
+  columnsFull: (boxId: string) => boolean;
+  /** The blue line's drop: make the box it promised and put the element in it. */
+  dropBeside: (
+    boxId: string,
+    payload: { type: string } | { move: string },
+    side: 'left' | 'right' | 'above' | 'below',
+  ) => void;
   /** Drops a catalogue element into a column. */
   dropInColumn: (columnId: string, elementType: string) => void;
   /** Drops onto a seam — builds a new one-column section there and puts the element in it. */
@@ -86,7 +94,7 @@ interface CanvasCtx {
 const Ctx = createContext<CanvasCtx>({
   enabled: false, selectedId: null, hoverId: null,
   select: () => {}, setHover: () => {}, styles: {}, setStyle: () => {}, setText: () => {}, setCfg: () => {},
-  addSection: () => {}, addBeside: () => {}, dropInColumn: () => {}, dropAtSeam: () => {}, dropInRow: () => {}, moveToSeam: () => {}, addChildBlock: () => {},
+  addSection: () => {}, addBeside: () => {}, dropBeside: () => {}, columnsFull: () => false, dropInColumn: () => {}, dropAtSeam: () => {}, dropInRow: () => {}, moveToSeam: () => {}, addChildBlock: () => {},
   moveNode: () => {}, duplicateNode: () => {}, deleteNode: () => {}, canDuplicate: () => false, addInside: () => {},
   moveTo: () => {}, areSiblings: () => false, replaceElement: () => {}, pickIcon: () => {},
   theme: DEFAULT_THEME,

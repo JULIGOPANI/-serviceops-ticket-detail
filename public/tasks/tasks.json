@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-31T09:42:49.350Z",
+  "builtAt": "2026-08-31T10:18:02.261Z",
   "tasks": [
     {
       "n": 1,
@@ -363,6 +363,19 @@
         "Where": "`portalWidgetSpec.ts` (`structureSpecId`), `portalStructureSpecs.ts`, `supportPortalData.ts`, `PortalItemList.tsx` + `PortalWidgetDrawer.tsx`",
         "You asked": "(1) an empty section shows the OLD Style component; (2) remove Layout ▸ Behaviour from every sidebar in the module; (3) Most Used Services and Favourite Services belong under Live data; (4) task 29's Add item should open the box inline with empty fields and placeholders instead of replacing the sidebar.",
         "Verified": "a column's Design now reads \"Style | Fill | None | Colour | Border | px | Corner radius | px | %\" — the current component. No \"Behaviour\" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens \"Item 4\" expanded, both fields empty, showing \"How do I reset my password?\" and \"Answer it in a sentence or two.\" as placeholders, with the Add link CTA below them."
+      }
+    },
+    {
+      "n": 53,
+      "title": "Task 41 — the blue placement line: drag, aim, split",
+      "status": "done (first pass — see the two gaps at the end)",
+      "fields": {
+        "Where": "`portalPageModel.ts` (caps, `addNeighbourAt`) · `SupportPortalBuilder.tsx` (`dropBeside`, `columnsFull`) · `PortalCanvas.tsx` (context) · `SupportPortalPreview.tsx` (`DropLine`, `zoneFor`, `ColumnBody`)",
+        "Decisions taken, to push back on": "**8 columns × 8 rows**, nesting depth stays 4; the row/column question is **click-to-add only** (a drag already answers it by where you aim, and asking twice would undo the gesture); the four `+` adders and the drag **both** stay — the adders are discoverable and precise, the drag is fast.",
+        "⚠️ CAPTURE phase, and this was the bug that would have shipped.** `Sel` wraps the element INSIDE the box and has its own MOVE_MIME handlers that `stopPropagation` — so on the bubble phase the inner `Sel` answered first and the box never saw a move-drag at all. The line appeared for a palette drag and not for dragging something already on the page, which is half the gesture. Capturing runs the ancestor first. **Consequence, deliberately": "dragging one element onto another now SPLITS at the edge you aimed at rather than swapping the two — a gesture that draws a line and then swaps is lying about what it will do.",
+        "⚠️ A TDZ crash, caught in the browser": "`dropBeside` sat 400 lines above `detachElement` and named it in its dependency array — \"Cannot access 'detachElement' before initialization\", the whole builder blank. esbuild builds that green. Moved below it.",
+        "⚠️ A tooltip that had become a lie": "the drag grip still said \"Drag to reorder — stays inside this group\". With edge-drop it can leave its group. Now \"Drag to move — drop at an edge to split\".",
+        "Two gaps to close next": "(1) the **move**-drag branch is built, typechecked and shares `dropBeside` with the proven palette path, but I could not drive its grip end-to-end this pass — the grips were scrolled out of the viewport and elements carry no id in the DOM to target; (2) the brief's **layer 1**, a 1px outline on the whole section under the pointer, is not drawn yet."
       }
     },
     {
