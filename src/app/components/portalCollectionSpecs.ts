@@ -183,8 +183,12 @@ export const TABLE_SPEC: WidgetSpec = {
     /* ⚠️ SIZE first, content second — you decide the shape before you fill it, and the picker is
        the only control here that changes what the sheet below is even editing. */
     { key: 'table', label: 'Select row / column cells', control: 'tableSize', group: 'Content' },
-    { key: 'table', label: 'Table content', control: 'tableContent', group: 'Content' },
-    { key: 'title', label: 'Title', control: 'text', group: 'Content', help: 'Optional.' },
+    /* ⚠️ The sheet editor is GONE. It was the second way to type into this table, and the canvas is
+       now the first — you click a cell and type. Two editors for one grid is how the panel and the
+       page start disagreeing, and the one reachable only through a dialog was the worse of the two.
+       ⚠️ No "Optional." under the title either: every field on this panel is optional, so saying it
+       on one of them implies the rest are not. */
+    { key: 'title', label: 'Title', control: 'text', group: 'Content' },
     /* ⚠️ The two header switches sit TOGETHER, in Content (§6). "First column" used to live under
        Border in the Style tab, which put one half of a pair of questions two tabs away from the
        other — and both are about what the table MEANS, not what it looks like.
@@ -198,42 +202,18 @@ export const TABLE_SPEC: WidgetSpec = {
     /* ⚠️ No per-column width/alignment list. Columns are equal by construction now, and one
        Alignment row under Table governs every cell — a per-column editor was a second, finer answer
        to two questions the table already answers once. */
-    /* ── Header ───────────────────────────────────────────────────────────────
-     * ⚠️ Replaces the old "Header emphasis" preset. Bold / Filled / None was three canned answers
-     * to a question that has a colour and a face in it — once the header has its own background and
-     * typeface, the preset can only contradict them. */
-    {
-      key: 'styleTab', label: '', control: 'segmented', tab: 'style', group: 'Text style',
-      options: [{ value: 'header', label: 'Header' }, { value: 'rows', label: 'Rows' }],
-    },
-    { key: 'headBg', label: 'Background colour', control: 'color', tab: 'style', group: 'Text style', when: (c) => (c.styleTab ?? 'header') === 'header' },
-    { key: 'headFont', label: 'Font', control: 'select', tab: 'style', group: 'Text style', when: (c) => (c.styleTab ?? 'header') === 'header', options: FONTS, divider: true },
-    { key: 'headWeight', label: 'Font weight', control: 'select', tab: 'style', group: 'Text style', when: (c) => (c.styleTab ?? 'header') === 'header', options: WEIGHTS },
-    { key: 'headSize', label: 'Font size', control: 'sliderUnit', tab: 'style', group: 'Text style', when: (c) => (c.styleTab ?? 'header') === 'header', min: 10, max: 32, unit: 'px' },
-    { key: 'headColor', label: 'Font colour', control: 'color', tab: 'style', group: 'Text style', when: (c) => (c.styleTab ?? 'header') === 'header' },
-    { key: 'headFormat', label: 'Font format', control: 'chips', tab: 'style', group: 'Text style', when: (c) => (c.styleTab ?? 'header') === 'header', options: FORMATS },
-
-    /* ── Rows ─────────────────────────────────────────────────────────────────
-     * ⚠️ Two row colours replace the old "Striped rows" switch. Striping is what you get by giving
-     * the two a different colour, so the switch was a second control for the same outcome — and it
-     * could disagree with the colours the moment both were set. */
-    { key: 'evenBg', label: 'Even rows', control: 'color', tab: 'style', group: 'Text style', when: (c) => c.styleTab === 'rows' },
-    { key: 'oddBg', label: 'Odd rows', control: 'color', tab: 'style', group: 'Text style', when: (c) => c.styleTab === 'rows' },
-    { key: 'rowFont', label: 'Font', control: 'select', tab: 'style', group: 'Text style', when: (c) => c.styleTab === 'rows', options: FONTS, divider: true },
-    { key: 'rowWeight', label: 'Font weight', control: 'select', tab: 'style', group: 'Text style', when: (c) => c.styleTab === 'rows', options: WEIGHTS },
-    { key: 'rowSize', label: 'Font size', control: 'sliderUnit', tab: 'style', group: 'Text style', when: (c) => c.styleTab === 'rows', min: 10, max: 32, unit: 'px' },
-    { key: 'rowColor', label: 'Font colour', control: 'color', tab: 'style', group: 'Text style', when: (c) => c.styleTab === 'rows' },
-    { key: 'rowFormat', label: 'Font format', control: 'chips', tab: 'style', group: 'Text style', when: (c) => c.styleTab === 'rows', options: FORMATS },
-
-    // ── Table — what is left once the header and the rows own their own look ──
+    /* ── Table ──
+     * ⚠️ THREE groups left this panel at once, each for the same reason: the canvas answers it
+     * better. **Text style** was fourteen controls — header and row background, font, weight, size,
+     * colour and format — for a look you now set per cell from the cell's own menu, where you can
+     * see what you are changing. **Alignment** goes because the cell menu aligns per cell and per
+     * selection, which is the only scale at which a table's alignment is ever really decided. And
+     * **Border** drew a frame round a grid whose lines the cells already draw.
+     * ⚠️ Every removed value stays in `defaults` and is still read by the renderer, so no table on
+     * any page moved — the controls simply stopped being duplicated. */
     { key: 'cellPad', label: 'Cell padding', control: 'sliderUnit', tab: 'style', group: 'Table', min: 4, max: 24, unit: 'px' },
-    { key: 'cellAlign', label: 'Alignment', control: 'segmented', tab: 'style', group: 'Table', options: ALIGN_4 },
     { key: 'hScroll', label: 'Horizontal scroll on narrow screens', control: 'toggle', tab: 'style', group: 'Table' },
 
-    /* ── Frame — the table's own box, using the shared components ──
-       ⚠️ Its own group, not rows on Table: a border round the whole table and a border between its
-       cells are different lines, and the old single "Bordered" switch answered for both. */
-    { key: 'frameBorderWidth', label: 'Border', control: 'borderRow', tab: 'style', group: 'Border' },
   ],
   /* ⚠️ No P1. The table's fill, border and radius are answered by Frame and by the Header/Rows
      backgrounds — a Style section on top of those is a third place to set the same box. */
@@ -248,13 +228,15 @@ export const TABLE_SPEC: WidgetSpec = {
      would be two editors for one grid — and the one that could only add a row at a time was the
      worse of the two. */
   defaults: {
-    title: '', headerRow: true,
+    title: '', headerRow: true, firstColumn: true,
     styleTab: 'header', headBg: '#F9FAFB', headFont: 'Inherit from theme', headWeight: 'Semibold', headSize: 13, headColor: '#364658', headFormat: [],
     evenBg: '#FFFFFF', oddBg: '#FFFFFF', rowFont: 'Inherit from theme', rowWeight: 'Normal', rowSize: 13, rowColor: '#364658', rowFormat: [],
     /* ⚠️ Even widths are the DEFAULT. Off, the table falls back to the per-column widths from the
        columns editor, which is a deliberate choice rather than the resting state — a fresh table
        whose columns each sized to their own longest cell is the ragged thing this fixes. */
-    firstColumn: false, cellAlign: 'left',
+    /* ⚠️ `firstColumn` is seeded TRUE beside `headerRow` above; this line used to set it back to
+       false further down the same object, so the later one won and the toggle shipped off. */
+    cellAlign: 'left',
     frameBorderWidth: 1, frameBorderColor: '#E5E7EB', shadowOn: false,
     cellPad: 8, hScroll: true,
     rows: TABLE_SEED.map((cells, i) => ({ id: `r${i}`, cells })),

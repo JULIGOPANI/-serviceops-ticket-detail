@@ -278,10 +278,32 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
   /** Where the dragged ghost sits, in viewport coordinates. Null when nothing is being dragged. */
   const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null);
   const [hoverRow, setHoverRow] = useState<number | null>(null);
-  /* ⚠️ The rails are hidden until the pointer is over the TABLE. Permanently-visible grips put two
-     grey bars around every table on the page, on a canvas whose whole job is showing what the
-     portal looks like — the handles are for the moment you reach for them, not for the page. */
+  /* ⚠️ The table-level affordances — the select-all corner and the two extend buttons — appear on
+     table hover. The row and column GRIPS do not: they follow the hovered CELL (see below). */
   const [overTable, setOverTable] = useState(false);
+
+  /* ⚠️ ONE row grip and ONE column grip at a time — the hovered cell's, not the whole rail's.
+     `hoverRow`/`hoverCol` are the coordinates of the cell under the pointer, set by the cell itself,
+     so hovering the first cell lights the first row and the first column and nothing else. Gating
+     this on "is the pointer anywhere over the table" — which is what it did — put a grip on every
+     row and every column at once, which says nothing about where you are and buries the one you
+     were reaching for in a rail of identical bars.
+     A grip stays visible while its row or column is SELECTED, because otherwise moving the pointer
+     away would hide the only thing showing what is selected. */
+  const colLit = (i: number) =>
+    hoverCol === i
+    || (drag?.kind === 'col' && drag.from === i)
+    || (!!sel && Math.min(sel.c0, sel.c1) <= i && i <= Math.max(sel.c0, sel.c1));
+  const colOn = (i: number) =>
+    (drag?.kind === 'col' && drag.from === i)
+    || (!!sel && Math.min(sel.c0, sel.c1) <= i && i <= Math.max(sel.c0, sel.c1));
+  const rowLit = (i: number) =>
+    hoverRow === i
+    || (drag?.kind === 'row' && drag.from === i)
+    || (!!sel && Math.min(sel.r0, sel.r1) <= i && i <= Math.max(sel.r0, sel.r1));
+  const rowOn = (i: number) =>
+    (drag?.kind === 'row' && drag.from === i)
+    || (!!sel && Math.min(sel.r0, sel.r1) <= i && i <= Math.max(sel.r0, sel.r1));
   const [hoverCol, setHoverCol] = useState<number | null>(null);
   const [menu, setMenu] = useState<{ kind: 'row' | 'col' | 'cell'; index: number; x: number; y: number } | null>(null);
   const [sel, setSel] = useState<{ r0: number; c0: number; r1: number; c1: number } | null>(null);
@@ -701,17 +723,12 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
               /* ⚠️ A GRIP, not a chevron. The bar is a drag handle first and a menu button second —
                  a chevron says "this opens something" and says nothing at all about picking it up,
                  which is exactly the half of the control people could not find. */
-              /* ⚠️ SIX DOTS, and only while the table is under the pointer. Selected or being dragged it
-                 fills with the accent — the same grip in two weights, so "this is the one I have
-                 hold of" needs no second control to say it. */
+              /* ⚠️ SIX DOTS, on the hovered cell's column only. Grey pill while it is merely under the
+                 pointer, accent-filled once its column is selected or being dragged — the same grip
+                 in two weights, so "this is the one I have hold of" needs no second control. */
               className={`absolute z-[50] flex items-center justify-center rounded-full transition-opacity transition-colors ${
-                overTable || drag ? 'opacity-100' : 'opacity-0'
-              } ${
-                (drag?.kind === 'col' && drag.from === i)
-                  || (sel && Math.min(sel.c0, sel.c1) <= i && i <= Math.max(sel.c0, sel.c1))
-                  ? 'bg-[#3D8BD0] text-white'
-                  : hoverCol === i ? 'bg-[#B6C2D5] text-white' : 'bg-[#EEF2F6] text-[#9CA3AF]'
-              }`}
+                colLit(i) ? 'opacity-100' : 'pointer-events-none opacity-0'
+              } ${colOn(i) ? 'bg-[#3D8BD0] text-white' : 'bg-[#B6C2D5] text-white'}`}
             ><GripHorizontal size={12} /></button>
           ))}
           {/* row rail */}
@@ -731,13 +748,8 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
               }}
               style={{ top: y + RAIL + 4, height: geo.h[i] - 2, left: 0, width: RAIL, cursor: drag?.kind === 'row' ? 'grabbing' : 'grab' }}
               className={`absolute z-[50] flex items-center justify-center rounded-full transition-opacity transition-colors ${
-                overTable || drag ? 'opacity-100' : 'opacity-0'
-              } ${
-                (drag?.kind === 'row' && drag.from === i)
-                  || (sel && Math.min(sel.r0, sel.r1) <= i && i <= Math.max(sel.r0, sel.r1))
-                  ? 'bg-[#3D8BD0] text-white'
-                  : hoverRow === i ? 'bg-[#B6C2D5] text-white' : 'bg-[#EEF2F6] text-[#9CA3AF]'
-              }`}
+                rowLit(i) ? 'opacity-100' : 'pointer-events-none opacity-0'
+              } ${rowOn(i) ? 'bg-[#3D8BD0] text-white' : 'bg-[#B6C2D5] text-white'}`}
             ><GripVertical size={12} /></button>
           ))}
 

@@ -791,6 +791,7 @@ export const WIDGET_SPECS: WidgetSpec[] = [
          be the ones the chosen module actually has. */
       {
         key: 'statuses', label: 'Statuses', control: 'chips', group: 'Content',
+        placeholder: 'No statuses — every status is shown',
         options: (c) => recordModule(c.module as string).statuses,
         help: 'Leave empty to show every status.',
       },

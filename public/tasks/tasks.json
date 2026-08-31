@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-31T04:08:08.367Z",
+  "builtAt": "2026-08-31T04:21:45.185Z",
   "tasks": [
     {
       "n": 1,
@@ -363,6 +363,17 @@
         "Where": "`portalWidgetSpec.ts` (`structureSpecId`), `portalStructureSpecs.ts`, `supportPortalData.ts`, `PortalItemList.tsx` + `PortalWidgetDrawer.tsx`",
         "You asked": "(1) an empty section shows the OLD Style component; (2) remove Layout ▸ Behaviour from every sidebar in the module; (3) Most Used Services and Favourite Services belong under Live data; (4) task 29's Add item should open the box inline with empty fields and placeholders instead of replacing the sidebar.",
         "Verified": "a column's Design now reads \"Style | Fill | None | Colour | Border | px | Corner radius | px | %\" — the current component. No \"Behaviour\" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens \"Item 4\" expanded, both fields empty, showing \"How do I reset my password?\" and \"Answer it in a sentence or two.\" as placeholders, with the Add link CTA below them."
+      }
+    },
+    {
+      "n": 43,
+      "title": "Table — grips follow the hovered CELL, and the panel loses three groups",
+      "status": "done",
+      "fields": {
+        "Where": "`PortalTable.tsx`, `portalCollectionSpecs.ts` (`TABLE_SPEC`), `PortalWidgetDrawer.tsx`",
+        "The rule now": "nothing at rest → hover a cell and exactly its row grip and its column grip appear, in the **secondary grey pill** (#B6C2D5) → click one and it fills **primary blue** (#3D8BD0) with its row or column selected. A selected grip stays visible when the pointer moves away, because otherwise nothing would show what is selected. ⚠️ A hidden grip is also `pointer-events-none` — `opacity-0` still takes the pointer, so an invisible rail sat between the cursor and the cell and swallowed the very mouseenter that would have lit it.",
+        "⚠️ A bug your 3rd screenshot caught": "the `chips` control hardcoded \"No statuses — the list will be empty\", so **every** chips field in the builder said it — which is why a Table's *Font format* was talking about statuses. The empty text is derived from the field's own label now, and a field may still name its own.",
+        "Verified with real pointer movement": "at rest **no grips**; hovering cell (0,0) lights exactly `Column 1 options` + `Row 1 options`; hovering cell (1,1) lights exactly `Column 2 options` + `Row 2 options`; leaving the table clears them. Hover measures **rgb(182, 194, 213)**, selected **rgb(61, 139, 208)**. The panel reads CONTENT (Select row / column cells · Title · First row is a header · First column is a header) → DESIGN (Table: Cell padding, Horizontal scroll · Spacing). A fresh table's first body row is `TH TD TD`."
       }
     },
     {

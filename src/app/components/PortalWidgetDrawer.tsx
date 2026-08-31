@@ -778,7 +778,11 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
       case 'chips':
         /* ⚠️ A dropdown, not chips. Five statuses laid out as buttons take four lines of the panel
            and still cannot say how many are on without you counting fills. */
-        return <MultiSelect value={(v as string[]) ?? []} options={(optionsOf(f) as string[]) ?? REQUEST_STATUSES} onChange={(x) => set(f.key, x)} placeholder="No statuses — the list will be empty" />;
+        /* ⚠️ The empty text is DERIVED from the field, not hardcoded. It said "No statuses — the
+           list will be empty" for every chips field in the builder, so a Font format control sat
+           under a Table telling you about statuses it has nothing to do with. A field may still
+           name its own via `placeholder`. */
+        return <MultiSelect value={(v as string[]) ?? []} options={(optionsOf(f) as string[]) ?? REQUEST_STATUSES} onChange={(x) => set(f.key, x)} placeholder={f.placeholder ?? `No ${(f.label ?? "options").toLowerCase()} selected`} />;
       case 'select':
         /* ⚠️ NOT cast to `string[]`. SelectField already accepts {value,label} pairs, and a field
            whose stored token should differ from its wording (`fixed` → "Fixed items") has no other
