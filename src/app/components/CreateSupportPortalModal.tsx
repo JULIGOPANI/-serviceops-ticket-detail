@@ -1,9 +1,65 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronRight, PenLine, X } from 'lucide-react';
 import { PORTAL_TEMPLATES, TEMPLATE_CATEGORIES } from './supportPortalData';
 import type { PortalTemplate } from './supportPortalData';
 import { TemplateArt } from './SupportPortalTemplateGallery';
+import { SupportPortalPreview } from './SupportPortalPreview';
+import { DEFAULT_THEME, swatchesOf } from './PortalThemePanel';
+
+/* ── the Default tile's picture ──────────────────────────────────────────────
+ *
+ * ⚠️ THE REAL PAGE, rendered small — not a drawing of it. Every other tile is a wireframe because
+ * every other tile is a template nobody has built yet; there is nothing to photograph. This one is
+ * different: the portal it offers EXISTS, so the tile can simply show it, and the one starting
+ * point an admin might actually recognise stops being the one they have to take on trust.
+ *
+ * ⚠️ Live, never a screenshot. A PNG committed today is a picture of the portal as it was today —
+ * it would keep promising the old layout after the first person edited the page, and nothing would
+ * ever tell us it had gone stale. This mounts the same `SupportPortalPreview` the builder draws,
+ * with no props, which IS the page a new portal starts from.
+ *
+ * ⚠️ Rendered at a full page width and SCALED DOWN, rather than rendered narrow. The portal is
+ * responsive: at 267px it would reflow to its one-column phone layout, and the tile would show a
+ * truthful picture of the wrong thing. Scaling keeps the desktop composition the admin is being
+ * asked to recognise.
+ *
+ * The canvas context has a default with `enabled: false`, so no outline, hint or handle comes with
+ * it; `pointer-events-none` and `aria-hidden` finish the job of making it a picture. */
+const THUMB_SRC_W = 1180;
+/* ⚠️ The accent is READ from the theme, exactly as the builder reads it (`swatchesOf(theme)[3]`),
+   never left to `SupportPortalPreview`'s own `accent` default. That default is a near-black, so the
+   tile promising "the portal your requesters see today" was painting its banner a colour the page
+   does not use — a picture wrong in the one way a picture is meant to be right. */
+const THUMB_ACCENT = swatchesOf(DEFAULT_THEME)[3];
+
+function PortalThumb() {
+  const box = useRef<HTMLSpanElement>(null);
+  const [scale, setScale] = useState(0);
+  /* Measured, because the tile's width is the grid's to decide and it changes with the dialog. A
+     hard-coded scale would be right at exactly one dialog width. */
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const read = () => setScale(el.clientWidth / THUMB_SRC_W);
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <span ref={box} className="relative block size-full overflow-hidden bg-white">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute left-0 top-0 block origin-top-left select-none"
+        /* Hidden until measured — at scale 0 it would flash full size for a frame. */
+        style={{ width: THUMB_SRC_W, transform: `scale(${scale})`, visibility: scale ? 'visible' : 'hidden' }}
+      >
+        <SupportPortalPreview accent={THUMB_ACCENT} />
+      </span>
+    </span>
+  );
+}
 
 /* Create Support Portal — two steps, one dialog.
  *
@@ -286,11 +342,20 @@ export function CreateSupportPortalModal({ onClose, onSaveDetails, onScratch, on
                       the separate band could only achieve by not being a template at all.
                       ⚠️ It ignores the category chips, because it HAS no category: it is not an IT
                       or an HR layout, it is the portal that already exists. */}
+                  {/* ⚠️ The art needs a BOX of its own — `h-[150px]`, the same height the template
+                      gallery gives it. Without one the art was `height: 100%` of the tile, so it
+                      took the whole button and pushed the caption out through `overflow-hidden`:
+                      every tile on this screen was rendering its name, its Default badge and its
+                      description into a region that is clipped, which is why the grid read as a
+                      wall of unlabelled pictures. The wireframes were being stretched 1.6× tall by
+                      the same fault, so they draw at their real 160 × 96 proportions again too. */}
                   <button
                     onClick={() => onTemplate(null)}
-                    className="overflow-hidden rounded-lg border border-[#3D8BD0]/40 bg-white text-left transition-all hover:border-[#3D8BD0] hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]"
+                    className="flex flex-col overflow-hidden rounded-lg border border-[#3D8BD0]/40 bg-white text-left transition-all hover:border-[#3D8BD0] hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]"
                   >
-                    <TemplateArt layout="portal" accent="#3D8BD0" />
+                    <span className="relative block h-[150px] w-full flex-shrink-0 overflow-hidden border-b border-[#E5E7EB] bg-[#F7F9FC]">
+                      <PortalThumb />
+                    </span>
                     <span className="block px-3 py-2.5">
                       <span className="flex items-center gap-1.5">
                         <span className="truncate text-[13px] font-medium text-[#364658]">Support Portal</span>
@@ -305,9 +370,11 @@ export function CreateSupportPortalModal({ onClose, onSaveDetails, onScratch, on
                     <button
                       key={t.id}
                       onClick={() => onTemplate(t)}
-                      className="overflow-hidden rounded-lg border border-[#E5E7EB] bg-white text-left transition-all hover:border-[#3D8BD0] hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]"
+                      className="flex flex-col overflow-hidden rounded-lg border border-[#E5E7EB] bg-white text-left transition-all hover:border-[#3D8BD0] hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]"
                     >
-                      <TemplateArt layout={t.layout} accent={t.accent} />
+                      <span className="relative block h-[150px] w-full flex-shrink-0 overflow-hidden border-b border-[#E5E7EB] bg-[#F7F9FC]">
+                        <TemplateArt layout={t.layout} accent={t.accent} />
+                      </span>
                       <span className="block px-3 py-2.5">
                         <span className="block truncate text-[13px] font-medium text-[#364658]">{t.name}</span>
                         <span className="mt-0.5 block line-clamp-2 text-[11px] leading-[1.5] text-[#9CA3AF]">{t.desc}</span>
