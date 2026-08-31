@@ -277,6 +277,13 @@ Updated: 2026-08-25 12:11
 - **(4)** Adding an item no longer calls `onSelect`, which used to swap the whole sidebar for that item's drawer — you asked for one more row and the panel you were working in disappeared. The list opens the new row **in place** (the item is always appended, so its index is the length before the add). A new `blankOnAdd` flag empties every declared field, and `placeholder` on the two inline fields says what belongs there. ⚠️ Both are **opt-in**: the seeds exist so an untouched page shows a realistic accordion, and a gallery slide added blank is a broken slide. A collection with no inline editor still opens its drawer, because it has nowhere else to go.
 - **Verified:** a column's Design now reads "Style | Fill | None | Colour | Border | px | Corner radius | px | %" — the current component. No "Behaviour" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens "Item 4" expanded, both fields empty, showing "How do I reset my password?" and "Answer it in a sentence or two." as placeholders, with the Add link CTA below them.
 
+## 48. The Theme panel's light/dark switch loses its words
+- **Status:** done
+- **Where:** `PortalThemePanel.tsx` (`ThemeModeToggle`)
+- **Icons only — a sun and a moon need no caption.** The words were added when this control was two grey glyphs nobody could find on a busy title row; what actually fixed that was the **accent fill** on the active side, the one weight on this panel that reads as "this is on", and it does that job whether or not the word sits beside it.
+- **⚠️ The `title` and `aria-label` are now the ONLY things naming the two modes** — the button has no text node left, so dropping either would leave a control a screen reader announces as nothing at all. `aria-pressed` carries the state for the same reason.
+- **Verified in the browser.** Two 28×28 buttons, `textContent` empty on both. Active side measures **rgb(61, 139, 208)**, the inactive one transparent; clicking the moon flips `aria-pressed` on both and puts `.portal-dark` on the canvas, so the switch still does what it did.
+
 ## 47. Border stops leaking into a widget's own children, and the preset list says what it is
 - **Status:** done
 - **Where:** `portalStyleResolver.ts` (`containerCss`) · `PortalRecordFilter.tsx` · `portalRecordFilters.ts`

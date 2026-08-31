@@ -250,11 +250,13 @@ function StylePreview({ packId, buttonId, accent }: { packId: string; buttonId: 
 /** Light / dark, as one control. Exported because it renders on the panel's TITLE row — it governs
  *  every field below it, so it cannot belong to any one of them. */
 export function ThemeModeToggle({ mode, onChange }: { mode: 'light' | 'dark'; onChange: (m: 'light' | 'dark') => void }) {
-  /* ⚠️ LABELLED and accent-filled, not two grey icon buttons. This control decides which of two
-     palettes every swatch below it is showing AND which tab their pickers open on — the most
-     consequential switch on the panel, and it was the quietest thing on its row: a pair of 24px
-     glyphs in the same grey as the heading beside them. The active side now carries the primary
-     colour, which is the one weight on this panel that reads as "this is on". */
+  /* ⚠️ ICONS ONLY — a sun and a moon need no caption. The words were added when this control was
+     two grey glyphs nobody could find on a busy title row; what actually fixed that was the ACCENT
+     FILL on the active side, which is the one weight on this panel that reads as "this is on", and
+     it does that job whether or not the word is beside it.
+     ⚠️ The `title` and the `aria-label` are therefore the only things left naming the two modes —
+     the button has no text node any more, so removing either would leave a control a screen reader
+     announces as nothing at all. */
   return (
     <span className="flex flex-shrink-0 items-center gap-0.5 rounded bg-[#F1F5F9] p-0.5">
       {([['light', Sun], ['dark', Moon]] as const).map(([m, Ic]) => (
@@ -262,12 +264,14 @@ export function ThemeModeToggle({ mode, onChange }: { mode: 'light' | 'dark'; on
           key={m}
           onClick={() => onChange(m)}
           title={m === 'light' ? 'Light mode' : 'Dark mode'}
-          className={`flex h-7 items-center gap-1.5 rounded px-2.5 text-[12px] font-medium capitalize transition-colors ${
+          aria-label={m === 'light' ? 'Light mode' : 'Dark mode'}
+          aria-pressed={mode === m}
+          className={`flex size-7 items-center justify-center rounded transition-colors ${
             mode === m
               ? 'bg-[#3D8BD0] text-white shadow-[0_1px_2px_rgba(16,24,40,0.10)]'
               : 'text-[#7B8FA5] hover:text-[#364658]'
           }`}
-        ><Ic size={13} /> {m}</button>
+        ><Ic size={14} /></button>
       ))}
     </span>
   );
