@@ -21,7 +21,7 @@ import {
   BLOCK_ORDER_V2, ROW_ORDER_V2, RAIL_V2,
   DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, moveIn, nodeById, parseItemId,
   placedType, registerPlaced, isLockedRow,
-  addNeighbour, addSibling, neighbourBlockedBecause, boxOfElement, findBox, freeLeaves, isBranch, mapBox, parentOfBox, registerTree, removeBox,
+  addNeighbour, addSibling, neighbourBlockedBecause, rowTargetOf, boxOfElement, findBox, freeLeaves, isBranch, mapBox, parentOfBox, registerTree, removeBox,
   sectionElements, sectionFromRows, sectionIdOfBox, sectionRebuild, sectionRows, setBoxDir, setBoxEl,
   splitBlockedBecause, splitBox,
 } from './portalPageModel';
@@ -587,10 +587,13 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      added) and said nothing, which is the silent no-op every limit in this builder is written to
      avoid. Caught by counting columns after a fifth click and finding four columns and no toast. */
     const current = sectionsRef.current.find((s) => s.section.id === sectionId)?.section;
-    const blocked = current ? neighbourBlockedBecause(current.root, boxId, dir) : null;
+    /* ⚠️ A ROW is added at the SECTION's top level, not beside the box that was clicked — see
+       `rowTargetOf`. A COLUMN divides the row it is in, so it stays on the clicked box. */
+    const target = current && dir === 'column' ? rowTargetOf(current.root, boxId) : boxId;
+    const blocked = current ? neighbourBlockedBecause(current.root, target, dir) : null;
     if (blocked) { toast.error(blocked); return; }
     setSections((prev) => prev.map((s) => (
-      s.section.id === sectionId ? { ...s, section: addNeighbour(s.section, boxId, dir, before) } : s
+      s.section.id === sectionId ? { ...s, section: addNeighbour(s.section, target, dir, before) } : s
     )));
   }, []);
 

@@ -752,6 +752,33 @@ export function neighbourBlockedBecause(root: Box, id: string, dir: BoxDir): str
   return null;
 }
 
+/** The direct child of the section root that contains this box — the level a full-width row is at. */
+export function topLevelBoxOf(root: Box, id: string): string {
+  const path = boxPath(root, id);
+  return path.length >= 2 ? path[1].id : root.id;
+}
+
+/** Which box a full-width ROW should actually be added beside, given the box whose adder was clicked.
+ *
+ *  ⚠️ A ROW IS THE WIDTH OF THE SECTION. Adding one used to operate on the clicked box itself, so
+ *  asking for a row below a column got a row INSIDE that column — the width of that column, stacked
+ *  under its own content, while the column beside it carried on past both. That is a split, not a
+ *  row, and it is not what an adder on the bottom edge says it will do.
+ *
+ *  Rows and columns are not symmetric, which is why this exists and its horizontal twin does not:
+ *  a column divides the row it is in, so it belongs beside the box you clicked; a row spans
+ *  everything, so it belongs at the top level however deep the click came from.
+ *
+ *  Two cases, which are the same sentence read twice:
+ *    • the root already STACKS its children, so they are full-width rows already — the new one
+ *      joins them beside whichever branch the click came from
+ *    • the root does not, so the ROOT is what gets wrapped, which is the thing that turns the whole
+ *      section into a stack in the first place */
+export function rowTargetOf(root: Box, id: string): string {
+  if (isBranch(root) && root.dir === 'column') return topLevelBoxOf(root, id);
+  return root.id;
+}
+
 /** Add an empty neighbour on a given AXIS, whatever axis the parent happens to lay out along.
  *
  *  This is what lets ONE control mean the same thing at every level: left and right always add a
