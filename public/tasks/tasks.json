@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-31T10:18:02.261Z",
+  "builtAt": "2026-08-31T10:37:24.782Z",
   "tasks": [
     {
       "n": 1,
@@ -363,6 +363,16 @@
         "Where": "`portalWidgetSpec.ts` (`structureSpecId`), `portalStructureSpecs.ts`, `supportPortalData.ts`, `PortalItemList.tsx` + `PortalWidgetDrawer.tsx`",
         "You asked": "(1) an empty section shows the OLD Style component; (2) remove Layout ▸ Behaviour from every sidebar in the module; (3) Most Used Services and Favourite Services belong under Live data; (4) task 29's Add item should open the box inline with empty fields and placeholders instead of replacing the sidebar.",
         "Verified": "a column's Design now reads \"Style | Fill | None | Colour | Border | px | Corner radius | px | %\" — the current component. No \"Behaviour\" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens \"Item 4\" expanded, both fields empty, showing \"How do I reset my password?\" and \"Answer it in a sentence or two.\" as placeholders, with the Add link CTA below them."
+      }
+    },
+    {
+      "n": 54,
+      "title": "The default page becomes two regions — a 2×2 of work cards beside the rail",
+      "status": "done",
+      "fields": {
+        "Where": "`portalPageModel.ts` (v2 seed) · `SupportPortalPreview.tsx` (work band, `RecordTiles`, `card`) · `PortalCanvas.tsx` (resize)",
+        "⚠️ The rail's padding, which is what you flagged and what measurement caught": "Most Read goes through `CardShell` and brings `p-4` with it; Announcements and Contact Us are element renderers dropped straight into `cardInner`, which paints a border and no inset. Their titles sat **1px** from the card edge against Most Read's **17px**. All three read **17** now.",
+        "Known, for your next step": "at half-width the asset/CI tiles truncate their names (\"Dell Latitud…\"). You said the tile UI is the next thing you would spec, so I have left the shape alone rather than guessing at it."
       }
     },
     {

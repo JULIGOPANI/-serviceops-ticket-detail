@@ -1121,7 +1121,11 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
   /* Order and removal are handled HERE, once, for every card on the page.
      CSS `order` reorders flex siblings without moving the JSX, which keeps a move action to one
      number instead of a structural rewrite of the page body. */
-  const card = (id: string, body: ReactNode, cols?: number, gap = 16, grow = 1) => {
+  /* ⚠️ `orderAt` overrides the order a card takes from its own row list. Two lists both start at
+     0, so the main region — which draws two cards from `work` and two from `records` — came out
+     as 0, 1, 0, 1 and CSS interleaved them: Requests, Assets, Approvals, CIs. An order is only
+     meaningful within ONE list, and this region mixes two. */
+  const card = (id: string, body: ReactNode, cols?: number, gap = 16, grow = 1, orderAt?: number) => {
     if (removed.includes(id)) return null;
     /* ⚠️ Membership comes from `rowOf` — the STATIC map of which row a card belongs to — not from
        searching the live `rowOrder`. Deleting a fixed card takes it out of `rowOrder`, so a search
@@ -1133,7 +1137,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
        palette both believed it, and the card stayed on the page. */
     const home = rowOf(id);
     if (home && !(rowOrder[home] ?? []).includes(id)) return null;
-    const order = home ? (rowOrder[home] ?? []).indexOf(id) : 0;
+    const order = orderAt ?? (home ? (rowOrder[home] ?? []).indexOf(id) : 0);
     return cardInner(id, body, cols, order, gap, grow);
   };
 
@@ -1443,7 +1447,11 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
             {/* ── Work row ── one section, three cards, full width. */}
             <Sel id="work" className={SECTION_PAD} style={{ order: slot("work"), ...fillCss(wc('work')) }}>
               <RowDrop rowId="work" resize={secResize("work")} className={`flex flex-wrap${secPacked("work", 3) ? " portal-row-packed" : ""}`} style={{ gap: secGap("work"), ...secBox("work", 3), ...rowFits(inRow("work"), "work"), ...secGrid("work", 3) }}>
-              {card('requests', (
+              {(() => {
+              /* ⚠️ Every work-band card is built as a CONST and PLACED afterwards, because the rail
+                 layout puts them in two regions and the flat one puts them in a row — same cards,
+                 two arrangements. Authoring each twice is two places for a fix to land in one. */
+              const requestsCard = card('requests', (
                 <CardShell nodeId="requests" titleNodeId="requests-title" title={String(wc('requests').title ?? content.requests.title)} count={visibleRequests.length} cfg={wc('requests')}>
                   <ListBody nodeId="requests">
                       {visibleRequests.map((r) => {
@@ -1477,9 +1485,8 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                       })}
                   </ListBody>
                 </CardShell>
-              ), secCols("work", content.cols.work), secGap("work"), secGrow("work"))}
-
-              {card('approvals', (
+              ), rail ? 2 : secCols("work", content.cols.work), secGap("work"), secGrow("work"));
+              const approvalsCard = card('approvals', (
                 <CardShell nodeId="approvals" titleNodeId="approvals-title" title={String(wc('approvals').title ?? content.approvals.title)} count={visibleApprovals.length} cfg={wc('approvals')}>
                   <ListBody nodeId="approvals">
                     {visibleApprovals.map((a) => (
@@ -1506,12 +1513,7 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                     ))}
                   </ListBody>
                 </CardShell>
-              ), secCols("work", content.cols.work), secGap("work"), secGrow("work"))}
-
-              {/* ⚠️ The Most Read card is built ONCE and then placed, either as a card of its own or
-                  as the middle of the rail — never authored twice. Two copies of a 40-line widget is
-                  two places for a fix to land in only one. */}
-              {(() => {
+              ), rail ? 2 : secCols("work", content.cols.work), secGap("work"), secGrow("work"));
               const knowledgeCard = card('knowledge', (
                 <CardShell nodeId="knowledge" titleNodeId="knowledge-title" title={String(wc('knowledge').title ?? content.knowledge.title)} count={visibleArticles.length} cfg={wc('knowledge')}>
                   <ListBody nodeId="knowledge">
@@ -1558,18 +1560,32 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                   </ListBody>
                 </CardShell>
               ), rail ? 1 : secCols("work", content.cols.work), secGap("work"), secGrow("work"));
-              if (!rail) return knowledgeCard;
-              /* The RAIL: one column of the work row, holding its members stacked.
-                 ⚠️ It takes a normal card's share of the row, so the two cards beside it keep the
-                 widths they would have had — the rail is a third column, not a fourth thing squeezed
-                 in beside three. Inside it every member is `cols: 1`, which is what makes each one
-                 the full width of the rail rather than a third of the row again.
+              if (!rail) return <>{requestsCard}{approvalsCard}{knowledgeCard}</>;
+              /* ⚠️ TWO REGIONS, not five cards in one wrapping row. The page reads as a MAIN area of
+                 work cards beside a tall rail, and a flat row cannot say that: the rail is long
+                 because three cards are stacked in it, so anything sharing its line stretched to its
+                 height — and the two emptiest cards on the page came out the tallest.
+                 The main region takes TWO shares to the rail's one, which is what makes its cards
+                 half its own width and the rail a third of the section.
+                 ⚠️ `items-start` + `content-start` are what let a card fit its CONTENT. A flex row
+                 stretches its children by default, and that is exactly where the acres of empty
+                 space under My Assets came from.
                  ⚠️ Each member still goes through `card()`, so removal, ordering and selection work
-                 on a rail member exactly as they do on a card standing on its own. */
+                 on a card in either region exactly as they do on one standing alone. */
               return (
+                <>
+                <div
+                  className="flex min-w-0 flex-wrap content-start items-start"
+                  style={{ flex: '2 1 0%', gap: secGap("work") }}
+                >
+                  {requestsCard}
+                  {approvalsCard}
+                  {card('assets', <RecordTiles nodeId="assets" titleFallback={content.assets.title} cfg={wc('assets')} rows={MY_ASSETS} icon={<HardDrive size={17} />} />, 2, secGap("work"), 1, 2)}
+                  {card('cis', <RecordTiles nodeId="cis" titleFallback={content.cis.title} cfg={wc('cis')} rows={MY_CIS} icon={<Server size={17} />} />, 2, secGap("work"), 1, 3)}
+                </div>
                 <div
                   className="flex min-w-0 flex-col"
-                  style={{ ...share(secCols("work", content.cols.work), secGap("work"), secGrow("work")), gap: secGap("work") }}
+                  style={{ flex: '1 1 0%', gap: secGap("work") }}
                 >
                   {rail.map((id) => (
                     id === 'knowledge' ? <Fragment key={id}>{knowledgeCard}</Fragment>
@@ -1577,11 +1593,19 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                          two have no widget spec behind the node — they were only ever placeable
                          elements — so without a seeded title they render an untitled card, and the
                          rail reads as two anonymous boxes under Announcements' first line. */
-                      : id === 'news' ? <Fragment key={id}>{card('news', <AnnouncementsRender nodeId="news" cfg={{ title: 'Announcements', ...wc('news') }} />, 1, secGap("work"), 1)}</Fragment>
-                        : id === 'contact' ? <Fragment key={id}>{card('contact', <ContactRender nodeId="contact" cfg={{ title: 'Contact Us', ...wc('contact') }} />, 1, secGap("work"), 1)}</Fragment>
+                      /* ⚠️ Wrapped in the card's own PADDING. Most Read goes through `CardShell`,
+                         which brings `p-4` with it; these two are element renderers dropped straight
+                         into `cardInner`, which paints a border and a background and no inset at
+                         all — so their titles sat 1px from the card edge beside Most Read's 17px,
+                         and three cards stacked in one rail had two different insets. Measured
+                         before and after, which is the only way that kind of difference gets
+                         noticed at all. */
+                      : id === 'news' ? <Fragment key={id}>{card('news', <div className="p-4"><AnnouncementsRender nodeId="news" cfg={{ title: 'Announcements', ...wc('news') }} /></div>, 1, secGap("work"), 1)}</Fragment>
+                        : id === 'contact' ? <Fragment key={id}>{card('contact', <div className="p-4"><ContactRender nodeId="contact" cfg={{ title: 'Contact Us', ...wc('contact') }} /></div>, 1, secGap("work"), 1)}</Fragment>
                           : null
                   ))}
                 </div>
+                </>
               );
               })()}
 
@@ -1595,7 +1619,11 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
 
             {after('work')}
 
-            {/* ── Records row ── Assets and CIs, in a parent section like every other card. */}
+            {/* ── Records row ── Assets and CIs, in a parent section like every other card.
+                ⚠️ v1 ONLY. The rail layout draws these two inside the work band's main region, so
+                `records` is absent from its `blockOrder` and `band()` drops the whole thing —
+                without which the page would carry each card twice, once in each place. */}
+            {band('records', (
             <Sel id="records" className={SECTION_PAD} style={{ order: slot("records"), ...fillCss(wc('records')) }}>
               <RowDrop rowId="records" resize={secResize("records")} className={`flex flex-wrap${secPacked("records", 2) ? " portal-row-packed" : ""}`} style={{ gap: secGap("records"), ...secBox("records", 2), ...rowFits(inRow("records"), "records"), ...secGrid("records", 2) }}>
                 {/* ⚠️ TILES on the rail layout, list rows otherwise — one `rows` shape, two
@@ -1620,8 +1648,8 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                 ))}
               </RowDrop>
             </Sel>
-
-            {after('records')}
+            ))}
+            {band('records', after('records'))}
           </div>
           </>
           )}
@@ -1669,15 +1697,28 @@ function RecordTiles({ nodeId, titleFallback, cfg, rows, icon }: {
   icon: ReactNode;
 }) {
   const { styles } = useCanvas();
-  const shown = rows.slice(0, Number(cfg.show ?? 8));
+  /* ⚠️ FOUR tiles, and the badge counts them ALL. Five wrapped to a second line that was almost
+     entirely empty — one tile beside three tile-widths of nothing — and a card whose whole job is a
+     glance does not earn a second row for its fifth item. The badge already says how many there
+     are, which is the same contract every other live card on this page keeps: show a few, count all
+     of them, and "View all" is the way to the rest. */
+  /* ⚠️ A HARD four, not a fallback. The widget spec carries a stored "show" default — 5 for My
+     Assets — and a stored value beats a fallback every time, so the fifth tile went on wrapping to
+     a second line that was three tile-widths of nothing. The LIST variant on the other layout still
+     honours the setting; the tile variant is a 2x2 block by shape, which is a different promise. */
+  const shown = rows.slice(0, 4);
   if (!shown.length) return <EmptyCard nodeId={nodeId} title={String(cfg.title ?? titleFallback)} cfg={cfg} />;
   return (
-    <CardShell nodeId={nodeId} title={String(cfg.title ?? titleFallback)} count={shown.length} cfg={cfg}>
+    <CardShell nodeId={nodeId} title={String(cfg.title ?? titleFallback)} count={rows.length} cfg={cfg}>
       {/* ⚠️ `@container`, not a viewport breakpoint — the tiles answer to the CARD's width, which is
           what lets this row be dragged narrow or dropped into a column and still lay out sensibly.
           Every other grid in this builder that had to survive a resize does the same. */}
       <div className="@container">
-        <div className="grid grid-cols-1 gap-3 @xl:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-4">
+        {/* ⚠️ Two-up is the CEILING now, not four. These cards are half the main region wide on the
+            rail layout, so a four-track grid gave each tile about 90px — narrower than the ID pill
+            and the type beside it, which then wrapped. Two tracks at this width is the widest that
+            still leaves a tile readable. */}
+        <div className="grid grid-cols-1 gap-3 @[290px]:grid-cols-2">
           {shown.map((r) => (
             <div key={r.id} className="flex items-start gap-3 rounded-lg border border-[#E5E7EB] bg-white p-3">
               <span className="flex size-9 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#475467]">{icon}</span>

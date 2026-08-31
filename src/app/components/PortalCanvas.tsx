@@ -680,8 +680,18 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
     const el = elRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    // Row members are the direct [data-node] children of this element's parent.
-    const row = [...(el.parentElement?.children ?? [])].filter((c) => c instanceof HTMLElement && c.dataset.node) as HTMLElement[];
+    // Row members are the direct [data-node] children of this element's parent, on this line.
+    const all = [...(el.parentElement?.children ?? [])].filter((c) => c instanceof HTMLElement && c.dataset.node) as HTMLElement[];
+    /* ⚠️ ONLY the members on the SAME LINE. A wrapped flex row is one DOM parent but several visual
+       rows, and every member was being treated as a sibling to share width with — so dragging My
+       Assets narrower also shrank My CIs, which sits on the line BELOW it and has nothing to do with
+       how wide its neighbour is. Width is shared with what is beside you, and a card on another line
+       is not beside you.
+       The tops were already captured for exactly this and never consulted; 4px of tolerance covers
+       sub-pixel layout, and it is measured against THIS element's top rather than the first one's,
+       because the dragged element is not always on the first line. */
+    const myTop = r.top;
+    const row = all.filter((cEl) => Math.abs(cEl.getBoundingClientRect().top - myTop) < 4);
     /* The band this element lives in — the nearest ancestor node that is not a column, since a
        column is only ever as tall as the section around it and would be a circular ceiling. */
     let band: HTMLElement | null = el.parentElement?.closest('[data-node]') as HTMLElement | null;

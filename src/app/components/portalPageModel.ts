@@ -278,18 +278,32 @@ export const DEFAULT_BLOCK_ORDER = ['quick', 'favourites', 'services', 'work', '
  *   • the work band is Requests + Approvals beside a stacked RAIL of Announcements, Most Read and
  *     Contact Us, instead of three equal cards
  *   • My Assets and My CIs are full-width rows of tiles rather than two columns of list rows */
-export const BLOCK_ORDER_V2 = ['quick', 'favourites', 'work', 'records'];
+/* ⚠️ NO `records` band. My Assets and My CIs moved INTO the work band, because the page reads as
+   two regions and not four bands: a MAIN area of work cards on the left and a tall rail on the
+   right. Left as their own full-width band underneath, they ran the whole page width while the rail
+   beside them was still going — so the rail ended level with nothing, and the two widest cards on
+   the page were the two with the least in them. */
+export const BLOCK_ORDER_V2 = ['quick', 'favourites', 'work'];
 
 export const ROW_ORDER_V2: Record<string, string[]> = {
   quick: ['quick-incident', 'quick-service', 'quick-ad', 'quick-knowledge'],
   /* The rail's three ride in the same list, so reordering and removal work on them exactly as they
      do on the two cards beside them. Which of them the rail holds is `RAIL_V2`. */
+  /* ⚠️ Assets and CIs stay in `records`, NOT in `work`, even though v2 DRAWS them inside the work
+     band. `rowOf` searches both layouts' maps and returns the first row that claims an id, so
+     listing them under `work` made `rowOf('assets')` answer "work" for v1 too — and v1 renders
+     them in the records band, where `card()` then found them absent from `rowOrder.work` and
+     returned null. Membership is which LIST reorders a card; where it is painted is the layout's
+     business, and the two are not the same question. */
   work: ['requests', 'approvals', 'news', 'knowledge', 'contact'],
   records: ['assets', 'cis'],
 };
 
 /** The work-band members that stack into the right-hand rail, in the order they stack. */
 export const RAIL_V2 = ['news', 'knowledge', 'contact'];
+
+/** The work-band members in the MAIN area, laid out two to a line beside the rail. */
+export const MAIN_V2 = ['requests', 'approvals', 'assets', 'cis'];
 
 export const DEFAULT_ROW_ORDER: Record<string, string[]> = {
   quick: ['quick-incident', 'quick-service', 'quick-ad', 'quick-knowledge'],
