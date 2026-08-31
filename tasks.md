@@ -696,6 +696,17 @@ Updated: 2026-08-25 12:11
 - **⚠️ The banner falls back to its COLOUR, not to nothing.** A transparent band would drop the search field onto the artwork with no contrast guarantee at all, which is the one thing `portalContrast` exists to prevent. And the panel says this will happen before it happens, rather than leaving an invisible upload looking like one that failed.
 - **Verified:** the Theme panel ends "HOME PAGE BACKGROUND · A colour or an image behind the whole page · Colour | Image"; no Custom heading, no Heading-text or Body-text row. The Image tab reads "Suggested 1920 × 1080 px". Uploading took the canvas `background-image` from `none` to the file at `background-size: cover` and raised the warning line; with it set the hero's `background-image` is `none` over `rgb(61,139,208)`, and switching back to Colour restored the gradient.
 
+## 48. The navbar actions get a panel, and both icon sets drag
+- **Status:** done
+- **Where:** `portalStructureSpecs.ts`, `SupportPortalPreview.tsx`
+- **You asked:** give the navbar's right-side action icons the same Content list the left rail has, and make BOTH the navbar icons and the rail icons drag-reorderable between icons on the canvas.
+- **What I found:** the bar's icons already dragged — into a `useState`. So the gesture worked, looked right, and was gone the moment the component remounted, and the panel could not show the order at all because there was nothing stored to read.
+- **What I built:** `HEADER_ACTIONS_SPEC` is now a collection with the rail's exact shape (flat list, `noAdd`, `noOpen`, reorder only), and the order lives in that node's `items` — the SAME value the canvas drag writes. The rail gained the identical drag: same MIME, same grab cursor, same blue ring on the drop target, so it is one gesture to learn rather than two.
+- **⚠️ Ask AI, Create and the avatar are not in the list.** They flank the cluster and are fixed — a labelled button, the product's one primary action, and an avatar where every app in this suite puts it. A list of all nine would offer three rows that refuse to move, which is the panel describing a freedom the bar does not have.
+- **⚠️ The rail's reorder writes the FULL stored list, hidden rows included.** The visible order has already dropped them, so committing that would delete a destination as a side effect of moving another one.
+- **⚠️ The rail icons do NOT `stopPropagation` on click, unlike the bar's.** The bar's cluster is its own node inside a bar you can also select, so an icon has to say which you meant. The rail has no inner node — the rail IS the thing — so swallowing the click would leave it reachable only by its few pixels of padding.
+- **Verified:** selecting the action cluster opens "CONTENT · Text/Font size · Conversations/Messages · Notifications/Alerts · Shortcuts/Keyboard · Home/Portal home · Help/Support". Dragging the Help icon onto Text moved `lucide-info` to the front of the bar AND put "Help · Support" at the top of the panel list. On the rail, clicking an icon selects the rail, and dragging Tasks to the top reordered both the icons and the panel list to "Tasks · Requests · Changes · …".
+
 ## Parked — needs discussion
 - Tour guide
 - AI capabilities

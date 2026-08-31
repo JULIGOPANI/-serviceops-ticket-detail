@@ -307,16 +307,54 @@ const RAIL_ITEMS = [
  * which hands every unrecognised node a generic Style and Spacing block — the two sections that
  * should never have been on offer here. A node with no spec does not get "no panel", it gets the
  * default one. */
+/* The bar's arrangeable actions, in their real order.
+   ⚠️ Ask AI, Create and the profile avatar are deliberately NOT here. They flank the cluster and
+   are fixed: Ask AI is a labelled button rather than a glyph, Create is the product's one primary
+   action, and an avatar at the far right is where every application in this suite puts it. A list
+   that showed all nine would offer three rows that refuse to move, which is worse than not offering
+   them — the panel would be describing a freedom the bar does not have. */
+const HEADER_ACTION_ITEMS = [
+  { id: 'type', name: 'Text', route: 'Font size' },
+  { id: 'chat', name: 'Conversations', route: 'Messages' },
+  { id: 'bell', name: 'Notifications', route: 'Alerts' },
+  { id: 'keys', name: 'Shortcuts', route: 'Keyboard' },
+  { id: 'home', name: 'Home', route: 'Portal home' },
+  { id: 'info', name: 'Help', route: 'Support' },
+];
+
+/* ── The top bar's action cluster ─────────────────────────────────────────────
+ *
+ * ⚠️ It now has the SAME panel the left rail has, and for the same reason: these are the product's
+ * own controls, so their ORDER is the admin's and nothing else is. Earlier this spec deliberately
+ * offered no list at all — the cluster was treated as one indivisible unit — but an admin who can
+ * drag the icons on the canvas and cannot see them anywhere in the panel has a gesture with no
+ * inventory: no way to know what is there, in what order, or that reordering was ever possible.
+ * The list is the canvas drag written down.
+ *
+ * ⚠️ The list and the canvas write the SAME value (`items` on this node). Two orders — one stored
+ * and one in a component's local state — is exactly the fault the bar used to carry: the icons
+ * moved, nothing was saved, and reopening the page put them back. */
 export const HEADER_ACTIONS_SPEC: WidgetSpec = {
-  id: 'header_actions', name: 'Actions', group: 'Chrome', reuse: 'single', family: 'container',
+  id: 'header_actions', name: 'Actions', group: 'Chrome', reuse: 'single', family: 'collection',
   fields: [],
   packs: [],
   noDelete: true,
   notes: [{
     tone: 'info',
-    text: 'These belong to the product and look the same on every portal. What a requester can reach through them is set by their permissions, not here.',
+    text: 'These belong to the product and look the same on every portal. You can reorder them — here or by dragging them in the bar — but not add, remove or restyle them. What a requester can reach through them is set by their permissions, not here.',
   }],
-  defaults: {},
+  collection: {
+    key: 'items', group: 'Actions', addLabel: '', emptyHint: '',
+    /* FLAT for the rail's reason — this panel is one list and nothing else, so a collapsible group
+       would put a chevron above the only thing there is to see. */
+    flat: true,
+    noAdd: true, noOpen: true,
+    label: (it) => String(it.name ?? ''),
+    meta: (it) => String(it.route ?? ''),
+    seed: () => ({}),
+    fields: [],
+  },
+  defaults: { items: HEADER_ACTION_ITEMS },
 };
 
 export const RAIL_SPEC: WidgetSpec = {

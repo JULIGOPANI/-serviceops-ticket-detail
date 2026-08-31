@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-31T15:10:34.827Z",
+  "builtAt": "2026-08-31T15:20:34.791Z",
   "tasks": [
     {
       "n": 1,
@@ -766,6 +766,18 @@
         "You asked": "remove the Custom section from the Theme menu and add a **Home page background** section with colour and image tabs applying to the whole page; a full-page image removes the banner image; show the image size.",
         "What I built": "Custom's three loose overrides are gone. Heading text and body text belong to the palette above them — two places answering \"what colour is the heading\" means the one you are not looking at wins — and the page's own backdrop is the one of the three that is genuinely a decision about THIS page, so it is what stays and it gains a picture as well as a colour.",
         "Verified": "the Theme panel ends \"HOME PAGE BACKGROUND · A colour or an image behind the whole page · Colour | Image\"; no Custom heading, no Heading-text or Body-text row. The Image tab reads \"Suggested 1920 × 1080 px\". Uploading took the canvas `background-image` from `none` to the file at `background-size: cover` and raised the warning line; with it set the hero's `background-image` is `none` over `rgb(61,139,208)`, and switching back to Colour restored the gradient."
+      }
+    },
+    {
+      "n": 48,
+      "title": "The navbar actions get a panel, and both icon sets drag",
+      "status": "done",
+      "fields": {
+        "Where": "`portalStructureSpecs.ts`, `SupportPortalPreview.tsx`",
+        "You asked": "give the navbar's right-side action icons the same Content list the left rail has, and make BOTH the navbar icons and the rail icons drag-reorderable between icons on the canvas.",
+        "What I found": "the bar's icons already dragged — into a `useState`. So the gesture worked, looked right, and was gone the moment the component remounted, and the panel could not show the order at all because there was nothing stored to read.",
+        "What I built": "`HEADER_ACTIONS_SPEC` is now a collection with the rail's exact shape (flat list, `noAdd`, `noOpen`, reorder only), and the order lives in that node's `items` — the SAME value the canvas drag writes. The rail gained the identical drag: same MIME, same grab cursor, same blue ring on the drop target, so it is one gesture to learn rather than two.",
+        "Verified": "selecting the action cluster opens \"CONTENT · Text/Font size · Conversations/Messages · Notifications/Alerts · Shortcuts/Keyboard · Home/Portal home · Help/Support\". Dragging the Help icon onto Text moved `lucide-info` to the front of the bar AND put \"Help · Support\" at the top of the panel list. On the rail, clicking an icon selects the rail, and dragging Tasks to the top reordered both the icons and the panel list to \"Tasks · Requests · Changes · …\"."
       }
     }
   ],

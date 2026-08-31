@@ -587,7 +587,14 @@ const RAIL_ITEMS = [
 /* §7.23 — the rail's ORDER and VISIBILITY are the admin's; the destinations are the product's. The
    items array is matched against the rail's own glyphs by index, so hiding or reordering in the
    drawer moves the real rail. */
-function PortalRail({ cfg = EMPTY_CFG }: { cfg?: Record<string, unknown> }) {
+function PortalRail({ cfg = EMPTY_CFG, onOrder }: {
+  cfg?: Record<string, unknown>;
+  /** Commits a canvas reorder to the rail's own `items`, the same list the panel edits. */
+  onOrder?: (names: string[]) => void;
+}) {
+  const { enabled } = useCanvas();
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [overKey, setOverKey] = useState<string | null>(null);
   const width = Number(cfg.railWidth ?? 60);
   const iconSize = Number(cfg.railIconSize ?? 18);
   const spacing = Number(cfg.railSpacing ?? 4);
@@ -599,11 +606,54 @@ function PortalRail({ cfg = EMPTY_CFG }: { cfg?: Record<string, unknown> }) {
     ? items.filter((i) => !i.hidden).map((i) => RAIL_ITEMS.find((r) => r.label === i.name)).filter(Boolean) as typeof RAIL_ITEMS
     : RAIL_ITEMS;
 
+  /* ⚠️ The reorder writes the FULL stored list, hidden rows included — `order` above has already
+     dropped them, so committing that would delete a destination as a side effect of moving another.
+     The dragged name is spliced within the stored order instead. */
+  const moveTo = (srcLabel: string, dstLabel: string) => {
+    if (!onOrder || srcLabel === dstLabel) return;
+    const names = (items.length ? items.map((i) => i.name) : RAIL_ITEMS.map((r) => r.label)) as string[];
+    const next = names.filter((n) => n !== srcLabel);
+    const at = next.indexOf(dstLabel);
+    next.splice(at < 0 ? next.length : at, 0, srcLabel);
+    onOrder(next);
+  };
+
   return (
     <Sel id="rail" className="flex flex-shrink-0 flex-col items-center border-r border-[#e5e7eb] bg-white py-3" style={{ width }}>
       <div className="flex flex-1 flex-col items-center" style={{ gap: spacing }}>
         {order.map(({ key, label, Icon }) => (
-          <span key={key} title={label} className="flex flex-col items-center gap-0.5 rounded px-1 py-1.5 text-[#6b7280]">
+          /* ⚠️ Same gesture, same MIME and same visual language as the top bar's icons — one drag to
+             learn, not two. `NAV_MIME` keeps it off the element MIME, so a rail drag can never land
+             on the canvas as a dropped widget. */
+          <span
+            key={key}
+            title={enabled ? `${label} — drag to reorder` : label}
+            draggable={enabled}
+            onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData(NAV_MIME, label); e.dataTransfer.effectAllowed = 'move'; setDragKey(label); }}
+            onDragEnd={() => { setDragKey(null); setOverKey(null); }}
+            onDragOver={(e) => {
+              if (!e.dataTransfer.types.includes(NAV_MIME)) return;
+              e.preventDefault(); e.stopPropagation(); setOverKey(label);
+            }}
+            onDragLeave={() => setOverKey((k) => (k === label ? null : k))}
+            onDrop={(e) => {
+              const src = e.dataTransfer.getData(NAV_MIME);
+              e.preventDefault(); e.stopPropagation();
+              setOverKey(null); setDragKey(null);
+              if (src) moveTo(src, label);
+            }}
+            /* ⚠️ NO `stopPropagation` on the click, unlike the top bar's icons. There the cluster is
+               its own selectable node sitting in a bar you can also select, so an icon has to say
+               which of the two you meant. The rail has no inner node — the rail IS the thing — so
+               swallowing the click would leave it reachable only by its few pixels of padding, and
+               clicking the navigation would select nothing at all. A drag never fires a click, so
+               the two gestures do not compete. */
+            className={`flex flex-col items-center gap-0.5 rounded px-1 py-1.5 text-[#6b7280] ${
+              enabled ? 'cursor-grab active:cursor-grabbing' : ''
+            } ${dragKey === label ? 'opacity-35' : ''} ${
+              overKey === label && dragKey !== label ? 'ring-1 ring-[#3D8BD0]' : ''
+            }`}
+          >
             <Icon size={iconSize} />
             {withLabels && <span className="max-w-full truncate text-[9px] leading-none">{label}</span>}
           </span>
@@ -627,13 +677,23 @@ const NAV_MIME = 'text/portal-nav';
  *  it collects everything anchored to any of them under its own single seam. */
 const BUILT_IN_ANCHORS = new Set(['hero', 'quick', 'favourites', 'services', 'work', 'records']);
 
-function PortalHeader({ cfg = EMPTY_CFG, onLogoPos }: {
+function PortalHeader({ cfg = EMPTY_CFG, actionsCfg = EMPTY_CFG, onLogoPos, onActionOrder }: {
   content?: PortalPageContent; cfg?: Record<string, unknown>;
+  /** The action cluster's own config — a separate node, so a separate bag. */
+  actionsCfg?: Record<string, unknown>;
   /** Commits the logo's placement — the bar owns it, so the write goes back up to the bar's config. */
   onLogoPos?: (p: 'left' | 'center' | 'right') => void;
+  /** Commits a canvas reorder of the action icons to `header-actions`' own config. */
+  onActionOrder?: (ids: string[]) => void;
 }) {
   const { styles, enabled } = useCanvas();
-  const [order, setOrder] = useState(['type', 'chat', 'bell', 'keys', 'home', 'info']);
+  /* ⚠️ The order is CONFIG, not local state. It used to be a `useState` seeded with the six keys,
+     which meant the canvas drag worked, looked right, and was gone the moment the component
+     remounted — and the panel could not show it at all, because there was nothing to read. Panel
+     and canvas now move ONE value. */
+  const actionItems = (actionsCfg.items as { id: string; name?: string }[] | undefined) ?? [];
+  const order = actionItems.length ? actionItems.map((i) => i.id) : ['type', 'chat', 'bell', 'keys', 'home', 'info'];
+  const setOrder = (fn: (o: string[]) => string[]) => onActionOrder?.(fn(order));
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [logoDrag, setLogoDrag] = useState(false);
   /** Where the logo would land if you let go now — drawn as a drop marker in the bar. */
@@ -1208,10 +1268,29 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
          traps you in whatever you touched last. */
       onClick={() => enabled && select(null)}
     >
-      <PortalHeader content={content} cfg={wc("header")} onLogoPos={(p) => setCfg?.('header', { logoPos: p })} />
+      <PortalHeader
+        content={content}
+        cfg={wc("header")}
+        actionsCfg={wc("header-actions")}
+        onLogoPos={(p) => setCfg?.('header', { logoPos: p })}
+        /* The canvas drag commits the same `items` list the panel edits, ORDER-ONLY: the stored
+           rows are re-sorted, never rebuilt, so each keeps its name and its sub-line. */
+        onActionOrder={(ids) => {
+          const cur = (wc("header-actions").items as { id: string }[] | undefined) ?? [];
+          if (!cur.length) return;
+          setCfg?.('header-actions', { items: ids.map((id) => cur.find((i) => i.id === id)).filter(Boolean) });
+        }}
+      />
 
       <div className="flex min-h-0 flex-1">
-        <PortalRail cfg={wc("rail")} />
+        <PortalRail
+          cfg={wc("rail")}
+          onOrder={(names) => {
+            const cur = (wc("rail").items as { name: string }[] | undefined) ?? [];
+            if (!cur.length) return;
+            setCfg?.('rail', { items: names.map((n) => cur.find((i) => i.name === n)).filter(Boolean) });
+          }}
+        />
 
         {/* ⚠️ The page takes the SAME resolved background, not a second copy of the setting — one
             upload, two surfaces, and no way for them to drift. `bg-[#F4F6FA]` stays as the class so
