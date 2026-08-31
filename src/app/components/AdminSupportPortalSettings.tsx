@@ -254,7 +254,13 @@ export function AdminSupportPortalSettings({ compact = false }: {
     /* ⚠️ A column with its own scroller, so the footer below can stay put. Without the flex column
        the whole panel scrolled as one and a "sticky" footer had nothing to be sticky inside. */
     <div className="flex h-full min-h-0 flex-col">
-    <div className={`min-h-0 flex-1 overflow-y-auto ${compact ? 'px-4 pb-6' : 'px-4 py-6'}`}>
+    {/* ⚠️ `pt-4` on the compact variant. It had `pb-6` and NO top padding, which was survivable
+       while this only ever rendered inside the builder's rail — that panel supplied its own space
+       above. In a drawer it sits directly under the header's divider, so the search field was
+       welded to the rule above it with nothing between them. A container that happens to give a
+       component air is not the same as the component asking for it, and the second one is what
+       survives being put somewhere else. */}
+    <div className={`min-h-0 flex-1 overflow-y-auto ${compact ? 'px-4 pb-6 pt-4' : 'px-4 py-6'}`}>
       <div className={`mb-4 gap-2 ${compact ? 'flex flex-col' : 'flex items-center gap-3'}`}>
         <div className={compact ? 'relative w-full' : 'relative w-[280px]'}>
           <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />

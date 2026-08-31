@@ -277,6 +277,13 @@ Updated: 2026-08-25 12:11
 - **(4)** Adding an item no longer calls `onSelect`, which used to swap the whole sidebar for that item's drawer — you asked for one more row and the panel you were working in disappeared. The list opens the new row **in place** (the item is always appended, so its index is the length before the add). A new `blankOnAdd` flag empties every declared field, and `placeholder` on the two inline fields says what belongs there. ⚠️ Both are **opt-in**: the seeds exist so an untouched page shows a realistic accordion, and a gallery slide added blank is a broken slide. A collection with no inline editor still opens its drawer, because it has nowhere else to go.
 - **Verified:** a column's Design now reads "Style | Fill | None | Colour | Border | px | Corner radius | px | %" — the current component. No "Behaviour" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens "Item 4" expanded, both fields empty, showing "How do I reset my password?" and "Answer it in a sentence or two." as placeholders, with the Add link CTA below them.
 
+## 58. The settings drawer gets air above its search
+- **Status:** done
+- **Where:** `AdminSupportPortalSettings.tsx`
+- The compact variant carried `pb-6` and **no top padding**, so in the drawer the search field was welded to the header rule with nothing between them.
+- **⚠️ Survivable in one container, broken in the next.** It only ever rendered inside the builder rail, and that panel supplied its own space above — so the component had been relying on a container to give it air rather than asking for it. That is exactly the kind of arrangement that looks fine until the component is put somewhere else, which is what the row-action drawer did to it.
+- **Verified:** the search input now starts **16px** below the header divider (divider bottom 71, input top 87), where the two were touching before.
+
 ## 57. The four work cards match, and every tile has one hierarchy
 - **Status:** done
 - **Where:** `SupportPortalPreview.tsx` (main region, `RecordTiles`)
