@@ -167,11 +167,22 @@ function AlignFlyout({ onH, onV }: { onH: (v: CellAlign) => void; onV: (v: VertA
   );
 }
 
-function HandleMenu({ items, x, y, onClose }: { items: MenuItem[]; x: number; y: number; onClose: () => void }) {
+/** The viewport rect of the thing a menu acts on. The menu must never cover it. */
+export interface AvoidRect { left: number; top: number; right: number; bottom: number }
+
+function HandleMenu({ items, avoid, axis, onClose }: {
+  items: MenuItem[];
+  avoid: AvoidRect;
+  /** 'x' = the target is a vertical strip (a column, a selection) → the menu goes beside it.
+   *  'y' = the target is a horizontal band (a row) → the menu goes above or below it. */
+  axis: 'x' | 'y';
+  onClose: () => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [openSub, setOpenSub] = useState<string | null>(null);
   /** Viewport rect of the row whose flyout is open — the flyout is portalled, so it needs one. */
   const [subAt, setSubAt] = useState<{ left: number; top: number } | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   useEffect(() => {
     const away = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) onClose(); };
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -179,11 +190,60 @@ function HandleMenu({ items, x, y, onClose }: { items: MenuItem[]; x: number; y:
     window.addEventListener('keydown', esc);
     return () => { window.removeEventListener('mousedown', away); window.removeEventListener('keydown', esc); };
   }, [onClose]);
-  return (
+
+  /* ⚠️ THE MENU MUST NOT COVER THE CELLS IT IS ABOUT. It used to drop from the rail straight down
+     the column, or from the row's top edge straight across the row — so the one thing you needed
+     to see while choosing "Sort A → Z" or "Colour" was hidden behind the menu, and you were picking
+     an action for data you could no longer read.
+     The rule is the target's SHAPE. A column is a vertical strip, so the menu goes to its side; a
+     row is a horizontal band, so the menu goes under it, or over it when there is no room below.
+     Either way the selection stays fully visible and only its neighbours are covered.
+     ⚠️ Measured AFTER mount, in a layout effect, because a flip needs the menu's real height and
+     the row, column and cell menus are three different lengths. It renders hidden-but-laid-out for
+     that one pass — `visibility`, never `display`, or there is nothing to measure. */
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    const GAP = 6;
+    const EDGE = 8;
+    let left: number;
+    let top: number;
+    if (axis === 'y') {
+      left = Math.min(Math.max(EDGE, avoid.left), window.innerWidth - EDGE - w);
+      top = avoid.bottom + GAP;
+      if (top + h > window.innerHeight - EDGE) {
+        const above = avoid.top - GAP - h;
+        /* Only when NEITHER side fits does it clamp and accept an overlap — a menu pushed off the
+           window is worse than one covering what it is about. */
+        top = above >= EDGE ? above : Math.max(EDGE, window.innerHeight - EDGE - h);
+      }
+    } else {
+      top = Math.min(Math.max(EDGE, avoid.top), window.innerHeight - EDGE - h);
+      left = avoid.right + GAP;
+      if (left + w > window.innerWidth - EDGE) {
+        const l = avoid.left - GAP - w;
+        left = l >= EDGE ? l : Math.max(EDGE, window.innerWidth - EDGE - w);
+      }
+    }
+    setPos({ left, top });
+  }, [axis, avoid.left, avoid.top, avoid.right, avoid.bottom, items.length]);
+
+  /* ⚠️ PORTALLED, and positioned in VIEWPORT coordinates. The table wrapper scrolls horizontally,
+     and an absolutely-positioned menu inside an `overflow-x-auto` box is clipped at its edge — the
+     same trap that took the Colour and Alignment flyouts, the drawer tab strip and the listing
+     kebab. Moving the menu beside a column would have walked straight back into it. */
+  return createPortal(
     <div
       ref={ref}
       role="menu"
-      style={{ left: x, top: y }}
+      style={{
+        position: 'fixed',
+        left: pos?.left ?? 0,
+        top: pos?.top ?? 0,
+        visibility: pos ? 'visible' : 'hidden',
+      }}
       /* ⚠️ A capped height with its own scroll. The column menu is twelve items and the table can
          sit anywhere on a long page — without this the last few rows fall off the bottom of the
          canvas, which is exactly where Delete lives. */
@@ -192,7 +252,7 @@ function HandleMenu({ items, x, y, onClose }: { items: MenuItem[]; x: number; y:
          Colour and Alignment flyouts were clipped at the menu's edge. They open in a PORTAL now,
          positioned from the trigger's own rect, so the menu can keep its scroll and the flyout can
          leave it. */
-      className="absolute z-[70] max-h-[320px] min-w-[214px] overflow-y-auto rounded-lg border border-[#E5E7EB] bg-white py-1 shadow-[0_12px_16px_-4px_rgba(16,24,40,0.10)]"
+      className="z-[10000] max-h-[320px] min-w-[214px] overflow-y-auto rounded-lg border border-[#E5E7EB] bg-white py-1 shadow-[0_12px_16px_-4px_rgba(16,24,40,0.10)]"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
@@ -246,7 +306,8 @@ function HandleMenu({ items, x, y, onClose }: { items: MenuItem[]; x: number; y:
           )}
         </div>
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -305,7 +366,13 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
     (drag?.kind === 'row' && drag.from === i)
     || (!!sel && Math.min(sel.r0, sel.r1) <= i && i <= Math.max(sel.r0, sel.r1));
   const [hoverCol, setHoverCol] = useState<number | null>(null);
-  const [menu, setMenu] = useState<{ kind: 'row' | 'col' | 'cell'; index: number; x: number; y: number } | null>(null);
+  /* ⚠️ An avoid-RECT, not a point. The menu works out where to sit from the shape of what it acts
+     on (see HandleMenu), so a call site says WHAT is selected rather than guessing where the menu
+     should go — which is how three call sites came to make three different guesses, two of them
+     landing the menu on top of the very cells it was about. */
+  const [menu, setMenu] = useState<
+    { kind: 'row' | 'col' | 'cell'; index: number; avoid: AvoidRect; axis: 'x' | 'y' } | null
+  >(null);
   const [sel, setSel] = useState<{ r0: number; c0: number; r1: number; c1: number } | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [drag, setDrag] = useState<{ kind: 'row' | 'col'; from: number; to: number } | null>(null);
@@ -635,7 +702,10 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
       onMouseEnter={() => setOverTable(true)}
       onMouseLeave={() => { setOverTable(false); setHoverRow(null); setHoverCol(null); }}
     >
-      <div ref={wrapRef} className={`relative ${cfg.hScroll !== false ? 'overflow-x-auto' : ''}`}>
+      {/* ⚠️ ALWAYS scrollable. This was an admin toggle, which made "does a wide table fit on a
+          phone" a question every table put to its author — and the only answer anyone wants is
+          yes. It belongs to the product, so it is unconditional and stores no value at all. */}
+      <div ref={wrapRef} className="relative overflow-x-auto">
         {/* ⚠️ A real <table> with a real <colgroup> and `table-fixed`. Column width is a property of
             the column; without both halves the browser sizes from content and the colgroup is
             ignored entirely. */}
@@ -715,9 +785,14 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
               onClick={(e) => {
                 e.stopPropagation();
                 setSel({ r0: 0, c0: i, r1: rows - 1, c1: i });
+                /* The grip spans the column's width, so its rect already IS the column's horizontal
+                   extent; the cells run from under the rail to the foot of the table. */
                 const b = (e.currentTarget as HTMLElement).getBoundingClientRect();
                 const w = wrapRef.current!.getBoundingClientRect();
-                setMenu({ kind: 'col', index: i, x: b.left - w.left, y: RAIL + 6 });
+                setMenu({
+                  kind: 'col', index: i, axis: 'x',
+                  avoid: { left: b.left, right: b.right, top: b.bottom, bottom: w.bottom },
+                });
               }}
               style={{ left: x + RAIL + 4, width: geo.w[i] - 2, top: 0, height: RAIL, cursor: drag?.kind === 'col' ? 'grabbing' : 'grab' }}
               /* ⚠️ A GRIP, not a chevron. The bar is a drag handle first and a menu button second —
@@ -742,9 +817,14 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
               onClick={(e) => {
                 e.stopPropagation();
                 setSel({ r0: i, c0: 0, r1: i, c1: cols - 1 });
+                /* The grip spans the row's height, so its rect IS the band's vertical extent; the
+                   row itself runs the full width of the table. */
                 const w = wrapRef.current!.getBoundingClientRect();
                 const b = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                setMenu({ kind: 'row', index: i, x: RAIL + 6, y: b.top - w.top + RAIL });
+                setMenu({
+                  kind: 'row', index: i, axis: 'y',
+                  avoid: { left: w.left + RAIL, right: w.right, top: b.top, bottom: b.bottom },
+                });
               }}
               style={{ top: y + RAIL + 4, height: geo.h[i] - 2, left: 0, width: RAIL, cursor: drag?.kind === 'row' ? 'grabbing' : 'grab' }}
               className={`absolute z-[50] flex items-center justify-center rounded-full transition-opacity transition-colors ${
@@ -841,7 +921,7 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
           {menu && (
             <HandleMenu
               items={menu.kind === 'row' ? rowMenu(menu.index) : menu.kind === 'cell' ? cellMenu() : colMenu(menu.index)}
-              x={menu.x} y={menu.y}
+              avoid={menu.avoid} axis={menu.axis}
               onClose={() => setMenu(null)}
             />
           )}
@@ -859,9 +939,11 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
               aria-label="Cell options"
               onClick={(e) => {
                 e.stopPropagation();
-                const w = wrapRef.current!.getBoundingClientRect();
                 const b = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                setMenu({ kind: 'cell', index: 0, x: b.right - w.left + 6, y: b.top - w.top });
+                setMenu({
+                  kind: 'cell', index: 0, axis: 'x',
+                  avoid: { left: b.left, right: b.right, top: b.top, bottom: b.bottom },
+                });
               }}
               style={{ left: selRect.left + RAIL + 4 + selRect.width - 5, top: selRect.top + RAIL + 4 + selRect.height / 2 - 5 }}
               className="absolute z-[60] size-[10px] rounded-full border-2 border-white bg-[#3D8BD0] shadow-[0_1px_3px_rgba(16,24,40,0.3)] transition-transform hover:scale-125"

@@ -212,7 +212,11 @@ export const TABLE_SPEC: WidgetSpec = {
      * ⚠️ Every removed value stays in `defaults` and is still read by the renderer, so no table on
      * any page moved — the controls simply stopped being duplicated. */
     { key: 'cellPad', label: 'Cell padding', control: 'sliderUnit', tab: 'style', group: 'Table', min: 4, max: 24, unit: 'px' },
-    { key: 'hScroll', label: 'Horizontal scroll on narrow screens', control: 'toggle', tab: 'style', group: 'Table' },
+    /* ⚠️ "Horizontal scroll on narrow screens" is GONE, and unlike the other removals this one took
+       its stored value with it. It is not a look an admin chooses — it is what a wide table has to
+       do on a phone, and asking every author to decide it put a question on the panel that has only
+       one sensible answer. The renderer now scrolls unconditionally, so there is no key left to
+       hold a value nothing can set. */
 
   ],
   /* ⚠️ No P1. The table's fill, border and radius are answered by Frame and by the Header/Rows
@@ -238,7 +242,7 @@ export const TABLE_SPEC: WidgetSpec = {
        false further down the same object, so the later one won and the toggle shipped off. */
     cellAlign: 'left',
     frameBorderWidth: 1, frameBorderColor: '#E5E7EB', shadowOn: false,
-    cellPad: 8, hScroll: true,
+    cellPad: 8,
     rows: TABLE_SEED.map((cells, i) => ({ id: `r${i}`, cells })),
     cols: 3,
     // Equal widths and left alignment until someone decides otherwise (§7.17 defaults).
