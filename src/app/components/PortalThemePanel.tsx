@@ -344,46 +344,73 @@ export function PortalThemePanel({ theme, onChange }: { theme: PortalTheme; onCh
         })}
       </Dropdown>
 
-      {/* ⚠️ TWO fields, one per role. The pairing list made half the decision for you and removed
-          the other half — the only route to a serif heading also imposed Inter as the body. Each
-          list is still set in the face it applies, because a font list rendered in the UI's own
-          font is a list of words rather than a list of fonts. */}
-      {([['heading', 'Heading font'], ['body', 'Body font']] as const).map(([role, label]) => {
-        const cur = faceOf(theme, role);
+      {/* ── Font family ──────────────────────────────────────────────────────────
+          ONE field where there were two, "Heading font" and "Body font".
+
+          ⚠️ This reverses an earlier split, and the reason that split existed is worth keeping in
+          view: two fields let you take a serif heading without also taking its body face. The cost
+          was that the panel asked twice for what is nearly always one answer, and the two rows
+          looked identical while meaning different things — a portal typeset in two families is the
+          exception, not the thing the control should be shaped around. One field, one answer.
+
+          ⚠️ Each row is a CARD showing the face doing BOTH jobs — a heading over a real sentence,
+          both set in that family — with the family's NAME outside the card to its right. The name
+          is the label and the card is the evidence, so keeping them apart means the sample is never
+          interrupted by a word set in the UI's own font. A list of fonts rendered in one font is a
+          list of words.
+
+          ⚠️ The trigger names BOTH faces when a theme style has paired two. A style may still set a
+          pairing, and a field claiming a single family while the page is set in two would be the
+          panel lying about the thing it exists to report. */}
+      {(() => {
+        const hf = faceOf(theme, 'heading');
+        const bf = faceOf(theme, 'body');
+        const paired = hf.id !== bf.id;
         return (
           <Dropdown
-            key={role}
-            label={label}
-            value={cur.name}
-            open={openList === role}
-            onToggle={() => setOpenList((o) => (o === role ? null : role))}
+            label="Font family"
+            value={paired ? `${hf.name} · ${bf.name}` : hf.name}
+            open={openList === 'font'}
+            onToggle={() => setOpenList((o) => (o === 'font' ? null : 'font'))}
           >
-            {FONT_FACES.map((f) => (
-              <Row
-                key={f.id}
-                on={f.id === cur.id}
-                onClick={() => {
-                  onChange(role === 'heading' ? { headingFont: f.id } : { bodyFont: f.id });
-                  setOpenList(null);
-                  toast.success(`${f.name} applied to ${role === 'heading' ? 'headings' : 'body text'}`);
-                }}
-              >
-                <span className="flex items-baseline gap-2">
-                  <span
-                    style={{ fontFamily: f.css }}
-                    className={`min-w-0 flex-1 truncate text-[#364658] ${role === 'heading' ? 'text-[17px] font-semibold' : 'text-[14px]'}`}
-                  >{role === 'heading' ? 'Heading' : 'This is your paragraph.'}</span>
-                  <span className="flex flex-shrink-0 items-center gap-1 text-[11px] font-medium text-[#7B8FA5]">
-                    {f.name}
-                    {f.id === cur.id && <Check size={12} className="text-[#3D8BD0]" />}
+            {FONT_FACES.map((f) => {
+              /* Lit only when the family is doing BOTH jobs — a row ticked while the body is set in
+                 something else would be reporting half the truth. */
+              const on = !paired && f.id === hf.id;
+              return (
+                <Row
+                  key={f.id}
+                  on={on}
+                  onClick={() => {
+                    /* ONE write for both roles. Two writes would render an impossible intermediate
+                       state where the heading had changed and the body had not. */
+                    onChange({ headingFont: f.id, bodyFont: f.id });
+                    setOpenList(null);
+                    toast.success(`${f.name} applied`);
+                  }}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span className="min-w-0 flex-1 rounded-md border border-[#E5E7EB] bg-white px-3 py-2.5">
+                      <span
+                        style={{ fontFamily: f.css }}
+                        className="block truncate text-[16px] font-semibold leading-tight text-[#0F172A]"
+                      >Heading</span>
+                      <span
+                        style={{ fontFamily: f.css }}
+                        className="mt-1 block truncate text-[12px] leading-tight text-[#7B8FA5]"
+                      >{f.note}</span>
+                    </span>
+                    <span className="flex flex-shrink-0 items-center gap-1 text-[11px] font-medium text-[#7B8FA5]">
+                      {f.name}
+                      {on && <Check size={12} className="text-[#3D8BD0]" />}
+                    </span>
                   </span>
-                </span>
-                <span className="mt-0.5 block text-[11px] text-[#9CA3AF]">{f.note}</span>
-              </Row>
-            ))}
+                </Row>
+              );
+            })}
           </Dropdown>
         );
-      })}
+      })()}
 
       {/* ── Colours ── */}
       <div className="mt-5 flex items-center gap-2">

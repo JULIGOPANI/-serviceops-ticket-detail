@@ -719,6 +719,16 @@ Updated: 2026-08-25 12:11
 - **⚠️ Revert drops BOTH halves.** Clearing only the light one would leave a dark override with nothing under it — a value the admin cannot see in the mode they are working in and cannot reach from a control that reads as inherited.
 - **Verified, both stores.** Spec fields (the Quick Actions section's fill): Light #FF0000 painted red, switching to Dark and setting #00FF00 left the light canvas red, flipping the portal to dark painted green, flipping back painted red. The style packs (Pending Approvals, which uses P1/NodeStyle): Light #FF00FF, Dark #0000FF — magenta in light, blue in dark, magenta again on return. Clean load, no console errors.
 
+## 50. One Font family field
+- **Status:** done
+- **Where:** `PortalThemePanel.tsx`
+- **You asked:** remove Heading font and Body font from the Theme panel and combine them into one Font family dropdown, each row a card showing a heading and subtext with the family name to the right of the card.
+- **What I built:** one field. Each row is a white card carrying **"Heading" over a real sentence, both set in that family**, with the family's NAME outside the card to its right. The name is the label and the card is the evidence, so the sample is never interrupted by a word set in the UI's own font — a list of fonts rendered in one font is a list of words.
+- **⚠️ This reverses an earlier split, and the reason it existed is worth keeping in view:** two fields let you take a serif heading without also taking its body face. The cost was a panel asking twice for what is nearly always one answer, with two identical-looking rows meaning different things. A portal typeset in two families is the exception, not the thing the control should be shaped around.
+- **⚠️ The trigger names BOTH faces when a theme style has paired two** (`Merriweather · Inter`), and a row is ticked only when its family is doing both jobs. A style may still set a pairing, and a field claiming one family while the page is set in two would be the panel lying about the thing it exists to report.
+- **⚠️ One write for both roles**, not two — two writes would render an impossible intermediate state where the heading had changed and the body had not.
+- **Verified:** the panel shows a single "Font family" label (the two old ones are gone). Six rows; each card is white, 8px radius, bordered, with "Heading" at 16px/600 over the sample sentence at 12px, both in that row's own face (Inter, Poppins, Source Sans 3, Merriweather…), and the family name measured to the RIGHT of the card's edge. Choosing Merriweather set the canvas wrapper font AND `--portal-heading` to Merriweather, relabelled the trigger, and toasted "Merriweather applied".
+
 ## Parked — needs discussion
 - Tour guide
 - AI capabilities

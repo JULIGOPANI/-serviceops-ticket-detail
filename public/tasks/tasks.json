@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-31T15:41:01.360Z",
+  "builtAt": "2026-08-31T16:30:20.065Z",
   "tasks": [
     {
       "n": 1,
@@ -790,6 +790,18 @@
         "What I built": "the Theme panel's convention, extended to the two other colour stores. **The bare key is the light value and `dark:<key>` is the dark one**, falling back to the bare key when nobody has set it — so a portal that has never been given a dark variant stores nothing extra and renders exactly as it always did. Only a deliberate dark override adds a key. `ColorField` gained the same `modes` contract `ColorDot` already took, so the popup is literally the same control with the same words.",
         "⚠️ Three separate readers had to learn the pair, and each was found by testing rather than by reading": "`resolve` (the chain), `containerCss`'s **own-only box keys** — which deliberately bypass `resolve`, and are exactly the keys a colour picker writes, so a dark colour stored and displayed correctly and simply never painted — and `cfgFor`, which promotes the dark value onto the base key and stashes the original under `light:<key>` so the light tab has something to show.",
         "⚠️ The bug worth remembering": "inside `renderControl` a **shadowing `set` discards the key it is given** and always writes `f.key`, because every other control only ever writes its own field. Handing it `dark:bg` therefore wrote `bg` — the picker looked right, both tabs edited the light colour, and nothing anywhere said so. The dark half goes through `viewSet` now; the light half keeps `set` so the field's own `consequence` and mirroring still run."
+      }
+    },
+    {
+      "n": 50,
+      "title": "One Font family field",
+      "status": "done",
+      "fields": {
+        "Where": "`PortalThemePanel.tsx`",
+        "You asked": "remove Heading font and Body font from the Theme panel and combine them into one Font family dropdown, each row a card showing a heading and subtext with the family name to the right of the card.",
+        "What I built": "one field. Each row is a white card carrying **\"Heading\" over a real sentence, both set in that family**, with the family's NAME outside the card to its right. The name is the label and the card is the evidence, so the sample is never interrupted by a word set in the UI's own font — a list of fonts rendered in one font is a list of words.",
+        "⚠️ This reverses an earlier split, and the reason it existed is worth keeping in view": "two fields let you take a serif heading without also taking its body face. The cost was a panel asking twice for what is nearly always one answer, with two identical-looking rows meaning different things. A portal typeset in two families is the exception, not the thing the control should be shaped around.",
+        "Verified": "the panel shows a single \"Font family\" label (the two old ones are gone). Six rows; each card is white, 8px radius, bordered, with \"Heading\" at 16px/600 over the sample sentence at 12px, both in that row's own face (Inter, Poppins, Source Sans 3, Merriweather…), and the family name measured to the RIGHT of the card's edge. Choosing Merriweather set the canvas wrapper font AND `--portal-heading` to Merriweather, relabelled the trigger, and toasted \"Merriweather applied\"."
       }
     }
   ],
