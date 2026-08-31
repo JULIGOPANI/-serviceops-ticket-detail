@@ -14,6 +14,7 @@ import { PortalBrandingPanel } from './PortalBrandingPanel';
 import { PRESETS, isRowAxis, presetOf } from './PortalSectionLayout';
 import type { PresetId } from './PortalSectionLayout';
 import { PortalThemePanel, DEFAULT_THEME, buttonOf, packOf, paletteOf, swatchesOf, faceOf, ThemeModeToggle } from './PortalThemePanel';
+import { setPortalColorMode } from './portalStyleResolver';
 import type { PortalTheme } from './PortalThemePanel';
 import { PortalElementPanel } from './PortalElementPanel';
 import { CanvasProvider } from './PortalCanvas';
@@ -378,7 +379,13 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
   const cfgFor = useCallback((id: string): Cfg => {
     const owner = ownerOf(id);
-    return {
+    /* ⚠️ Light is the BARE key and dark is `dark:<key>` — the theme panel's convention, so a page
+       that has never been given a dark variant stores nothing extra and renders exactly as before.
+       In dark mode the dark value is promoted onto the base key, which is what every renderer reads,
+       and the ORIGINAL light value is stashed under `light:<key>` so the picker's light tab can
+       still show it. Without that stash the light tab would fall back to the base key it had just
+       been overwritten by, and both tabs would read dark. */
+    const merged: Cfg = {
       ...(specForNode(owner)?.defaults ?? {}),
       ...(NODE_CFG_SEED[owner] ?? {}),
       /* ⚠️ Built-in bands get the shape as well. They were handed a bare `__rowAxis: true` with no
@@ -409,7 +416,17 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
          key into the tree and never stores it, so there is nothing here to go stale. */
       ...(boxDirOf(owner) ? { dir: boxDirOf(owner) } : {}),
     };
-  }, [specForNode, widgetCfg, sectionHasContent, boxHasContent]);
+    if (theme.mode !== 'dark') return merged;
+    /* `Object.keys` is a snapshot, so the `light:` keys added inside the loop are not re-visited —
+       and none of them starts with `dark:` anyway. */
+    for (const k of Object.keys(merged)) {
+      if (!k.startsWith('dark:')) continue;
+      const base = k.slice(5);
+      merged[`light:${base}`] = merged[base];
+      merged[base] = merged[k];
+    }
+    return merged;
+  }, [specForNode, widgetCfg, sectionHasContent, boxHasContent, theme.mode]);
 
   /* The two service rows share their tile shape. ⚠️ Mirrored HERE, at the one place widget config
      is written, rather than by giving the field a second home — every route into a widget's config
@@ -1627,6 +1644,11 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   /* ⚠️ The theme paints through ONE wrapper, not by rewriting every block: font + page colour are
      inline, and dark mode is a class the stylesheet answers, so a widget that never asked about the
      theme still obeys it. */
+  /* ⚠️ Set during render, BEFORE the canvas below reads any style. `resolve` has forty-odd call
+     sites and only ever serves one portal at a time, so the mode lives in that module rather than
+     being threaded through every one of them — a parameter that missed a single call site would
+     leave one control quietly reading the wrong half of a colour pair. */
+  setPortalColorMode(theme.mode);
   const themeSw = swatchesOf(theme);
   /* ⚠️ The accent is the PALETTE's accent slot, full stop. Deferring to the page's own `accent` prop
      for one palette meant picking ServiceOps-light silently produced a different colour from the one

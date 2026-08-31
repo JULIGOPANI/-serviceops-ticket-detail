@@ -405,21 +405,55 @@ export function ColorDot({ value, onChange, title, modes }: {
   );
 }
 
-export function ColorField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function ColorField({ value, onChange, modes }: {
+  value: string;
+  onChange: (v: string) => void;
+  /* Both of this colour's values, so the picker offers a tab per mode — the same contract
+   * `ColorDot` takes in the Theme panel, and deliberately the same words on screen.
+   *
+   * ⚠️ Without this a style colour could only ever be set for whichever mode the portal happened
+   * to be showing. Designing the other one meant flipping the whole canvas to a mode you were not
+   * working in, changing the colour, and flipping back — and nothing on the control said the value
+   * you had just set applied to one mode only.
+   * ⚠️ The SWATCH on the closed field keeps showing `value`, the colour that is actually painted
+   * right now. The tab decides which you EDIT; the canvas decides which you see. */
+  modes?: {
+    mode: 'light' | 'dark';
+    light: string;
+    dark: string;
+    onChange: (mode: 'light' | 'dark', v: string) => void;
+  };
+}) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  /* ⚠️ Seeded from the portal's mode every time the picker opens, never remembered — the rule the
+     Theme panel's dot already follows. A tab that remembered its last position would start
+     disagreeing with the canvas the second time you opened it. */
+  const [tab, setTab] = useState<'light' | 'dark'>(modes?.mode ?? 'light');
   const btnRef = useRef<HTMLButtonElement>(null);
+  const shown = modes ? (tab === 'dark' ? modes.dark : modes.light) : value;
   return (
     <div className="relative">
       <button
         ref={btnRef}
-        onClick={() => setAnchor(anchor ? null : btnRef.current!.getBoundingClientRect())}
+        onClick={() => {
+          setTab(modes?.mode ?? 'light');
+          setAnchor(anchor ? null : btnRef.current!.getBoundingClientRect());
+        }}
         className="flex h-9 w-full items-center gap-2 rounded border border-[#d1d5db] bg-white px-2 text-left transition-colors hover:border-[#3D8BD0]"
       >
         <span className="size-5 flex-shrink-0 rounded border border-black/10" style={{ background: value }} />
         <span className="min-w-0 flex-1 truncate text-[13px] text-[#364658]">{value.toUpperCase()}</span>
         <ChevronDown size={14} className="flex-shrink-0 text-[#9CA3AF]" />
       </button>
-      {anchor && <PortalColorPicker value={value} onChange={onChange} anchor={anchor} onClose={() => setAnchor(null)} />}
+      {anchor && (
+        <PortalColorPicker
+          value={shown}
+          onChange={(v) => (modes ? modes.onChange(tab, v) : onChange(v))}
+          anchor={anchor}
+          onClose={() => setAnchor(null)}
+          modeTab={modes ? { value: tab, onChange: setTab } : undefined}
+        />
+      )}
     </div>
   );
 }

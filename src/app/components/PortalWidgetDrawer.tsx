@@ -24,7 +24,7 @@ import {
   REQUEST_STATUSES, itemNodeId, nodeById, nodePath, parseItemId, registerItemName, subNodeId,
 } from './portalPageModel';
 import type { NodeStyle, PortalStyles } from './portalPageModel';
-import { PAGE_ID, hasOwn, resolve } from './portalStyleResolver';
+import { PAGE_ID, hasOwn, portalColorMode, resolve } from './portalStyleResolver';
 import { ContrastMeter, useBackdrop } from './PortalContrastMeter';
 import type { BackdropSpec } from './PortalContrastMeter';
 import { ALL_PACKS, packBadge } from './PortalStylePacks';
@@ -804,8 +804,36 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
         // Compared as strings so a numeric style value still lights its option.
         return <Segmented value={v === undefined ? '' : String(v)} options={opts} onChange={(x) => set(f.key, x)} />;
       }
-      case 'color':
-        return <ColorField value={(v as string) ?? '#3D8BD0'} onChange={(x) => set(f.key, x)} />;
+      case 'color': {
+        /* ⚠️ Light is the BARE key, dark is `dark:<key>` — the convention the theme panel and the
+           style resolver both use, so all three colour surfaces store a pair the same way.
+           `cfgFor` promotes the dark value onto the base key while the portal is dark and stashes
+           the original under `light:<key>`, which is why the light tab reads that first: without it
+           it would fall back to the base key it had just been overwritten by, and both tabs would
+           show the dark colour. */
+        const light = (viewCfg[`light:${f.key}`] as string) ?? (v as string) ?? '#3D8BD0';
+        const dark = (viewCfg[`dark:${f.key}`] as string) ?? light;
+        return (
+          <ColorField
+            value={(v as string) ?? '#3D8BD0'}
+            onChange={(x) => set(f.key, x)}
+            modes={{
+              mode: portalColorMode(),
+              light,
+              dark,
+              /* ⚠️ The DARK half goes through `viewSet`, NOT through `set`. The `set` in scope here
+                 is `renderControl`'s own — `(_k, val) => writeField(f, val)` — which DISCARDS the key
+                 it is given and always writes `f.key`, because every other control only ever writes
+                 its own field. Handing it `dark:bg` therefore wrote `bg`, and both tabs edited the
+                 light colour: the picker looked right, the value went to the wrong key, and nothing
+                 anywhere said so.
+                 The LIGHT half keeps using `set` so a field's `consequence` and any mirroring still
+                 run — those belong to the field, and the dark variant is the same field. */
+              onChange: (m, x) => (m === 'dark' ? viewSet({ [`dark:${f.key}`]: x }) : set(f.key, x)),
+            }}
+          />
+        );
+      }
       case 'upload':
         return <UploadZone value={v as string} onChange={(x) => set(f.key, x ?? '')} suggested={f.suggested} />;
       case 'videoSource':

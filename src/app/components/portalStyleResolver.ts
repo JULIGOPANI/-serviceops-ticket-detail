@@ -119,14 +119,65 @@ export function styleChain(nodeId: string): { id: string; name: string }[] {
  * theme. `source` is what the drawer badges: `own` = this layer set it, `inherited` = an ancestor
  * did, `theme` = nobody has, it is the portal default.
  */
+/* ── Light and dark values for one key ────────────────────────────────────────
+ *
+ * The convention is the theme panel's, deliberately: the BARE key is the light value and
+ * `dark:<key>` is the dark one, falling back to the bare key when nobody has set it.
+ *
+ * ⚠️ Light is the bare key rather than `light:<key>` so that every page that already exists keeps
+ * rendering exactly as it did, and so a portal nobody has designed a dark variant for stores nothing
+ * extra. Only a deliberate dark override adds a key.
+ *
+ * ⚠️ The active mode is MODULE state, set once per render by the builder, rather than an argument
+ * threaded through `resolve`'s forty-odd call sites. Two things make that safe here: there is only
+ * ever one portal on screen, and every reader runs synchronously inside the render that set it. A
+ * mode parameter on every call would be the change most likely to miss one and leave a single
+ * control reading the wrong half of the pair — which is the one failure that would be invisible. */
+export type PortalColorMode = 'light' | 'dark';
+let ACTIVE_MODE: PortalColorMode = 'light';
+export const setPortalColorMode = (m: PortalColorMode) => { ACTIVE_MODE = m; };
+export const portalColorMode = (): PortalColorMode => ACTIVE_MODE;
+/** The key a value is stored under for one mode. Light is the bare key — see above. */
+export const modeKey = (mode: PortalColorMode, key: string) => (mode === 'dark' ? `dark:${key}` : key);
+
+/** `resolve`, but for a named mode rather than the active one — what the picker's two tabs read. */
+export function resolveIn<K extends keyof NodeStyle>(
+  styles: PortalStyles,
+  nodeId: string,
+  key: K,
+  mode: PortalColorMode,
+): Resolved<NonNullable<NodeStyle[K]>> {
+  const chain = styleChain(nodeId);
+  const dk = `dark:${String(key)}` as K;
+  for (let i = chain.length - 1; i >= 0; i -= 1) {
+    /* ⚠️ The dark override is preferred AT EACH LEVEL, not looked up as a whole second chain: a
+       card that sets its own dark colour must beat a section that set only a light one, which is
+       what "the nearest explicit value wins" already means for every other key. */
+    const own = styles[chain[i].id];
+    const v = (mode === 'dark' ? own?.[dk] : undefined) ?? own?.[key];
+    if (v !== undefined) {
+      const isOwn = i === chain.length - 1;
+      return {
+        value: v as NonNullable<NodeStyle[K]>,
+        source: isOwn ? 'own' : 'inherited',
+        fromId: isOwn ? undefined : chain[i].id,
+        fromName: isOwn ? undefined : chain[i].name,
+      };
+    }
+  }
+  return { value: PORTAL_THEME[key] as NonNullable<NodeStyle[K]>, source: 'theme' };
+}
+
 export function resolve<K extends keyof NodeStyle>(
   styles: PortalStyles,
   nodeId: string,
   key: K,
 ): Resolved<NonNullable<NodeStyle[K]>> {
   const chain = styleChain(nodeId);
+  const dk = `dark:${String(key)}` as K;
   for (let i = chain.length - 1; i >= 0; i -= 1) {
-    const v = styles[chain[i].id]?.[key];
+    const lvl = styles[chain[i].id];
+    const v = (ACTIVE_MODE === 'dark' ? lvl?.[dk] : undefined) ?? lvl?.[key];
     if (v !== undefined) {
       const own = i === chain.length - 1;
       return {
@@ -238,7 +289,12 @@ export function containerCss(styles: PortalStyles, id: string): React.CSSPropert
      node, which IS the node whose Sel draws the card, so the value is present exactly where it
      should appear and absent everywhere it should not. */
   const own = styles[id];
-  const b = <K extends keyof NodeStyle>(k: K) => own?.[k];
+  /* ⚠️ Own-only, but still MODE-AWARE. This read deliberately bypasses `resolve` (see above), which
+     is where the light/dark pair is normally picked apart — so without doing it again here a colour
+     set on the picker's Dark tab was stored correctly, showed correctly in the panel, and never
+     painted: the box keys are exactly the ones a colour picker writes. */
+  const b = <K extends keyof NodeStyle>(k: K) =>
+    (ACTIVE_MODE === 'dark' ? own?.[`dark:${String(k)}` as K] : undefined) ?? own?.[k];
 
   const fill = b('bgFill');
   if (fill === 'color') css.background = (b('bg') as string) ?? undefined;

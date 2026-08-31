@@ -106,10 +106,19 @@ export function RadiusRow({ value, onChange, corners, onCorners }: {
 
 export interface BorderSides { top: number; right: number; bottom: number; left: number }
 
-export function BorderRow({ width, color, sides, onWidth, onColor, onSides }: {
+export function BorderRow({ width, color, sides, onWidth, onColor, onSides, colorModes }: {
   width: number; color: string; sides?: BorderSides;
   onWidth: (v: number) => void; onColor: (v: string) => void;
   onSides?: (s: BorderSides | undefined) => void;
+  /* The border colour's light and dark values, forwarded straight to `ColorField`.
+     ⚠️ Passed in rather than resolved here: this component takes plain values and knows nothing
+     about the style store, which is what lets it serve the packs and the legacy panel alike. */
+  colorModes?: {
+    mode: 'light' | 'dark';
+    light: string;
+    dark: string;
+    onChange: (mode: 'light' | 'dark', v: string) => void;
+  };
 }) {
   const [adv, setAdv] = useState(!!sides);
   const s = sides ?? { top: width, right: width, bottom: width, left: width };
@@ -142,7 +151,7 @@ export function BorderRow({ width, color, sides, onWidth, onColor, onSides }: {
           </div>
           <div className="mt-2 flex items-center justify-between gap-3">
             <span className="text-[12px] font-normal text-[#7B8FA5]">Colour</span>
-            <span className="w-[38px]"><ColorField value={color} onChange={onColor} /></span>
+            <span className="w-[38px]"><ColorField value={color} onChange={onColor} modes={colorModes} /></span>
           </div>
         </>
       ) : (
@@ -161,7 +170,7 @@ export function BorderRow({ width, color, sides, onWidth, onColor, onSides }: {
             />
             <span className={unitBox}>px</span>
           </span>
-          <span className="w-[38px] flex-shrink-0"><ColorField value={color} onChange={onColor} /></span>
+          <span className="w-[38px] flex-shrink-0"><ColorField value={color} onChange={onColor} modes={colorModes} /></span>
         </div>
       )}
     </div>

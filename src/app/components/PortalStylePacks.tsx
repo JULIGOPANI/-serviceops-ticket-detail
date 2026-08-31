@@ -12,7 +12,7 @@
 
 import { Fragment, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ROLE_LABEL, hasOwn, hasOwnRole, resolve, resolveType, revertKeys, revertRole } from './portalStyleResolver';
+import { ROLE_LABEL, hasOwn, hasOwnRole, modeKey, portalColorMode, resolve, resolveIn, resolveType, revertKeys, revertRole } from './portalStyleResolver';
 import type { NodeStyle, PortalStyles, RoleType, TypeRole } from './portalPageModel';
 import {
   ALIGN_OPTIONS, Badge, Chips, Field, InheritRow, Note, NumberField,
@@ -31,6 +31,42 @@ export interface PackProps {
   replaceStyle: (id: string, next: NodeStyle) => void;
   /** P3 renders only the roles the widget actually has. */
   roles?: TypeRole[];
+}
+
+/* A colour field, mode-aware. ⚠️ Its own helper rather than a flag on `field` because a colour is
+   the ONE kind of style value that has two: padding, radius and font size are the same number in a
+   light portal and a dark one, and giving them tabs would ask a question with one answer. So the
+   pair lives where colours are built, and every other field stays exactly as it was. */
+function useColorField({ styles, id, setStyle, replaceStyle }: PackProps) {
+  return function colorField(key: keyof NodeStyle, label: string, help?: string) {
+    const r = resolve(styles, id, key);
+    const light = String(resolveIn(styles, id, key, 'light').value ?? '#FFFFFF');
+    const dark = String(resolveIn(styles, id, key, 'dark').value ?? light);
+    return (
+      <InheritRow
+        key={String(key)}
+        label={label}
+        state={r.source}
+        from={r.fromName}
+        help={help}
+        /* ⚠️ Revert drops BOTH halves. Clearing only the light one would leave a dark override with
+           nothing under it — a value the admin cannot see in the mode they are working in and
+           cannot reach from a control that now reads as inherited. */
+        onRevert={() => replaceStyle(id, revertKeys(styles[id], [key, `dark:${String(key)}` as keyof NodeStyle]))}
+      >
+        <ColorField
+          value={String(r.value ?? '#FFFFFF')}
+          onChange={(v) => setStyle(id, { [key]: v } as Partial<NodeStyle>)}
+          modes={{
+            mode: portalColorMode(),
+            light,
+            dark,
+            onChange: (m, v) => setStyle(id, { [modeKey(m, String(key))]: v } as Partial<NodeStyle>),
+          }}
+        />
+      </InheritRow>
+    );
+  };
 }
 
 /** One resolved, revertable field. This is the only way a pack touches style. */
@@ -86,6 +122,7 @@ export const P1_Container: StylePack = {
   id: 'P1', title: 'Style', keys: P1_KEYS,
   Render: (p) => {
     const field = useField(p);
+    const colorField = useColorField(p);
     const fill = resolve(p.styles, p.id, 'bgFill').value;
     const g = (k) => resolve(p.styles, p.id, k).value;
     const set = (k, v) => p.setStyle(p.id, { [k]: v });
@@ -102,7 +139,7 @@ export const P1_Container: StylePack = {
             options={[{ value: 'none', label: 'None' }, { value: 'color', label: 'Colour' }]}
           />
         ))}
-        {fill === 'color' && field('bg', 'Background colour', (v, setV) => <ColorField value={v} onChange={setV} />)}
+        {fill === 'color' && colorField('bg', 'Background colour')}
         {fill === 'image' && field('bgImage', 'Background image', (v, setV) => <UploadZone value={v} onChange={setV} />)}
         {fill === 'image' && field('bgOverlay', 'Overlay', (v, setV) => (
           <SliderRow value={v} onChange={setV} min={0} max={80} unit="%" />
@@ -116,6 +153,13 @@ export const P1_Container: StylePack = {
           onSides={(x) => set('borderSides', x)}
           onWidth={(x) => set('borderWidth', x)}
           onColor={(x) => set('borderColor', x)}
+          /* The same pair the background colour gets — one rule for every colour in this pack. */
+          colorModes={{
+            mode: portalColorMode(),
+            light: String(resolveIn(p.styles, p.id, 'borderColor', 'light').value ?? '#E5E7EB'),
+            dark: String(resolveIn(p.styles, p.id, 'borderColor', 'dark').value ?? resolveIn(p.styles, p.id, 'borderColor', 'light').value ?? '#E5E7EB'),
+            onChange: (m, v) => set(modeKey(m, 'borderColor') as keyof NodeStyle, v),
+          }}
         />
         <RadiusRow
           value={Number(g('radius') ?? 8)}

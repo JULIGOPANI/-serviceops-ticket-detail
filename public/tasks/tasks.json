@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-31T15:20:34.791Z",
+  "builtAt": "2026-08-31T15:41:01.360Z",
   "tasks": [
     {
       "n": 1,
@@ -778,6 +778,18 @@
         "What I found": "the bar's icons already dragged — into a `useState`. So the gesture worked, looked right, and was gone the moment the component remounted, and the panel could not show the order at all because there was nothing stored to read.",
         "What I built": "`HEADER_ACTIONS_SPEC` is now a collection with the rail's exact shape (flat list, `noAdd`, `noOpen`, reorder only), and the order lives in that node's `items` — the SAME value the canvas drag writes. The rail gained the identical drag: same MIME, same grab cursor, same blue ring on the drop target, so it is one gesture to learn rather than two.",
         "Verified": "selecting the action cluster opens \"CONTENT · Text/Font size · Conversations/Messages · Notifications/Alerts · Shortcuts/Keyboard · Home/Portal home · Help/Support\". Dragging the Help icon onto Text moved `lucide-info` to the front of the bar AND put \"Help · Support\" at the top of the panel list. On the rail, clicking an icon selects the rail, and dragging Tasks to the top reordered both the icons and the panel list to \"Tasks · Requests · Changes · …\"."
+      }
+    },
+    {
+      "n": 49,
+      "title": "Light and dark tabs on every style colour picker",
+      "status": "done",
+      "fields": {
+        "Where": "`portalStyleResolver.ts`, `PortalColorPicker.tsx`, `PortalStylePacks.tsx`, `PortalBoxControls.tsx`, `PortalWidgetDrawer.tsx`, `SupportPortalBuilder.tsx`",
+        "You asked": "the light/dark tabs the Theme picker has, on every style-section colour popup — parent, sub and child — so a colour can be applied and checked in both modes.",
+        "What I built": "the Theme panel's convention, extended to the two other colour stores. **The bare key is the light value and `dark:<key>` is the dark one**, falling back to the bare key when nobody has set it — so a portal that has never been given a dark variant stores nothing extra and renders exactly as it always did. Only a deliberate dark override adds a key. `ColorField` gained the same `modes` contract `ColorDot` already took, so the popup is literally the same control with the same words.",
+        "⚠️ Three separate readers had to learn the pair, and each was found by testing rather than by reading": "`resolve` (the chain), `containerCss`'s **own-only box keys** — which deliberately bypass `resolve`, and are exactly the keys a colour picker writes, so a dark colour stored and displayed correctly and simply never painted — and `cfgFor`, which promotes the dark value onto the base key and stashes the original under `light:<key>` so the light tab has something to show.",
+        "⚠️ The bug worth remembering": "inside `renderControl` a **shadowing `set` discards the key it is given** and always writes `f.key`, because every other control only ever writes its own field. Handing it `dark:bg` therefore wrote `bg` — the picker looked right, both tabs edited the light colour, and nothing anywhere said so. The dark half goes through `viewSet` now; the light half keeps `set` so the field's own `consequence` and mirroring still run."
       }
     }
   ],
