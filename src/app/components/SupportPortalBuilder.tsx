@@ -18,7 +18,7 @@ import type { PortalTheme } from './PortalThemePanel';
 import { PortalElementPanel } from './PortalElementPanel';
 import { CanvasProvider } from './PortalCanvas';
 import {
-  BLOCK_ORDER_V2, ROW_ORDER_V2, RAIL_V2,
+  BLOCK_ORDER_V2, ROW_ORDER_V2, RAIL_V2, MAIN_V2,
   DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, moveIn, nodeById, parseItemId,
   placedType, registerPlaced, isLockedRow,
   MAX_COLUMNS, addNeighbour, addNeighbourAt, addSibling, neighbourBlockedBecause, rowTargetOf, boxOfElement, findBox, freeLeaves, isBranch, mapBox, parentOfBox, registerTree, removeBox,
@@ -1031,9 +1031,11 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
    * the two differ only in where the element comes from, and everything after that is identical:
    * make the box the line promised, put the element in it.
    *
-   * ⚠️ Rows resolve through `rowTargetOf` exactly as the adders do, so a line drawn across the
-   * whole section lands a full-width row wherever the pointer happened to be. A column stays on the
-   * box that was hovered, because that is what "beside this" means.
+   * ⚠️ A drop lands on the box you AIMED at, both axes. That is the one place it differs from the
+   * four `+` adders, which send a row to the section's top level — an adder sits on a section's
+   * edge and promises a band, a drag promises "here". It is also what makes a row inside a column
+   * possible at all, which is the shape the whole brief is built around: an image on the left with
+   * a title and a description stacked beside it.
    * ⚠️ The move case DETACHES first and only then adds. Adding first would leave the element in two
    * boxes for one render, and the source box is found by searching for the element. */
   const dropBeside = useCallback((
@@ -1046,25 +1048,71 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
     if (!current) return;
     const dir: BoxDir = side === 'left' || side === 'right' ? 'row' : 'column';
     const before = side === 'left' || side === 'above';
-    const target = dir === 'column' ? rowTargetOf(current.root, boxId) : boxId;
-    const blocked = neighbourBlockedBecause(current.root, target, dir);
+    /* ⚠️ The DROP targets the box you aimed at — NOT `rowTargetOf`. That helper sends a row to the
+       section's top level, which is right for the four `+` adders: they sit on a section's edge and
+       promise a full-width band. A drag promises something else — "put it HERE" — and routing it to
+       the top level is what made "row inside a column" impossible: dropping under an element inside
+       a two-column row jumped the new row across the whole section instead of stacking it in the
+       column you were pointing at. Two gestures, two meanings, and the line you can see is the one
+       that decides. */
+    const blocked = neighbourBlockedBecause(current.root, boxId, dir);
     if (blocked) { toast.error(blocked); return; }
 
-    const moving = 'move' in payload ? detachElement(payload.move) : null;
-    if ('move' in payload && !moving) return;
+    /* Where the moved element lives RIGHT NOW, read before anything is written. */
+    let srcSection: string | null = null;
+    let srcBox: string | null = null;
+    let srcEl: PlacedElement | null = null;
+    if ('move' in payload) {
+      sectionsRef.current.forEach((s) => {
+        const box = boxOfElement(s.section.root, payload.move);
+        if (box) { srcSection = s.section.id; srcBox = box.id; srcEl = box.el ?? null; }
+      });
+    }
+    const within = 'move' in payload && srcSection === sectionId && !!srcEl && !!srcBox;
 
-    /* Re-read AFTER the detach: it rewrites the tree, so `current` is a stale shape and the id the
-       next mint will take has moved on with it. */
-    const live = sectionsRef.current.find((s) => s.section.id === sectionId)?.section ?? current;
-    const made = addNeighbourAt(live, target, dir, before);
-    if (!made.id) return;
-    const el = moving ?? makeElement((payload as { type: string }).type, made.id);
-    setSections((prev) => prev.map((s) => (
-      s.section.id === sectionId ? { ...s, section: setBoxEl(made.section, made.id!, el) } : s
-    )));
-    registerPlaced(el.id, el.name, el.type, made.id);
+    /* Coming from ANOTHER section, or out of a built-in row: `detachElement` owns those stores, and
+       because the removal lands in a different slice than the add there is no ordering hazard. */
+    if ('move' in payload && !within) {
+      const moved = detachElement(payload.move);
+      if (!moved) return;
+      setSections((prev) => prev.map((s) => {
+        if (s.section.id !== sectionId) return s;
+        const made = addNeighbourAt(s.section, boxId, dir, before);
+        if (!made.id) return s;
+        registerPlaced(moved.id, moved.name, moved.type, made.id);
+        return { ...s, section: setBoxEl(made.section, made.id, moved) };
+      }));
+      select(moved.id);
+      toast.success(dir === 'row' ? `${moved.name} moved into a new column` : `${moved.name} moved into a new row`);
+      return;
+    }
+
+    const el = within ? srcEl! : makeElement((payload as { type: string }).type, boxId);
+    /* ⚠️ ONE updater, doing the remove and the add together — this is the whole of the copy bug.
+       `detachElement` SCHEDULES a state update; `sectionsRef` is only reassigned during the next
+       render, so reading it on the very next line handed back the tree as it was BEFORE the
+       removal. The element was then written into its new box on a copy that still had it in the old
+       one, and both survived. A move is one transition and has to be one write.
+       ⚠️ ADD FIRST, THEN clear the source. Removing first can collapse a branch and take the target
+       id with it — the box you were about to add beside stops existing mid-operation. */
+    setSections((prev) => prev.map((s) => {
+      if (s.section.id !== sectionId) return s;
+      const made = addNeighbourAt(s.section, boxId, dir, before);
+      if (!made.id) return s;
+      let next = setBoxEl(made.section, made.id, el);
+      if (within && srcBox) {
+        next = setBoxEl(next, srcBox, undefined);
+        /* ⚠️ And the emptied box GOES, so its neighbours reflow — that is the "other widgets
+           rearrange automatically" half of a move. A root has no parent and cannot be removed: an
+           unsplit section keeps its one empty cell, which is the offer to put something back. */
+        if (parentOfBox(next.root, srcBox)) next = removeBox(next, srcBox);
+      }
+      registerPlaced(el.id, el.name, el.type, made.id);
+      return { ...s, section: next };
+    }));
     select(el.id);
-    toast.success(dir === 'row' ? `${el.name} placed in a new column` : `${el.name} placed in a new row`);
+    const verb = within ? 'moved into' : 'placed in';
+    toast.success(dir === 'row' ? `${el.name} ${verb} a new column` : `${el.name} ${verb} a new row`);
   }, [detachElement, makeElement, select]);
 
   /** Drag-to-reorder: lift `source` out of its list and drop it at `target`'s index. */
