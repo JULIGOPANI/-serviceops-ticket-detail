@@ -697,6 +697,58 @@ export function addSibling(section: CustomSection, id: string, before: boolean):
   return { ...next, root };
 }
 
+/** Why a neighbour cannot be added on this axis, or null when it can.
+ *
+ *  ⚠️ A REASON, not a boolean — at a limit the adder stays visible and disabled with the reason on
+ *  it, the way Split and every other cap in this product behave. */
+export function neighbourBlockedBecause(root: Box, id: string, dir: BoxDir): string | null {
+  const parent = parentOfBox(root, id);
+  if (parent && parent.dir === dir) {
+    if (dir === 'row' && (parent.children?.length ?? 0) >= MAX_COLUMNS) {
+      return `A row holds ${MAX_COLUMNS} columns at most`;
+    }
+    return null;
+  }
+  /* Wrapping puts a level below this box, so it needs the room a split would need. */
+  if (boxDepth(root, id) + 1 > MAX_BOX_DEPTH) return `Nested as deep as a section goes (${MAX_BOX_DEPTH} levels)`;
+  return null;
+}
+
+/** Add an empty neighbour on a given AXIS, whatever axis the parent happens to lay out along.
+ *
+ *  This is what lets ONE control mean the same thing at every level: left and right always add a
+ *  column, top and bottom always add a row, and neither has to ask what shape it is standing in.
+ *
+ *  ⚠️ Two cases, and the second is why this is not just `addSibling`. When the parent already runs
+ *  along `dir`, the new box is a plain sibling. When it does not — or there is no parent at all,
+ *  which is every unsplit section — the box is WRAPPED in a new box of that direction and the empty
+ *  neighbour joins it there. Without the wrap, "add a row below" on a section laid out as columns
+ *  had nowhere to go and did nothing.
+ *
+ *  ⚠️ The OUTER box keeps the original id. Anything selected, styled or configured against it still
+ *  resolves — the same rule `removeBox`'s collapse follows, and the reason a wrap is not visible as
+ *  a loss of everything the admin had set on that box. */
+export function addNeighbour(section: CustomSection, id: string, dir: BoxDir, before: boolean): CustomSection {
+  if (neighbourBlockedBecause(section.root, id, dir)) return section;
+  const parent = parentOfBox(section.root, id);
+  if (parent && parent.dir === dir) return addSibling(section, id, before);
+
+  const next = { ...section };
+  const root = mapBox(section.root, id, (b) => {
+    /* The box's own content moves down a level, keeping its direction and children so nothing
+       inside it is rearranged; only a level is added above it. */
+    const kept: Box = { ...mintBox(next, b.dir), el: b.el, children: b.children };
+    const fresh = mintBox(next, flip(dir));
+    return {
+      id: b.id,
+      dir,
+      weight: b.weight,
+      children: evenly(before ? [fresh, kept] : [kept, fresh]),
+    };
+  });
+  return { ...next, root };
+}
+
 /** Remove a box. ⚠️ A branch left with ONE child collapses into it, so deleting the second of two
  *  columns returns the section to the single column it started as rather than leaving a branch that
  *  looks and behaves exactly like a leaf but answers differently to every structural question. */

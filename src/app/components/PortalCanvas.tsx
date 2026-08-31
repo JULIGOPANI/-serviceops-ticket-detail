@@ -42,7 +42,7 @@ interface CanvasCtx {
   /** Adds a section with `layout` after the block at `afterId`. */
   addSection: (afterId: string, rows: number[][]) => void;
   /** Splits a column, keeping every column in that row equal width. */
-  addColumnBeside: (columnId: string, side: 'left' | 'right') => void;
+  addBeside: (boxId: string, side: 'left' | 'right' | 'top' | 'bottom') => void;
   /** Drops a catalogue element into a column. */
   dropInColumn: (columnId: string, elementType: string) => void;
   /** Drops onto a seam — builds a new one-column section there and puts the element in it. */
@@ -86,7 +86,7 @@ interface CanvasCtx {
 const Ctx = createContext<CanvasCtx>({
   enabled: false, selectedId: null, hoverId: null,
   select: () => {}, setHover: () => {}, styles: {}, setStyle: () => {}, setText: () => {}, setCfg: () => {},
-  addSection: () => {}, addColumnBeside: () => {}, dropInColumn: () => {}, dropAtSeam: () => {}, dropInRow: () => {}, moveToSeam: () => {}, addChildBlock: () => {},
+  addSection: () => {}, addBeside: () => {}, dropInColumn: () => {}, dropAtSeam: () => {}, dropInRow: () => {}, moveToSeam: () => {}, addChildBlock: () => {},
   moveNode: () => {}, duplicateNode: () => {}, deleteNode: () => {}, canDuplicate: () => false, addInside: () => {},
   moveTo: () => {}, areSiblings: () => false, replaceElement: () => {}, pickIcon: () => {},
   theme: DEFAULT_THEME,
@@ -1392,37 +1392,39 @@ function ColumnAddIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-export function ColumnAdders({ columnId, dir, filled }: { columnId: string; dir?: BoxDir; filled?: boolean }) {
-  const { addColumnBeside, addInside } = useCanvas();
+export function ColumnAdders({ columnId, filled }: { columnId: string; filled?: boolean }) {
+  const { addBeside, addInside } = useCanvas();
   /* ⚠️ SECONDARY buttons — white, bordered, dark icon — not blue dots. Adding a column is a
      structural move made while you are looking at content, and three blue dots on a live column
      competed with the page for attention every time the cursor passed over it. A secondary control
      is the honest weight for something you reach for occasionally and deliberately. */
   const side = 'flex size-6 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#1E293B] shadow-sm transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]';
 
-  /* ⚠️ The adders follow the PARENT's axis, they do not assume horizontal. A box inside a `row`
-     gets a sibling to its left or right; a box inside a `column` gets one above or below. Same
-     button, same call, one question asked correctly — which is what stops "add a column" appearing
-     on a stack where there is no sideways for it to go.
-     ⚠️ No parent (a section root) means no siblings are possible at all, so only the centre "add an
-     element" offer survives. The way to give a root a neighbour is Split. */
-  const stacked = dir === 'column';
-  const before = stacked
-    ? { title: 'Add a row above', cls: `${side} absolute -top-3 left-1/2 z-20 -translate-x-1/2`, spin: '-rotate-90' }
-    : { title: 'Add a column to the left', cls: `${side} absolute -left-3 top-1/2 z-20 -translate-y-1/2`, spin: '-scale-x-100' };
-  const after = stacked
-    ? { title: 'Add a row below', cls: `${side} absolute -bottom-3 left-1/2 z-20 -translate-x-1/2`, spin: 'rotate-90' }
-    : { title: 'Add a column to the right', cls: `${side} absolute -right-3 top-1/2 z-20 -translate-y-1/2`, spin: '' };
+  /* ⚠️ FOUR adders, and the SIDE decides what you get: left and right add a COLUMN beside this box,
+     top and bottom add a ROW above or below it. One control, one meaning, at every level.
+     They used to be two, chosen by the PARENT's axis — so the same button added a column here and a
+     row one level down, and on a section laid out as columns there was no way to ask for a row at
+     all. The tree wraps a box when the axis it is asked for is not the one it is in, which is what
+     makes the promise keepable everywhere rather than only where the shape already agreed.
+     ⚠️ A new row arrives FULL WIDTH and empty. Subdividing it is the same four buttons again, one
+     level in — you are never asked to choose a layout before you have anything to lay out. */
+  const sides = [
+    { side: 'top' as const, title: 'Add a row above', cls: `${side} absolute -top-3 left-1/2 z-20 -translate-x-1/2`, spin: '-rotate-90' },
+    { side: 'left' as const, title: 'Add a column to the left', cls: `${side} absolute -left-3 top-1/2 z-20 -translate-y-1/2`, spin: '-scale-x-100' },
+    { side: 'right' as const, title: 'Add a column to the right', cls: `${side} absolute -right-3 top-1/2 z-20 -translate-y-1/2`, spin: '' },
+    { side: 'bottom' as const, title: 'Add a row below', cls: `${side} absolute -bottom-3 left-1/2 z-20 -translate-x-1/2`, spin: 'rotate-90' },
+  ];
 
   return (
     <>
-      {dir && (
+      {sides.slice(0, 2).map((s) => (
         <button
-          onClick={(e) => { e.stopPropagation(); addColumnBeside(columnId, 'left'); }}
-          title={before.title}
-          className={before.cls}
-        ><span className={before.spin}><ColumnAddIcon size={15} /></span></button>
-      )}
+          key={s.side}
+          onClick={(e) => { e.stopPropagation(); addBeside(columnId, s.side); }}
+          title={s.title}
+          className={s.cls}
+        ><span className={s.spin}><ColumnAddIcon size={15} /></span></button>
+      ))}
 
       {/* The middle one swaps the right panel to the element library — the list you pick from is
           the answer to "add what?", so it takes the panel rather than opening a second surface. */}
@@ -1437,13 +1439,14 @@ export function ColumnAdders({ columnId, dir, filled }: { columnId: string; dir?
         ><Plus size={14} /></button>
       )}
 
-      {dir && (
+      {sides.slice(2).map((s) => (
         <button
-          onClick={(e) => { e.stopPropagation(); addColumnBeside(columnId, 'right'); }}
-          title={after.title}
-          className={after.cls}
-        ><span className={after.spin}><ColumnAddIcon size={15} /></span></button>
-      )}
+          key={s.side}
+          onClick={(e) => { e.stopPropagation(); addBeside(columnId, s.side); }}
+          title={s.title}
+          className={s.cls}
+        ><span className={s.spin}><ColumnAddIcon size={15} /></span></button>
+      ))}
     </>
   );
 }

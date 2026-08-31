@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-31T06:32:17.680Z",
+  "builtAt": "2026-08-31T07:34:28.840Z",
   "tasks": [
     {
       "n": 1,
@@ -363,6 +363,15 @@
         "Where": "`portalWidgetSpec.ts` (`structureSpecId`), `portalStructureSpecs.ts`, `supportPortalData.ts`, `PortalItemList.tsx` + `PortalWidgetDrawer.tsx`",
         "You asked": "(1) an empty section shows the OLD Style component; (2) remove Layout ▸ Behaviour from every sidebar in the module; (3) Most Used Services and Favourite Services belong under Live data; (4) task 29's Add item should open the box inline with empty fields and placeholders instead of replacing the sidebar.",
         "Verified": "a column's Design now reads \"Style | Fill | None | Colour | Border | px | Corner radius | px | %\" — the current component. No \"Behaviour\" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens \"Item 4\" expanded, both fields empty, showing \"How do I reset my password?\" and \"Answer it in a sentence or two.\" as placeholders, with the Add link CTA below them."
+      }
+    },
+    {
+      "n": 49,
+      "title": "Four adders, rows as well as columns — and the selection conflict goes",
+      "status": "done",
+      "fields": {
+        "Where": "`portalPageModel.ts` (`addNeighbour`, `neighbourBlockedBecause`) · `SupportPortalBuilder.tsx` (`addBeside`, `splitNode`) · `PortalCanvas.tsx` (`ColumnAdders`) · `SupportPortalPreview.tsx` · `PortalPlacedElement.tsx`",
+        "Four adders now, and the SIDE decides what you get": "left/right add a **column** beside the box, top/bottom add a **row** above or below it. There were two, chosen by the parent's axis — so the same button added a column here and a row one level down, and on a section laid out as columns there was no way to ask for a row at all."
       }
     },
     {

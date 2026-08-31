@@ -20,7 +20,7 @@ import { CanvasProvider } from './PortalCanvas';
 import {
   DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, moveIn, nodeById, parseItemId,
   placedType, registerPlaced, isLockedRow,
-  addSibling, boxOfElement, findBox, freeLeaves, isBranch, mapBox, parentOfBox, registerTree, removeBox,
+  addNeighbour, addSibling, neighbourBlockedBecause, boxOfElement, findBox, freeLeaves, isBranch, mapBox, parentOfBox, registerTree, removeBox,
   sectionElements, sectionFromRows, sectionIdOfBox, sectionRebuild, sectionRows, setBoxDir, setBoxEl,
   splitBlockedBecause, splitBox,
 } from './portalPageModel';
@@ -549,10 +549,27 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   /* The axis-aware "+". `side` is 'left'/'right' on a row and reads as above/below on a column —
      one call, because "add a sibling before me" is the same operation whichever way the parent
      happens to be laid out. */
-  const addColumnBeside = useCallback((columnId: string, side: 'left' | 'right') => {
-    const sectionId = sectionIdOfBox(columnId);
+  /* ⚠️ FOUR sides, not two, and the axis is what the side means: left and right add a COLUMN beside
+     this box, top and bottom add a ROW above or below it. It used to be `addSibling` alone, which
+     could only ever insert along the parent's existing axis — so on a section laid out as columns
+     there was no way to ask for a row, and the two adders quietly changed meaning depending on the
+     shape you happened to be standing in. `addNeighbour` wraps when it has to, so one control means
+     one thing at every level.
+     ⚠️ Blocked with the REASON on it rather than failing silently, like Split. */
+  const addBeside = useCallback((boxId: string, side: 'left' | 'right' | 'top' | 'bottom') => {
+    const sectionId = sectionIdOfBox(boxId);
+    const dir: BoxDir = side === 'left' || side === 'right' ? 'row' : 'column';
+    const before = side === 'left' || side === 'top';
+  /* ⚠️ The reason is read from the REF, before the state update — never assigned inside the updater
+     and checked after it. `setSections` does not run its callback until React renders, so
+     `if (blocked)` on the next line always saw the initial value: the cap worked (nothing was
+     added) and said nothing, which is the silent no-op every limit in this builder is written to
+     avoid. Caught by counting columns after a fifth click and finding four columns and no toast. */
+    const current = sectionsRef.current.find((s) => s.section.id === sectionId)?.section;
+    const blocked = current ? neighbourBlockedBecause(current.root, boxId, dir) : null;
+    if (blocked) { toast.error(blocked); return; }
     setSections((prev) => prev.map((s) => (
-      s.section.id === sectionId ? { ...s, section: addSibling(s.section, columnId, side === 'left') } : s
+      s.section.id === sectionId ? { ...s, section: addNeighbour(s.section, boxId, dir, before) } : s
     )));
   }, []);
 
@@ -560,13 +577,15 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      grows one more child, and the direction is always the box's own. */
   const splitNode = useCallback((boxId: string) => {
     const sectionId = sectionIdOfBox(boxId);
-    let blocked: string | null = null;
-    setSections((prev) => prev.map((s) => {
-      if (s.section.id !== sectionId) return s;
-      blocked = splitBlockedBecause(s.section.root, boxId);
-      return blocked ? s : { ...s, section: splitBox(s.section, boxId) };
-    }));
-    if (blocked) toast.error(blocked);
+    /* ⚠️ Same fix as `addBeside` above, and the same bug: the reason was assigned inside the
+       `setSections` updater and read on the line after it, which runs first. Split has been
+       refusing at the depth and column caps without ever saying why. */
+    const current = sectionsRef.current.find((s) => s.section.id === sectionId)?.section;
+    const blocked = current ? splitBlockedBecause(current.root, boxId) : null;
+    if (blocked) { toast.error(blocked); return; }
+    setSections((prev) => prev.map((s) => (
+      s.section.id === sectionId ? { ...s, section: splitBox(s.section, boxId) } : s
+    )));
   }, []);
 
   /* Behaviour — the note's "how user wants to treat sec? row / column". ⚠️ Non-destructive by
@@ -1363,7 +1382,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
 
   const canvasCtx = {
     selectedId, hoverId, select, setHover: setHoverId, styles, setStyle, setText, setCfg: patchCfg,
-    addSection, addColumnBeside, splitNode, setNodeDir, splitInfo, addLinkCard, dropInColumn, dropAtSeam, dropInRow,
+    addSection, addBeside, splitNode, setNodeDir, splitInfo, addLinkCard, dropInColumn, dropAtSeam, dropInRow,
     moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, moveToSeam, addChildBlock, areSiblings, replaceElement, pickIcon, applyPreset,
     /* The text toolbar names the theme fonts, so it needs the live theme. */
     theme,

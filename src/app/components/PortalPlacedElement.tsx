@@ -71,7 +71,17 @@ function Surface({ children, id }: { children: React.ReactNode; id: string }) {
 /* The four spec-driven element types that render from their own config rather than the generic
    title/description placeholder. Returns null for everything else, which falls through to the
    blank states below. */
-const BTN_SIZE: Record<string, string> = { sm: 'h-7 px-3 text-[12px]', md: 'h-9 px-4 text-[13px]', lg: 'h-11 px-5 text-[14px]' };
+/* ⚠️ A MINIMUM height and real vertical padding, not a fixed height. A fixed `h-9` cannot reflow:
+   narrow the section holding the button and the label had nowhere to go, so it ran out through the
+   side of its own column or was cut off by the height. As a floor the button keeps exactly the size
+   it had for a one-line label — 28 / 36 / 44px, unchanged — and grows a line at a time instead of
+   spilling. The wrapping itself is on `common` below, with the max-width that stops it outgrowing
+   whatever it has been put inside. */
+const BTN_SIZE: Record<string, string> = {
+  sm: 'min-h-7 px-3 py-1 text-[12px]',
+  md: 'min-h-9 px-4 py-2 text-[13px]',
+  lg: 'min-h-11 px-5 py-2.5 text-[14px]',
+};
 
 /* ⚠️ `nodeId` is threaded in so the words inside an element can be their OWN nodes. Without it the
    whole element was the smallest selectable thing, so a KPI's label or a custom card's title could
@@ -232,7 +242,13 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
   if (type === 'b-button') {
     const style = String(cfg.style ?? 'primary');
     const label = <T part="label">{String(cfg.label ?? 'Button')}</T>;
-    const common = `inline-flex items-center justify-center gap-2 font-medium ${BTN_SIZE[String(cfg.size ?? 'md')]} ${cfg.fullWidth ? 'w-full' : ''}`;
+    /* ⚠️ `max-w-full` and `break-words`, or a button is the one element that can be wider than the
+       column it lives in: an inline-flex box with a nowrap label sizes to its text and simply
+       overflows. With both, stretching a section narrower reflows the label instead of pushing it
+       through the edge — which is the whole of what "responsive, specifically the button" asked
+       for. `text-center` because a label that has wrapped to two lines should still read as one
+       centred block rather than ragging left inside a centred button. */
+    const common = `inline-flex max-w-full items-center justify-center gap-2 break-words text-center font-medium ${BTN_SIZE[String(cfg.size ?? 'md')]} ${cfg.fullWidth ? 'w-full' : ''}`;
     /* ⚠️ The fallback is the THEME's variable, not a literal: an untouched button has to follow the
        theme's button style, while one that set its own radius keeps it. A hard 6 made every button
        opt out of the theme by default. */
@@ -258,7 +274,7 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
     if (style === 'icon') {
       btn = <span title={String(cfg.label ?? 'Button')} style={{ ...radius, ...face, background: fill, color: text }} className="inline-flex size-9 items-center justify-center">{glyph ?? '★'}</span>;
     } else if (style === 'link') {
-      btn = <span style={{ ...face, color: text }} className="underline">{glyph}{label}</span>;
+      btn = <span style={{ ...face, color: text }} className="inline-block max-w-full break-words underline">{glyph}{label}</span>;
     } else if (style === 'outline') {
       btn = <span style={{ ...radius, ...face, borderColor: (cfg.borderColor as string) ?? '#3D8BD0', color: text }} className={`${common} border bg-white`}>{glyph}{label}</span>;
     } else {

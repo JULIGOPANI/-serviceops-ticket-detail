@@ -171,10 +171,10 @@ function ColumnBody({ id, item, live, dir, icons, placedText, cfg }: { id: strin
           {/* ⚠️ A FILLED column keeps its adders too. They used to appear only on an empty column,
               so the moment you put something in one — or selected what was already there — the way
               to add a column beside it vanished, and the only remaining route was to empty it. */}
-          {live && <ColumnAdders columnId={id} dir={dir} filled />}
+          {live && <ColumnAdders columnId={id} filled />}
         </>
       ) : (
-        live ? <ColumnAdders columnId={id} dir={dir} /> : (
+        live ? <ColumnAdders columnId={id} /> : (
           /* Unselected columns stay grey but are NOT dead — clicking still opens the element
              library, so you can fill any column without selecting it first. */
           <button
@@ -237,11 +237,15 @@ function BoxView({
   const { selectedId, hoverId } = useCanvas();
   const branch = isBranch(box);
 
-  /* Blue adders belong to ONE box at a time — the selected one, or the one the pointer is over.
+  /* Blue adders belong to ONE box at a time — the one the pointer is over.
+     ⚠️ NOT while it is SELECTED. A selected box carries eight resize handles on the same four edges
+     the adders sit on, so both together put two controls on one point and the click went to
+     whichever was painted last. Selection means "I am sizing this"; hover means "I am adding beside
+     this", and they are different intentions that were sharing a surface.
      ⚠️ Hover is matched against the whole PATH, not the id: with an element selected inside a box
      the pointer is over the element, not the box, and an exact match silently took the affordance
      away. Same rule "+ Add Section" already follows on section hover. */
-  const live = selectedId === box.id || (!!hoverId && nodePath(hoverId).some((n) => n.id === box.id));
+  const live = !nodeSelectedWithin(selectedId, box.id) && !!hoverId && nodePath(hoverId).some((n) => n.id === box.id);
 
   const total = siblings.reduce((a, b) => a + b, 0) || 1;
   /* ⚠️ Fixed columns need a real BASIS, not `flex: weight`. That shorthand is "grow by weight from a
@@ -299,13 +303,24 @@ function BoxChildren({ box, resize, icons, placedText, cfg }: {
   );
 }
 
+/** Is the selection this box, or anything inside it?
+ *
+ *  ⚠️ The PATH, not the id — the same test hover already uses, and for the same reason. Selecting an
+ *  element inside a column leaves `selectedId` on the element, so an id test said the column was not
+ *  selected and kept its four adders — sitting on exactly the four edges the element's own resize
+ *  handles were drawn on. Two controls, one point, and the click went to whichever painted last.
+ *  Once anything in a box is selected you are working inside it, so its adders step aside. */
+const nodeSelectedWithin = (selectedId: string | null, boxId: string) =>
+  !!selectedId && nodePath(selectedId).some((n) => n.id === boxId);
+
 function AddedSection({ section, icons, placedText, cfg }: { section: CustomSection; icons?: Record<string, IconChoice | undefined>; placedText?: Record<string, { title?: string; desc?: string }>; cfg?: (id: string) => Record<string, unknown> }) {
   const { selectedId, hoverId } = useCanvas();
   /* An added section answers Responsive behaviour exactly as a built-in band does — it is the same
      Section spec, so an empty section you just dropped in has the control from its first column. */
   const resize = String(cfg?.(section.id)?.resize ?? 'fill');
   const root = section.root;
-  const live = selectedId === root.id || (!!hoverId && nodePath(hoverId).some((n) => n.id === root.id));
+  /* Hover only — see the note on BoxView. A selected section is being sized, not added to. */
+  const live = !nodeSelectedWithin(selectedId, root.id) && !!hoverId && nodePath(hoverId).some((n) => n.id === root.id);
 
   return (
     /* ⚠️ A section paints NOTHING by default — no white card, no border, no radius. A divider, a
