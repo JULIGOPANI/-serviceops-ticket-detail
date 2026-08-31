@@ -291,6 +291,28 @@ const RAIL_ITEMS = [
   { id: 'r8', name: 'Tasks', route: '/tasks' },
 ];
 
+/* ── the top bar's action icons ────────────────────────────────────────────
+ *
+ * ⚠️ NO Design section at all — no Style, no Spacing — for the same reason the left rail has none:
+ * these are the PRODUCT's actions. Ask AI, the create button, notifications and the avatar appear on
+ * every screen of every portal, and an admin who could restyle or re-space them could make the one
+ * control that is everywhere look unlike the product it belongs to.
+ * ⚠️ It needs a spec at all because without one it fell through to the LEGACY `PortalElementPanel`,
+ * which hands every unrecognised node a generic Style and Spacing block — the two sections that
+ * should never have been on offer here. A node with no spec does not get "no panel", it gets the
+ * default one. */
+export const HEADER_ACTIONS_SPEC: WidgetSpec = {
+  id: 'header_actions', name: 'Actions', group: 'Chrome', reuse: 'single', family: 'container',
+  fields: [],
+  packs: [],
+  noDelete: true,
+  notes: [{
+    tone: 'info',
+    text: 'These belong to the product and look the same on every portal. What a requester can reach through them is set by their permissions, not here.',
+  }],
+  defaults: {},
+};
+
 export const RAIL_SPEC: WidgetSpec = {
   id: 'rail', name: 'Left rail', group: 'Chrome', reuse: 'single', family: 'collection',
   /* ⚠️ CONTENT only — no Design section at all. The rail is the product's own navigation: an admin
@@ -392,7 +414,11 @@ export const NAVBAR_SPEC: WidgetSpec = {
         fields: [
           { key: 'barBg', label: 'Background colour', control: 'color' },
           { key: 'barHeight', label: 'Bar height', control: 'sliderUnit', min: 48, max: 96, unit: 'px' },
-          { key: 'barDivider', label: 'Divider under the bar', control: 'toggle' },
+          /* ⚠️ "Divider under the bar" is gone, and `barDivider` stays in `defaults` where the
+             renderer still reads it — so every bar keeps the line it already draws. A hairline
+             between the product's own top bar and the page under it is not a decision worth a
+             switch: with it the bar reads as chrome, without it the bar and the banner run into
+             each other, and only one of those is ever the answer. */
           /* ⚠️ NO Shadow control. A full-width band at the very top of the page is the one surface
              where a drop shadow reads as a rendering artefact rather than as depth. The four
              `shadow*` keys stay in `defaults` and the renderer still reads them, so a bar that
@@ -413,4 +439,5 @@ export const NAVBAR_SPEC: WidgetSpec = {
 
 export const STRUCTURE_SPECS: WidgetSpec[] = [
   HERO_SPEC, SEARCH_SPEC, SECTION_SPEC, COLUMN_SPEC, PAGE_SPEC, RAIL_SPEC, NAVBAR_SPEC, LOGO_SPEC,
+  HEADER_ACTIONS_SPEC,
 ];

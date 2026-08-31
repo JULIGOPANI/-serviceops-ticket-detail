@@ -831,28 +831,33 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
          wondering whether they had imagined it. */
       case 'addLinkCard': {
         const has = cfg.__hasLink === true;
+        /* ⚠️ A ROW, not a poster. It was a centred block — a 36px circular icon over a title over a
+           description over a full-width button — which made the one optional extra on this panel the
+           largest thing on it, and taller than the four cards it is offering to join. Laid out as an
+           icon, two lines of text and a button on one line it says exactly the same thing in a third
+           of the height, and it now matches the shape of every other row in this builder. */
         return (
-          <div className="rounded-lg border border-dashed border-[#D9E0EA] bg-white px-4 py-4 text-center">
-            <span className="mx-auto flex size-9 items-center justify-center rounded-full bg-[#F1F5F9] text-[#3D8BD0]">
-              <Link2 size={17} />
+          <div className="flex items-center gap-2.5 rounded border border-dashed border-[#D9E0EA] bg-white px-2.5 py-2">
+            <span className="flex size-7 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#3D8BD0]">
+              <Link2 size={14} />
             </span>
-            <p className="mt-2 text-[13px] font-medium text-[#364658]">External link card</p>
-            <p className="mt-0.5 text-[11px] leading-[1.5] text-[#9CA3AF]">
-              {has
-                ? 'Already on this row — select the card to edit its link.'
-                : 'The one card you can add here. Opens a link of your choosing.'}
-            </p>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[12px] font-medium text-[#364658]">External link card</span>
+              <span className="block truncate text-[11px] text-[#9CA3AF]">
+                {has ? 'Select the card to edit its link.' : 'Opens a link of your choosing.'}
+              </span>
+            </span>
             <button
               type="button"
               disabled={has}
               title={has ? 'This row already has its external-link card' : undefined}
               onClick={() => onAddLinkCard?.()}
-              className={`mt-2.5 w-full rounded py-1.5 text-[12px] font-medium transition-colors ${
+              className={`flex-shrink-0 rounded px-2.5 py-1 text-[12px] font-medium transition-colors ${
                 has
                   ? 'cursor-not-allowed border border-[#EDF0F4] text-[#C3CBD6]'
                   : 'bg-[#3D8BD0] text-white hover:bg-[#2d6ca0]'
               }`}
-            >{has ? 'Added' : 'Add card'}</button>
+            >{has ? 'Added' : 'Add'}</button>
           </div>
         );
       }

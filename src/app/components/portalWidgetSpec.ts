@@ -907,6 +907,7 @@ export const STRUCTURE_FOR_NODE: Record<string, string> = {
   rail: 'rail',
   header: 'navbar',
   'header-logo': 'logo',
+  'header-actions': 'header_actions',
   'hero-search': 'search',
   // The three built-in bands are sections like any other.
   quick: 'section',

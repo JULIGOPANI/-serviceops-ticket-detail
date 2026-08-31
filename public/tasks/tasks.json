@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-31T11:32:48.738Z",
+  "builtAt": "2026-08-31T11:49:34.162Z",
   "tasks": [
     {
       "n": 1,
@@ -363,6 +363,15 @@
         "Where": "`portalWidgetSpec.ts` (`structureSpecId`), `portalStructureSpecs.ts`, `supportPortalData.ts`, `PortalItemList.tsx` + `PortalWidgetDrawer.tsx`",
         "You asked": "(1) an empty section shows the OLD Style component; (2) remove Layout ▸ Behaviour from every sidebar in the module; (3) Most Used Services and Favourite Services belong under Live data; (4) task 29's Add item should open the box inline with empty fields and placeholders instead of replacing the sidebar.",
         "Verified": "a column's Design now reads \"Style | Fill | None | Colour | Border | px | Corner radius | px | %\" — the current component. No \"Behaviour\" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens \"Item 4\" expanded, both fields empty, showing \"How do I reset my password?\" and \"Answer it in a sentence or two.\" as placeholders, with the Add link CTA below them."
+      }
+    },
+    {
+      "n": 60,
+      "title": "Three panel trims: the bar's divider, the navbar Actions, the link card",
+      "status": "done",
+      "fields": {
+        "Where": "`portalStructureSpecs.ts` (top bar, `HEADER_ACTIONS_SPEC`) · `portalWidgetSpec.ts` (node map) · `PortalWidgetDrawer.tsx` (`addLinkCard`)",
+        "Verified in the browser.** Selecting the top bar: **no** \"Divider under the bar\", \"Bar height\" still there. Selecting Quick Actions: the link card measures **h 52** with a single Add button. ⚠️ **Not verified by clicking": "the navbar Actions group — every click in that region resolves to the **Header** instead, so I could not open its panel to confirm. The routing and the spec are in place (`STRUCTURE_FOR_NODE['header-actions'] = 'header_actions'`, `fields: []`, `packs: []`), and the same empty-spec shape is what drops Contact Us's CONTENT section — but whether `header-actions` is selectable at all right now is an open question worth a look."
       }
     },
     {
