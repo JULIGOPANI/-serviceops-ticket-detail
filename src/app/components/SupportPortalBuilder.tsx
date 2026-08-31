@@ -18,6 +18,7 @@ import type { PortalTheme } from './PortalThemePanel';
 import { PortalElementPanel } from './PortalElementPanel';
 import { CanvasProvider } from './PortalCanvas';
 import {
+  BLOCK_ORDER_V2, ROW_ORDER_V2, RAIL_V2,
   DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, moveIn, nodeById, parseItemId,
   placedType, registerPlaced, isLockedRow,
   addNeighbour, addSibling, neighbourBlockedBecause, boxOfElement, findBox, freeLeaves, isBranch, mapBox, parentOfBox, registerTree, removeBox,
@@ -169,6 +170,15 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   openOn?: RailKey;
   onOpenConsumed?: () => void;
 }) {
+  /* ⚠️ ONE layout decision, taken at mount and held in state — never re-read from the prop on each
+     render. `blockOrder` and `rowOrder` are `useState` INITIALISERS, so they answer the question
+     once; anything that answered it again per render could disagree with them the moment the page
+     object was replaced without its `layout` field, and did: the bands came out in the v2 order
+     while the rail was undefined, so Announcements and Contact Us silently rendered nowhere.
+     A seed is a fact about how this session STARTED. Reading it twice is what let it change. */
+  const [layout] = useState<'v1' | 'v2'>(() => (page.layout === 'v2' ? 'v2' : 'v1'));
+  const isV2 = layout === 'v2';
+
   const [width, setWidth] = useState(MIN_W);
   const [collapsed, setCollapsed] = useState(false);
   const [active, setActive] = useState<RailKey | null>(openOn ?? null);
@@ -201,7 +211,14 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   // ── canvas state ──────────────────────────────────────────────────────────
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
-  const [content, setContent] = useState<PortalPageContent>(DEFAULT_CONTENT);
+  /* ⚠️ v2's records row is ONE column, which is what makes My Assets and My CIs full-width bands
+     stacked down the page rather than two narrow cards side by side. It is a column COUNT, not a
+     different renderer — the same cards, given the whole width. */
+  const [content, setContent] = useState<PortalPageContent>(() => (
+    page.layout === 'v2'
+      ? { ...DEFAULT_CONTENT, cols: { ...DEFAULT_CONTENT.cols, records: 1 } }
+      : DEFAULT_CONTENT
+  ));
   /* ⚠️ Read by `addLinkCard`, which must know whether the row already HAS its one link card before
      the state settles. Reading `content` inside the updater only works while that hook's queue is
      empty — the same trap `detachElement` records. */
@@ -275,7 +292,11 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
        every band and every added section. */
     quick: { cols: '4', hasCards: true },
     work: { cols: '3' },
-    records: { cols: '2' },
+    /* ⚠️ ONE column on v2, which is what makes My Assets and My CIs full-width bands stacked down
+       the page. The count belongs HERE, not in the renderer's fallback: this seed is what
+       `secCols` reads first, so a fallback set anywhere else was a second answer that could never
+       win — the records row stayed two columns however the layout was described elsewhere. */
+    records: { cols: isV2 ? '1' : '2' },
   };
 
   /* ⚠️ `hasContent` is DERIVED, never stored. It gates the Alignment accordion, and a stored flag
@@ -599,8 +620,12 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
   }, []);
 
   /* ── page order & membership — what the toolbar's move/delete rewrite ── */
-  const [blockOrder, setBlockOrder] = useState<string[]>(DEFAULT_BLOCK_ORDER);
-  const [rowOrder, setRowOrder] = useState<Record<string, string[]>>(DEFAULT_ROW_ORDER);
+  /* ⚠️ SEEDED FROM THE RECORD, not from one global constant. Every portal in the listing used to
+     open the identical arrangement, so two portals could differ by name and address and by nothing
+     a requester would ever see. The seed is read once, as an initialiser — after that the state is
+     the page's own and every edit behaves exactly as it did. */
+  const [blockOrder, setBlockOrder] = useState<string[]>(() => (isV2 ? BLOCK_ORDER_V2 : DEFAULT_BLOCK_ORDER));
+  const [rowOrder, setRowOrder] = useState<Record<string, string[]>>(() => (isV2 ? ROW_ORDER_V2 : DEFAULT_ROW_ORDER));
   rowOrderRef.current = rowOrder;
   const [removed, setRemoved] = useState<string[]>([]);
 
@@ -1511,7 +1536,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
         <div className={`min-h-0 flex-1 overflow-y-auto ${themeClass}`} style={themeWrap}>
           {/* Preview must behave like the real portal — selection off. */}
           <CanvasProvider value={{ ...canvasCtx, enabled: false, selectedId: null, hoverId: null, select: () => {}, setHover: () => {} }}>
-            <SupportPortalPreview accent={themeAccent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} blank={page.start === 'blank'} />
+            <SupportPortalPreview accent={themeAccent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} blank={page.start === 'blank'} rail={isV2 ? RAIL_V2 : undefined} />
           </CanvasProvider>
         </div>
       </div>
@@ -1613,7 +1638,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
             style={themeWrap}
           >
             <CanvasProvider value={{ ...canvasCtx, enabled: true }}>
-              <SupportPortalPreview accent={themeAccent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} setCfg={patchCfg} blank={page.start === 'blank'} />
+              <SupportPortalPreview accent={themeAccent} content={content} sections={sections} icons={icons} placedText={placedText} blockOrder={blockOrder} rowOrder={rowOrder} removed={removed} rowExtras={rowExtras} cfg={cfgFor} setCfg={patchCfg} blank={page.start === 'blank'} rail={isV2 ? RAIL_V2 : undefined} />
             </CanvasProvider>
           </div>
 

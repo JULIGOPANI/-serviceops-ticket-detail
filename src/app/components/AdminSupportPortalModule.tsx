@@ -13,7 +13,7 @@ import { Pagination } from './Pagination';
 import { SupportPortalBuilder } from './SupportPortalBuilder';
 import { SupportPortalTemplateGallery } from './SupportPortalTemplateGallery';
 import {
-  DEFAULT_PORTAL_PAGE, PORTAL_TEMPLATES, formatPortalStamp, nextPageId, relPortalStamp, uniquePageName,
+  DEFAULT_PORTAL_PAGE, SECOND_PORTAL_PAGE, PORTAL_TEMPLATES, formatPortalStamp, nextPageId, relPortalStamp, uniquePageName,
 } from './supportPortalData';
 import type { PortalPage, PortalTemplate } from './supportPortalData';
 
@@ -243,7 +243,7 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
      invite the admin to "create" the thing they are actually editing. The default page is a System
      page: it can be customised and duplicated, and the delete action refuses it (see `canDelete`),
      because a portal with no landing page is not a state the product can be in. */
-  const [pages, setPages] = useState<PortalPage[]>([DEFAULT_PORTAL_PAGE]);
+  const [pages, setPages] = useState<PortalPage[]>([DEFAULT_PORTAL_PAGE, SECOND_PORTAL_PAGE]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [gallery, setGallery] = useState(false);
   const [creating, setCreating] = useState(false);

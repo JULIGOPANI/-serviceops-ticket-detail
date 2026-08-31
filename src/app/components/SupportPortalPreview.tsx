@@ -3,8 +3,9 @@ import type { CSSProperties, ReactNode } from 'react';
 import {
   Bell, Check, Info, Keyboard, KeyRound, House, MessageSquare, MessagesSquare, Plus, PanelLeft,
   Link2, RotateCcw, Search, ShoppingCart, Type, X, ChevronsRight, LayoutGrid,
+  HardDrive, Server,
 } from 'lucide-react';
-import { FavouriteServicesRender, FeaturedServicesRender } from './PortalCollectionRender';
+import { AnnouncementsRender, ContactRender, FavouriteServicesRender, FeaturedServicesRender } from './PortalCollectionRender';
 import { MotadataLogo } from './Header';
 import { AiSparkle } from './AiSparkle';
 import {
@@ -47,6 +48,12 @@ interface SupportPortalPreviewProps {
      My Requests is not a portal) and everything that is PAGE CONTENT goes: no banner, no action
      cards, no data widgets, no seeded sections. What is left says so and offers the first block. */
   blank?: boolean;
+  /* The work-band members that stack into a right-hand RAIL instead of standing as cards of their
+     own, in the order they stack. Undefined means the flat row every layout had before.
+     ⚠️ A LIST, not a boolean. The rail is three specific blocks in a specific order, and the page
+     that wants it should say which — a flag would have put the choice in the renderer, where the
+     next layout that wants a different rail could not reach it. */
+  rail?: string[];
   /* Resolved widget config per node (spec §9). Every field in the drawer reads back through this,
      which is what makes "live apply" real — a control that looks right and changes nothing teaches
      people to distrust the panel. */
@@ -788,7 +795,7 @@ function Row({ nodeId, children }: { nodeId: string; children: ReactNode }) {
 
 /* ── The page ────────────────────────────────────────────────────────────── */
 
-export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CONTENT, sections = [], icons, placedText, blockOrder = DEFAULT_BLOCK_ORDER, rowOrder = DEFAULT_ROW_ORDER, removed = [], rowExtras, cfg, setCfg, blank = false }: SupportPortalPreviewProps) {
+export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CONTENT, sections = [], icons, placedText, blockOrder = DEFAULT_BLOCK_ORDER, rowOrder = DEFAULT_ROW_ORDER, removed = [], rowExtras, cfg, setCfg, blank = false, rail }: SupportPortalPreviewProps) {
   const { styles, enabled, select, pickIcon } = useCanvas();
   /* Which mode the surrounding theme wrapper is in. Inline styles cannot be answered by the dark
      stylesheet, so the few values that are data rather than utilities read it here. */
@@ -966,6 +973,14 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
      and a child without one defaults to 0 — which silently collapsed every seam to the top of the
      page and made the lower ones disappear. Bands take even slots, seams the odd slot after them. */
   const slot = (id: string) => blockOrder.indexOf(id) * 2;
+  /* ⚠️ A band not in `blockOrder` is NOT ON THE PAGE. The bands were rendered unconditionally and
+     only took their POSITION from the order, so a layout that left one out still drew it — at
+     `indexOf === -1`, which is order -2, i.e. FIRST. Dropping Most Used Services from the v2 seed
+     moved it to the top of the page instead of removing it.
+     ⚠️ `hero` is deliberately not gated: it is in no layout's `blockOrder`, because the banner is
+     not a block you reorder. */
+  const band = (id: string, node: ReactNode) =>
+    (blockOrder.includes(id) && !removed.includes(id) ? node : null);
   /* ⚠️ The gutter belongs to the SEAM, not to this wrapper. With `px-6` here, every added section
      rendered inside it inherited a second 24px inset on top of its own — so a new section sat 24px
      right of every built-in band and looked unaligned, because it was. The seam keeps the gutter so
@@ -1296,15 +1311,19 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                 section wrapper only has to place it and paint its surface. That is also why they
                 take `card()` rather than `RowDrop` — nothing else can be dropped beside them, the
                 same rule Quick Actions follows. */}
-            <Sel id="favourites" className={SECTION_PAD} style={{ order: slot("favourites"), ...fillCss(wc('favourites')) }}>
-              <FavouriteServicesRender nodeId="favourites" cfg={wc('favourites')} />
-            </Sel>
-            {after('favourites')}
+            {band('favourites', (
+              <Sel id="favourites" className={SECTION_PAD} style={{ order: slot("favourites"), ...fillCss(wc('favourites')) }}>
+                <FavouriteServicesRender nodeId="favourites" cfg={wc('favourites')} />
+              </Sel>
+            ))}
+            {band('favourites', after('favourites'))}
 
-            <Sel id="services" className={SECTION_PAD} style={{ order: slot("services"), ...fillCss(wc('services')) }}>
-              <FeaturedServicesRender nodeId="services" cfg={wc('services')} />
-            </Sel>
-            {after('services')}
+            {band('services', (
+              <Sel id="services" className={SECTION_PAD} style={{ order: slot("services"), ...fillCss(wc('services')) }}>
+                <FeaturedServicesRender nodeId="services" cfg={wc('services')} />
+              </Sel>
+            ))}
+            {band('services', after('services'))}
 
             {/* ── Work row ── */}
             {/* ── Work row ── one section, three cards, full width. */}
@@ -1375,7 +1394,11 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                 </CardShell>
               ), secCols("work", content.cols.work), secGap("work"), secGrow("work"))}
 
-              {card('knowledge', (
+              {/* ⚠️ The Most Read card is built ONCE and then placed, either as a card of its own or
+                  as the middle of the rail — never authored twice. Two copies of a 40-line widget is
+                  two places for a fix to land in only one. */}
+              {(() => {
+              const knowledgeCard = card('knowledge', (
                 <CardShell nodeId="knowledge" titleNodeId="knowledge-title" title={String(wc('knowledge').title ?? content.knowledge.title)} count={visibleArticles.length} cfg={wc('knowledge')}>
                   <ListBody nodeId="knowledge">
                     {visibleArticles.map((k) => {
@@ -1420,7 +1443,33 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                     })}
                   </ListBody>
                 </CardShell>
-              ), secCols("work", content.cols.work), secGap("work"), secGrow("work"))}
+              ), rail ? 1 : secCols("work", content.cols.work), secGap("work"), secGrow("work"));
+              if (!rail) return knowledgeCard;
+              /* The RAIL: one column of the work row, holding its members stacked.
+                 ⚠️ It takes a normal card's share of the row, so the two cards beside it keep the
+                 widths they would have had — the rail is a third column, not a fourth thing squeezed
+                 in beside three. Inside it every member is `cols: 1`, which is what makes each one
+                 the full width of the rail rather than a third of the row again.
+                 ⚠️ Each member still goes through `card()`, so removal, ordering and selection work
+                 on a rail member exactly as they do on a card standing on its own. */
+              return (
+                <div
+                  className="flex min-w-0 flex-col"
+                  style={{ ...share(secCols("work", content.cols.work), secGap("work"), secGrow("work")), gap: secGap("work") }}
+                >
+                  {rail.map((id) => (
+                    id === 'knowledge' ? <Fragment key={id}>{knowledgeCard}</Fragment>
+                      /* ⚠️ A title is SPREAD IN FIRST, so a title the admin sets still wins. These
+                         two have no widget spec behind the node — they were only ever placeable
+                         elements — so without a seeded title they render an untitled card, and the
+                         rail reads as two anonymous boxes under Announcements' first line. */
+                      : id === 'news' ? <Fragment key={id}>{card('news', <AnnouncementsRender nodeId="news" cfg={{ title: 'Announcements', ...wc('news') }} />, 1, secGap("work"), 1)}</Fragment>
+                        : id === 'contact' ? <Fragment key={id}>{card('contact', <ContactRender nodeId="contact" cfg={{ title: 'Contact Us', ...wc('contact') }} />, 1, secGap("work"), 1)}</Fragment>
+                          : null
+                  ))}
+                </div>
+              );
+              })()}
 
                 {(rowExtras?.['work'] ?? []).map((el) => (
                   <Sel key={el.id} id={el.id} style={share(secCols("work", content.cols.work), secGap("work"), secGrow("work"))}>
@@ -1435,11 +1484,20 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
             {/* ── Records row ── Assets and CIs, in a parent section like every other card. */}
             <Sel id="records" className={SECTION_PAD} style={{ order: slot("records"), ...fillCss(wc('records')) }}>
               <RowDrop rowId="records" resize={secResize("records")} className={`flex flex-wrap${secPacked("records", 2) ? " portal-row-packed" : ""}`} style={{ gap: secGap("records"), ...secBox("records", 2), ...rowFits(inRow("records"), "records"), ...secGrid("records", 2) }}>
-                {card('assets', <RecordsCard nodeId="assets" titleFallback={content.assets.title} cfg={wc('assets')} rows={MY_ASSETS} />, secCols("records", content.cols.records), secGap("records"), secGrow("records"))}
-                {/* ⚠️ My CIs stays EMPTY on purpose (§7.4): it is empty on most real instances, so
-                    its empty state is the state most requesters will see. Inventing placeholder CIs
-                    would make the widget look like something it usually is not. */}
-                {card('cis', <EmptyCard nodeId="cis" title={String(wc('cis').title ?? content.cis.title)} cfg={wc('cis')} />, secCols("records", content.cols.records), secGap("records"), secGrow("records"))}
+                {/* ⚠️ TILES on the rail layout, list rows otherwise — one `rows` shape, two
+                    presentations, chosen by the page rather than by either widget. */}
+                {card('assets', rail
+                  ? <RecordTiles nodeId="assets" titleFallback={content.assets.title} cfg={wc('assets')} rows={MY_ASSETS} icon={<HardDrive size={17} />} />
+                  : <RecordsCard nodeId="assets" titleFallback={content.assets.title} cfg={wc('assets')} rows={MY_ASSETS} />,
+                  secCols("records", content.cols.records), secGap("records"), secGrow("records"))}
+                {/* ⚠️ My CIs stays EMPTY on the original layout, on purpose (§7.4): it is empty on
+                    most real instances, so its empty state is the state most requesters will see.
+                    The v2 page is a copy of an instance that HAS them, where an empty card would
+                    misrepresent that one instead — so the rows follow the layout, not the widget. */}
+                {card('cis', rail
+                  ? <RecordTiles nodeId="cis" titleFallback={content.cis.title} cfg={wc('cis')} rows={MY_CIS} icon={<Server size={17} />} />
+                  : <EmptyCard nodeId="cis" title={String(wc('cis').title ?? content.cis.title)} cfg={wc('cis')} />,
+                  secCols("records", content.cols.records), secGap("records"), secGrow("records"))}
 
                 {(rowExtras?.['records'] ?? []).map((el) => (
                   <Sel key={el.id} id={el.id} style={share(secCols("records", content.cols.records), secGap("records"), secGrow("records"))}>
@@ -1474,6 +1532,59 @@ const MY_ASSETS = [
   { id: 'AST-12', name: 'Jabra Evolve2 65', type: 'Headset' },
   { id: 'AST-9', name: 'iPhone 14', type: 'Mobile' },
 ];
+
+/* ⚠️ My CIs has REAL rows now, for the v2 page only. It was deliberately empty — an instance where
+   nobody has been given a CI is the state most requesters see, and inventing rows made the widget
+   look like something it usually is not. That reasoning still holds for v1, which is why the empty
+   card is still what that layout renders; the v2 page is a copy of a live instance that does have
+   them, and showing it empty would misrepresent that one instead. */
+const MY_CIS = [
+  { id: 'CI-8', name: 'hostname', type: 'Base CI' },
+  { id: 'CI-7', name: 'P1', type: 'Base CI' },
+  { id: 'CI-5', name: 'localhost.localdomain', type: 'Linux Desktop' },
+];
+
+/* A records TILE: the icon block, the blue ID pill and the type beside it, the name underneath.
+ *
+ * ⚠️ A tile, not a list row — the same records, laid out the way the live portal lays them out. It
+ * takes the SAME `rows` shape `RecordsCard` takes, so the two are two presentations of one thing
+ * and a page can choose between them without the data knowing which was chosen. */
+function RecordTiles({ nodeId, titleFallback, cfg, rows, icon }: {
+  nodeId: string; titleFallback: string; cfg: Record<string, unknown>;
+  rows: { id: string; name: string; type: string }[];
+  icon: ReactNode;
+}) {
+  const { styles } = useCanvas();
+  const shown = rows.slice(0, Number(cfg.show ?? 8));
+  if (!shown.length) return <EmptyCard nodeId={nodeId} title={String(cfg.title ?? titleFallback)} cfg={cfg} />;
+  return (
+    <CardShell nodeId={nodeId} title={String(cfg.title ?? titleFallback)} count={shown.length} cfg={cfg}>
+      {/* ⚠️ `@container`, not a viewport breakpoint — the tiles answer to the CARD's width, which is
+          what lets this row be dragged narrow or dropped into a column and still lay out sensibly.
+          Every other grid in this builder that had to survive a resize does the same. */}
+      <div className="@container">
+        <div className="grid grid-cols-1 gap-3 @xl:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-4">
+          {shown.map((r) => (
+            <div key={r.id} className="flex items-start gap-3 rounded-lg border border-[#E5E7EB] bg-white p-3">
+              <span className="flex size-9 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#475467]">{icon}</span>
+              <span className="min-w-0 flex-1">
+                <span className="flex flex-wrap items-center gap-2">
+                  {cfg.showId !== false && (
+                    <span className="max-w-full flex-shrink truncate whitespace-nowrap rounded-sm bg-[#EBF5FF] px-1.5 py-0.5 text-[12px] font-medium text-[#3D8BD0]">{r.id}</span>
+                  )}
+                  {cfg.showType !== false && (
+                    <span style={roleStyle(styles, nodeId, 'meta')} className="truncate text-[12px] text-[#7B8FA5]">{r.type}</span>
+                  )}
+                </span>
+                <span style={roleStyle(styles, nodeId, 'body')} className="mt-1.5 block truncate text-[13px] text-[#364658]">{r.name}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </CardShell>
+  );
+}
 
 /** A records row: blue ID pill · name · the type, right-aligned and muted. */
 function RecordsCard({ nodeId, titleFallback, cfg, rows }: {

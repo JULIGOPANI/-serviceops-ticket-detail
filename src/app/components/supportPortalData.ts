@@ -34,6 +34,17 @@ export interface PortalPage {
   url?: string;
   idp?: string;
   ssoOnly?: boolean;
+  /* Which LAYOUT this portal opens on.
+   *
+   * ⚠️ A portal's arrangement used to be global constants, so every record in this listing opened
+   * the identical page — two portals could differ by name and address and by nothing you could see.
+   * The seed lives on the record now, which is the smallest thing that makes two portals genuinely
+   * two portals. Edits inside a session still behave exactly as they did.
+   *
+   *   v2  the live product's page — no Most Used Services row, a right-hand rail beside the work
+   *       cards, and My Assets / My CIs as full-width rows of tiles
+   *   v1  the arrangement this builder shipped with, kept intact on "Support Portal - 2" */
+  layout?: 'v1' | 'v2';
 }
 
 /* ⚠️ `portal` is not a template layout like the others — it is a PICTURE OF THIS PORTAL. The
@@ -129,9 +140,14 @@ export const PORTAL_TEMPLATES: PortalTemplate[] = [
 /* The portal every tenant already has. It is a SYSTEM page: shipped with the product, always
    present, and the one a requester lands on today — which is why the listing opens with it rather
    than an empty state, and why it is the one page the delete action refuses. */
+/* ⚠️ The DEFAULT keeps id SPP-1. Being the default is tested by id in a dozen places — the badge,
+   the locked Enabled toggle, the undeletable row, the portal's own address — so giving the new
+   layout a new id would have moved every one of those onto the old page. The id is the identity of
+   "the portal requesters land on"; which layout it carries is a property of it, not a new thing. */
 export const DEFAULT_PORTAL_PAGE: PortalPage = {
   id: 'SPP-1',
   name: 'Support Portal',
+  layout: 'v2',
   type: 'System',
   status: 'Published',
   source: 'Classic Service Desk',
@@ -146,6 +162,17 @@ export const DEFAULT_PORTAL_PAGE: PortalPage = {
   url: 'support.acme.com',
   idp: 'None — use ServiceOps login',
   ssoOnly: false,
+};
+
+/** The arrangement the builder shipped with, kept as a portal of its own. */
+export const SECOND_PORTAL_PAGE: PortalPage = {
+  ...DEFAULT_PORTAL_PAGE,
+  id: 'SPP-2',
+  name: 'Support Portal - 2',
+  layout: 'v1',
+  url: 'support.acme.com/portal-2',
+  dirty: false,
+  modifiedAt: 'Mon, Aug 17, 2026 09:14 AM',
 };
 
 /* The listing says WHEN in relative terms, because "2 days ago" is the question an admin is

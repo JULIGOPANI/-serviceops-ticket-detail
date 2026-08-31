@@ -103,6 +103,14 @@ export const PORTAL_NODES: PortalNodeDef[] = [
 
   /* Records row — Assets and CIs were floating as their own bands. Every card now lives inside a
      parent section, so the whole row can be styled, spaced and re-laid-out as one thing. */
+  /* The v2 rail. ⚠️ Announcements and Contact Us existed only as PLACEABLE elements, so a page
+     could carry them but no page shipped with them and nothing could address them by name. As
+     nodes they can sit in a fixed rail, be selected, styled and ordered like every other block —
+     and they render through the very same renderers the placed elements use, so there is one
+     Announcements in this product rather than two that drift. */
+  { id: 'news', name: 'Announcements', kind: 'card', parent: 'work', content: 'row' },
+  { id: 'contact', name: 'Contact Us', kind: 'card', parent: 'work', content: 'row' },
+
   { id: 'records', name: 'Records Row', kind: 'section', content: 'row' },
   { id: 'assets', name: 'My Assets', kind: 'card', parent: 'records', content: 'assets' },
   { id: 'cis', name: 'My CIs', kind: 'card', parent: 'records', content: 'cis' },
@@ -258,15 +266,45 @@ export interface PortalPageContent {
    and the lists of things already in flight follow underneath. */
 export const DEFAULT_BLOCK_ORDER = ['quick', 'favourites', 'services', 'work', 'records'];
 
+/* ── v2: the live product's arrangement ──────────────────────────────────────
+ *
+ * ⚠️ Seeds, not a second renderer. Everything below is the SAME bands, cards and widgets the page
+ * has always had, in a different order with a different column count — which is the whole reason
+ * the arrangement is data. A layout that needed its own rendering path would be a second page to
+ * maintain, and the two would drift the first time a widget changed.
+ *
+ * The differences from v1, all of them:
+ *   • no Most Used Services row
+ *   • the work band is Requests + Approvals beside a stacked RAIL of Announcements, Most Read and
+ *     Contact Us, instead of three equal cards
+ *   • My Assets and My CIs are full-width rows of tiles rather than two columns of list rows */
+export const BLOCK_ORDER_V2 = ['quick', 'favourites', 'work', 'records'];
+
+export const ROW_ORDER_V2: Record<string, string[]> = {
+  quick: ['quick-incident', 'quick-service', 'quick-ad', 'quick-knowledge'],
+  /* The rail's three ride in the same list, so reordering and removal work on them exactly as they
+     do on the two cards beside them. Which of them the rail holds is `RAIL_V2`. */
+  work: ['requests', 'approvals', 'news', 'knowledge', 'contact'],
+  records: ['assets', 'cis'],
+};
+
+/** The work-band members that stack into the right-hand rail, in the order they stack. */
+export const RAIL_V2 = ['news', 'knowledge', 'contact'];
+
 export const DEFAULT_ROW_ORDER: Record<string, string[]> = {
   quick: ['quick-incident', 'quick-service', 'quick-ad', 'quick-knowledge'],
   work: ['requests', 'approvals', 'knowledge'],
   records: ['assets', 'cis'],
 };
 
-/** Which row a fixed card belongs to, so a move knows which list to reorder. */
+/** Which row a fixed card belongs to, so a move knows which list to reorder.
+ *
+ *  ⚠️ Both layouts' rows are searched. `news` and `contact` are members of the work row only in
+ *  v2, and a lookup that knew about v1 alone would return undefined for them — which is how a card
+ *  ends up unable to move, with nothing on screen saying why. */
 export function rowOf(nodeId: string): string | undefined {
-  return Object.keys(DEFAULT_ROW_ORDER).find((row) => DEFAULT_ROW_ORDER[row].includes(nodeId));
+  const rows = { ...DEFAULT_ROW_ORDER, ...ROW_ORDER_V2 };
+  return Object.keys(rows).find((row) => rows[row].includes(nodeId));
 }
 
 /** Moves `id` one step inside `list`, returning a new array. */
