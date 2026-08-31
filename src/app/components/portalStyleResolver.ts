@@ -226,11 +226,25 @@ export function containerCss(styles: PortalStyles, id: string): React.CSSPropert
   const css: React.CSSProperties = {};
   const g = <K extends keyof NodeStyle>(k: K) => chosen(styles, id, k);
 
-  const fill = g('bgFill');
-  if (fill === 'color') css.background = (g('bg') as string) ?? undefined;
+  /* ⚠️ THE BOX KEYS ARE OWN-ONLY — fill, border, shadow and corners — never resolved through the
+     chain. They are the same class of value as padding, width and height, each of which already
+     reads this way for the same reason and says so below: they are statements about ONE box, and
+     they are meaningless as a statement about somebody else's.
+     Inherited, a card given a 6px border handed that 6px to every node inside it that draws a
+     container — so setting the border on My Open Requests drew a second 6px box around its "View
+     all" link, and the card read as a frame inside a frame. A fill behaves worse: the card and
+     every child would paint the same colour, one over the other.
+     ⚠️ The own read is what keeps the widget itself painting: the panel writes to the OWNER
+     node, which IS the node whose Sel draws the card, so the value is present exactly where it
+     should appear and absent everywhere it should not. */
+  const own = styles[id];
+  const b = <K extends keyof NodeStyle>(k: K) => own?.[k];
+
+  const fill = b('bgFill');
+  if (fill === 'color') css.background = (b('bg') as string) ?? undefined;
   else if (fill === 'image') {
-    const img = g('bgImage') as string | undefined;
-    const overlay = ((g('bgOverlay') as number) ?? 0) / 100;
+    const img = b('bgImage') as string | undefined;
+    const overlay = ((b('bgOverlay') as number) ?? 0) / 100;
     if (img) {
       css.backgroundImage = overlay > 0
         ? `linear-gradient(rgba(0,0,0,${overlay}),rgba(0,0,0,${overlay})), url(${img})`
@@ -240,36 +254,36 @@ export function containerCss(styles: PortalStyles, id: string): React.CSSPropert
     }
   } else if (fill === undefined) {
     // Legacy: `bg` set on its own by the old colour field, before P1 existed.
-    const bg = g('bg');
+    const bg = b('bg');
     if (bg) css.background = bg as string;
   }
 
-  const border = g('borderMode');
+  const border = b('borderMode');
   if (border === 'none') css.border = 'none';
   else if (border === 'line') {
-    css.borderWidth = `${(g('borderWidth') as number) ?? 1}px`;
-    css.borderStyle = (g('borderStyle') as string) ?? 'solid';
-    css.borderColor = (g('borderColor') as string) ?? '#E5E7EB';
+    css.borderWidth = `${(b('borderWidth') as number) ?? 1}px`;
+    css.borderStyle = (b('borderStyle') as string) ?? 'solid';
+    css.borderColor = (b('borderColor') as string) ?? '#E5E7EB';
   } else if (border === 'shadow') {
     css.border = 'none';
     css.boxShadow = '0 1px 2px rgba(16,24,40,0.06), 0 4px 12px rgba(16,24,40,0.08)';
-  } else if (g('borderWidth')) {
-    css.borderWidth = `${g('borderWidth')}px`;
-    css.borderStyle = (g('borderStyle') as string) ?? 'solid';
-    css.borderColor = (g('borderColor') as string) ?? '#E5E7EB';
+  } else if (b('borderWidth')) {
+    css.borderWidth = `${b('borderWidth')}px`;
+    css.borderStyle = (b('borderStyle') as string) ?? 'solid';
+    css.borderColor = (b('borderColor') as string) ?? '#E5E7EB';
   }
 
-  const elevation = g('elevation');
+  const elevation = b('elevation');
   if (elevation === 'subtle') css.boxShadow = '0 1px 2px rgba(16,24,40,0.05)';
   else if (elevation === 'raised') css.boxShadow = '0 4px 6px -2px rgba(16,24,40,0.06), 0 12px 20px -4px rgba(16,24,40,0.12)';
 
-  const corners = g('corners');
+  const corners = b('corners');
   if (corners) {
     css.borderTopLeftRadius = `${corners.tl}px`; css.borderTopRightRadius = `${corners.tr}px`;
     css.borderBottomRightRadius = `${corners.br}px`; css.borderBottomLeftRadius = `${corners.bl}px`;
   } else {
-    const r = g('radius');
-    if (r !== undefined) css.borderRadius = `${r}px`;
+    const rad = b('radius');
+    if (rad !== undefined) css.borderRadius = `${rad}px`;
   }
 
   /* ⚠️ PADDING IS OWN-ONLY, never resolved through the chain — the same rule height already has.
@@ -278,7 +292,6 @@ export function containerCss(styles: PortalStyles, id: string): React.CSSPropert
      ON TOP of moving the band's own edge. Padding is the space between a box and ITS contents; it
      is meaningless as a statement about somebody else's box, which is exactly why it cannot
      cascade. `styles[id]` reads only what this node set. */
-  const own = styles[id];
   const pad = own?.padding;
   if (pad) {
     /* ⚠️ PER SIDE, and only where a value exists. Writing all four unconditionally meant an unset

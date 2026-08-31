@@ -21,18 +21,15 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronLeft, ChevronRight, ListFilter, Pin, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, ListFilter, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import {
   DATE_PRESETS, OPERATORS, PEOPLE, TAG_SUGGESTIONS, UNASSIGNED,
   activeConditions, describeCondition, fieldByKey, fieldsFor, personAvatar, presetById, presetsFor, summarise,
 } from './portalRecordFilters';
 import type { Condition, FilterField, RecordFilter } from './portalRecordFilters';
 
-const PIN_KEY = 'portalRecordFilter:pinned';
-
-const readPins = (): string[] => {
-  try { return JSON.parse(localStorage.getItem(PIN_KEY) ?? '[]') as string[]; } catch { return []; }
-};
+/** The hover card’s width, shared by the flip test and the card itself so the two cannot drift. */
+const PEEK_W = 260;
 
 /* ── small shared bits ─────────────────────────────────────────────────────── */
 
@@ -227,7 +224,8 @@ export function RecordFilterField({ value, moduleKey, statuses, onChange }: {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<'list' | 'build' | 'edit'>('list');
   const [q, setQ] = useState('');
-  const [pins, setPins] = useState<string[]>(readPins);
+  /* Which preset the pointer is on, so the list can show what that preset actually filters by. */
+  const [peek, setPeek] = useState<{ id: string; top: number; left: number; right: number } | null>(null);
   const [editing, setEditing] = useState<{ index: number; draft: Condition } | null>(null);
   const [picking, setPicking] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -265,19 +263,12 @@ export function RecordFilterField({ value, moduleKey, statuses, onChange }: {
      and they all carry the id `all`, so a bare id meant pinning "All Changes" silently pinned
      "All Requests", "All Assets" and every other module's too — one gesture quietly changing nine
      other lists the admin was not looking at. */
-  const pinKey = (id: string) => `${moduleKey}:${id}`;
-
-  const togglePin = (id: string) => {
-    const k = pinKey(id);
-    const next = pins.includes(k) ? pins.filter((p) => p !== k) : [...pins, k];
-    setPins(next);
-    try { localStorage.setItem(PIN_KEY, JSON.stringify(next)); } catch { /* private window */ }
-  };
-
-  /* ⚠️ Pinned float to the TOP, in the order they were pinned — the same rule the deployment saved
-     views use, so a pin means one thing in this product. */
-  const ordered = [...presets].sort((a, b) => Number(pins.includes(pinKey(b.id))) - Number(pins.includes(pinKey(a.id))));
-  const listed = q ? ordered.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())) : ordered;
+  /* ⚠️ The PIN is gone, and so is the localStorage behind it. Reordering a twelve-row list that is
+     already searchable bought very little, and it bought it with an icon that appeared under the
+     pointer on every row — on the one surface whose job is to let you read the rows. What the hover
+     is for now is saying what a preset DOES.
+     ⚠️ Catalogue order, therefore, exactly as the product lists them. */
+  const listed = q ? presets.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())) : presets;
 
   const openEditor = (index: number, draft: Condition) => { setEditing({ index, draft }); setView('edit'); setPicking(false); };
 
@@ -301,6 +292,52 @@ export function RecordFilterField({ value, moduleKey, statuses, onChange }: {
      under the closed field show, so a chosen preset is never a name with nothing behind it. */
   const inForce = activeConditions(value, moduleKey);
 
+  /* ── what the hovered preset actually filters by ──
+   *
+   * ⚠️ Portalled and fixed, like the popover itself: this card is wider than the 320px popover and
+   * the list inside it scrolls, so rendered in place it would be clipped on two edges at once.
+   * ⚠️ It sits to the RIGHT of the row, never over the list — the whole point is to read the name
+   * and its conditions together, and a card covering the names makes you hover blind.
+   * ⚠️ An empty preset says so in words rather than showing an empty card. "All Requests" genuinely
+   * has no conditions, and a card with nothing in it looks like a card that failed to load. */
+  const peeked = peek ? presets.find((p) => p.id === peek.id) : undefined;
+  const peekCard = peek && peeked && createPortal(
+    <div
+      /* ⚠️ It FLIPS to the left of the list rather than being clamped onto it. Clamping was the
+         first version and it was wrong in the one case that matters: this popover opens beside a
+         panel pinned to the right of the window, so there is usually no room on the right — and a
+         clamped card landed ON the names, which is the one thing this card must never cover. */
+      style={{
+        position: 'fixed',
+        left: peek.right + 8 + PEEK_W <= window.innerWidth - 8
+          ? peek.right + 8
+          : Math.max(8, peek.left - 8 - PEEK_W),
+        top: Math.min(peek.top - 6, window.innerHeight - 190),
+      }}
+      className="pointer-events-none z-[10001] w-[260px] rounded-lg border border-[#E5E7EB] bg-white p-2.5 shadow-[0_12px_24px_-6px_rgba(16,24,40,0.18)]"
+    >
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#9CA3AF]">Filters by</p>
+      {peeked.scope && (
+        <p className="mb-1 flex items-start gap-1.5 text-[12px] text-[#364658]">
+          <span className="mt-[5px] size-1 flex-shrink-0 rounded-full bg-[#3D8BD0]" />
+          {peeked.scope}
+        </p>
+      )}
+      {peeked.conditions.map((c, i) => (
+        <p key={`${c.field}-${i}`} className="mb-1 flex items-start gap-1.5 text-[12px] text-[#364658]">
+          <span className="mt-[5px] size-1 flex-shrink-0 rounded-full bg-[#3D8BD0]" />
+          {describeCondition(c, labelOf(c.field))}
+        </p>
+      ))}
+      {peeked.conditions.length === 0 && !peeked.scope && (
+        <p className="text-[12px] leading-[1.5] text-[#9CA3AF]">
+          No conditions — every record in this module.
+        </p>
+      )}
+    </div>,
+    document.body,
+  );
+
   const pop = open && createPortal(
     <div
       ref={popRef}
@@ -310,31 +347,40 @@ export function RecordFilterField({ value, moduleKey, statuses, onChange }: {
       {view === 'list' && (
         <>
           <SearchBox value={q} onChange={setQ} placeholder="Search filters" />
-          <div className="-mx-1 mt-2 flex-1 space-y-0.5 overflow-y-auto px-1">
+          {/* ⚠️ A TITLE, because a bare list of twelve names does not say what kind of thing they
+              are. These are the module's own out-of-the-box filters — an admin should not have to
+              work out from the names alone that they came with the product rather than from
+              somebody's earlier session. */}
+          <p className="mt-2.5 px-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#9CA3AF]">
+            Predefined filters
+          </p>
+          <div className="-mx-1 mt-1 flex-1 space-y-0.5 overflow-y-auto px-1">
             {listed.map((p) => {
               const on = value?.preset === p.id;
-              const pinned = pins.includes(pinKey(p.id));
               return (
-                <div
+                /* ⚠️ Hovering a row says what that preset FILTERS BY. A name like "My Overdue
+                    Requests" is a promise the list cannot keep on its own — two of these differ by
+                    one condition — so the conditions are what the pointer reveals, in the place the
+                    pin used to appear and take the row's width with it. */
+                <button
                   key={p.id}
-                  className={`group flex items-center gap-1 rounded pl-2 pr-1 ${on ? 'bg-[#EAF3FB]' : 'hover:bg-[#F5F7FA]'}`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => { onChange({ preset: p.id }); setOpen(false); }}
-                    className={`min-w-0 flex-1 truncate py-1.5 text-left text-[12px] ${on ? 'font-medium text-[#3D8BD0]' : 'text-[#364658]'}`}
-                  >{p.name}</button>
-                  {/* ⚠️ A FIXED slot using `invisible`, not `hidden` — an icon that takes its space
-                      only on hover makes the name jump left as the pointer crosses the row. */}
-                  <button
-                    type="button"
-                    title={pinned ? 'Unpin' : 'Pin to the top'}
-                    onClick={() => togglePin(p.id)}
-                    className={`flex size-6 flex-shrink-0 items-center justify-center rounded ${
-                      pinned ? 'text-[#3D8BD0]' : 'invisible text-[#9CA3AF] group-hover:visible hover:text-[#3D8BD0]'
-                    }`}
-                  ><Pin size={12} fill={pinned ? 'currentColor' : 'none'} /></button>
-                </div>
+                  type="button"
+                  onMouseEnter={(e) => {
+                    /* ⚠️ Measured off the POPOVER, not off the row. A row sits ~13px inside the
+                       popover's padding, so flipping the card off the row's left edge left it
+                       ending 5px INSIDE the list — covering the first characters of every name,
+                       which is the one thing this card exists not to do. The card has to clear the
+                       surface, so the surface is what it is placed against. */
+                    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                    const box = popRef.current?.getBoundingClientRect();
+                    setPeek({ id: p.id, top: r.top, left: box?.left ?? r.left, right: box?.right ?? r.right });
+                  }}
+                  onMouseLeave={() => setPeek((s) => (s?.id === p.id ? null : s))}
+                  onClick={() => { onChange({ preset: p.id }); setOpen(false); }}
+                  className={`block w-full truncate rounded px-2 py-1.5 text-left text-[12px] ${
+                    on ? 'bg-[#EAF3FB] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F5F7FA]'
+                  }`}
+                >{p.name}</button>
               );
             })}
             {listed.length === 0 && <p className="px-1.5 py-3 text-[12px] text-[#9CA3AF]">No filter matches “{q}”.</p>}
@@ -473,6 +519,7 @@ export function RecordFilterField({ value, moduleKey, statuses, onChange }: {
       )}
 
       {pop}
+      {peekCard}
     </div>
   );
 }
