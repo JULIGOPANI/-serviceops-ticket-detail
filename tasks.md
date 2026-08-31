@@ -277,6 +277,15 @@ Updated: 2026-08-25 12:11
 - **(4)** Adding an item no longer calls `onSelect`, which used to swap the whole sidebar for that item's drawer — you asked for one more row and the panel you were working in disappeared. The list opens the new row **in place** (the item is always appended, so its index is the length before the add). A new `blankOnAdd` flag empties every declared field, and `placeholder` on the two inline fields says what belongs there. ⚠️ Both are **opt-in**: the seeds exist so an untouched page shows a realistic accordion, and a gallery slide added blank is a broken slide. A collection with no inline editor still opens its drawer, because it has nowhere else to go.
 - **Verified:** a column's Design now reads "Style | Fill | None | Colour | Border | px | Corner radius | px | %" — the current component. No "Behaviour" anywhere in the module. The Live data group lists all eight rows including both service rows. Clicking Add item keeps you on the Accordion panel and opens "Item 4" expanded, both fields empty, showing "How do I reset my password?" and "Answer it in a sentence or two." as placeholders, with the Add link CTA below them.
 
+## 57. The four work cards match, and every tile has one hierarchy
+- **Status:** done
+- **Where:** `SupportPortalPreview.tsx` (main region, `RecordTiles`)
+- **A GRID, not a wrapping flex row — that is what makes all four the same height.** ⚠️ Flex can only equalise WITHIN a line: `items-stretch` gives line 1 the height of the taller of Requests/Approvals and line 2 its own, which is still two different heights. `grid-auto-rows: 1fr` makes both rows equal and stretches every cell into them.
+- **⚠️ This is not a reversal of "fit the card's height to its content".** That was about the cards not stretching to the RAIL's height, which they still do not — the four-card block is shorter than the rail beside it. Equal to EACH OTHER and equal to the rail are different claims, and only the first was ever wanted.
+- **⚠️ The flex basis `card()` writes is inert on a grid item**, which is fine: the two tracks own the width now. CSS `order` still applies, so the explicit `orderAt` sequence still holds.
+- **A tile's hierarchy is a property of the TILE, not of the length of one word in it.** The id pill and the type sat in a `flex-wrap` row, so the layout depended on how long the type happened to be: "Base CI" and "Linux Desktop" pushed to a second line while "Server" still fitted beside its pill — which is why **CI-3 alone** came out shaped differently from the three tiles next to it. Always stacked now.
+- **Verified in the browser at 1680px.** All four cards measure **h 398** — Requests and Approvals at y 89, Assets and CIs at y 504. All **eight** tiles report **3 lines**, CI-3 included.
+
 ## 56. Settings comes back as a per-portal row action, and My CIs squares up
 - **Status:** done
 - **Where:** `AdminSupportPortalModule.tsx` (`RowActions`, the settings drawer) · `SupportPortalPreview.tsx` (`MY_CIS`)

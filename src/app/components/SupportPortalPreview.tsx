@@ -1574,9 +1574,20 @@ export function SupportPortalPreview({ accent = '#0F172A', content = DEFAULT_CON
                  on a card in either region exactly as they do on one standing alone. */
               return (
                 <>
+                {/* ⚠️ A GRID, not a wrapping flex row, and this is what makes all four cards the
+                    same height. `items-start` let each card fit its own content — which fixed the
+                    stretched-to-the-rail problem but left four different heights, so the block read
+                    as four cards that happened to be near each other rather than one panel.
+                    Flex can only equalise WITHIN a line: `items-stretch` would give line 1 the
+                    height of the taller of Requests/Approvals and line 2 its own, still two
+                    different heights. `grid-auto-rows: 1fr` makes both rows equal and stretches
+                    every cell into them, which is the only way to say "these four match".
+                    ⚠️ The flex basis `card()` writes is inert on a grid item, which is fine — the
+                    two tracks own the width now. CSS `order` still applies, so the explicit
+                    `orderAt` sequence still holds. */}
                 <div
-                  className="flex min-w-0 flex-wrap content-start items-start"
-                  style={{ flex: '2 1 0%', gap: secGap("work") }}
+                  className="grid min-w-0"
+                  style={{ flex: '2 1 0%', gap: secGap("work"), gridTemplateColumns: '1fr 1fr', gridAutoRows: '1fr' }}
                 >
                   {requestsCard}
                   {approvalsCard}
@@ -1727,12 +1738,17 @@ function RecordTiles({ nodeId, titleFallback, cfg, rows, icon }: {
             <div key={r.id} className="flex items-start gap-3 rounded-lg border border-[#E5E7EB] bg-white p-3">
               <span className="flex size-9 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#475467]">{icon}</span>
               <span className="min-w-0 flex-1">
-                <span className="flex flex-wrap items-center gap-2">
+                {/* ⚠️ STACKED, always — never `flex-wrap`. Wrapping means the layout depends on how
+                    long the type happens to be: "Base CI" and "Linux Desktop" pushed to a second
+                    line while "Server" still fitted beside its pill, so CI-3 alone came out with a
+                    different shape from the three tiles next to it. A tile's hierarchy has to be a
+                    property of the TILE, not of the length of one word in it. */}
+                <span className="flex min-w-0 flex-col items-start gap-1">
                   {cfg.showId !== false && (
-                    <span className="max-w-full flex-shrink truncate whitespace-nowrap rounded-sm bg-[#EBF5FF] px-1.5 py-0.5 text-[12px] font-medium text-[#3D8BD0]">{r.id}</span>
+                    <span className="max-w-full truncate whitespace-nowrap rounded-sm bg-[#EBF5FF] px-1.5 py-0.5 text-[12px] font-medium text-[#3D8BD0]">{r.id}</span>
                   )}
                   {cfg.showType !== false && (
-                    <span style={roleStyle(styles, nodeId, 'meta')} className="truncate text-[12px] text-[#7B8FA5]">{r.type}</span>
+                    <span style={roleStyle(styles, nodeId, 'meta')} className="max-w-full truncate text-[12px] text-[#7B8FA5]">{r.type}</span>
                   )}
                 </span>
                 <span style={roleStyle(styles, nodeId, 'body')} className="mt-1.5 block truncate text-[13px] text-[#364658]">{r.name}</span>
