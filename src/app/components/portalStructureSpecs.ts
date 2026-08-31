@@ -240,11 +240,21 @@ export const SECTION_SPEC: WidgetSpec = {
 /** L2 — a column owns its width and the alignment of the blocks inside it. Nothing else (§7.21). */
 export const COLUMN_SPEC: WidgetSpec = {
   id: 'column', name: 'Column', group: 'Structure', reuse: 'many', family: 'container',
+  /* ⚠️ BOTH fields are gated on the box having something in it, which drops the whole Column group
+     for an empty one — a group with no visible fields is not rendered at all.
+     "Align the blocks inside" is the obvious case: there are no blocks. Width goes with it because
+     an empty column has no content to be a width OF — it is a placeholder waiting to be filled, and
+     a panel offering to size a placeholder is asking a question about nothing. Both come back the
+     moment anything lands in it, and the drag handles set the width either way. */
   fields: [
-    { key: 'width', label: 'Width', control: 'slider', tab: 'style', group: 'Column', min: 10, max: 90, unit: '%' },
+    {
+      key: 'width', label: 'Width', control: 'slider', tab: 'style', group: 'Column', min: 10, max: 90, unit: '%',
+      when: (c) => c.hasContent !== false,
+    },
     {
       key: 'blockAlign', label: 'Align the blocks inside', control: 'segmented', tab: 'style', group: 'Column',
       options: [{ value: 'start', label: 'Top' }, { value: 'center', label: 'Middle' }, { value: 'end', label: 'Bottom' }],
+      when: (c) => c.hasContent !== false,
     },
   ],
   packs: ['P1'],

@@ -318,6 +318,18 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      than from a stored id, so a layout changed by the canvas adders and one changed by the preset
      row cannot disagree about which tile is current. The double underscore marks these as read-only
      view keys: nothing writes them back. */
+  /* Does this BOX hold anything — an element, or children? Everything that is not a box answers
+     true, because `hasContent` gates controls on several node kinds and only a box can be empty in
+     the sense the Column panel cares about.
+     ⚠️ Read through the REF, like `sectionHasContent` beside it: `cfgFor` is declared above
+     `sections`, so the state itself is not in scope here. */
+  const boxHasContent = useCallback((id: string) => {
+    if (!/^sec-\d+-b\d+$/.test(id)) return true;
+    const sec = sectionsRef.current.find((s) => s.section.id === sectionIdOfBox(id))?.section;
+    const box = sec ? findBox(sec.root, id) : null;
+    return !!box && (!!box.el || isBranch(box));
+  }, []);
+
   const sectionShape = useCallback((id: string) => {
     const sec = sectionsRef.current.find((x) => x.section.id === id)?.section;
     if (sec) {
@@ -364,7 +376,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
          itself from — the two symptoms above. */
       ...(/^sec-\d+$/.test(owner)
         ? { hasContent: sectionHasContent(owner), ...sectionShape(owner) }
-        : { hasContent: true, ...sectionShape(owner) }),
+        : { hasContent: boxHasContent(owner), ...sectionShape(owner) }),
       /* ⚠️ Whether this widget has any records, so the panel can stand down the controls that only
          describe records. Arranging nothing is not a setting, it is a control with no referent. */
       /* ⚠️ The ROW's card template, seeded so the card's own picker opens on the shape it is
@@ -387,7 +399,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
          key into the tree and never stores it, so there is nothing here to go stale. */
       ...(boxDirOf(owner) ? { dir: boxDirOf(owner) } : {}),
     };
-  }, [specForNode, widgetCfg, sectionHasContent]);
+  }, [specForNode, widgetCfg, sectionHasContent, boxHasContent]);
 
   /* The two service rows share their tile shape. ⚠️ Mirrored HERE, at the one place widget config
      is written, rather than by giving the field a second home — every route into a widget's config

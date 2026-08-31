@@ -696,9 +696,20 @@ export function PortalTable({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
     && c >= Math.min(sel.c0, sel.c1) && c <= Math.max(sel.c0, sel.c1);
 
   return (
+    /* ⚠️ NEGATIVE MARGIN against the padding, so the rails hang OUTSIDE the element's box and the
+       table's own left edge lands exactly where every other element's does. As padding alone it
+       pushed the table 18px in from the section edge — so a table was the one element that did not
+       line up with the cards above it, and worse, the inset existed only in the BUILDER: `enabled`
+       is false on the published page, so the canvas and the portal disagreed about where the table
+       started. The padding stays because every handle position below is measured from it. */
     <div
       className="relative"
-      style={enabled ? { paddingTop: RAIL + 4, paddingLeft: RAIL + 4 } : undefined}
+      style={enabled ? {
+        paddingTop: RAIL + 4,
+        paddingLeft: RAIL + 4,
+        marginTop: -(RAIL + 4),
+        marginLeft: -(RAIL + 4),
+      } : undefined}
       onMouseEnter={() => setOverTable(true)}
       onMouseLeave={() => { setOverTable(false); setHoverRow(null); setHoverCol(null); }}
     >
