@@ -1852,9 +1852,21 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
      ⚠️ `[&>*]` reaches the ONE root each renderer draws. It has to be a descendant selector rather
      than a class on that root, because those roots live in a dozen different components and half of
      them are collection renderers this file cannot see. */
-  const sized = styles[id]?.height !== undefined;
-  const body = sized
-    ? <div className="flex min-h-0 w-full flex-1 flex-col [&>*]:min-h-0 [&>*]:flex-1">{children}</div>
+  /* ⚠️ WIDTH counts as sized, not only height. A Button hugs its own text (`HUGS_CONTENT`), so
+     dragging its side widened the wrapper and left the button the size of its label sitting in the
+     corner of a big empty selection — the same "the outline moved and the thing did not" the height
+     fix was for, on the other axis.
+     ⚠️ The child is stretched on the axis that was actually SET. `flex-1` fills the height and is
+     applied only when a height exists, because on an unsized box it would stretch a button to
+     whatever its neighbour happens to be; `w-full` fills the width the same way. */
+  const hasH = styles[id]?.height !== undefined;
+  const hasW = styles[id]?.widthPct !== undefined || styles[id]?.width !== undefined;
+  const body = hasH || hasW
+    ? (
+      <div className={`flex min-h-0 w-full flex-1 flex-col ${hasH ? '[&>*]:min-h-0 [&>*]:flex-1 ' : ''}${hasW ? '[&>*]:w-full' : ''}`}>
+        {children}
+      </div>
+    )
     : children;
   if (!enabled || !node) return <div style={size} className={className}>{body}</div>;
 

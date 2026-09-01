@@ -253,7 +253,19 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
        through the edge — which is the whole of what "responsive, specifically the button" asked
        for. `text-center` because a label that has wrapped to two lines should still read as one
        centred block rather than ragging left inside a centred button. */
-    const common = `inline-flex max-w-full items-center justify-center gap-2 break-words text-center font-medium ${BTN_SIZE[String(cfg.size ?? 'md')]} ${cfg.fullWidth ? 'w-full' : ''}`;
+    /* ⚠️ A DRAGGED WIDTH fills, exactly as the Full-width switch does. The button hugs its own
+       label, so widening its handles moved the outline out and left the button the size of its text
+       in the corner of a large empty selection — the same "the outline moved and the thing did not"
+       the height fix was for, on the other axis.
+       ⚠️ It is read from STYLES here rather than stretched by the wrapper, because the wrapper's
+       `[&>*]` reaches one level and this button is a grandchild of it: the box between them took the
+       width and the button never heard about it. The element that draws the button is the only one
+       that can make the button wide.
+       ⚠️ It does not WRITE `fullWidth`. Dragging a width and switching Full width on are two ways to
+       say the same thing about this button, and having the drag flip the switch would make the panel
+       report a decision the admin never made — then leave it set after the width was dragged back. */
+    const dragged = ownStyle?.widthPct !== undefined || ownStyle?.width !== undefined;
+    const common = `inline-flex max-w-full items-center justify-center gap-2 break-words text-center font-medium ${BTN_SIZE[String(cfg.size ?? 'md')]} ${cfg.fullWidth || dragged ? 'w-full' : ''}`;
     /* ⚠️ The fallback is the THEME's variable, not a literal: an untouched button has to follow the
        theme's button style, while one that set its own radius keeps it. A hard 6 made every button
        opt out of the theme by default. */

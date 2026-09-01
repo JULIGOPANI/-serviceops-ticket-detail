@@ -1179,7 +1179,11 @@ export function toolbarCaps(id: string): ToolbarCaps {
   /* Those regions. They hold widgets in an order the admin sets by moving the WIDGETS — a region
      itself only ever swaps sides with its neighbour. */
   if (WORK_REGIONS.has(id)) return { add: false, copy: false, alignH: false, alignV: false };
-  if (LIVE_WIDGETS.has(id)) return { add: false, alignH: false, alignV: false };
+  /* ⚠️ No COPY either. Each of these is the product's own widget with a fixed place on the page —
+     a second My Open Requests is not a second card, it is the same query drawn twice, and the
+     palette already refuses to place one because these are predefined. Copy was the one door left
+     open into the state that rule exists to prevent. */
+  if (LIVE_WIDGETS.has(id)) return { add: false, copy: false, alignH: false, alignV: false };
   /* A PLACED widget, judged by what it IS rather than where it sits.
      ⚠️ The alignment pair goes from the Record List and the Accordion for the reason it went from
      the live cards: they fill the column they are dropped into, so both axes were reporting a

@@ -1,6 +1,6 @@
 {
   "stamp": "2026-09-01",
-  "builtAt": "2026-09-01T11:01:53.397Z",
+  "builtAt": "2026-09-01T12:56:30.324Z",
   "tasks": [
     {
       "n": 1,
@@ -975,6 +975,17 @@
         "Verified — UI": "the flyout is 620px, seeded \"Started from All Open Requests\"; the second row carries the And⇄Or toggle and flips to **Or**; ⋮ → Turn into a group wraps the row in a tinted block with its own *Where* and its own Add filter; Escape closes the popover and leaves the builder, a second Escape closes the builder.",
         "Verified — semantics, against the real module": "8 cases all passing — AND narrows to `[INC-178]`, the same two rows under OR widen to `[INC-178, INC-170]`, `Open AND (Pending OR Open)` gives `[SR-180]`, `Pending OR (Open AND Open)` gives `[INC-178, SR-180]`, an empty group matches everything and an empty nested group is ignored. All four stored shapes resolve: legacy flat → 1 AND child, older OR-of-ANDs → 2 OR children, a real tree → itself.",
         "Not built": "Saved filters / Save new filter / Update from the reference's header — that is a naming-and-persistence feature rather than UI or AND/OR logic, which is what you scoped this to."
+      }
+    },
+    {
+      "n": 66,
+      "title": "The drop target shows the space, and a button fills the width it is given",
+      "status": "done",
+      "fields": {
+        "Where": "`SupportPortalPreview.tsx`, `PortalPlacedElement.tsx`, `PortalCanvas.tsx`, `portalPageModel.ts`",
+        "You asked": "no Copy on predefined widgets; the Button to resize itself rather than its box; and the drop target to reserve the space and move what is there aside, with a grab cursor on anything you can pick up.",
+        "Verified": "a live-data widget's bar is Drag · Move right · Delete — no Copy. A Button dragged 200px wider went 187 → 387 **and so did the button element**, with `cursor: grab` on it. Dragging over an element's right edge sets `padding-right: 411.5px` (half of 823), draws a 399px dashed ghost in the freed half and reads \"Insert in new column\"; over its top edge, `padding-top: 72px`, a 56px band, \"Insert in new row\". Both animate over 130ms — an early measurement caught the transition mid-flight, which is why the first read looked like a failure.",
+        "Scope note": "the gap opens inside the box you are pointing at, moving ITS content aside. Sibling sections are not narrowed as well — say the word if the surrounding cards should give way too."
       }
     }
   ],

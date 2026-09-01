@@ -209,6 +209,26 @@ function ColumnBody({ id, item, live, dir, icons, placedText, cfg }: { id: strin
   const accepts = (e: React.DragEvent) =>
     e.dataTransfer.types.includes('text/portal-element') || e.dataTransfer.types.includes(MOVE_MIME);
 
+  /* ── The RESERVED SPACE ────────────────────────────────────────────────────────────────────────
+   *
+   * ⚠️ A line says WHERE; it does not say WHAT YOU GET. Dropping beside a full-width card turns one
+   * column into two, and until you let go the only evidence of that was a 3px rule at one edge — so
+   * the layout you were about to make was something you had to picture rather than see. The box
+   * now opens a gap the size of the thing being dropped and the content already there moves over
+   * into what is left, which is the whole shape of the result, live.
+   * ⚠️ It is PADDING on the box, not a change to the model. Nothing is inserted, split or reordered
+   * until the drop — a preview that mutated the page would have to be undone on every dragleave,
+   * and a dragleave that fires while crossing a child (see below) would undo it mid-gesture.
+   * ⚠️ HALF for a column and a fixed band for a row, because the two are different promises: a new
+   * column takes a share of the width, while a new row takes as much height as its content needs
+   * and cannot be known before it lands. */
+  const reserve = over && zone && zone !== 'in' ? zone : null;
+  const sideways = reserve === 'left' || reserve === 'right';
+  const gap: React.CSSProperties = !reserve ? {}
+    : sideways
+      ? { [reserve === 'left' ? 'paddingLeft' : 'paddingRight']: '50%' }
+      : { [reserve === 'above' ? 'paddingTop' : 'paddingBottom']: 72 };
+
   return (
     <div
       ref={boxRef}
@@ -277,7 +297,23 @@ function ColumnBody({ id, item, live, dir, icons, placedText, cfg }: { id: strin
           : ({ start: 'justify-start', center: 'justify-center', end: 'justify-end' } as Record<string, string>)[String(cfg?.(id)?.blockAlign ?? 'center')] ?? 'justify-center'
       } rounded transition-colors ${
         item ? '' : dir ? 'min-h-[120px] items-center border border-dashed' : 'min-h-[88px] items-center'
-      } ${over ? 'border border-dashed border-[#3D8BD0] bg-[#EBF5FF]' : item || !dir ? '' : 'border-[#C3CBD6]'}`}
+      } ${over ? 'border border-dashed border-[#3D8BD0] bg-[#EBF5FF]' : item || !dir ? '' : 'border-[#C3CBD6]'} ${
+        /* ⚠️ GRAB, so the affordance matches what the box can do. Duda shows a hand over anything
+           you may pick up, and the only thing that carried one here was the toolbar's 14px grip —
+           an element you can move looked exactly like one you cannot.
+           ⚠️ Not on TEXT. A text element is edited in place, and a draggable body swallows the
+           selection you need to edit it, so the grip stays its only handle. */
+        item && item.type !== 'b-text' ? 'cursor-grab active:cursor-grabbing' : ''
+      }`}
+      draggable={live && !!item && item.type !== 'b-text'}
+      onDragStart={item ? (e) => {
+        /* The same payload the toolbar grip sends, so one gesture has one meaning wherever it is
+           started from. */
+        e.stopPropagation();
+        e.dataTransfer.setData(MOVE_MIME, item.id);
+        e.dataTransfer.effectAllowed = 'move';
+      } : undefined}
+      style={{ ...gap, transition: 'padding 130ms ease' }}
     >
       {/* ⚠️ The element gets its OWN Sel. Without one the column was the innermost selectable thing,
           so clicking a collection widget selected the column — and with items now selectable inside
@@ -313,6 +349,19 @@ function ColumnBody({ id, item, live, dir, icons, placedText, cfg }: { id: strin
           ambiguity the outline exists to remove. */}
       {over && zone === 'in' && (
         <span className="pointer-events-none absolute inset-0 rounded ring-2 ring-[#3D8BD0]" />
+      )}
+      {/* The space itself — a tinted, dashed box exactly where the element will land. */}
+      {reserve && (
+        <span
+          className="pointer-events-none absolute z-20 rounded-md"
+          style={{
+            ...(sideways
+              ? { top: 8, bottom: 8, width: 'calc(50% - 12px)', [reserve === 'left' ? 'left' : 'right']: 8 }
+              : { left: 8, right: 8, height: 56, [reserve === 'above' ? 'top' : 'bottom']: 8 }),
+            background: 'rgba(24,141,248,0.10)',
+            border: `2px dashed ${LINE}`,
+          }}
+        />
       )}
       {over && zone && zone !== 'in' && <DropLine zone={zone} inset={8} />}
     </div>
