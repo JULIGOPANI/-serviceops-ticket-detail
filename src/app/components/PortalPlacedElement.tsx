@@ -29,7 +29,10 @@ const empty = 'text-[13px] text-[#9CA3AF]';
 function StyledBox({ children, id }: { children: React.ReactNode; id: string }) {
   const { styles } = useCanvas();
   const css = containerCss(styles ?? {}, id);
-  return Object.keys(css).length ? <div style={css}>{children}</div> : <>{children}</>;
+  /* `h-full` for the same reason `Surface` takes it — when this box exists it is the element's
+     root, so it is what has to grow into a dragged height rather than sit at its natural size
+     inside one. */
+  return Object.keys(css).length ? <div className="h-full" style={css}>{children}</div> : <>{children}</>;
 }
 
 /** Card-shaped elements get a surface; everything else sits directly on the section.
@@ -42,10 +45,11 @@ function StyledBox({ children, id }: { children: React.ReactNode; id: string }) 
  * exactly the resting classes below. */
 function Surface({ children, id }: { children: React.ReactNode; id: string }) {
   const { styles } = useCanvas();
-  /* ⚠️ Padding and height come from the node's own style and land HERE, on the painted box. Sel
-     deliberately withholds them for exactly this reason — see paintsOwnSurface. `minHeight` rather
-     than `height` so a card asked to be taller grows and its contents stay laid out inside it,
-     instead of the card keeping its size while a wrapper crops it. */
+  /* ⚠️ PADDING lands here, on the painted box — Sel withholds it for exactly this reason, see
+     paintsOwnSurface. HEIGHT no longer does: the wrapper carries it for every kind now and this
+     card fills it (`h-full` below), so a `minHeight` here would be a second, independent copy of
+     the same number — and the moment the two disagreed the card would stop matching the handle the
+     admin was dragging. One value, one owner. */
   const own = styles?.[id] ?? {};
   const pad = own.padding;
   const inner: React.CSSProperties = {
@@ -53,7 +57,6 @@ function Surface({ children, id }: { children: React.ReactNode; id: string }) {
     ...(pad?.bottom !== undefined ? { paddingBottom: pad.bottom } : {}),
     ...(pad?.left !== undefined ? { paddingLeft: `${pad.left}%` } : {}),
     ...(pad?.right !== undefined ? { paddingRight: `${pad.right}%` } : {}),
-    ...(own.height !== undefined ? { minHeight: own.height } : {}),
   };
   const css = { ...containerCss(styles ?? {}, id), ...inner };
   const cls = [
@@ -63,7 +66,9 @@ function Surface({ children, id }: { children: React.ReactNode; id: string }) {
     /* The resting 16px only while nobody has set their own — otherwise the class would win on the
        sides the slider left alone and the two would disagree edge by edge. */
     pad ? "" : "p-4",
-    "flex flex-col",
+    /* `h-full` so the card takes the height the wrapper was dragged to. Harmless without one —
+       a percentage height against an auto-height parent resolves to auto. */
+    "flex h-full flex-col",
   ].filter(Boolean).join(" ");
   return <div className={cls} style={css}>{children}</div>;
 }
@@ -304,17 +309,19 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
        every event that reaches it — so while the builder is live the frame is covered and nothing
        inside it can be reached. In Preview and on the real portal it is a real player. */
     return (
-      <div className="relative w-full" style={box}>
+      /* `h-full` for the image's reason — the frame fills a dragged height, and resolves to auto
+         when nobody has dragged one, leaving `aspect-video` in charge. */
+      <div className="relative h-full w-full" style={box}>
         {embed ? (
           <iframe
             src={embed}
             title="Video"
             allow="accelerometer; clipboard-write; encrypted-media; picture-in-picture"
             allowFullScreen
-            className="block aspect-video w-full"
+            className="block aspect-video h-full w-full"
           />
         ) : (
-          <video src={src} controls={!enabled} className="block aspect-video w-full bg-black object-contain" />
+          <video src={src} controls={!enabled} className="block aspect-video h-full w-full bg-black object-contain" />
         )}
         {enabled && <span className="absolute inset-0 z-10" />}
       </div>
@@ -344,7 +351,12 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
           borderRadius: Number(cfg.radius ?? 8),
           ...(bw > 0 ? { border: `${bw}px solid ${String(cfg.borderColor ?? '#E5E7EB')}` } : {}),
         }}
-        className="block w-full object-cover"
+        /* ⚠️ `h-full` so the picture fills a dragged height rather than keeping its aspect height
+           inside a box that grew around it — which is what "resize the image" has to mean. With
+           `object-cover` already here the crop stays centred and nothing distorts.
+           ⚠️ Harmless until a height is dragged: `100%` against an auto-height parent resolves to
+           auto, so an untouched image is still laid out by its own proportions. */
+        className="block h-full w-full object-cover"
       />
     );
     /* ⚠️ RICH, so it is rendered as markup and edited in the panel's writing surface. A caption
@@ -365,7 +377,9 @@ function specDrivenBody(type: string, cfg: Record<string, unknown> | undefined, 
       }`}>
         {/* ⚠️ Side by side the picture takes a SHARE, not its natural width — an image beside text
             with no basis takes the whole row and leaves the caption a column of single letters. */}
-        {picture && <span className={stacked ? 'block min-w-0' : 'block w-2/5 min-w-0 flex-shrink-0'}>{picture}</span>}
+        {/* ⚠️ The picture's own box has to GROW for `h-full` above to have anything to fill. Stacked,
+            it takes the height the caption leaves; side by side it is already full height. */}
+        {picture && <span className={stacked ? 'block min-h-0 min-w-0 flex-1' : 'block w-2/5 min-w-0 flex-shrink-0'}>{picture}</span>}
         {words}
       </figure>
     );

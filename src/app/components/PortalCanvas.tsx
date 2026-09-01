@@ -542,8 +542,6 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
     inRow: boolean;
     /** The row is set to Fixed items: this column resizes alone, inside the room the row has left. */
     fixed: boolean;
-    /** One gap between two columns — the clamp counts only the gaps on this element's own line. */
-    gap: number;
     /** Each row member's top edge, so a wrapped line can be told apart from this one. */
     tops: number[];
     /** This element's own track — the ceiling a Fixed resize may not pass. */
@@ -692,40 +690,33 @@ function SelectionHandles({ id, elRef }: { id: string; elRef: React.RefObject<HT
        because the dragged element is not always on the first line. */
     const myTop = r.top;
     const row = all.filter((cEl) => Math.abs(cEl.getBoundingClientRect().top - myTop) < 4);
-    /* The band this element lives in — the nearest ancestor node that is not a column, since a
-       column is only ever as tall as the section around it and would be a circular ceiling. */
-    let band: HTMLElement | null = el.parentElement?.closest('[data-node]') as HTMLElement | null;
-    while (band && /-c\d+$/.test(band.dataset.node ?? '')) {
-      band = band.parentElement?.closest('[data-node]') as HTMLElement | null;
-    }
-    const bandRect = band?.getBoundingClientRect();
     /* ⚠️ The mode is read off the ROW's own DOM node, not out of the widget config. The handles sit
        inside the canvas and have no idea which section they are in; the row does, it is rendered
        from that config, and reading it here means the drag and the page cannot disagree about which
        rule is in force. Same reason `inRow` is measured rather than looked up. */
     const rowEl = el.parentElement;
     const rowFixed = rowEl?.dataset.resize === 'fixed';
-    const rowGap = rowEl ? parseFloat(getComputedStyle(rowEl).columnGap || '0') || 0 : 0;
     drag.current = {
       kind, corner, x: e.clientX, y: e.clientY, w: r.width, h: r.height,
       pad: styles[id]?.padding ?? ZERO_BOX,
       /* The gap it starts from: its own set margin, or the one the layout is already giving it. */
       gap: styles[id]?.margin?.top ?? Math.round(parseFloat(getComputedStyle(el).marginTop) || 0),
-      /* No band (a top-level block) means no ceiling but its own screen — a page can be any length,
-         so an arbitrary cap there would be a rule invented rather than a rule enforced.
-         ⚠️ The element's OWN content height is a floor under the ceiling. A band is as tall as its
-         tallest child, so an element that fills its band would cap at exactly its current height —
-         and once shrunk, the band shrinks with it and the next drag caps lower still. That ratchets
-         one way: shrink a list once and you could never show all of it again. Being able to return
-         to "all of my content" is not the same freedom as growing past the section, so it is allowed
-         and the section cap still holds everywhere it means something. */
-      maxH: Math.max(bandRect ? bandRect.bottom - r.top : Number.POSITIVE_INFINITY, el.scrollHeight, 24),
+      /* ⚠️ NO CEILING. This used to cap at the band's own bottom, and the note that stood here
+         already contained the reason that cannot work: a band is as tall as its tallest child, so an
+         element that fills its band caps at exactly its current height. In practice that made every
+         handle feel broken — an 80px drag on a Button, a Text block or an Accordion moved it 12px,
+         which is just the section's bottom padding, and then stopped dead.
+         A section GROWS with its content, so "the section's current bottom" was never a real limit;
+         it was a measurement of the thing being dragged. A page can be any length — the same reason
+         a top-level block was already uncapped — so there is no honest ceiling to enforce here, and
+         inventing one produces a control that ignores half of what you ask it. The 24px floor stays:
+         an element with no height at all is not a smaller element, it is a missing one. */
+      maxH: Number.POSITIVE_INFINITY,
       inRow: (() => {
         const ps = el.parentElement ? getComputedStyle(el.parentElement) : null;
         return !!ps && (ps.display === 'flex' || ps.display === 'inline-flex') && !ps.flexDirection.startsWith('column');
       })(),
       fixed: rowFixed && row.length > 0,
-      gap: rowGap,
       tops: row.map((c) => c.getBoundingClientRect().top),
       /* ⚠️ From the GRID, when there is one. A fixed row's tracks are equal and independent of what
          is currently in them, so the ceiling has to come from the track rather than from the
@@ -1509,17 +1500,35 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
      rather than cropping it. Margin and width stay here: those are about where the element sits and
      how much room it takes, which is the wrapper's business either way. */
   const ownSurface = paintsOwnSurface(id);
+  /* ⚠️ PADDING only. Height used to be withheld here too, and that is what made a dragged handle
+     resize the wrong thing on most of the catalogue: the wrapper kept its natural size while the
+     card inside was left to honour the number itself, which only `Surface` ever did — a Table, an
+     Accordion, an Image, a Video and every collection ignored it completely, so their handles moved
+     the outline and nothing else. The wrapper carries the height for every kind now and the painted
+     content fills it, which is the same rule the banner follows.
+     Padding stays withheld, and for the original reason: padding on a wrapper is grey space AROUND
+     a card, not breathing room inside it. */
   const drop = (x: React.CSSProperties): React.CSSProperties =>
-    (ownSurface ? Object.fromEntries(Object.entries(x).filter(([k]) => !k.startsWith('padding') && k !== 'height')) : x);
+    (ownSurface ? Object.fromEntries(Object.entries(x).filter(([k]) => !k.startsWith('padding'))) : x);
   const size = {
     ...baseStyle,
     ...drop(sizeOf(styles, id)),
     ...drop(styleOf(styles, id)),
   };
-  /* A dragged height crops its content — on an inner box, so the chrome above can overflow freely. */
-  const clipped = styles[id]?.height !== undefined && !ownSurface;
-  const body = clipped
-    ? <div className="min-h-0 w-full flex-1 overflow-hidden">{children}</div>
+  /* ⚠️ A dragged height now STRETCHES its content instead of cropping it. The old box was
+     `overflow-hidden`, so a taller Button was a 36px button with 80px of nothing under it and a
+     taller Text block simply hid its own last lines — the element you dragged never changed size,
+     only the amount of it you could see. "Resize the widget, not the box around it" is the whole
+     point of a handle, so the child is made a flex item that fills the height that was set.
+     ⚠️ On an INNER box, not the wrapper: the floating toolbar at `-top-11` and the handles at
+     `-3px` are children of the wrapper, so anything applied there reaches them too — which is how
+     clipping used to eat a widget's own toolbar the moment it had a height.
+     ⚠️ `[&>*]` reaches the ONE root each renderer draws. It has to be a descendant selector rather
+     than a class on that root, because those roots live in a dozen different components and half of
+     them are collection renderers this file cannot see. */
+  const sized = styles[id]?.height !== undefined;
+  const body = sized
+    ? <div className="flex min-h-0 w-full flex-1 flex-col [&>*]:min-h-0 [&>*]:flex-1">{children}</div>
     : children;
   if (!enabled || !node) return <div style={size} className={className}>{body}</div>;
 

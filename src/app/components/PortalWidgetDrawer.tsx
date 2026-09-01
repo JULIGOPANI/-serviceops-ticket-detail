@@ -1537,9 +1537,18 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
                 needs the same 16px one field takes from another. When those fields rendered as
                 `Group` rows instead, the collection is one more full-bleed row in a list of rows,
                 and a gap there would break the run of rules rather than separate two things. */}
-            {groupsFor('content').length === 1 && /^content$/i.test(groupsFor('content')[0].group)
-              ? <div className="mt-4">{collectionBlock}</div>
-              : collectionBlock}
+            {(() => {
+              const cg = groupsFor('content');
+              /* Air unless a run of NAMED `Group` rows sits directly above — the one case where the
+                 collection is another row in that run rather than a thing after something else.
+                 Two ways in: bare fields above it (FAQ — a lone group named "Content" renders as a
+                 plain field list), or nothing above it at all (Accordion — `fields: []`, so the
+                 group landed 4px under the CONTENT eyebrow and read as jammed against it). */
+              const bare = cg.length === 1 && /^content$/i.test(cg[0].group);
+              return cg.length === 0 || bare
+                ? <div className="mt-4">{collectionBlock}</div>
+                : collectionBlock;
+            })()}
           </>
         )}
 

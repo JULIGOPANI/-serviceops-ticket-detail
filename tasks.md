@@ -740,6 +740,23 @@ Updated: 2026-08-25 12:11
 - **⚠️ The header→list gap lives on `PortalItemList`, not on `Group`** — so it is the space between a heading and its items everywhere a collection appears, rather than a rule about one widget. Changing `Group` would have restyled every Design accordion too.
 - **Verified:** FAQ panel, both states — Title → Questions **0 → 16px** (open and collapsed), header → first card **12 → 20px**. The left rail (flat collection, no content fields) and an action card (content rendered as Group rows) are both unchanged, no console errors.
 
+## 52. Every element resizes ITSELF, not the box around it
+- **Status:** done
+- **Where:** `PortalCanvas.tsx`, `PortalPlacedElement.tsx`, `PortalWidgetDrawer.tsx`
+- **You asked:** the banner resize now works properly — make Button, Text, Table, Accordion, Image, Video and every custom widget card do the same. The handle should resize the WIDGET, not the section around it, fully responsive, no clipping, smooth. Plus the Accordion's Items section had the same spacing issue as FAQ.
+- **What I measured first — three different failures, not one:**
+  - **Bare elements (Button, Text):** the wrapper took the height and the content was put in an `overflow-hidden` box. A taller Button was a 36px button with 80px of nothing under it; a taller Text block just hid its own last lines. The thing you dragged never changed size — only how much of it you could see.
+  - **Card elements via `Surface` (KPI and friends):** grew by `minHeight`, but only that one component honoured it.
+  - **Everything else (Table, Accordion, Image, Video, every collection):** the height went NOWHERE. `Sel` withheld it for anything painting its own surface, and only `Surface` ever picked it up — so their handles moved the outline and nothing else.
+  - **And the ceiling:** an 80px drag moved anything 12px. `maxH` capped at the band's own bottom, and a band is as tall as its tallest child — so an element that fills its band was capped at its own height, and 12px was just the section's bottom padding.
+- **What I built:** ONE rule, the banner's. **The wrapper carries the height for every kind and the painted content fills it.** `drop()` withholds padding only; the crop box became a flex column whose child stretches (`[&>*]:min-h-0 [&>*]:flex-1`); `Surface` gave up its own `minHeight` and took `h-full`; `StyledBox` took `h-full`; and the ceiling is gone — a section grows with its content, so "the section's current bottom" was never a limit, it was a measurement of the thing being dragged.
+- **⚠️ The fill box must be INNER, never the wrapper.** The floating toolbar (`-top-11`) and the eight handles (`-3px`) are children of the wrapper, so anything applied there reaches them — which is how clipping used to eat a widget's own toolbar the moment it had a height.
+- **⚠️ `[&>*]` rather than a class on each root:** those roots live in a dozen components and half are collection renderers this file cannot see.
+- **⚠️ Image and Video needed their own line.** `[&>*]` reaches the element's root, not the picture inside it — so the figure grew and the `<img>` kept its aspect height. The picture's box now takes `flex-1` and the image `h-full` (with `object-cover` already there, the crop stays centred); the video frame took `h-full` the same way. Both resolve to auto until a height is dragged, so an untouched image is still laid out by its own proportions.
+- **⚠️ Found while typechecking — the drag state had TWO `gap` fields**, declared twice in the interface and written twice in the literal, so the row's column-gap silently overwrote the element's own margin. The top grip's gap drag was starting from the wrong number. Removed; only the margin use ever read it.
+- **Verified, an 80px drag on each:** Button 36→116 **and the button element itself 36→116** · Text 24→104 · Table 110→188 **and the `<table>` 110→188** · Accordion 138→218 · Image 735→815 **and the `<img>` 735→815** · Video 620→700 **and the `<iframe>` 620→700** · KPI 166→246. No regression: predefined widget 398→478, built-in action card 78→158, banner 260→340. Width −121 for a −120 drag, shrink −60 for −60, every box in the chain `overflow: visible`, no console errors.
+- **Accordion panel spacing:** its Items list already matched FAQ (20px header→card, shared component). What was still tight was ABOVE the group — 4px under the CONTENT eyebrow where FAQ now had 16. The gap rule widened to cover "nothing above it at all", not just "bare fields above it". Verified 4 → 16px.
+
 ## Parked — needs discussion
 - Tour guide
 - AI capabilities

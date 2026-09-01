@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-09-01T05:07:54.242Z",
+  "builtAt": "2026-09-01T06:19:10.626Z",
   "tasks": [
     {
       "n": 1,
@@ -814,6 +814,20 @@
         "What I measured": "Title input → Questions row was **0px** — the input's bottom edge sat exactly on the row. `Group` is a full-bleed row carrying only a bottom rule, so nothing separated the two and the field read as part of the row's header. Header → first card was **12px**.",
         "What I built": "16px above the collection and 20px between a group header and its list. **16px is `Field`'s own `mt-4`, deliberately** — a collection is one more thing you author in that section, so it sits off the field above it by the same step one field sits off another.",
         "Verified": "FAQ panel, both states — Title → Questions **0 → 16px** (open and collapsed), header → first card **12 → 20px**. The left rail (flat collection, no content fields) and an action card (content rendered as Group rows) are both unchanged, no console errors."
+      }
+    },
+    {
+      "n": 52,
+      "title": "Every element resizes ITSELF, not the box around it",
+      "status": "done",
+      "fields": {
+        "Where": "`PortalCanvas.tsx`, `PortalPlacedElement.tsx`, `PortalWidgetDrawer.tsx`",
+        "You asked": "the banner resize now works properly — make Button, Text, Table, Accordion, Image, Video and every custom widget card do the same. The handle should resize the WIDGET, not the section around it, fully responsive, no clipping, smooth. Plus the Accordion's Items section had the same spacing issue as FAQ.",
+        "What I measured first — three different failures, not one": " - **Bare elements (Button, Text):** the wrapper took the height and the content was put in an `overflow-hidden` box. A taller Button was a 36px button with 80px of nothing under it; a taller Text block just hid its own last lines. The thing you dragged never changed size — only how much of it you could see. - **Card elements via `Surface` (KPI and friends):** grew by `minHeight`, but only that one component honoured it. - **Everything else (Table, Accordion, Image, Video, every collection):** the height went NOWHERE. `Sel` withheld it for anything painting its own surface, and only `Surface` ever picked it up — so their handles moved the outline and nothing else. - **And the ceiling:** an 80px drag moved anything 12px. `maxH` capped at the band's own bottom, and a band is as tall as its tallest child — so an element that fills its band was capped at its own height, and 12px was just the section's bottom padding.",
+        "What I built": "ONE rule, the banner's. **The wrapper carries the height for every kind and the painted content fills it.** `drop()` withholds padding only; the crop box became a flex column whose child stretches (`[&>*]:min-h-0 [&>*]:flex-1`); `Surface` gave up its own `minHeight` and took `h-full`; `StyledBox` took `h-full`; and the ceiling is gone — a section grows with its content, so \"the section's current bottom\" was never a limit, it was a measurement of the thing being dragged.",
+        "⚠️ `[&>*]` rather than a class on each root": "those roots live in a dozen components and half are collection renderers this file cannot see.",
+        "Verified, an 80px drag on each": "Button 36→116 **and the button element itself 36→116** · Text 24→104 · Table 110→188 **and the `<table>` 110→188** · Accordion 138→218 · Image 735→815 **and the `<img>` 735→815** · Video 620→700 **and the `<iframe>` 620→700** · KPI 166→246. No regression: predefined widget 398→478, built-in action card 78→158, banner 260→340. Width −121 for a −120 drag, shrink −60 for −60, every box in the chain `overflow: visible`, no console errors.",
+        "Accordion panel spacing": "its Items list already matched FAQ (20px header→card, shared component). What was still tight was ABOVE the group — 4px under the CONTENT eyebrow where FAQ now had 16. The gap rule widened to cover \"nothing above it at all\", not just \"bare fields above it\". Verified 4 → 16px."
       }
     }
   ],
