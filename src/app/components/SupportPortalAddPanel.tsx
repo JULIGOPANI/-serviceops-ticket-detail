@@ -20,7 +20,7 @@ import type { PortalElement, PortalElementGroup } from './supportPortalData';
  * rows of icon-badge + name. The rows reuse the icon-badge treatment the Admin Overview cards use,
  * so this reads as the same product.
  *
- * **Live data comes first** on purpose. Those are the blocks a support portal is actually made of;
+ * **Data comes first** on purpose. Those are the blocks a support portal is actually made of;
  * the generic toolkit below them is the long tail.
  *
  * ⚠️ EVERY row is addable, every time. The library used to grey out anything already on the page and
@@ -123,7 +123,7 @@ export function SupportPortalAddPanel({ onAdd, placed }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const groupRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const stripRef = useRef<HTMLDivElement>(null);
-  const [activeGroup, setActiveGroup] = useState<PortalElementGroup>('Live data');
+  const [activeGroup, setActiveGroup] = useState<PortalElementGroup>('Data');
   /** Ignore the scroll-spy briefly after a tab click, so the smooth scroll isn't fought mid-flight. */
   const lockUntil = useRef(0);
 
@@ -305,7 +305,11 @@ export function SupportPortalAddPanel({ onAdd, placed }: Props) {
                   <button
                     key={e.id}
                     draggable={!added}
-                    disabled={added}
+                    /* ⚠️ `aria-disabled`, NOT `disabled`. A disabled button fires no mouse events,
+                       so an added row showed neither its purpose preview nor the `title` saying why
+                       it is greyed — the two things a reader most needs on the row they cannot
+                       click. The click is guarded below, which is what actually has to be true. */
+                    aria-disabled={added}
                     onDragStart={(ev) => {
                       // The canvas reads this to know what was dropped.
                       ev.dataTransfer.setData('text/portal-element', e.id);
@@ -357,6 +361,7 @@ export function SupportPortalAddPanel({ onAdd, placed }: Props) {
       {peek && (
         <PortalElementPreview
           elementId={peek.id}
+          name={PORTAL_ELEMENTS.find((e) => e.id === peek.id)?.name ?? ''}
           icon={icon(PORTAL_ELEMENTS.find((e) => e.id === peek.id)?.icon ?? '')}
           anchor={peek.rect}
         />
