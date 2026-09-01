@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-08-31T16:30:20.065Z",
+  "builtAt": "2026-09-01T05:07:54.242Z",
   "tasks": [
     {
       "n": 1,
@@ -802,6 +802,18 @@
         "What I built": "one field. Each row is a white card carrying **\"Heading\" over a real sentence, both set in that family**, with the family's NAME outside the card to its right. The name is the label and the card is the evidence, so the sample is never interrupted by a word set in the UI's own font — a list of fonts rendered in one font is a list of words.",
         "⚠️ This reverses an earlier split, and the reason it existed is worth keeping in view": "two fields let you take a serif heading without also taking its body face. The cost was a panel asking twice for what is nearly always one answer, with two identical-looking rows meaning different things. A portal typeset in two families is the exception, not the thing the control should be shaped around.",
         "Verified": "the panel shows a single \"Font family\" label (the two old ones are gone). Six rows; each card is white, 8px radius, bordered, with \"Heading\" at 16px/600 over the sample sentence at 12px, both in that row's own face (Inter, Poppins, Source Sans 3, Merriweather…), and the family name measured to the RIGHT of the card's edge. Choosing Merriweather set the canvas wrapper font AND `--portal-heading` to Merriweather, relabelled the trigger, and toasted \"Merriweather applied\"."
+      }
+    },
+    {
+      "n": 51,
+      "title": "Breathing space around a collection in the panel",
+      "status": "done",
+      "fields": {
+        "Where": "`PortalWidgetDrawer.tsx`, `PortalItemList.tsx`",
+        "You asked": "on the FAQ panel, space between the Title field and Questions, and between Questions and its card.",
+        "What I measured": "Title input → Questions row was **0px** — the input's bottom edge sat exactly on the row. `Group` is a full-bleed row carrying only a bottom rule, so nothing separated the two and the field read as part of the row's header. Header → first card was **12px**.",
+        "What I built": "16px above the collection and 20px between a group header and its list. **16px is `Field`'s own `mt-4`, deliberately** — a collection is one more thing you author in that section, so it sits off the field above it by the same step one field sits off another.",
+        "Verified": "FAQ panel, both states — Title → Questions **0 → 16px** (open and collapsed), header → first card **12 → 20px**. The left rail (flat collection, no content fields) and an action card (content rendered as Group rows) are both unchanged, no console errors."
       }
     }
   ],

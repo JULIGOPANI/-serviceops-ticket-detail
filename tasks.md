@@ -729,6 +729,17 @@ Updated: 2026-08-25 12:11
 - **⚠️ One write for both roles**, not two — two writes would render an impossible intermediate state where the heading had changed and the body had not.
 - **Verified:** the panel shows a single "Font family" label (the two old ones are gone). Six rows; each card is white, 8px radius, bordered, with "Heading" at 16px/600 over the sample sentence at 12px, both in that row's own face (Inter, Poppins, Source Sans 3, Merriweather…), and the family name measured to the RIGHT of the card's edge. Choosing Merriweather set the canvas wrapper font AND `--portal-heading` to Merriweather, relabelled the trigger, and toasted "Merriweather applied".
 
+## 51. Breathing space around a collection in the panel
+- **Status:** done
+- **Where:** `PortalWidgetDrawer.tsx`, `PortalItemList.tsx`
+- **You asked:** on the FAQ panel, space between the Title field and Questions, and between Questions and its card.
+- **What I measured:** Title input → Questions row was **0px** — the input's bottom edge sat exactly on the row. `Group` is a full-bleed row carrying only a bottom rule, so nothing separated the two and the field read as part of the row's header. Header → first card was **12px**.
+- **What I built:** 16px above the collection and 20px between a group header and its list. **16px is `Field`'s own `mt-4`, deliberately** — a collection is one more thing you author in that section, so it sits off the field above it by the same step one field sits off another.
+- **⚠️ The gap is conditional, not global.** It appears only when the fields above rendered BARE (a lone group named "Content" renders as a plain field list), because then the collection follows an INPUT. When those fields rendered as `Group` rows instead, the collection is one more full-bleed row in a list of rows, and a gap there would break the run of rules rather than separate two things.
+- **⚠️ `collectionBlock` HAS TWO CALL SITES.** I fixed `PanelBody` first, rebuilt, and nothing moved — FAQ and every other spec-with-packs takes the packs path, which renders the collection again 100 lines further down. A change to one is a change to half the panels.
+- **⚠️ The header→list gap lives on `PortalItemList`, not on `Group`** — so it is the space between a heading and its items everywhere a collection appears, rather than a rule about one widget. Changing `Group` would have restyled every Design accordion too.
+- **Verified:** FAQ panel, both states — Title → Questions **0 → 16px** (open and collapsed), header → first card **12 → 20px**. The left rail (flat collection, no content fields) and an action card (content rendered as Group rows) are both unchanged, no console errors.
+
 ## Parked — needs discussion
 - Tour guide
 - AI capabilities

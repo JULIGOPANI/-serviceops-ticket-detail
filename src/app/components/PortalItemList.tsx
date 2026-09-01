@@ -134,7 +134,13 @@ export function PortalItemList({
   const iconBtn = 'flex size-6 items-center justify-center rounded text-[#9CA3AF] transition-colors hover:bg-[#F1F5F9] hover:text-[#364658]';
 
   return (
-    <div className="mt-2">
+    /* ⚠️ `mt-4`, was `mt-2`. With the group body's own `pt-1` that put the first item card 12px
+       under a header row that bleeds to both panel edges and carries a hover fill — the card read
+       as attached to the header rather than as the first of a list it introduces. 20px is enough
+       for the row to end before the list begins.
+       On the list itself rather than on the group, so it is the gap between a HEADING and ITEMS
+       everywhere a collection appears, not a rule about one widget. */
+    <div className="mt-4">
       {items.length === 0 ? (
         <div className="rounded border border-dashed border-[#C3CBD6] px-3 py-6 text-center">
           <p className="text-[12px] leading-[1.6] text-[#7B8FA5]">{emptyHint}</p>

@@ -428,7 +428,19 @@ function PanelBody({ spec, nodeId, cfg, renderField, openGroups, toggleGroup, st
           {panel.contentNote && (
             <p className="mt-1 text-[12px] leading-[1.55] text-[#7B8FA5]">{panel.contentNote}</p>
           )}
-          {collectionSlot}
+          {/* ⚠️ Air between the last content FIELD and the collection group beneath it — measured at
+              ZERO before this, so on the FAQ panel the Title input's bottom edge sat exactly on the
+              "Questions" row. `Group` is a full-bleed row carrying only a bottom rule, so nothing
+              separated the two and the field read as part of the row's header.
+              16px is `Field`'s own `mt-4`, deliberately: a collection is one more thing you author
+              in this section, so it should sit off the field above it by the same step one field
+              sits off another.
+              ⚠️ Only when fields PRECEDE it. A group that is the first thing under the CONTENT label
+              already has that label's rhythm above it, and a margin there would push it away from
+              the heading that introduces it. */}
+          {collectionSlot && (panel.content?.length || panel.contentNote)
+            ? <div className="mt-4">{collectionSlot}</div>
+            : collectionSlot}
         </>
       )}
 
@@ -1515,7 +1527,19 @@ export function PortalWidgetDrawer(props: WidgetDrawerProps) {
               </Group>
             )}
 
-            {collectionBlock}
+            {/* ⚠️ The SECOND place the collection is rendered — the packs path, and the one FAQ and
+                every other spec-with-packs actually takes. The same gap was fixed in `PanelBody`
+                first and nothing moved on screen, because that branch serves a different set of
+                widgets. Worth remembering: `collectionBlock` has two call sites, so a change to one
+                is a change to half the panels.
+                ⚠️ Air ONLY when the fields above rendered BARE. A lone group named "Content" renders
+                as a plain field list (see the note above), so the collection follows an INPUT and
+                needs the same 16px one field takes from another. When those fields rendered as
+                `Group` rows instead, the collection is one more full-bleed row in a list of rows,
+                and a gap there would break the run of rules rather than separate two things. */}
+            {groupsFor('content').length === 1 && /^content$/i.test(groupsFor('content')[0].group)
+              ? <div className="mt-4">{collectionBlock}</div>
+              : collectionBlock}
           </>
         )}
 
