@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 // ArrowLeft stays in use by the card toolbar's "Move left".
 import { toast } from 'sonner';
-import { HEADING_SIZE, PORTAL_FONTS, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, boxInfo, nodeById, paintsOwnSurface, nodePath, placedIn, placedType } from './portalPageModel';
+import { HEADING_SIZE, PORTAL_FONTS, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, boxInfo, defaultAlignH, nodeById, paintsOwnSurface, toolbarCaps, nodePath, placedIn, placedType } from './portalPageModel';
 import { DEFAULT_THEME } from './PortalThemePanel';
 import type { PortalTheme } from './PortalThemePanel';
 import { boxCss, containerCss } from './portalStyleResolver';
@@ -59,6 +59,8 @@ interface CanvasCtx {
   moveToSeam: (id: string, afterId: string) => void;
   /** Adds one of a container's own block types inside it — the card's "Extra content" list. */
   addChildBlock: (id: string, type: string) => void;
+  /** The Quick Actions row's one addable card — see `toolbarCaps`. */
+  addLinkCard?: () => void;
   /** Drops into a built-in row, alongside the cards already there. */
   dropInRow: (rowId: string, elementType: string) => void;
   /* ── toolbar actions ── */
@@ -337,20 +339,72 @@ function useNodeDragHandle(id: string) {
   };
 }
 
+/* Where this element sits among its siblings, measured off the page rather than inferred.
+ *
+ * ⚠️ MEASURED, because the declared kind was getting it wrong. Every box reports kind 'column', and
+ * the fallback treated 'card' and 'column' as horizontal — so the Favourite Services BAND, which is
+ * the full width of the page with nothing beside it, offered Move left / Move right, and so did the
+ * Contact Us card stacked in the right-hand rail. Both were wrong about the page in front of you.
+ * A sibling that overlaps this element vertically IS beside it; that is what "horizontal" means and
+ * it needs no lookup table to stay true as the layout changes.
+ *
+ * ⚠️ The EDGES are measured too, not counted from the model. Built-in rows are ordered with CSS
+ * `order`, so a card's index in `rowOrder` is not where it appears — the first card on screen can
+ * be the third in the array. Position is the only reading that matches what an admin is looking at
+ * when they press Move left. */
+function useSiblingSpan(id: string, open: boolean) {
+  const [span, setSpan] = useState<{ horizontal: boolean | null; first: boolean; last: boolean }>(
+    { horizontal: null, first: false, last: false },
+  );
+  useLayoutEffect(() => {
+    if (!open) return;
+    const el = document.querySelector(`[data-node="${id}"]`) as HTMLElement | null;
+    const parent = el?.parentElement;
+    if (!el || !parent) { setSpan({ horizontal: null, first: false, last: false }); return; }
+    const r = el.getBoundingClientRect();
+    /* Only siblings that are DRAWN and that are themselves nodes — a seam, an adder or a selection
+       overlay is not something this element can be moved past. */
+    const sibs = [...parent.children]
+      .filter((s) => s !== el && (s as HTMLElement).querySelector?.('[data-node]') !== undefined)
+      .map((s) => s.getBoundingClientRect())
+      .filter((q) => q.width > 0 && q.height > 0);
+    if (!sibs.length) { setSpan({ horizontal: null, first: true, last: true }); return; }
+    const beside = sibs.filter((q) => Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top) > Math.min(r.height, q.height) * 0.5);
+    const horizontal = beside.length > 0;
+    const line = horizontal ? beside : sibs;
+    setSpan({
+      horizontal,
+      first: !line.some((q) => (horizontal ? q.left < r.left - 1 : q.top < r.top - 1)),
+      last: !line.some((q) => (horizontal ? q.left > r.left + 1 : q.top > r.top + 1)),
+    });
+  }, [id, open]);
+  return span;
+}
+
 function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: string }) {
-  const { styles, setStyle, moveNode, duplicateNode, deleteNode, canDuplicate, addInside, replaceElement, addChildBlock, splitNode, splitInfo } = useCanvas();
+  const { styles, setStyle, moveNode, duplicateNode, deleteNode, canDuplicate, addInside, replaceElement, addChildBlock, splitNode, splitInfo, addLinkCard } = useCanvas();
   const [picking, setPicking] = useState(false);
   const [axis, setAxis] = useState<'h' | 'v' | null>(null);
+  const caps = toolbarCaps(id);
 
   /* Side-by-side things move on the horizontal axis; stacked bands move on the vertical one.
-     ⚠️ For a BOX the axis is its parent's direction, not its kind. Every box reports kind 'column',
-     so a box stacked inside a column would otherwise offer left/right for a move that can only ever
-     go up and down. */
+     ⚠️ The MEASURED answer wins — see `useSiblingSpan`. The box's declared direction is the next
+     best thing, and the kind is the last resort for a node with nothing beside it to measure. */
+  const span = useSiblingSpan(id, true);
   const parentDir = boxInfo(id)?.parentDir;
-  const horizontal = parentDir ? parentDir === 'row' : (kind === 'card' || kind === 'column');
-  const moves: [string, ReactNode, 'prev' | 'next'][] = horizontal
-    ? [['Move left', <ArrowLeft key="l" size={15} />, 'prev'], ['Move right', <ArrowRight key="r" size={15} />, 'next']]
-    : [['Move down', <ArrowDown key="d" size={15} />, 'next'], ['Move up', <ArrowUp key="u" size={15} />, 'prev']];
+  const horizontal = span.horizontal ?? (parentDir ? parentDir === 'row' : (kind === 'card' || kind === 'column'));
+  /* ⚠️ The edge move is DISABLED, not hidden, with the reason on it — a control that disappears on
+     the first and last item of a row reads as a bug, and one that silently does nothing reads as a
+     broken one. This is the rule the Split button already follows. */
+  const moves: [string, ReactNode, 'prev' | 'next', boolean][] = horizontal
+    ? [
+      ['Move left', <ArrowLeft key="l" size={15} />, 'prev', span.first],
+      ['Move right', <ArrowRight key="r" size={15} />, 'next', span.last],
+    ]
+    : [
+      ['Move down', <ArrowDown key="d" size={15} />, 'next', span.last],
+      ['Move up', <ArrowUp key="u" size={15} />, 'prev', span.first],
+    ];
 
   /* ⚠️ A CARD is not on this list any more. A widget occupies its slot completely — "add an element
      inside My Assets" was an offer the model could never honour, and it was the only thing the
@@ -387,7 +441,7 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
      down?"); laying all six out flat makes one row of near-identical glyphs where the pairing is
      invisible, and doubles a toolbar that already competes for width. The axis button shows the
      option currently set, so the bar still answers both questions at a glance. */
-  const alignH = String(styles[id]?.align ?? 'left');
+  const alignH = String(styles[id]?.align ?? defaultAlignH(id));
   const alignV = String(styles[id]?.alignY ?? 'start');
   const H_OPTS: [string, string, ReactNode][] = [
     ['left', 'Left', <AlignStartVertical key="l" size={15} />],
@@ -440,8 +494,13 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
         data-tip="Drag to move"
         className="flex size-7 cursor-grab items-center justify-center text-[#9CA3AF] active:cursor-grabbing"
       ><GripVertical size={14} /></span>
-      {moves.map(([label, ic, dir]) => (
-        <button key={label} className={btn} data-tip={label} onClick={() => moveNode(id, dir)}>{ic}</button>
+      {caps.move !== false && moves.map(([label, ic, dir, atEdge]) => (
+        <button
+          key={label}
+          className={atEdge ? btnOff : btn}
+          data-tip={atEdge ? `Already ${label.replace('Move ', '')}most`.replace('downmost', 'last').replace('upmost', 'first').replace('leftmost', 'first').replace('rightmost', 'last') : label}
+          onClick={() => !atEdge && moveNode(id, dir)}
+        >{ic}</button>
       ))}
       {/* SPLIT — the one structural operation, identical at every level: a leaf becomes two, a
           branch grows one more child, and the direction is always the box's own.
@@ -460,7 +519,7 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
           another surface to pick, then back to the canvas to see the result, is three steps for one
           decision — and on a FILLED element the same gesture means swap, which is a change you want
           to make while looking at what you are replacing. */}
-      {(canAdd || placed || kind === 'card') && (
+      {caps.add !== false && (canAdd || placed || kind === 'card') && (
         <div className="relative">
           <button
             className={btn}
@@ -482,11 +541,23 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
           )}
         </div>
       )}
-      <button
-        className={dupOk ? btn : btnOff}
-        data-tip={dupOk ? 'Copy' : 'This block is part of the page layout and can’t be copied'}
-        onClick={() => dupOk && duplicateNode(id)}
-      ><Copy size={14} /></button>
+      {/* ⚠️ A LABELLED action, not a "+". The Quick Actions row takes exactly one thing and it is a
+          specific card — a plus would promise the palette, which this row is fenced against, and an
+          icon would have to be guessed at. The words are the whole point of it. */}
+      {caps.extLink && (
+        <button
+          className="flex h-7 items-center gap-1.5 rounded px-2 text-[12px] font-medium text-[#3D8BD0] transition-colors hover:bg-[#EBF5FF]"
+          data-tip="Add a card that opens a link of your choosing"
+          onClick={() => addLinkCard?.()}
+        ><Plus size={13} /> External link</button>
+      )}
+      {caps.copy !== false && (
+        <button
+          className={dupOk ? btn : btnOff}
+          data-tip={dupOk ? 'Copy' : 'This block is part of the page layout and can’t be copied'}
+          onClick={() => dupOk && duplicateNode(id)}
+        ><Copy size={14} /></button>
+      )}
       {/* ⚠️ The banner's globe button is GONE. "Also use this background behind the whole page" put
           one block in charge of the page's background — a change you make while looking at the
           banner and then see everywhere else — and the page has its own background in Theme, which
@@ -496,22 +567,26 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
           already does per side, and its glyph said nothing about padding — so it read as an unknown
           action on a toolbar where every other button is a movement or a duplicate. Zeroing four
           sides is not common enough to earn a permanent seat next to Delete. */}
-      <AlignAxis
-        axis="h"
-        value={alignH}
-        options={H_OPTS}
-        open={axis === 'h'}
-        onToggle={() => setAxis((a) => (a === 'h' ? null : 'h'))}
-        onPick={(v) => { setStyle(id, { align: v as never }); setAxis(null); }}
-      />
-      <AlignAxis
-        axis="v"
-        value={alignV}
-        options={V_OPTS}
-        open={axis === 'v'}
-        onToggle={() => setAxis((a) => (a === 'v' ? null : 'v'))}
-        onPick={(v) => { setStyle(id, { alignY: v as never }); setAxis(null); }}
-      />
+      {caps.alignH !== false && (
+        <AlignAxis
+          axis="h"
+          value={alignH}
+          options={H_OPTS}
+          open={axis === 'h'}
+          onToggle={() => setAxis((a) => (a === 'h' ? null : 'h'))}
+          onPick={(v) => { setStyle(id, { align: v as never }); setAxis(null); }}
+        />
+      )}
+      {caps.alignV !== false && (
+        <AlignAxis
+          axis="v"
+          value={alignV}
+          options={V_OPTS}
+          open={axis === 'v'}
+          onToggle={() => setAxis((a) => (a === 'v' ? null : 'v'))}
+          onPick={(v) => { setStyle(id, { alignY: v as never }); setAxis(null); }}
+        />
+      )}
       <button
         className="flex size-7 items-center justify-center rounded text-[#EF4444] transition-colors hover:bg-[#FEF3F2]"
         data-tip="Delete"

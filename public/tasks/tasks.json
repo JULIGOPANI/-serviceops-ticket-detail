@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-09-01T08:57:54.036Z",
+  "builtAt": "2026-09-01T09:16:10.542Z",
   "tasks": [
     {
       "n": 1,
@@ -907,6 +907,17 @@
         "What I built": "a 560px flyout to the LEFT of the panel. Groups are bordered blocks, AND between rows, a labelled **OR** rule between groups, \"+ Add condition\" per group, \"+ Add OR group\" below. Field and value cells are popovers; text types in place; the value control morphs per field kind (choice, person with avatars, date as single-select, tags with free entry).",
         "Verified": "Custom filter opens a 560px flyout whose right edge is left of the field, with the preset dropdown still open behind it, seeded \"Started from All Open Requests\" carrying its real condition (Status Not In Resolved, Closed). **OR proven by measurement:** `Status In [Pending]` alone rendered `[INC-178]`; adding `OR Status In [In Progress]` rendered `[INC-178, INC-170]` — it widened, which a flat AND cannot do. The field reads \"Custom · 2 conditions in 2 groups\". No console errors.",
         "Still open (see the handover notes)": "the technician-side filter language differs (AND across fields, OR within one field's values); only id / subject / status filter against the sample rows; and the flyout covers the canvas it is filtering."
+      }
+    },
+    {
+      "n": 60,
+      "title": "Every floating toolbar offers only what its node can do",
+      "status": "done",
+      "fields": {
+        "Where": "`portalPageModel.ts` (`toolbarCaps`, `defaultAlignH`), `PortalCanvas.tsx`",
+        "You asked": "seven per-node lists of actions to remove, one to add, and two axis fixes.",
+        "What I built": "a `ToolbarCaps` map — a list of EXCEPTIONS, not a registry every new node must join, so an unlisted node still gets everything its kind allows.",
+        "⚠️ Testing note": "clicking a container's top-left corner selects its FIRST CHILD, not the container — my first survey read `requests` and `news` while believing it had `work-main` and `work-rail`. The regions have to be selected through their own grid gap."
       }
     }
   ],

@@ -1089,6 +1089,66 @@ export function renderSpec(type: string): ElementRenderSpec {
  * both why the padding sliders looked like they were insetting the whole widget and why dragging a
  * section taller clipped the card: the height went on the wrapper, the card kept its own size, and
  * the overflow box cut it off. The painted box has to own both values. */
+/* ── What each node's floating toolbar offers ────────────────────────────────
+ *
+ * The bar is one component, so without this every node got every action — and most of them were
+ * offers the page could not honour: an Add on a row that is fenced against the palette, a Replace
+ * on a widget whose content belongs to the product, a vertical alignment on a band that is as tall
+ * as its own content.
+ *
+ * ⚠️ A cap of `false` REMOVES the button; it does not disable it. Disabling is for something
+ * normally available that is not right now — the leftmost card's Move left — where the reason can
+ * be put on the control. An action a node can NEVER take has no reason to state, and a permanently
+ * greyed button on every selection is noise the eye has to learn to skip.
+ *
+ * ⚠️ Unlisted nodes get everything their KIND allows, unchanged. This is a list of exceptions, not
+ * a registry every new node has to be added to. */
+export interface ToolbarCaps {
+  move?: boolean;
+  add?: boolean;
+  copy?: boolean;
+  alignH?: boolean;
+  alignV?: boolean;
+  /** The Quick Actions row's one addable card, offered as a named action rather than a glyph. */
+  extLink?: boolean;
+}
+
+/** The four-card main region and the three-card rail. */
+const WORK_REGIONS = new Set(['work-main', 'work-rail']);
+/** Widgets the product owns: their content is fixed, so there is nothing to add or swap. */
+const LIVE_WIDGETS = new Set(['requests', 'approvals', 'assets', 'cis', 'news', 'knowledge', 'contact']);
+
+export function toolbarCaps(id: string): ToolbarCaps {
+  /* The banner's search field: one place inside the hero, nothing to duplicate it into, nowhere to
+     move to. The grip and Delete are the only two things that were ever true of it. */
+  if (id === 'hero-search') return { move: false, add: false, copy: false, alignH: false, alignV: false };
+  /* Quick Actions. Fenced against the palette (LOCKED_ROWS), so Add can only mislead; a full-width
+     band, so there is no vertical alignment to make; and the one thing it CAN take is the
+     external-link card, which is a named action rather than a "+". */
+  if (id === 'quick') return { add: false, copy: false, alignV: false, extLink: true };
+  /* An action card. Its content belongs to the product, so Replace cannot be honoured; moving it
+     along the row is the whole of what an admin decides here. */
+  if (/^quick-/.test(id)) return { add: false };
+  /* Favourite / Most Used services — a full-width band: nothing to swap it with, nothing to copy it
+     into, and no vertical alignment inside a block as tall as its own content. */
+  if (id === 'favourites' || id === 'services') return { add: false, copy: false, alignV: false };
+  /* The band holding every predefined widget. It arranges its two regions and nothing else. */
+  if (id === 'work') return { add: false, copy: false, alignH: false, alignV: false };
+  /* Those regions. They hold widgets in an order the admin sets by moving the WIDGETS — a region
+     itself only ever swaps sides with its neighbour. */
+  if (WORK_REGIONS.has(id)) return { add: false, copy: false, alignH: false, alignV: false };
+  if (LIVE_WIDGETS.has(id)) return { add: false, alignH: false, alignV: false };
+  return {};
+}
+
+/* ⚠️ DISPLAY ONLY — what the toolbar lights when nobody has chosen an alignment, not a value
+ * written into styles. The Quick Actions cards and the service tiles are stretched by their row's
+ * own CSS, so a bar reporting "left" described a layout that does not exist. Writing `stretch`
+ * into the store instead would have been a change to every page carrying one of these rows, made
+ * to leave them looking exactly as they already look. */
+export const defaultAlignH = (id: string): string =>
+  (id === 'quick' || id === 'favourites' || id === 'services' ? 'stretch' : 'left');
+
 export function paintsOwnSurface(id: string): boolean {
   /* ⚠️ The built-in quick-action cards too. Their Sel is a bare wrapper and the white card is a div
      INSIDE it, so padding applied to the wrapper landed between the selection outline and the card
