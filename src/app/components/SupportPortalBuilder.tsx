@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-  ArrowLeft, ChevronLeft, Eye, RotateCcw,
+  ArrowLeft, Check, ChevronDown, ChevronLeft, Eye, RotateCcw,
   Palette, PanelRight, Paintbrush, Pencil, Plus, Redo2, Undo2, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -54,6 +54,8 @@ interface SupportPortalBuilderProps {
   accent?: string;
   onRename: (name: string) => void;
   onPublish: () => void;
+  /** Commits the page without making it live — the split CTA's second option. */
+  onSaveDraft?: () => void;
   onExit: () => void;
 }
 
@@ -164,7 +166,7 @@ function PanelEmptyState({ active }: { active: RailKey | null }) {
  * to agree, so the name is written once. */
 export const LINK_CARD_ID = 'quick-link';
 
-export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit, openOn, onOpenConsumed }: SupportPortalBuilderProps & {
+export function SupportPortalBuilder({ page, accent, onRename, onPublish, onSaveDraft, onExit, openOn, onOpenConsumed }: SupportPortalBuilderProps & {
   /* Which rail panel to land on. The listing's "Portal settings" action opens the portal AT its
      settings rather than at the canvas — asking for settings and being given a blank widget library
      is the builder answering a different question from the one you pressed. */
@@ -187,6 +189,9 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
      next render and the rail item could never be switched off. */
   useEffect(() => { if (openOn) onOpenConsumed?.(); }, []);
   const [preview, setPreview] = useState(false);
+  /* The split CTA's menu. Closed by default — the chevron is an admission that a second option
+     exists, not an invitation to read it every time. */
+  const [pubMenu, setPubMenu] = useState(false);
   /* The portal's own style system. It lives HERE rather than in the panel because the canvas has to
      paint with it — a theme panel that only changed itself would be a colour picker with no page. */
   const [theme, setTheme] = useState<PortalTheme>(DEFAULT_THEME);
@@ -1774,10 +1779,61 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onExit
             onClick={() => setPreview(true)}
             className="ml-1 inline-flex h-8 items-center rounded border border-[#DFE5ED] bg-white px-3 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
           >Preview</button>
-          <button
-            onClick={onPublish}
-            className="inline-flex h-8 items-center rounded bg-[#1E293B] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#0F172A]"
-          >Publish</button>
+          {/* ── The primary action, and the one alternative to it ──────────────────────────────
+              ⚠️ A SPLIT button, not two buttons side by side. Publishing and saving a draft are the
+              same act — committing what is on the canvas — differing only in whether anybody else
+              sees it, and two equally-weighted buttons would ask that question every single time.
+              The main half does the thing you almost always want; the chevron admits there is
+              another way without spending a second primary on it.
+              ⚠️ The main half NEVER changes what it does. A split button whose face swaps to your
+              last choice is the pattern that gets people to publish a portal they meant to keep
+              private — the one mistake here that cannot be taken back by pressing the button
+              again. Publish is always Publish. */}
+          <div className="relative ml-1 inline-flex h-8">
+            <button
+              onClick={onPublish}
+              className="inline-flex h-8 items-center rounded-l bg-[#1E293B] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#0F172A]"
+            >Publish</button>
+            <button
+              onClick={() => setPubMenu((v) => !v)}
+              title="More save options"
+              aria-label="More save options"
+              className="inline-flex h-8 w-7 items-center justify-center rounded-r border-l border-white/20 bg-[#1E293B] text-white transition-colors hover:bg-[#0F172A]"
+            ><ChevronDown size={14} className={pubMenu ? 'rotate-180 transition-transform' : 'transition-transform'} /></button>
+            {pubMenu && (
+              <>
+                {/* A popover that only closes from its own trigger is a modal pretending not to be one. */}
+                <span className="fixed inset-0 z-[80]" onClick={() => setPubMenu(false)} />
+                <div className="absolute right-0 top-[calc(100%+4px)] z-[81] w-[248px] rounded-lg border border-[#E5E7EB] bg-white p-1 shadow-[0_12px_24px_-6px_rgba(16,24,40,0.18)]">
+                  {/* ⚠️ Publish is listed too, and ticked. The menu has to say which of the two the
+                      big half does, or the chevron reads as "the other option" and the button as
+                      something separate from it. */}
+                  <button
+                    onClick={() => { setPubMenu(false); onPublish(); }}
+                    className="flex w-full items-start gap-2 rounded px-2.5 py-2 text-left transition-colors hover:bg-[#F5F7FA]"
+                  >
+                    <Check size={14} className="mt-0.5 flex-shrink-0 text-[#3D8BD0]" />
+                    <span className="min-w-0">
+                      <span className="block text-[13px] font-medium text-[#364658]">Publish</span>
+                      <span className="mt-0.5 block text-[11px] leading-[1.5] text-[#7B8FA5]">Requesters see these changes straight away.</span>
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => { setPubMenu(false); onSaveDraft?.(); }}
+                    className="flex w-full items-start gap-2 rounded px-2.5 py-2 text-left transition-colors hover:bg-[#F5F7FA]"
+                  >
+                    <span className="mt-0.5 size-[14px] flex-shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block text-[13px] font-medium text-[#364658]">Save as draft</span>
+                      {/* ⚠️ Says what happens to the LIVE portal, not what happens to the draft. The
+                          thing an admin is actually asking is "will anyone see this yet". */}
+                      <span className="mt-0.5 block text-[11px] leading-[1.5] text-[#7B8FA5]">Keeps your work. Requesters keep seeing the published version.</span>
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
 
         </div>
       </div>

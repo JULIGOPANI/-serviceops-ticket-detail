@@ -757,6 +757,27 @@ Updated: 2026-08-25 12:11
 - **Verified, an 80px drag on each:** Button 36→116 **and the button element itself 36→116** · Text 24→104 · Table 110→188 **and the `<table>` 110→188** · Accordion 138→218 · Image 735→815 **and the `<img>` 735→815** · Video 620→700 **and the `<iframe>` 620→700** · KPI 166→246. No regression: predefined widget 398→478, built-in action card 78→158, banner 260→340. Width −121 for a −120 drag, shrink −60 for −60, every box in the chain `overflow: visible`, no console errors.
 - **Accordion panel spacing:** its Items list already matched FAQ (20px header→card, shared component). What was still tight was ABOVE the group — 4px under the CONTENT eyebrow where FAQ now had 16. The gap rule widened to cover "nothing above it at all", not just "bare fields above it". Verified 4 → 16px.
 
+## 53. The gap under a group header, removed
+- **Status:** done
+- **Where:** `PortalControls.tsx`, `PortalItemList.tsx`
+- **You asked:** with the DevTools screenshot — remove `pt-1` from the group body and the list's own top margin, so the Items title sits against its boxes in Accordion and FAQ.
+- **What I built:** exactly those two. `Group`'s body is `px-4 pb-4` and `PortalItemList`'s root carries no margin at all.
+- **⚠️ This reverses part of task 51.** That pass ADDED this space (`mt-2` → `mt-4`) on the reading that "questions and its card" wanted more air. It wanted less. The header row owns the space beneath itself now, and the list says nothing — one element deciding it is the only way the two cannot disagree.
+- **⚠️ It is EVERY group in the panel, Design accordions included.** One gap under a group header, the same everywhere, is what makes it readable as a rule rather than a number chosen per widget.
+- **Note:** the 16px between the last content FIELD and the collection (task 51) is untouched — that is the gap ABOVE the group, which you asked for and which is a different join.
+- **Verified:** Accordion's Items body is `px-4 pb-4`, its list has no class at all, header→first card **0px** (was 20). FAQ is the same component, so it matches by construction.
+
+## 54. Publish becomes a split CTA with Save as draft
+- **Status:** done
+- **Where:** `SupportPortalBuilder.tsx`, `AdminSupportPortalModule.tsx`
+- **You asked:** Publish and Save as draft as one primary CTA with a dropdown, Publish selected by default.
+- **What I built:** a split button — Publish on the main half, a chevron opening a two-row menu. Both rows are listed, Publish ticked, each with a line saying what it does to the LIVE portal rather than to the record.
+- **⚠️ The main half NEVER changes what it does.** A split button whose face swaps to your last choice is the pattern that gets somebody to publish a portal they meant to keep private — the one mistake here that pressing the button again cannot undo. Publish is always Publish.
+- **⚠️ Save as draft does NOT unpublish a live portal.** Saving your work and taking the portal away from every requester using it are entirely different acts, and one of them is not something a Save button may do quietly. A published page KEEPS its status and gains `dirty`, which is exactly what the listing's amber "Unpublished changes" chip was built to report. A page that was never published stays a Draft.
+- **⚠️ And it does not leave the builder, unlike Publish.** Publishing is the end of a piece of work; saving a draft is a pause in the middle of one, and closing the page you are still working on is the wrong answer to "keep this for later".
+- **⚠️ Publish now clears `dirty`** — a page that has just gone live has no unpublished changes by definition, and leaving it set had the row warning about work already published.
+- **Verified, both branches.** Published portal → Save as draft: stays in the builder, chip still "Published", toast "Saved. 'Support Portal' keeps showing the published version until you publish again", and the listing row gained **Unpublished changes**. Publish → returns to the listing, toast "is live on the support portal", chip cleared. Draft portal (made with Copy, which always yields a draft) → Save as draft: stays in the builder, chip still "Draft", toast "saved as a draft". Split button measured joined: 74px + 28px, 0px between them.
+
 ## Parked — needs discussion
 - Tour guide
 - AI capabilities

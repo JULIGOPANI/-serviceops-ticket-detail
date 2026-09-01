@@ -83,7 +83,15 @@ export function Group({ title, open, onToggle, badge, children }: {
         {badge}
         <ChevronDown size={15} className={`ml-auto flex-shrink-0 text-[#9CA3AF] transition-transform ${open ? '' : '-rotate-90'}`} />
       </button>
-      {open && <div className="px-4 pb-4 pt-1">{children}</div>}
+      {/* ⚠️ NO `pt-1`. The header row already ends with its own hairline and its own padding, so a
+          fourth pixel of top padding here bought nothing and pushed the first row away from the
+          title that names it. Removed together with the item list's own top margin — the two
+          stacked, and between them a collection's first card sat 20px under a heading it belongs
+          to.
+          ⚠️ This is EVERY group in the panel, Design accordions included, not only collections.
+          That is deliberate: one gap under a group header, the same everywhere, is what makes it
+          readable as a rule rather than a number chosen per widget. */}
+      {open && <div className="px-4 pb-4">{children}</div>}
     </div>
   );
 }

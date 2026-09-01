@@ -405,9 +405,29 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
         accent={accentFor(editing)}
         onRename={(name) => patch(editing.id, { name: uniquePageName(pages.filter((p) => p.id !== editing.id), name) })}
         onPublish={() => {
-          patch(editing.id, { status: 'Published' });
+          /* ⚠️ `dirty` is cleared here. It is the listing's "Unpublished changes" chip, and a page
+             that has just gone live has none by definition — leaving it set would have the row
+             warning about work that is already published. */
+          patch(editing.id, { status: 'Published', dirty: false });
           setEditingId(null);
           toast.success(`“${editing.name}” is live on the support portal`);
+        }}
+        /* ── Save as draft ────────────────────────────────────────────────────────────────────
+           ⚠️ It does NOT unpublish a live portal. Saving your work and taking the portal away from
+           every requester using it are two entirely different acts, and one of them is not
+           something a Save button may do quietly. So a published page KEEPS its status and gains
+           the `dirty` flag — which is exactly what the listing's amber "Unpublished changes" chip
+           was built to report — while a page that has never been published stays a Draft.
+           ⚠️ It also does not leave the builder, unlike Publish. Publishing is the end of a piece
+           of work; saving a draft is a pause in the middle of one, and closing the page you are
+           still working on would be the wrong answer to "keep this for later". */
+        onSaveDraft={() => {
+          patch(editing.id, editing.status === 'Published' ? { dirty: true } : { status: 'Draft', dirty: false });
+          toast.success(
+            editing.status === 'Published'
+              ? `Saved. “${editing.name}” keeps showing the published version until you publish again`
+              : `“${editing.name}” saved as a draft`,
+          );
         }}
         onExit={() => setEditingId(null)}
       />
