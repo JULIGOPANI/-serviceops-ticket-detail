@@ -938,6 +938,14 @@ export function sectionFromRows(id: string, rows: number[][], startAt = 0): Cust
  *  root wrong. */
 export const sectionIdOfBox = (boxId: string) => boxId.replace(/-b[0-9]+$/, '');
 
+/* ⚠️ ONE test for "this id names a box inside a section", because the shape has already changed
+ * once. Task 23 renamed boxes from the positional `sec-3-c0` to the minted `sec-3-b7`, and a
+ * `-c\d+` regex left behind in `replaceElement` stopped matching anything — so Replace fell through
+ * to a branch that could not find the element, and silently did nothing at all. Nothing errored;
+ * the widget simply stayed what it was. A named predicate is the only way the next rename touches
+ * one line instead of however many copies have been written by then. */
+export const isBoxId = (id: string) => /^sec-[0-9]+-b[0-9]+$/.test(id);
+
 /** Register a whole tree, so `nodeById` can name every box in it.
  *
  * ⚠️ The ROOT is deliberately NOT registered. Its id is the section id, and `nodeById` answers
@@ -1118,6 +1126,25 @@ const WORK_REGIONS = new Set(['work-main', 'work-rail']);
 /** Widgets the product owns: their content is fixed, so there is nothing to add or swap. */
 const LIVE_WIDGETS = new Set(['requests', 'approvals', 'assets', 'cis', 'news', 'knowledge', 'contact']);
 
+/* The six an admin composes a section out of: words, a call to action, a picture, a clip, a
+ * disclosure list and a grid.
+ *
+ * ⚠️ This is the set the "+" and Replace pickers offer ON THESE SIX. Their toolbars used to open the
+ * whole palette, so "replace this paragraph" listed Announcements, AD Self Service and Favourite
+ * Services — product widgets carrying their own data and their own place on the page. Swapping a
+ * paragraph for one of those is not a formatting change, it is a different page, and the palette is
+ * where that decision belongs.
+ * ⚠️ Add and Replace draw from the same list, because it is the same question twice: what goes in
+ * this slot, and what goes in the slot beside it. */
+export const COMPOSABLE = ['b-text', 'b-button', 'v-image', 'v-video', 'b-accordion', 'b-table'];
+const COMPOSABLE_SET = new Set(COMPOSABLE);
+
+/** True for one of the six — the only elements that offer each other. */
+export const isComposable = (id: string): boolean => {
+  const t = placedType(id);
+  return !!t && COMPOSABLE_SET.has(t);
+};
+
 export function toolbarCaps(id: string): ToolbarCaps {
   /* The banner's search field: one place inside the hero, nothing to duplicate it into, nowhere to
      move to. The grip and Delete are the only two things that were ever true of it. */
@@ -1138,6 +1165,13 @@ export function toolbarCaps(id: string): ToolbarCaps {
      itself only ever swaps sides with its neighbour. */
   if (WORK_REGIONS.has(id)) return { add: false, copy: false, alignH: false, alignV: false };
   if (LIVE_WIDGETS.has(id)) return { add: false, alignH: false, alignV: false };
+  /* A PLACED widget, judged by what it IS rather than where it sits.
+     ⚠️ The alignment pair goes from the Record List and the Accordion for the reason it went from
+     the live cards: they fill the column they are dropped into, so both axes were reporting a
+     position nothing was in a position to take. The other four keep theirs — a Text, a Button, an
+     Image or a Video genuinely can sit left, centre or right of the space it is given. */
+  const t = placedType(id);
+  if (t === 'c-records' || t === 'b-accordion') return { alignH: false, alignV: false };
   return {};
 }
 

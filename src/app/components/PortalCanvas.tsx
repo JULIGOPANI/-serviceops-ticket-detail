@@ -5,13 +5,13 @@ import type { ReactNode } from 'react';
 import {
   AlignCenter, AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical,
   AlignLeft, AlignRight, AlignStartHorizontal, AlignStartVertical, ArrowDown, ArrowLeft, ArrowRight,
-  ArrowUp, Baseline, Bold, ChevronRight, Columns2, Copy, GripHorizontal, GripVertical, Italic, Link2, Rows2,
+  ArrowUp, Baseline, Bold, Check, ChevronDown, ChevronRight, Columns2, Copy, GripHorizontal, GripVertical, Italic, Link2, Rows2,
   Braces, Highlighter, Maximize2, UnfoldVertical, Move, MoveHorizontal, MoveVertical, Plus, RemoveFormatting,
   Replace, SquareDashed, Trash2, Underline, X,
 } from 'lucide-react';
 // ArrowLeft stays in use by the card toolbar's "Move left".
 import { toast } from 'sonner';
-import { HEADING_SIZE, PORTAL_FONTS, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, boxInfo, defaultAlignH, nodeById, paintsOwnSurface, toolbarCaps, nodePath, placedIn, placedType } from './portalPageModel';
+import { HEADING_SIZE, PORTAL_FONTS, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, COMPOSABLE, boxInfo, defaultAlignH, isComposable, nodeById, paintsOwnSurface, toolbarCaps, nodePath, placedIn, placedType } from './portalPageModel';
 import { DEFAULT_THEME } from './PortalThemePanel';
 import type { PortalTheme } from './PortalThemePanel';
 import { boxCss, containerCss } from './portalStyleResolver';
@@ -86,6 +86,11 @@ interface CanvasCtx {
      same key its drawer writes, or the canvas and the panel end up owning different copies of one
      value; routing both through the builder's `patchCfg` is what keeps them the same value. */
   setCfg: (id: string, patch: Record<string, unknown>) => void;
+  /* Reads a widget's resolved config — the toolbar's button-style menu needs to show what is set,
+     and a control that cannot read its own value can only ever guess which option to light. */
+  cfg?: (id: string) => Record<string, unknown>;
+  /** Adds one of the six in the slot beside an element. */
+  addSibling?: (elementId: string, type: string) => void;
   /* The live theme. ⚠️ Only the text toolbar's font picker reads it, and it reads it to NAME the two
      faces rather than to apply them — the faces themselves are applied as CSS variables set on the
      canvas wrapper, so a themed block re-renders on a theme change without anything re-reading
@@ -353,37 +358,124 @@ function useNodeDragHandle(id: string) {
  * be the third in the array. Position is the only reading that matches what an admin is looking at
  * when they press Move left. */
 function useSiblingSpan(id: string, open: boolean) {
-  const [span, setSpan] = useState<{ horizontal: boolean | null; first: boolean; last: boolean }>(
-    { horizontal: null, first: false, last: false },
+  const [span, setSpan] = useState<{ horizontal: boolean | null; first: boolean; last: boolean; alone: boolean }>(
+    { horizontal: null, first: false, last: false, alone: false },
   );
   useLayoutEffect(() => {
     if (!open) return;
-    const el = document.querySelector(`[data-node="${id}"]`) as HTMLElement | null;
+    const self = document.querySelector(`[data-node="${id}"]`) as HTMLElement | null;
+    /* ⚠️ A PLACED element is measured by its BOX, not by itself. Each dropped widget sits alone
+       inside its own `sec-N-bM`, so at the DOM level it never has a sibling however many widgets
+       are beside it on screen — the neighbours are the boxes. Measuring the element found nothing
+       next to it and hid the move arrows even after a "+" had visibly put a widget alongside.
+       Everything else measures itself: a band, a card or a region IS the thing with neighbours. */
+    const box = /^el-[0-9]+$/.test(id)
+      ? (self?.parentElement?.closest('[data-node]') as HTMLElement | null)
+      : null;
+    const el = box && /^sec-[0-9]+-b[0-9]+$/.test(box.dataset.node ?? '') ? box : self;
     const parent = el?.parentElement;
-    if (!el || !parent) { setSpan({ horizontal: null, first: false, last: false }); return; }
-    const r = el.getBoundingClientRect();
-    /* Only siblings that are DRAWN and that are themselves nodes — a seam, an adder or a selection
-       overlay is not something this element can be moved past. */
-    const sibs = [...parent.children]
-      .filter((s) => s !== el && (s as HTMLElement).querySelector?.('[data-node]') !== undefined)
-      .map((s) => s.getBoundingClientRect())
-      .filter((q) => q.width > 0 && q.height > 0);
-    if (!sibs.length) { setSpan({ horizontal: null, first: true, last: true }); return; }
-    const beside = sibs.filter((q) => Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top) > Math.min(r.height, q.height) * 0.5);
-    const horizontal = beside.length > 0;
-    const line = horizontal ? beside : sibs;
-    setSpan({
-      horizontal,
-      first: !line.some((q) => (horizontal ? q.left < r.left - 1 : q.top < r.top - 1)),
-      last: !line.some((q) => (horizontal ? q.left > r.left + 1 : q.top > r.top + 1)),
-    });
+    if (!el || !parent) { setSpan({ horizontal: null, first: false, last: false, alone: false }); return; }
+
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      /* Only siblings that are DRAWN — a seam, an adder or a zero-size overlay is not something this
+         element can be moved past. */
+      const sibs = [...parent.children]
+        .filter((s) => s !== el)
+        .map((s) => s.getBoundingClientRect())
+        .filter((q) => q.width > 0 && q.height > 0);
+      /* ⚠️ ALONE — a one-column section, or the only child of anything. There is no order to change,
+         so the two move buttons are HIDDEN rather than shown disabled. That is the opposite of the
+         edge rule beside it, deliberately: at the end of a row there IS a row, and a disabled arrow
+         with the reason on it says "this is as far left as it goes". With nothing beside it there is
+         no row to be at the end of, and two permanently dead arrows on every single-column section
+         are furniture rather than information. */
+      if (!sibs.length) { setSpan({ horizontal: null, first: true, last: true, alone: true }); return; }
+      const beside = sibs.filter((q) => Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top) > Math.min(r.height, q.height) * 0.5);
+      const horizontal = beside.length > 0;
+      const line = horizontal ? beside : sibs;
+      setSpan({
+        horizontal,
+        alone: false,
+        first: !line.some((q) => (horizontal ? q.left < r.left - 1 : q.top < r.top - 1)),
+        last: !line.some((q) => (horizontal ? q.left > r.left + 1 : q.top > r.top + 1)),
+      });
+    };
+
+    measure();
+    /* ⚠️ RE-MEASURED when the neighbourhood changes, not once on selection. Adding a widget beside a
+       lone element gives it a sibling, so the move arrows should appear — but the deps are the id
+       and nothing else, and the toolbar re-renders without remounting, so the arrows stayed hidden
+       while the "+" had visibly added a neighbour. That reads as the add having failed.
+       The observers catch the new sibling AND any reflow that moves this element onto another line,
+       which is the other way this answer goes stale. */
+    const mo = new MutationObserver(measure);
+    mo.observe(parent, { childList: true });
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    ro.observe(parent);
+    return () => { mo.disconnect(); ro.disconnect(); };
   }, [id, open]);
   return span;
 }
 
+/** A palette element's own name, so the restricted picker says "Accordion" rather than "b-accordion". */
+const elementLabel = (type: string) => PORTAL_ELEMENTS.find((e) => e.id === type)?.name ?? type;
+
+/* The button's four styles, on the toolbar.
+ *
+ * ⚠️ The SAME four the Button's panel offers, read from the same `style` key — not a second set
+ * invented here. A toolbar shortcut that wrote a different value, or offered a fifth option the
+ * panel had never heard of, would be a second control for one setting and the two would disagree
+ * the first time either changed.
+ * ⚠️ It shows the CURRENT style as its label rather than a generic word, so the bar answers "what
+ * is this button?" without being opened. */
+const BUTTON_STYLES: [string, string][] = [
+  ['primary', 'Primary'], ['outline', 'Outline'], ['link', 'Link'], ['icon', 'Icon'],
+];
+
+function ButtonStyleMenu({ id }: { id: string }) {
+  const { cfg, setCfg } = useCanvas();
+  const [open, setOpen] = useState(false);
+  const current = String(cfg?.(id)?.style ?? 'primary');
+  const label = BUTTON_STYLES.find(([v]) => v === current)?.[1] ?? 'Primary';
+  return (
+    <div className="relative">
+      <button
+        className="flex h-7 items-center gap-1 rounded px-2 text-[12px] font-medium text-[#364658] transition-colors hover:bg-[#F3F4F6]"
+        data-tip="Button style"
+        onClick={() => setOpen((v) => !v)}
+      >{label}<ChevronDown size={12} className="text-[#9CA3AF]" /></button>
+      {open && (
+        <>
+          <span className="fixed inset-0 z-[60]" onClick={() => setOpen(false)} />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="absolute left-1/2 top-[calc(100%+8px)] z-[61] w-[150px] -translate-x-1/2 rounded-lg border border-[#E5E7EB] bg-white p-1 shadow-[0_12px_16px_-4px_rgba(16,24,40,0.10),0_4px_6px_-2px_rgba(16,24,40,0.06)]"
+          >
+            {BUTTON_STYLES.map(([v, l]) => (
+              <button
+                key={v}
+                onClick={() => { setCfg(id, { style: v }); setOpen(false); }}
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] text-[#364658] transition-colors hover:bg-[#F5F7FA]"
+              >
+                <span className="flex size-3.5 flex-shrink-0 items-center justify-center">
+                  {v === current && <Check size={12} className="text-[#3D8BD0]" />}
+                </span>
+                {l}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: string }) {
-  const { styles, setStyle, moveNode, duplicateNode, deleteNode, canDuplicate, addInside, replaceElement, addChildBlock, splitNode, splitInfo, addLinkCard } = useCanvas();
+  const { styles, setStyle, moveNode, duplicateNode, deleteNode, canDuplicate, addInside, replaceElement, addChildBlock, splitNode, splitInfo, addLinkCard, addSibling } = useCanvas();
   const [picking, setPicking] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [axis, setAxis] = useState<'h' | 'v' | null>(null);
   const caps = toolbarCaps(id);
 
@@ -428,6 +520,11 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
   const swaps = !childTypes?.length && (placed || !!occupant || kind === 'card');
   const swapTarget = placed ? id : occupant ?? (kind === 'card' ? id : null);
   const dupOk = canDuplicate(id);
+  /* One of the six a section is composed from — see `COMPOSABLE`. These get BOTH actions: "+" puts
+     another of the six in the slot BESIDE this one, Replace swaps this one. Everything else keeps
+     the single Add-or-Replace slot it always had. */
+  const composable = isComposable(id);
+  const sixOnly = composable ? COMPOSABLE.map((t) => ({ type: t, label: elementLabel(t) })) : undefined;
   /* Null for anything that is not a box, which is how Split stays off cards, text and page bands. */
   const split = splitInfo?.(id) ?? null;
 
@@ -494,7 +591,7 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
         data-tip="Drag to move"
         className="flex size-7 cursor-grab items-center justify-center text-[#9CA3AF] active:cursor-grabbing"
       ><GripVertical size={14} /></span>
-      {caps.move !== false && moves.map(([label, ic, dir, atEdge]) => (
+      {caps.move !== false && !span.alone && moves.map(([label, ic, dir, atEdge]) => (
         <button
           key={label}
           className={atEdge ? btnOff : btn}
@@ -519,20 +616,39 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
           another surface to pick, then back to the canvas to see the result, is three steps for one
           decision — and on a FILLED element the same gesture means swap, which is a change you want
           to make while looking at what you are replacing. */}
+      {/* ⚠️ On the six, ADD means "beside", not "inside". A Text holds words, not widgets — the only
+          honest thing a "+" on one can do is put the next element in the slot next to it, which is
+          also what gives the move arrows something to move past. */}
+      {composable && (
+        <div className="relative">
+          <button className={btn} data-tip="Add a widget beside this one" onClick={() => setAdding((v) => !v)}>
+            <Plus size={15} />
+          </button>
+          {adding && (
+            <ElementPicker
+              only={sixOnly}
+              mode="add"
+              onPick={(type) => { setAdding(false); addSibling?.(id, type); }}
+              onClose={() => setAdding(false)}
+            />
+          )}
+        </div>
+      )}
       {caps.add !== false && (canAdd || placed || kind === 'card') && (
         <div className="relative">
           <button
             className={btn}
-            data-tip={childTypes?.length ? 'Add a block inside' : swaps ? 'Replace widget' : 'Add widget'}
+            data-tip={childTypes?.length && !sixOnly ? 'Add a block inside' : swaps ? 'Replace widget' : 'Add widget'}
             onClick={() => setPicking((v) => !v)}
           >{swaps ? <Replace size={15} /> : <Plus size={15} />}</button>
           {picking && (
             <ElementPicker
-              only={swaps ? undefined : childTypes}
+              /* On the six, Replace offers the six. Everywhere else it offers what it always did. */
+              only={sixOnly ?? (swaps ? undefined : childTypes)}
               mode={swaps ? 'replace' : 'add'}
               onPick={(type) => {
                 setPicking(false);
-                if (childTypes?.length) addChildBlock(id, type);
+                if (childTypes?.length && !sixOnly) addChildBlock(id, type);
                 else if (swaps && swapTarget) replaceElement(swapTarget, type);
                 else addInside(id, type);
               }}
@@ -541,6 +657,10 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
           )}
         </div>
       )}
+      {/* ⚠️ The button's STYLE, on the toolbar. It is the one thing about a button an admin changes
+          more than once while looking at the page — the panel still owns everything else, so this is
+          a shortcut to one field rather than a second place the value lives. */}
+      {placedType(id) === 'b-button' && <ButtonStyleMenu id={id} />}
       {/* ⚠️ A LABELLED action, not a "+". The Quick Actions row takes exactly one thing and it is a
           specific card — a plus would promise the palette, which this row is fenced against, and an
           icon would have to be guessed at. The words are the whole point of it. */}
@@ -1752,7 +1872,25 @@ export function Sel({ id, children, className = '', toolbarBelow = false, style:
           disabled or a lie over navigation the admin does not own. */}
       {on && id !== 'hero' && id !== 'rail' && !/^header/.test(id) && (
         <ToolbarSlot toolbarBelow={toolbarBelow}>
-          {node.kind === 'text' ? <TextToolbar id={id} /> : <ElementToolbar id={id} kind={node.kind} name={node.name} />}
+          {/* ⚠️ A PLACED text gets BOTH bars; a text CHILD gets only the formatting one.
+              The rule used to be "kind === text → formatting bar", which is right for a widget's
+              heading or a card's subtitle — those are words inside something else and there is no
+              element there to move, copy or delete. A dropped Text element is a different thing
+              wearing the same kind: it is a widget in its own right, and with only the formatting
+              bar it could not be duplicated, replaced, reordered or even deleted from the canvas at
+              all. Two questions are being asked of it — "what do these words look like" and "what
+              is this block doing here" — so it carries the two bars that answer them.
+              ⚠️ Formatting on TOP, element bar underneath and nearest the element. The lower bar is
+              the one that points at the thing it acts on, and the element bar is the one whose
+              actions move it. */}
+          {node.kind === 'text' ? (
+            /^el-[0-9]+$/.test(id) ? (
+              <span className="flex flex-col items-center gap-1">
+                <TextToolbar id={id} />
+                <ElementToolbar id={id} kind={node.kind} name={node.name} />
+              </span>
+            ) : <TextToolbar id={id} />
+          ) : <ElementToolbar id={id} kind={node.kind} name={node.name} />}
         </ToolbarSlot>
       )}
 

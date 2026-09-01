@@ -22,7 +22,7 @@ import {
   BLOCK_ORDER_V2, ROW_ORDER_V2, RAIL_V2, MAIN_V2,
   DEFAULT_BLOCK_ORDER, DEFAULT_CONTENT, DEFAULT_ROW_ORDER, moveIn, nodeById, parseItemId,
   placedType, registerPlaced, isLockedRow,
-  MAX_COLUMNS, addNeighbour, addNeighbourAt, addSibling, neighbourBlockedBecause, rowTargetOf, boxOfElement, findBox, freeLeaves, isBranch, mapBox, parentOfBox, registerTree, removeBox,
+  MAX_COLUMNS, addNeighbour, addNeighbourAt, addSibling, neighbourBlockedBecause, rowTargetOf, boxOfElement, findBox, isBoxId, freeLeaves, isBranch, mapBox, parentOfBox, registerTree, removeBox,
   sectionElements, sectionFromRows, sectionIdOfBox, sectionRebuild, sectionRows, setBoxDir, setBoxEl,
   splitBlockedBecause, splitBox,
 } from './portalPageModel';
@@ -637,6 +637,22 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onSave
      shape you happened to be standing in. `addNeighbour` wraps when it has to, so one control means
      one thing at every level.
      ⚠️ Blocked with the REASON on it rather than failing silently, like Split. */
+  /* Puts one of the six in the slot BESIDE an element — what "+" means on a Text or a Button.
+   *
+   * ⚠️ It routes through `dropBeside`, the drag-and-drop path, rather than growing a second way to
+   * do the same thing. That function already splits the box, honours the column cap with its
+   * reason, and places the element; a parallel implementation here would be a second set of rules
+   * to keep in step with it, and the first one to drift would be the one nobody dragged. */
+  const addSiblingElement = useCallback((elementId: string, type: string) => {
+    const box = sectionsRef.current
+      .map((s) => boxOfElement(s.section.root, elementId))
+      .find(Boolean);
+    /* No box means it is not in a custom section — a built-in row member. Those grow by the row's
+       own rules, so the "+" simply does not apply and saying nothing is better than guessing. */
+    if (!box) return;
+    dropBesideRef.current?.(box.id, { type }, 'right');
+  }, []);
+
   const addBeside = useCallback((boxId: string, side: 'left' | 'right' | 'top' | 'bottom') => {
     const sectionId = sectionIdOfBox(boxId);
     const dir: BoxDir = side === 'left' || side === 'right' ? 'row' : 'column';
@@ -1450,6 +1466,10 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onSave
   /* ⚠️ A ref, not a direct call: `addElement` is declared after this and closes over state that
      changes every render, so capturing it in this callback's deps would either be a use-before-
      declaration or a stale copy. */
+  /* ⚠️ Through a ref: `dropBeside` is declared ~450 lines below `addSiblingElement`, and naming it
+     directly there is the temporal-dead-zone crash this file has already taken once (see the note
+     on `dropBeside` and `detachElement`). */
+  const dropBesideRef = useRef<((b: string, p: { type: string }, s: 'left' | 'right' | 'above' | 'below') => void) | null>(null);
   const addElementRef = useRef<((type: string, anchor?: string) => void) | null>(null);
 
   const addInside = useCallback((id: string, type?: string) => {
@@ -1532,7 +1552,11 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onSave
     const home = nodeById(id)?.parent ?? null;
     if (!home) return;
     const made = makeElement(type, home);
-    if (/^sec-[0-9]+-c[0-9]+$/.test(home)) {
+    /* ⚠️ `isBoxId`, not a regex written here. This tested `-c\d+` — the box naming from BEFORE
+       task 23 minted ids — so it had matched nothing since, and every Replace on an element inside
+       a custom section fell through to the `rowExtras` branch, found no entry for that home, and
+       returned having done nothing. */
+    if (isBoxId(home)) {
       setSections((prev) => prev.map((sec) => (
         findBox(sec.section.root, home)?.el?.id === id
           ? { ...sec, section: setBoxEl(sec.section, home, made) }
@@ -1548,6 +1572,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onSave
   }, [makeElement, select, rowOrder, dropInRow]);
 
   addElementRef.current = addElement;
+  dropBesideRef.current = dropBeside;
 
   /* ⚠️ It selects the ICON node, not the card that owns the icon. The canvas already called
      `select('<card>-icon')` before this ran, and this overwrote it with the card's own id — so the
@@ -1562,6 +1587,7 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onSave
   const canvasCtx = {
     selectedId, hoverId, select, setHover: setHoverId, styles, setStyle, setText, setCfg: patchCfg,
     addSection, addBeside, dropBeside, columnsFull, splitNode, setNodeDir, splitInfo, addLinkCard, dropInColumn, dropAtSeam, dropInRow,
+    addSibling: addSiblingElement, cfg: cfgFor,
     moveNode, duplicateNode, deleteNode, canDuplicate, addInside, moveTo, moveToSeam, addChildBlock, areSiblings, replaceElement, pickIcon, applyPreset,
     /* The text toolbar names the theme fonts, so it needs the live theme. */
     theme,
