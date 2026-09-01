@@ -200,7 +200,6 @@ const btn = 'flex size-7 items-center justify-center rounded text-[#64748B] tran
 /** How far an element may ride up over the one above it. */
 const MAX_OVERLAP = 120;
 
-const btnOff = 'flex size-7 items-center justify-center rounded text-[#CBD5E1] cursor-not-allowed';
 const btnOn = 'flex size-7 items-center justify-center rounded bg-[#EBF5FF] text-[#3D8BD0]';
 
 /* One axis of alignment: a button showing what is set, and a popup of the four ways to set it.
@@ -716,25 +715,30 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
         data-tip="Drag to move"
         className="flex size-7 cursor-grab items-center justify-center text-[#9CA3AF] active:cursor-grabbing"
       ><GripVertical size={14} /></span>
-      {caps.move !== false && !span.alone && moves.map(([label, ic, dir, atEdge]) => (
-        <button
-          key={label}
-          className={atEdge ? btnOff : btn}
-          data-tip={atEdge ? `Already ${label.replace('Move ', '')}most`.replace('downmost', 'last').replace('upmost', 'first').replace('leftmost', 'first').replace('rightmost', 'last') : label}
-          onClick={() => !atEdge && moveNode(id, dir)}
-        >{ic}</button>
-      ))}
+      {/* ⚠️ NOTHING ON THIS BAR IS EVER SHOWN DISABLED. A move that cannot happen is not rendered,
+          the same way the pair disappears entirely when an element has no siblings at all.
+          This replaces an earlier rule — "disabled with the reason on it" — which was applied
+          because a control that vanishes can read as a bug. On a bar of seven small glyphs it does
+          not: the greyed arrows were indistinguishable from the live ones at a glance, so the row
+          looked the same whether or not you could act on it, and the reason was a tooltip nobody
+          hovers a dead button to read. One rule now, everywhere: if it is on the bar, pressing it
+          does something. */}
+      {caps.move !== false && !span.alone && moves
+        .filter(([, , , atEdge]) => !atEdge)
+        .map(([label, ic, dir]) => (
+          <button key={label} className={btn} data-tip={label} onClick={() => moveNode(id, dir)}>{ic}</button>
+        ))}
       {/* SPLIT — the one structural operation, identical at every level: a leaf becomes two, a
           branch grows one more child, and the direction is always the box's own.
           ⚠️ The label says what will HAPPEN, not what the button is. "Split" alone leaves you to
           work out which way from the icon, and the answer depends on a setting two panels away.
           ⚠️ At the depth or column limit it stays VISIBLE and disabled with the reason on it —
           missing controls read as bugs, and a silent no-op reads as a broken one. */}
-      {split && (
+      {split && !split.blocked && (
         <button
-          className={split.blocked ? btnOff : btn}
-          data-tip={split.blocked ?? (split.dir === 'row' ? 'Split into columns' : 'Split into rows')}
-          onClick={() => !split.blocked && splitNode(id)}
+          className={btn}
+          data-tip={split.dir === 'row' ? 'Split into columns' : 'Split into rows'}
+          onClick={() => splitNode(id)}
         >{split.dir === 'row' ? <Columns2 size={15} /> : <Rows2 size={15} />}</button>
       )}
       {/* ⚠️ "+" opens the list HERE rather than swapping the side panel to it. Sending you to
@@ -801,12 +805,9 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
           onClick={() => addLinkCard?.()}
         ><Plus size={13} /> External link</button>
       )}
-      {caps.copy !== false && (
-        <button
-          className={dupOk ? btn : btnOff}
-          data-tip={dupOk ? 'Copy' : 'This block is part of the page layout and can’t be copied'}
-          onClick={() => dupOk && duplicateNode(id)}
-        ><Copy size={14} /></button>
+      {/* A layout block has no instance to clone, so the button is absent rather than greyed. */}
+      {caps.copy !== false && dupOk && (
+        <button className={btn} data-tip="Copy" onClick={() => duplicateNode(id)}><Copy size={14} /></button>
       )}
       {/* ⚠️ The banner's globe button is GONE. "Also use this background behind the whole page" put
           one block in charge of the page's background — a change you make while looking at the

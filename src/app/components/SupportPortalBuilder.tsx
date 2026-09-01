@@ -650,7 +650,10 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onSave
     /* No box means it is not in a custom section — a built-in row member. Those grow by the row's
        own rules, so the "+" simply does not apply and saying nothing is better than guessing. */
     if (!box) return;
-    dropBesideRef.current?.(box.id, { type }, 'right');
+    /* ⚠️ 'below', not 'right'. Same reason the clone stacks: a "+" on a paragraph should put the
+       next thing under it inside that paragraph's own box, not split the section around it into
+       two columns and halve the width of what was already there. */
+    dropBesideRef.current?.(box.id, { type }, 'below');
   }, []);
 
   const addBeside = useCallback((boxId: string, side: 'left' | 'right' | 'top' | 'bottom') => {
@@ -1394,13 +1397,18 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onSave
       if (s.section.id !== secId) return s;
       const src = findBox(s.section.root, col)?.el;
       if (!src) return s;
-      /* ⚠️ A clone needs a cell of its own, and where that cell comes from depends on where the
-         original sits. A box with a PARENT gets a sibling beside it. The section ROOT has no parent
-         to take a sibling, so it SPLITS — which is the same gesture, one level up: the original
-         keeps its content and the second cell is the empty one the clone lands in. */
-      const parent = parentOfBox(s.section.root, col);
-      const grown = parent ? addSibling(s.section, col, false) : splitBox(s.section, col);
-      const slot = freeLeaves(grown.root)[0];
+      /* ⚠️ A clone lands in a ROW UNDER the original, inside that element's own box — not in a new
+         column of the section around it. Copying a paragraph produced a two-column section with the
+         original squeezed into half the width: the section it belonged to was restructured to hold
+         its own copy, so the page moved everywhere except where the copy was wanted. Stacking keeps
+         both at full width and keeps the change inside the box that was copied.
+         ⚠️ `addNeighbourAt` with an explicit `'column'` rather than `addSibling`, which inherits the
+         parent's direction — and the parent of a leaf is a row by default, which is exactly how the
+         columns were appearing. */
+      const grownAt = addNeighbourAt(s.section, col, 'column', false);
+      if (!grownAt.id) return s;
+      const grown = grownAt.section;
+      const slot = freeLeaves(grown.root).find((b) => b.id === grownAt.id) ?? freeLeaves(grown.root)[0];
       if (!slot) return s;
       const clone = { ...src, id: `el-${nextElementId.current++}` };
       registerPlaced(clone.id, clone.name, clone.type, slot.id);
@@ -1836,13 +1844,16 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onSave
           <div className="relative ml-1 inline-flex h-8">
             <button
               onClick={() => (pubMode === 'draft' ? onSaveDraft?.() : onPublish())}
-              className="inline-flex h-8 items-center rounded-l bg-[#1E293B] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#0F172A]"
+              /* The product's primary blue — the same #3D8BD0 every other primary in this app uses.
+                 It was slate, which made the one irreversible action on the page the only button in
+                 the builder that did not look like this product's buttons. */
+              className="inline-flex h-8 items-center rounded-l bg-[#3D8BD0] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#3480c4]"
             >{pubMode === 'draft' ? 'Save as draft' : 'Publish'}</button>
             <button
               onClick={() => setPubMenu((v) => !v)}
               title="More save options"
               aria-label="More save options"
-              className="inline-flex h-8 w-7 items-center justify-center rounded-r border-l border-white/20 bg-[#1E293B] text-white transition-colors hover:bg-[#0F172A]"
+              className="inline-flex h-8 w-7 items-center justify-center rounded-r border-l border-white/25 bg-[#3D8BD0] text-white transition-colors hover:bg-[#3480c4]"
             ><ChevronDown size={14} className={pubMenu ? 'rotate-180 transition-transform' : 'transition-transform'} /></button>
             {pubMenu && (
               <>

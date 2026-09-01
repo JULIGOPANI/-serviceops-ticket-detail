@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-09-01T09:59:15.505Z",
+  "builtAt": "2026-09-01T10:09:22.826Z",
   "tasks": [
     {
       "n": 1,
@@ -940,6 +940,16 @@
         "You asked": "Accordion and FAQ get the Add icon plus an \"Add item\" CTA opening an inline popup; Image gets an inline \"Add caption\"; Video, Table and KPI lose their alignments; KPI has no Add.",
         "Verified": "Accordion → Drag · Add beside · Replace · **Add item** · Copy · Delete. FAQ → the same, its CTA reading \"Add a question to this list\". Image → keeps both alignments and gains **Add caption**. Video, Table → no alignments. KPI → Drag · Replace · Copy · Delete, no \"+\", no alignments. Add item on an accordion took it from 3 rows to 4 with \"How do I book leave?\" on the canvas and an \"Item added\" toast; the caption saved, rendered under the picture, and the button relabelled to **Edit caption**.",
         "⚠️ Testing note": "the Accordion's PANEL has its own \"Add item\" button, so a `find` by button text picks the wrong one — the toolbar's has to be located by its `data-tip`."
+      }
+    },
+    {
+      "n": 63,
+      "title": "Copy and Add stack a row, and nothing on a toolbar is ever greyed",
+      "status": "done",
+      "fields": {
+        "Where": "`SupportPortalBuilder.tsx`, `PortalCanvas.tsx`",
+        "You asked": "the Publish CTA in the product's blue; Copy and Add to place row-wise inside the widget's own section rather than as a new column of the parent; and no disabled action on any toolbar.",
+        "Verified": "the Publish half and its chevron both measure `rgb(61, 139, 208)`. A copied Text landed at the same x (105) and width (203) **40px below** its original — it used to land at x=664 beside it — and an Add-beside Button landed below that again. The first of the stack shows only **Move down**, the second only **Move up**, and a scan of both bars found **zero** disabled controls."
       }
     }
   ],

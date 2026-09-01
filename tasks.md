@@ -871,6 +871,15 @@ Updated: 2026-08-25 12:11
 - **Verified:** Accordion → Drag · Add beside · Replace · **Add item** · Copy · Delete. FAQ → the same, its CTA reading "Add a question to this list". Image → keeps both alignments and gains **Add caption**. Video, Table → no alignments. KPI → Drag · Replace · Copy · Delete, no "+", no alignments. Add item on an accordion took it from 3 rows to 4 with "How do I book leave?" on the canvas and an "Item added" toast; the caption saved, rendered under the picture, and the button relabelled to **Edit caption**.
 - **⚠️ Testing note:** the Accordion's PANEL has its own "Add item" button, so a `find` by button text picks the wrong one — the toolbar's has to be located by its `data-tip`.
 
+## 63. Copy and Add stack a row, and nothing on a toolbar is ever greyed
+- **Status:** done
+- **Where:** `SupportPortalBuilder.tsx`, `PortalCanvas.tsx`
+- **You asked:** the Publish CTA in the product's blue; Copy and Add to place row-wise inside the widget's own section rather than as a new column of the parent; and no disabled action on any toolbar.
+- **Publish** takes `#3D8BD0`, the primary every other button in this product uses. It was slate — which made the one irreversible action in the builder the only button that did not look like this product's buttons.
+- **⚠️ The clone stacks UNDER the original, inside that element's own box.** Copying a paragraph used to produce a two-column section with the original squeezed into half the width: the section it belonged to was restructured to hold its own copy, so the page moved everywhere except where the copy was wanted. `addNeighbourAt` with an explicit `'column'` rather than `addSibling`, which inherits the parent's direction — and a leaf's parent is a row by default, which is exactly how the columns were appearing. Add-beside does the same, for the same reason.
+- **⚠️ NOTHING on the element bar is shown disabled any more.** A move that cannot happen is not rendered, a layout block has no Copy at all, and a blocked Split is absent. This REPLACES the earlier rule — "disabled with the reason on it, because a control that vanishes reads as a bug" — which held on a listing row and does not hold here: on a bar of seven small glyphs the greyed arrows were indistinguishable from the live ones at a glance, so the row looked the same whether or not you could act on it, and the reason was a tooltip nobody hovers a dead button to read. One rule now: if it is on the bar, pressing it does something. `btnOff` is gone from the file.
+- **Verified:** the Publish half and its chevron both measure `rgb(61, 139, 208)`. A copied Text landed at the same x (105) and width (203) **40px below** its original — it used to land at x=664 beside it — and an Add-beside Button landed below that again. The first of the stack shows only **Move down**, the second only **Move up**, and a scan of both bars found **zero** disabled controls.
+
 ## Parked — needs discussion
 - Tour guide
 - AI capabilities
