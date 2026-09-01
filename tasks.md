@@ -10,7 +10,7 @@ source of truth; `npm run build` regenerates the live page from it.
 banner image controls · collapsed Design accordions · Action Card page destination · KPI feedback
 count · Section Name field. They are not in zeni_tasks.md, so they have no number here.
 
-Updated: 2026-08-25 12:11
+Updated: 2026-09-01
 
 ## 1. Quick Actions — Card templates moves to the individual card
 - **Status:** done
