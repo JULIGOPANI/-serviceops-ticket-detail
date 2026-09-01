@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronRight, PenLine, X } from 'lucide-react';
+import { ArrowLeft, ChevronRight, PenLine, X } from 'lucide-react';
 import { PORTAL_TEMPLATES, TEMPLATE_CATEGORIES } from './supportPortalData';
 import type { PortalTemplate } from './supportPortalData';
 import { TemplateArt } from './SupportPortalTemplateGallery';
@@ -190,43 +190,32 @@ function Steps({ step, canGoBack, onBack }: { step: 1 | 2; canGoBack: boolean; o
     { n: 1, title: 'Support portal details' },
     { n: 2, title: 'Support portal customization' },
   ];
-  /* ⚠️ A GREY BAND with a chevron between the steps, not two blue dots on a rule. The rule read as
-     a progress bar that was always half full — it said the same thing on both steps — while the two
-     identically-blue circles gave no way to tell where you WERE from where you had BEEN. Here the
-     finished step is greyed with a tick, the current one is dark with its number, and the chevron
-     points the way through: three signals that each say one thing.
-     ⚠️ The tick is #3D8BD0, not the reference's green. Green is this product's healthy/success
-     colour and a completed step is neither — it is simply behind you. */
+  /* ⚠️ A BREADCRUMB, not numbered circles on a filled band. The numbers were answering a question
+     nobody asks of a two-step dialog — you can see there are two, and which one you are on is the
+     only thing worth saying. What is left says exactly that: the step behind you is grey and
+     pressable, the one you are on is the product's blue, and a chevron points between them.
+     ⚠️ The band's fill went with the circles. A tinted strip under the title made the steps read as
+     a toolbar belonging to the dialog rather than as a position within it. */
   return (
-    <div className="flex items-center gap-2 border-b border-[#E5E7EB] bg-[#F7F9FC] px-5 py-2.5">
+    <div className="flex flex-shrink-0 items-center gap-1.5 border-b border-[#E5E7EB] bg-white px-5 py-2.5">
       {rows.map((r, i) => {
-        const done = step > r.n;
         const on = step === r.n;
         /* ⚠️ Step 1 stays clickable from step 2 — the details are editable until you leave, and a
            marker you cannot press is a picture of progress rather than a way through it. Step 2 is
            NOT clickable from step 1: it has nothing to show until the portal exists. */
-        const clickable = r.n === 1 && canGoBack;
+        const clickable = r.n === 1 && canGoBack && !on;
         return (
-          <div key={r.n} className="flex items-center gap-2">
+          <div key={r.n} className="flex items-center gap-1.5">
             <button
               onClick={clickable ? onBack : undefined}
               disabled={!clickable}
-              className={`flex items-center gap-2 rounded px-1.5 py-1 text-left transition-colors ${
-                clickable ? 'cursor-pointer hover:bg-[#EEF2F6]' : 'cursor-default'
+              className={`rounded px-1.5 py-0.5 text-[13px] transition-colors ${
+                on ? 'font-semibold text-[#3D8BD0]'
+                  : clickable ? 'cursor-pointer text-[#7B8FA5] hover:bg-[#F5F7FA] hover:text-[#364658]'
+                    : 'cursor-default text-[#C3CBD6]'
               }`}
-            >
-              <span
-                className={`flex size-[20px] flex-shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors ${
-                  done ? 'bg-[#3D8BD0] text-white'
-                    : on ? 'bg-[#364658] text-white'
-                      : 'border border-[#DFE5ED] bg-white text-[#9CA3AF]'
-                }`}
-              >{done ? <Check size={11} strokeWidth={3} /> : r.n}</span>
-              <span className={`text-[13px] ${
-                on ? 'font-semibold text-[#364658]' : done ? 'text-[#9CA3AF]' : 'text-[#C3CBD6]'
-              }`}>{r.title}</span>
-            </button>
-            {i === 0 && <ChevronRight size={14} className="flex-shrink-0 text-[#C3CBD6]" />}
+            >{r.title}</button>
+            {i === 0 && <ChevronRight size={13} className="flex-shrink-0 text-[#C3CBD6]" />}
           </div>
         );
       })}
@@ -266,7 +255,7 @@ export function CreateSupportPortalModal({ onClose, onSaveDetails, onScratch, on
 
   return createPortal(
     <div className="fixed inset-0 z-[10000] flex items-start justify-center bg-[#0F172A]/40 p-6 pt-[6vh]">
-      <div className="flex max-h-[88vh] w-full max-w-[880px] flex-col overflow-hidden rounded-lg bg-white shadow-[0_24px_48px_-12px_rgba(16,24,40,0.25)]">
+      <div className="flex max-h-[88vh] w-full max-w-[960px] flex-col overflow-hidden rounded-lg bg-white shadow-[0_24px_48px_-12px_rgba(16,24,40,0.25)]">
         <div className="flex flex-shrink-0 items-center gap-3 border-b border-[#E5E7EB] px-5 py-3.5">
           <h2 className="flex-1 text-[16px] font-semibold text-[#364658]">Create Support Portal</h2>
           <button onClick={onClose} className="flex size-8 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6]"><X size={18} /></button>
@@ -297,97 +286,102 @@ export function CreateSupportPortalModal({ onClose, onSaveDetails, onScratch, on
             </div>
           </>
         ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-                {/* ⚠️ ONE screen, not a fork. Step 2 used to open on two big cards — "Create from
-                    scratch" and "Use Template" — which asked you to choose a KIND of start before
-                    you could see any of the starts. From-scratch is one row and the templates are
-                    six tiles: they fit together, so the question was costing a click to answer
-                    something the screen could simply show.
-                    ⚠️ From-scratch is an IMMEDIATE action, exactly like a template tile. Every
-                    starting point on this screen is one click, so there is no selected state to
-                    carry and no Create button to press afterwards. */}
+          <>
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+              {/* ⚠️ ONE screen, not a fork. Step 2 used to open on two big cards — "Create from
+                  scratch" and "Use Template" — which asked you to choose a KIND of start before you
+                  could see any of the starts. From-scratch is one card and the templates are a
+                  grid: they fit together, so the question was costing a click to answer something
+                  the screen could simply show.
+                  ⚠️ From-scratch is an IMMEDIATE action, exactly like a template tile. Every
+                  starting point here is one click, so there is no selected state to carry and no
+                  Create button to press afterwards.
+                  ⚠️ Both halves carry a SECTION HEADING now. Without them the wide card at the top
+                  read as a banner about the grid under it rather than as a choice beside it —
+                  naming the two makes them two answers to one question. */}
+              <h3 className="text-[15px] font-semibold text-[#364658]">Create your own portal</h3>
+              <button
+                onClick={onScratch}
+                className="mt-3 flex w-full items-center gap-3.5 rounded-lg border border-[#E5E7EB] bg-white p-4 text-left transition-all hover:border-[#3D8BD0] hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]"
+              >
+                <span className="flex size-11 flex-shrink-0 items-center justify-center rounded-lg bg-[#EBF5FF] text-[#3D8BD0]"><PenLine size={20} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-semibold text-[#364658]">Start from scratch</span>
+                  <span className="mt-0.5 block text-[12.5px] leading-[1.5] text-[#7B8FA5]">Begin with a blank page and choose your own blocks</span>
+                </span>
+                <ChevronRight size={18} className="flex-shrink-0 text-[#C3CBD6]" />
+              </button>
+
+              <div className="mt-6 flex items-center gap-3">
+                <h3 className="text-[15px] font-semibold text-[#364658]">Start from a template</h3>
+                <span className="ml-auto flex flex-wrap items-center gap-1.5">
+                  {TEMPLATE_CATEGORIES.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setCategory(c)}
+                      className={`h-7 rounded px-2.5 text-[12px] font-medium transition-colors ${
+                        category === c ? 'bg-[#3D8BD0] text-white' : 'border border-[#DFE5ED] bg-white text-[#64748B] hover:bg-[#F5F7FA]'
+                      }`}
+                    >{c}</button>
+                  ))}
+                </span>
+              </div>
+
+              <div className="mt-3.5 grid grid-cols-3 gap-4">
+                {/* ⚠️ The DEFAULT is the grid's FIRST TILE, in every category. It used to sit in a
+                    band of its own above the templates, on the reasoning that a tile eighth in a row
+                    of eight cannot say "this is the one your requesters see today". The badge says
+                    it instead — and pinning it first means the one starting point that always
+                    applies is always in the same place.
+                    ⚠️ It ignores the category chips, because it HAS no category: it is not an IT or
+                    an HR layout, it is the portal that already exists.
+                    ⚠️ The art needs a BOX of its own — without one it was `height: 100%` of the tile,
+                    took the whole button, and pushed the caption out through `overflow-hidden`. */}
                 <button
-                  onClick={onScratch}
-                  className="flex w-full items-center gap-3 rounded-lg border border-[#E5E7EB] bg-white p-3.5 text-left transition-all hover:border-[#3D8BD0] hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]"
+                  onClick={() => onTemplate(null)}
+                  className="flex flex-col overflow-hidden rounded-lg border border-[#E5E7EB] bg-white text-left transition-all hover:border-[#3D8BD0] hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]"
                 >
-                  <span className="flex size-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#EBF5FF] text-[#3D8BD0]"><PenLine size={17} /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[13px] font-semibold text-[#364658]">Start from scratch</span>
-                    <span className="mt-0.5 block text-[12px] leading-[1.5] text-[#7B8FA5]">An empty page you build block by block.</span>
+                  <span className="relative block h-[150px] w-full flex-shrink-0 overflow-hidden bg-[#F7F9FC] p-3">
+                    <PortalThumb />
+                    <span className="absolute right-2.5 top-2.5 rounded bg-[#E8F1FB] px-1.5 py-0.5 text-[10px] font-semibold text-[#3D8BD0]">DEFAULT</span>
                   </span>
-                  <ChevronRight size={16} className="flex-shrink-0 text-[#C3CBD6]" />
+                  {/* ⚠️ A CATEGORY under the name, not a sentence. Eight tiles each carrying two
+                      lines of prose is a page you read rather than a grid you scan, and the
+                      description is the one thing the picture above it is already saying. */}
+                  <span className="block px-3.5 py-3">
+                    <span className="block truncate text-[14px] font-semibold text-[#364658]">Support Portal</span>
+                    <span className="mt-1 block truncate text-[12.5px] text-[#7B8FA5]">The portal your requesters see today</span>
+                  </span>
                 </button>
-
-                <div className="mt-5 flex items-center gap-2 border-t border-[#E5E7EB] pt-5">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9CA3AF]">Templates</p>
-                  <span className="ml-auto flex flex-wrap items-center gap-1.5">
-                    {TEMPLATE_CATEGORIES.map((c) => (
-                      <button
-                        key={c}
-                        onClick={() => setCategory(c)}
-                        className={`h-7 rounded px-2.5 text-[12px] font-medium transition-colors ${
-                          category === c ? 'bg-[#3D8BD0] text-white' : 'border border-[#DFE5ED] bg-white text-[#64748B] hover:bg-[#F5F7FA]'
-                        }`}
-                      >{c}</button>
-                    ))}
-                  </span>
-                </div>
-
-                <div className="mt-3 grid grid-cols-3 gap-3">
-                  {/* ⚠️ The DEFAULT is the grid's FIRST TILE, in every category. It used to sit in a
-                      band of its own above the templates, labelled "Start from your portal", on the
-                      reasoning that a tile eighth in a row of eight cannot say "this is the one your
-                      requesters see today". The badge says it instead — and pinning it first means
-                      the one starting point that always applies is always in the same place, which
-                      the separate band could only achieve by not being a template at all.
-                      ⚠️ It ignores the category chips, because it HAS no category: it is not an IT
-                      or an HR layout, it is the portal that already exists. */}
-                  {/* ⚠️ The art needs a BOX of its own — `h-[150px]`, the same height the template
-                      gallery gives it. Without one the art was `height: 100%` of the tile, so it
-                      took the whole button and pushed the caption out through `overflow-hidden`:
-                      every tile on this screen was rendering its name, its Default badge and its
-                      description into a region that is clipped, which is why the grid read as a
-                      wall of unlabelled pictures. The wireframes were being stretched 1.6× tall by
-                      the same fault, so they draw at their real 160 × 96 proportions again too. */}
+                {templates.map((t) => (
                   <button
-                    onClick={() => onTemplate(null)}
-                    className="flex flex-col overflow-hidden rounded-lg border border-[#3D8BD0]/40 bg-white text-left transition-all hover:border-[#3D8BD0] hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]"
+                    key={t.id}
+                    onClick={() => onTemplate(t)}
+                    className="flex flex-col overflow-hidden rounded-lg border border-[#E5E7EB] bg-white text-left transition-all hover:border-[#3D8BD0] hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]"
                   >
-                    <span className="relative block h-[150px] w-full flex-shrink-0 overflow-hidden border-b border-[#E5E7EB] bg-[#F7F9FC]">
-                      <PortalThumb />
+                    <span className="relative block h-[150px] w-full flex-shrink-0 overflow-hidden bg-[#F7F9FC] p-3">
+                      <TemplateArt layout={t.layout} accent={t.accent} />
                     </span>
-                    <span className="block px-3 py-2.5">
-                      <span className="flex items-center gap-1.5">
-                        <span className="truncate text-[13px] font-medium text-[#364658]">Support Portal</span>
-                        <span className="flex-shrink-0 rounded bg-[#E8F1FB] px-1.5 py-0.5 text-[10px] font-medium text-[#3D8BD0]">Default</span>
-                      </span>
-                      <span className="mt-0.5 block line-clamp-2 text-[11px] leading-[1.5] text-[#9CA3AF]">
-                        The standard ServiceOps portal your requesters see today.
-                      </span>
+                    <span className="block px-3.5 py-3">
+                      <span className="block truncate text-[14px] font-semibold text-[#364658]">{t.name}</span>
+                      <span className="mt-1 block truncate text-[12.5px] text-[#7B8FA5]">{t.category}</span>
                     </span>
                   </button>
-                  {templates.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => onTemplate(t)}
-                      className="flex flex-col overflow-hidden rounded-lg border border-[#E5E7EB] bg-white text-left transition-all hover:border-[#3D8BD0] hover:shadow-[0_4px_12px_rgba(16,24,40,0.06)]"
-                    >
-                      <span className="relative block h-[150px] w-full flex-shrink-0 overflow-hidden border-b border-[#E5E7EB] bg-[#F7F9FC]">
-                        <TemplateArt layout={t.layout} accent={t.accent} />
-                      </span>
-                      <span className="block px-3 py-2.5">
-                        <span className="block truncate text-[13px] font-medium text-[#364658]">{t.name}</span>
-                        <span className="mt-0.5 block line-clamp-2 text-[11px] leading-[1.5] text-[#9CA3AF]">{t.desc}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                ))}
+              </div>
+            </div>
 
-                {/* ⚠️ The "start from a blank page instead" link is GONE. It existed because you had
-                    to commit to the template ROUTE before you could see any templates, so the screen
-                    owed you a way back out. With from-scratch sitting at the top of this same
-                    screen, the link was a second door to a room you are already standing in. */}
-          </div>
+            {/* ⚠️ BACK is a footer of its own, on the left. Step 2 has no primary action to sit
+                opposite it — every tile on the screen IS the action — so a right-aligned pair would
+                leave a button with nothing to be beside. The breadcrumb above can also go back; this
+                is the one that is where a dialog's controls are looked for. */}
+            <div className="flex flex-shrink-0 items-center border-t border-[#E5E7EB] px-6 py-3">
+              <button
+                onClick={() => setStep(1)}
+                className="inline-flex h-9 items-center gap-1.5 rounded border border-[#DFE5ED] bg-white px-3.5 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
+              ><ArrowLeft size={15} /> Back</button>
+            </div>
+          </>
         )}
       </div>
     </div>,

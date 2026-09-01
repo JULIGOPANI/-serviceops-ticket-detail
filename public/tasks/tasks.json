@@ -1,6 +1,6 @@
 {
   "stamp": "2026-09-01",
-  "builtAt": "2026-09-01T10:19:56.260Z",
+  "builtAt": "2026-09-01T10:46:43.923Z",
   "tasks": [
     {
       "n": 1,
@@ -950,6 +950,18 @@
         "Where": "`SupportPortalBuilder.tsx`, `PortalCanvas.tsx`",
         "You asked": "the Publish CTA in the product's blue; Copy and Add to place row-wise inside the widget's own section rather than as a new column of the parent; and no disabled action on any toolbar.",
         "Verified": "the Publish half and its chevron both measure `rgb(61, 139, 208)`. A copied Text landed at the same x (105) and width (203) **40px below** its original — it used to land at x=664 beside it — and an Add-beside Button landed below that again. The first of the stack shows only **Move down**, the second only **Move up**, and a scan of both bars found **zero** disabled controls."
+      }
+    },
+    {
+      "n": 64,
+      "title": "Create-portal stepper and template picker, Maze-style",
+      "status": "done",
+      "fields": {
+        "Where": "`CreateSupportPortalModal.tsx`",
+        "You asked": "the stepper and the from-scratch / templates screen restyled after the Maze reference, without its left sidebar.",
+        "What I built": "the stepper is a **breadcrumb** — the step behind you grey and pressable, the one you are on in the product's blue, a chevron between. The numbered circles and the tinted band are gone: the numbers answered a question nobody asks of a two-step dialog, and the band made the steps read as a toolbar belonging to the dialog rather than a position within it. Step 2 gains **section headings** over both halves, a larger from-scratch card, a 3-up grid at 960px, and a **← Back footer**.",
+        "⚠️ Caught by measuring": "a blind `replace` on the width widened the **Edit-details** dialog instead of Create — the same class name appears in both and the first match won. Both are now set by line.",
+        "Verified": "step 1 shows the crumb blue/600 with step 2 grey; after Save the pair flips. Step 2 renders \"Create your own portal\" and \"Start from a template\", 8 tiles at 150px art, the Default first with its badge, \"Classic Service Desk · IT Support\" as name-over-category, and the Back footer. Dialog measures 960px. No console errors."
       }
     }
   ],

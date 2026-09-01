@@ -880,6 +880,16 @@ Updated: 2026-09-01
 - **⚠️ NOTHING on the element bar is shown disabled any more.** A move that cannot happen is not rendered, a layout block has no Copy at all, and a blocked Split is absent. This REPLACES the earlier rule — "disabled with the reason on it, because a control that vanishes reads as a bug" — which held on a listing row and does not hold here: on a bar of seven small glyphs the greyed arrows were indistinguishable from the live ones at a glance, so the row looked the same whether or not you could act on it, and the reason was a tooltip nobody hovers a dead button to read. One rule now: if it is on the bar, pressing it does something. `btnOff` is gone from the file.
 - **Verified:** the Publish half and its chevron both measure `rgb(61, 139, 208)`. A copied Text landed at the same x (105) and width (203) **40px below** its original — it used to land at x=664 beside it — and an Add-beside Button landed below that again. The first of the stack shows only **Move down**, the second only **Move up**, and a scan of both bars found **zero** disabled controls.
 
+## 64. Create-portal stepper and template picker, Maze-style
+- **Status:** done
+- **Where:** `CreateSupportPortalModal.tsx`
+- **You asked:** the stepper and the from-scratch / templates screen restyled after the Maze reference, without its left sidebar.
+- **What I built:** the stepper is a **breadcrumb** — the step behind you grey and pressable, the one you are on in the product's blue, a chevron between. The numbered circles and the tinted band are gone: the numbers answered a question nobody asks of a two-step dialog, and the band made the steps read as a toolbar belonging to the dialog rather than a position within it. Step 2 gains **section headings** over both halves, a larger from-scratch card, a 3-up grid at 960px, and a **← Back footer**.
+- **⚠️ A CATEGORY under each template name, not a sentence.** Eight tiles each carrying two lines of prose is a page you read rather than a grid you scan — and the description is the one thing the picture above it already says.
+- **⚠️ Back is a footer of its own, on the left.** Step 2 has no primary action to sit opposite it — every tile IS the action — so a right-aligned pair would leave a button with nothing to be beside.
+- **⚠️ Caught by measuring:** a blind `replace` on the width widened the **Edit-details** dialog instead of Create — the same class name appears in both and the first match won. Both are now set by line.
+- **Verified:** step 1 shows the crumb blue/600 with step 2 grey; after Save the pair flips. Step 2 renders "Create your own portal" and "Start from a template", 8 tiles at 150px art, the Default first with its badge, "Classic Service Desk · IT Support" as name-over-category, and the Back footer. Dialog measures 960px. No console errors.
+
 ## Parked — needs discussion
 - Tour guide
 - AI capabilities
