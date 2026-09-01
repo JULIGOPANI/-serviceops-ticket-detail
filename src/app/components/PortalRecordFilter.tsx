@@ -24,9 +24,10 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronLeft, ChevronRight, ListFilter, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import {
   DATE_PRESETS, OPERATORS, PEOPLE, TAG_SUGGESTIONS, UNASSIGNED,
-  activeConditions, describeCondition, fieldByKey, fieldsFor, personAvatar, presetById, presetsFor, summarise,
+  activeConditions, activeGroups, describeCondition, fieldByKey, fieldsFor, personAvatar, presetById, presetsFor, summarise,
 } from './portalRecordFilters';
-import type { Condition, FilterField, RecordFilter } from './portalRecordFilters';
+import type { Condition, ConditionGroup, FilterField, RecordFilter } from './portalRecordFilters';
+import { PortalConditionBuilder } from './PortalConditionBuilder';
 
 /** The hover card’s width, shared by the flip test and the card itself so the two cannot drift. */
 const PEEK_W = 260;
@@ -229,6 +230,9 @@ export function RecordFilterField({ value, moduleKey, statuses, onChange }: {
   const [editing, setEditing] = useState<{ index: number; draft: Condition } | null>(null);
   const [picking, setPicking] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
+  /* The condition builder's anchor — the filter FIELD's rect, since the flyout sits beside the
+     field rather than beside the row that opened it. Null means closed. */
+  const [building, setBuilding] = useState<DOMRect | null>(null);
 
   const fields = fieldsFor(moduleKey, statuses);
   const presets = presetsFor(moduleKey);
@@ -385,9 +389,15 @@ export function RecordFilterField({ value, moduleKey, statuses, onChange }: {
             })}
             {listed.length === 0 && <p className="px-1.5 py-3 text-[12px] text-[#9CA3AF]">No filter matches “{q}”.</p>}
           </div>
+          {/* ⚠️ It opens the BUILDER FLYOUT, it does not swap this dropdown's view. A row of field
+              + operator + value needs about 520px and this popover is 320 — which is why the old
+              in-dropdown builder had to render each condition as a line of prose you clicked to
+              edit. The flyout has the room to show the whole rule at once.
+              ⚠️ The dropdown stays OPEN behind it. It is where the preset that seeded the builder is
+              named, and closing it would take that context away at the moment it starts mattering. */}
           <button
             type="button"
-            onClick={() => { setView('build'); setQ(''); }}
+            onClick={() => { setQ(''); setBuilding(btnRef.current!.getBoundingClientRect()); }}
             className="mt-2 flex items-center gap-2 rounded border-t border-[#F1F5F9] px-1.5 pt-2.5 text-[12px] font-medium text-[#3D8BD0]"
           >
             <SlidersHorizontal size={13} />
@@ -520,6 +530,31 @@ export function RecordFilterField({ value, moduleKey, statuses, onChange }: {
 
       {pop}
       {peekCard}
+
+      {/* ⚠️ SEEDED from whatever is in force. A preset resolves to its own conditions as one editable
+          group, so "All Open Requests" is a starting point you can refine rather than an opaque
+          name you must first reproduce by hand. `activeGroups` already answers this for a preset,
+          a legacy flat list and real groups alike, so the builder never has to know which of the
+          three it opened on. */}
+      {building && (
+        <PortalConditionBuilder
+          anchor={building}
+          moduleKey={moduleKey}
+          statuses={statuses}
+          seed={activeGroups(value, moduleKey)}
+          seedFrom={chosen?.name}
+          onClose={() => setBuilding(null)}
+          onApply={(groups) => {
+            /* ⚠️ The preset is DROPPED. The filter is now these conditions — keeping the name would
+               leave the field claiming "All Open Requests" while the card obeys something the admin
+               has since edited, and the two would never agree again. What the preset gave was the
+               starting point, which is already in the groups. */
+            onChange({ groups });
+            setBuilding(null);
+            setOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

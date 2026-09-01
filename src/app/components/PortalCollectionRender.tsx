@@ -22,7 +22,7 @@ import { IconFrameBox } from './PortalIconFrame';
 import type { IconFrame } from './PortalIconFrame';
 import type { Cfg } from './portalWidgetSpec';
 import { PORTAL_APPROVALS, PORTAL_ARTICLES, PORTAL_OPEN_REQUESTS, recordModule, statusTone } from './supportPortalData';
-import { activeConditions, matchesConditions } from './portalRecordFilters';
+import { activeGroups, matchesGroups } from './portalRecordFilters';
 import type { RecordFilter } from './portalRecordFilters';
 
 type Item = Cfg & { id: string; hidden?: boolean };
@@ -1223,9 +1223,13 @@ function RecordListRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
      ⚠️ No conditions means EVERY record, the way the request card's empty status list does: "I have
      not narrowed this" and "I have narrowed it to nothing" are different intentions and only one of
      them should empty the card. */
-  const conds = activeConditions(cfg.filter as RecordFilter | undefined, String(cfg.module ?? 'request'));
+  /* ⚠️ GROUPS, not the flattened list. Flattening ANDs everything, so two groups an admin built to
+     mean "open OR mine" would have quietly been evaluated as "open AND mine" — a filter that reads
+     one way in the builder and behaves another on the very canvas that is supposed to be showing
+     it. `activeGroups` resolves a preset, a legacy flat list and real groups to the same shape. */
+  const groups = activeGroups(cfg.filter as RecordFilter | undefined, String(cfg.module ?? 'request'));
   const rows = mod.rows
-    .filter((x) => matchesConditions(x, conds))
+    .filter((x) => matchesGroups(x, groups))
     .slice(0, Number(cfg.show ?? 3));
   const dark = typeof document !== 'undefined' && !!document.querySelector('.portal-dark');
   return (

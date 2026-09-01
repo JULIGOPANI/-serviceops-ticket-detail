@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-09-01T07:12:39.104Z",
+  "builtAt": "2026-09-01T08:57:54.036Z",
   "tasks": [
     {
       "n": 1,
@@ -894,6 +894,19 @@
         "You asked": "choosing Save as draft leaves the button reading \"Publish\" — it should take the name.",
         "What I built": "a `pubMode` the main half reads for both its LABEL and its ACTION, and the tick in the menu marks whichever is current, so the list always says what the big half is about to do.",
         "Verified": "opens on \"Publish\" with Publish ticked. Choosing Save as draft → the face reads **Save as draft**, the toast fires, and reopening the menu shows the tick moved. Pressing the main half in that state saves a draft again (stays in the builder, same toast) rather than publishing. Choosing Publish from the menu returns to the listing with \"is live on the support portal\". No console errors."
+      }
+    },
+    {
+      "n": 59,
+      "title": "Custom filter becomes a condition builder",
+      "status": "done",
+      "fields": {
+        "Where": "`PortalConditionBuilder.tsx` (new), `PortalRecordFilter.tsx`, `portalRecordFilters.ts`, `PortalCollectionRender.tsx`",
+        "You asked": "clicking Custom filter should open a left popup for building conditions key / operator / value, with AND/OR between them — and to be told where it conflicts with what is already here.",
+        "Your two decisions": "**groups** (AND inside, OR between) over a per-row join, and **preset seeds the builder**.",
+        "What I built": "a 560px flyout to the LEFT of the panel. Groups are bordered blocks, AND between rows, a labelled **OR** rule between groups, \"+ Add condition\" per group, \"+ Add OR group\" below. Field and value cells are popovers; text types in place; the value control morphs per field kind (choice, person with avatars, date as single-select, tags with free entry).",
+        "Verified": "Custom filter opens a 560px flyout whose right edge is left of the field, with the preset dropdown still open behind it, seeded \"Started from All Open Requests\" carrying its real condition (Status Not In Resolved, Closed). **OR proven by measurement:** `Status In [Pending]` alone rendered `[INC-178]`; adding `OR Status In [In Progress]` rendered `[INC-178, INC-170]` — it widened, which a flat AND cannot do. The field reads \"Custom · 2 conditions in 2 groups\". No console errors.",
+        "Still open (see the handover notes)": "the technician-side filter language differs (AND across fields, OR within one field's values); only id / subject / status filter against the sample rows; and the flyout covers the canvas it is filtering."
       }
     }
   ],

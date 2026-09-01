@@ -49,9 +49,28 @@ export interface PresetFilter {
 }
 
 /** What the widget stores. `preset` wins when set; `conditions` is the custom filter. */
+/* ── AND / OR ────────────────────────────────────────────────────────────────
+ *
+ * A GROUP of conditions, ANDed together. Groups are ORed with each other.
+ *
+ * ⚠️ Groups rather than a join dropdown between every row. "A AND B OR C" has no meaning until
+ * somebody states a precedence, and a builder that renders it as a flat list is quietly picking one
+ * for you — usually left-to-right, which is not how most people read it. A group says where the
+ * bracket is by drawing it.
+ * ⚠️ This is the shape `AdminBomTargeting` already uses for CI targeting ("rows AND within a group,
+ * groups OR'd"). Two condition builders in one product meaning different things by the same two
+ * words is a worse outcome than either shape on its own. */
+export interface ConditionGroup {
+  rows: Condition[];
+}
+
 export interface RecordFilter {
   preset?: string;
+  /* ⚠️ LEGACY, still read. A filter stored before groups existed is a flat ANDed list, which is
+     exactly one group — so nothing has to be migrated and an untouched Record List keeps filtering
+     the way it did. Only the builder writes `groups`. */
   conditions?: Condition[];
+  groups?: ConditionGroup[];
 }
 
 /* ── operators ──────────────────────────────────────────────────────────────
@@ -345,14 +364,30 @@ export function describeCondition(c: Condition, label: string): string {
 export function summarise(filter: RecordFilter | undefined, moduleKey: string): string {
   const p = presetById(moduleKey, filter?.preset);
   if (p) return p.name;
-  const n = filter?.conditions?.length ?? 0;
+  const gs = activeGroups(filter, moduleKey);
+  const n = gs.reduce((t, g) => t + g.rows.length, 0);
   if (n === 0) return 'No filter — every record';
-  return `Custom · ${n} condition${n === 1 ? '' : 's'}`;
+  /* ⚠️ The GROUP count is named too, once there is more than one. "Custom · 4 conditions" reads as
+     four things that must all be true, which is the opposite of what two OR'd groups mean. */
+  const conds = `${n} condition${n === 1 ? '' : 's'}`;
+  return gs.length > 1 ? `Custom · ${conds} in ${gs.length} groups` : `Custom · ${conds}`;
 }
 
-/** The conditions actually in force, whichever of the two the admin chose. */
+/** Every group in force, whichever of the three shapes the filter is stored in. */
+export const activeGroups = (filter: RecordFilter | undefined, moduleKey: string): ConditionGroup[] => {
+  const preset = presetById(moduleKey, filter?.preset);
+  if (preset) return [{ rows: preset.conditions }];
+  if (filter?.groups?.length) return filter.groups.filter((g) => g.rows.length > 0);
+  /* The legacy flat list IS one group — see the note on `RecordFilter.conditions`. */
+  return filter?.conditions?.length ? [{ rows: filter.conditions }] : [];
+};
+
+/** Every condition in force, flattened — for the chips under the closed field.
+ *  ⚠️ Flattening LOSES the OR, so anything that has to be truthful about how the rows combine reads
+ *  `activeGroups` instead. This is for the summary chips, which are already a lossy reading of the
+ *  filter, and for callers that only ever knew about one group. */
 export const activeConditions = (filter: RecordFilter | undefined, moduleKey: string): Condition[] =>
-  presetById(moduleKey, filter?.preset)?.conditions ?? filter?.conditions ?? [];
+  activeGroups(filter, moduleKey).flatMap((g) => g.rows);
 
 /* ── evaluating against the sample rows ─────────────────────────────────────
  *
@@ -362,6 +397,15 @@ export const activeConditions = (filter: RecordFilter | undefined, moduleKey: st
  * rather than emptying the card. Evaluating an absent field as "no match" would black out the
  * preview the moment anybody picked a realistic filter, which teaches an admin their filter is
  * broken when it is the preview that is thin. The widget's note says so in as many words. */
+/** OR across groups, AND within one. No groups matches everything. */
+export function matchesGroups(
+  row: { id: string; title: string; status: string },
+  groups: ConditionGroup[],
+): boolean {
+  if (groups.length === 0) return true;
+  return groups.some((g) => matchesConditions(row, g.rows));
+}
+
 export function matchesConditions(
   row: { id: string; title: string; status: string },
   conds: Condition[],

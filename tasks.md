@@ -811,6 +811,23 @@ Updated: 2026-08-25 12:11
 - **⚠️ Picking a row does the thing AND becomes the face, in one click.** Selecting an action from a menu and then having to press the button beside it is two gestures for one intention, and the row you just chose gives no sign it is waiting for a second.
 - **Verified:** opens on "Publish" with Publish ticked. Choosing Save as draft → the face reads **Save as draft**, the toast fires, and reopening the menu shows the tick moved. Pressing the main half in that state saves a draft again (stays in the builder, same toast) rather than publishing. Choosing Publish from the menu returns to the listing with "is live on the support portal". No console errors.
 
+## 59. Custom filter becomes a condition builder
+- **Status:** done
+- **Where:** `PortalConditionBuilder.tsx` (new), `PortalRecordFilter.tsx`, `portalRecordFilters.ts`, `PortalCollectionRender.tsx`
+- **You asked:** clicking Custom filter should open a left popup for building conditions key / operator / value, with AND/OR between them — and to be told where it conflicts with what is already here.
+- **⚠️ I could not open the Figma** — it returns "you don't have edit access". Built from your description plus the two decisions you made below; worth a look against the file.
+- **Your two decisions:** **groups** (AND inside, OR between) over a per-row join, and **preset seeds the builder**.
+- **What I built:** a 560px flyout to the LEFT of the panel. Groups are bordered blocks, AND between rows, a labelled **OR** rule between groups, "+ Add condition" per group, "+ Add OR group" below. Field and value cells are popovers; text types in place; the value control morphs per field kind (choice, person with avatars, date as single-select, tags with free entry).
+- **⚠️ It is a DRAFT, committed by Apply.** Every other control in this panel writes live, but a filter is read as one statement — an admin part-way through "status is X **or** priority is Y" has, for a few seconds, said something they do not mean, and watching the card empty and refill under a half-built rule teaches them the builder is broken. Verified the canvas does not move until Apply.
+- **⚠️ `ConditionGroup` is the shape `AdminBomTargeting` already uses.** Two condition builders in one product meaning different things by the same two words is worse than either shape alone.
+- **⚠️ The legacy flat `conditions` list is still read** — it is exactly one group, so nothing had to be migrated and an untouched Record List filters as before. `activeGroups` resolves a preset, a flat list and real groups to one shape.
+- **⚠️ The renderer had to change too.** It called `activeConditions`, which flattens — so two groups meaning "open OR mine" would have been evaluated as "open AND mine", reading one way in the builder and behaving another on the canvas that is showing it.
+- **⚠️ Applying DROPS the preset.** Keeping the name would leave the field claiming "All Open Requests" while the card obeys something since edited. What the preset gave is the starting point, and that is already in the groups.
+- **⚠️ Removing a group's last row removes the GROUP.** An empty bracket is a rule matching everything, drawn as though it were a rule — and it would OR that "everything" against its neighbours, quietly widening the filter to every record.
+- **⚠️ Incomplete rows are dropped on Apply**, and changing a row's field resets its operator and value — an operator belongs to a KIND, so "Contains" left on a status field is a comparison that field cannot make.
+- **Verified:** Custom filter opens a 560px flyout whose right edge is left of the field, with the preset dropdown still open behind it, seeded "Started from All Open Requests" carrying its real condition (Status Not In Resolved, Closed). **OR proven by measurement:** `Status In [Pending]` alone rendered `[INC-178]`; adding `OR Status In [In Progress]` rendered `[INC-178, INC-170]` — it widened, which a flat AND cannot do. The field reads "Custom · 2 conditions in 2 groups". No console errors.
+- **Still open (see the handover notes):** the technician-side filter language differs (AND across fields, OR within one field's values); only id / subject / status filter against the sample rows; and the flyout covers the canvas it is filtering.
+
 ## Parked — needs discussion
 - Tour guide
 - AI capabilities
