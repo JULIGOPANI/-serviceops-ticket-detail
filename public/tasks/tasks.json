@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-09-01T06:36:37.881Z",
+  "builtAt": "2026-09-01T06:52:36.414Z",
   "tasks": [
     {
       "n": 1,
@@ -850,6 +850,39 @@
         "Where": "`SupportPortalBuilder.tsx`, `AdminSupportPortalModule.tsx`",
         "You asked": "Publish and Save as draft as one primary CTA with a dropdown, Publish selected by default.",
         "What I built": "a split button — Publish on the main half, a chevron opening a two-row menu. Both rows are listed, Publish ticked, each with a line saying what it does to the LIVE portal rather than to the record."
+      }
+    },
+    {
+      "n": 55,
+      "title": "Global Setting on the listing",
+      "status": "done",
+      "fields": {
+        "Where": "`AdminSupportPortalModule.tsx`",
+        "You asked": "an outlined settings icon beside the Create CTA, in the ticket-detail page's icon language, with an instant \"Global Setting\" tooltip.",
+        "What I built": "the detail page's own header-icon recipe — a bordered white box holding a 16px glyph, the same height as the control beside it. That is what a secondary action looks like everywhere else in this product, and matching it is what stops the admin screens reading as a different application.",
+        "Verified": "36×36, 1px #DFE5ED border on white, 8px from the CTA and the same height as it, `lucide-settings`. Tooltip shows \"Global Setting\" within 220ms. It opens \"Global Setting · Applies to every support portal\"; a row's icon still opens \"Settings · Support Portal\"."
+      }
+    },
+    {
+      "n": 56,
+      "title": "Light / dark moves to the top bar",
+      "status": "done",
+      "fields": {
+        "Where": "`SupportPortalBuilder.tsx`",
+        "You asked": "take the switcher out of the Theme menu and put it globally beside undo/redo, so colours can be checked in either mode while working in any section's picker.",
+        "What I built": "the same component and the same state, moved. **Mode is not a theme setting** — it decides what every colour on the page resolves to, so an admin picking a card's background needs to flip it while that card's picker is open, rather than navigating away from the thing they are colouring and back. Beside undo/redo it belongs to the canvas, which is what it actually changes.",
+        "Verified": "exactly two mode buttons exist on the page and both are in the top bar (y=66), 10px after Redo, same row. Toggling Dark took the canvas from no `.portal-dark` / `rgb(255,255,255)` to `.portal-dark` / `rgb(15,23,42)`. With it on, opening the Quick Actions section's Background-colour picker lands on the **Dark** tab — which is the workflow you described, working end to end."
+      }
+    },
+    {
+      "n": 57,
+      "title": "The publish menu, names only",
+      "status": "done",
+      "fields": {
+        "Where": "`SupportPortalBuilder.tsx`",
+        "You asked": "drop the one-liners under Publish and Save as draft.",
+        "What I built": "two rows, two names, the tick holding its column so the labels line up. The sentences said what each does to the LIVE portal, which is the genuinely useful fact — but this is a two-item menu on a button somebody presses several times an hour, and by the third time they are furniture you read past to reach the words underneath. Menu narrowed 248 → 176px to fit what is left.",
+        "Verified": "the menu reads exactly \"Publish | Save as draft\", 176px wide, two rows."
       }
     }
   ],

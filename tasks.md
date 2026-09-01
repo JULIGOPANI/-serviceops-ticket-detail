@@ -778,6 +778,30 @@ Updated: 2026-08-25 12:11
 - **⚠️ Publish now clears `dirty`** — a page that has just gone live has no unpublished changes by definition, and leaving it set had the row warning about work already published.
 - **Verified, both branches.** Published portal → Save as draft: stays in the builder, chip still "Published", toast "Saved. 'Support Portal' keeps showing the published version until you publish again", and the listing row gained **Unpublished changes**. Publish → returns to the listing, toast "is live on the support portal", chip cleared. Draft portal (made with Copy, which always yields a draft) → Save as draft: stays in the builder, chip still "Draft", toast "saved as a draft". Split button measured joined: 74px + 28px, 0px between them.
 
+## 55. Global Setting on the listing
+- **Status:** done
+- **Where:** `AdminSupportPortalModule.tsx`
+- **You asked:** an outlined settings icon beside the Create CTA, in the ticket-detail page's icon language, with an instant "Global Setting" tooltip.
+- **What I built:** the detail page's own header-icon recipe — a bordered white box holding a 16px glyph, the same height as the control beside it. That is what a secondary action looks like everywhere else in this product, and matching it is what stops the admin screens reading as a different application.
+- **⚠️ `size-9`, not the drawers' `size-8`.** List-page toolbars are 36px in this product and this one sits against a 36px CTA; a 32px box beside it would read as a different control.
+- **⚠️ An INSTANT tooltip (`delayDuration={0}`).** The global default is 700ms, which is right for a dense row of icons you are scanning past — it is wrong for a lone unlabelled glyph, where the wait reads as the tooltip not existing.
+- **⚠️ `globalSettings` is its own state, NOT a sentinel in `settingsId`.** A row's settings are about one portal and name it in the subtitle; these are about the channel as a whole. A magic id would make every reader of `settingsId` have to know which strings are not ids. One drawer serves both — the settings are identical, only the subtitle differs, because only one of the two is about a particular portal.
+- **Verified:** 36×36, 1px #DFE5ED border on white, 8px from the CTA and the same height as it, `lucide-settings`. Tooltip shows "Global Setting" within 220ms. It opens "Global Setting · Applies to every support portal"; a row's icon still opens "Settings · Support Portal".
+
+## 56. Light / dark moves to the top bar
+- **Status:** done
+- **Where:** `SupportPortalBuilder.tsx`
+- **You asked:** take the switcher out of the Theme menu and put it globally beside undo/redo, so colours can be checked in either mode while working in any section's picker.
+- **What I built:** the same component and the same state, moved. **Mode is not a theme setting** — it decides what every colour on the page resolves to, so an admin picking a card's background needs to flip it while that card's picker is open, rather than navigating away from the thing they are colouring and back. Beside undo/redo it belongs to the canvas, which is what it actually changes.
+- **Verified:** exactly two mode buttons exist on the page and both are in the top bar (y=66), 10px after Redo, same row. Toggling Dark took the canvas from no `.portal-dark` / `rgb(255,255,255)` to `.portal-dark` / `rgb(15,23,42)`. With it on, opening the Quick Actions section's Background-colour picker lands on the **Dark** tab — which is the workflow you described, working end to end.
+
+## 57. The publish menu, names only
+- **Status:** done
+- **Where:** `SupportPortalBuilder.tsx`
+- **You asked:** drop the one-liners under Publish and Save as draft.
+- **What I built:** two rows, two names, the tick holding its column so the labels line up. The sentences said what each does to the LIVE portal, which is the genuinely useful fact — but this is a two-item menu on a button somebody presses several times an hour, and by the third time they are furniture you read past to reach the words underneath. Menu narrowed 248 → 176px to fit what is left.
+- **Verified:** the menu reads exactly "Publish | Save as draft", 176px wide, two rows.
+
 ## Parked — needs discussion
 - Tour guide
 - AI capabilities

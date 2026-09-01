@@ -1761,6 +1761,16 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onSave
             ><Redo2 size={17} /></button>
           </TooltipTrigger><TooltipContent>{canRedo ? 'Redo (Ctrl+Shift+Z)' : 'Nothing to redo'}</TooltipContent></Tooltip>
 
+          {/* ── Light / dark, for the whole canvas ──────────────────────────────────────────────
+              ⚠️ It used to sit on the THEME panel's title row, which put it three clicks away from
+              every OTHER panel. Mode is not a theme setting — it decides what every colour on the
+              page resolves to, so an admin picking a card's background needs to flip it while that
+              card's picker is open, rather than navigating away from the thing they are colouring
+              and back. Beside undo/redo it belongs to the canvas, which is what it changes.
+              ⚠️ Same component and same state as before, so the Theme panel's palette and every
+              style picker's Light/Dark tabs still read the mode from one place. */}
+          <span className="ml-1 mr-0.5"><ThemeModeToggle mode={theme.mode} onChange={(m) => setTheme((t) => ({ ...t, mode: m }))} /></span>
+
           {divider}
 
           {/* ⚠️ Bordered secondary, not a third plain text button. Reset throws away every edit on
@@ -1804,31 +1814,29 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onSave
               <>
                 {/* A popover that only closes from its own trigger is a modal pretending not to be one. */}
                 <span className="fixed inset-0 z-[80]" onClick={() => setPubMenu(false)} />
-                <div className="absolute right-0 top-[calc(100%+4px)] z-[81] w-[248px] rounded-lg border border-[#E5E7EB] bg-white p-1 shadow-[0_12px_24px_-6px_rgba(16,24,40,0.18)]">
+                <div className="absolute right-0 top-[calc(100%+4px)] z-[81] w-[176px] rounded-lg border border-[#E5E7EB] bg-white p-1 shadow-[0_12px_24px_-6px_rgba(16,24,40,0.18)]">
                   {/* ⚠️ Publish is listed too, and ticked. The menu has to say which of the two the
                       big half does, or the chevron reads as "the other option" and the button as
                       something separate from it. */}
+                  {/* ⚠️ NAMES ONLY. Both rows carried a line saying what they do to the live portal,
+                      which is the genuinely useful fact — but this is a two-item menu on a button
+                      somebody presses several times an hour, and by the third time the sentences are
+                      furniture you read past to reach the words underneath. The two names are
+                      unambiguous on their own. */}
                   <button
                     onClick={() => { setPubMenu(false); onPublish(); }}
-                    className="flex w-full items-start gap-2 rounded px-2.5 py-2 text-left transition-colors hover:bg-[#F5F7FA]"
+                    className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
                   >
-                    <Check size={14} className="mt-0.5 flex-shrink-0 text-[#3D8BD0]" />
-                    <span className="min-w-0">
-                      <span className="block text-[13px] font-medium text-[#364658]">Publish</span>
-                      <span className="mt-0.5 block text-[11px] leading-[1.5] text-[#7B8FA5]">Requesters see these changes straight away.</span>
-                    </span>
+                    <Check size={14} className="flex-shrink-0 text-[#3D8BD0]" />
+                    Publish
                   </button>
                   <button
                     onClick={() => { setPubMenu(false); onSaveDraft?.(); }}
-                    className="flex w-full items-start gap-2 rounded px-2.5 py-2 text-left transition-colors hover:bg-[#F5F7FA]"
+                    className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
                   >
-                    <span className="mt-0.5 size-[14px] flex-shrink-0" />
-                    <span className="min-w-0">
-                      <span className="block text-[13px] font-medium text-[#364658]">Save as draft</span>
-                      {/* ⚠️ Says what happens to the LIVE portal, not what happens to the draft. The
-                          thing an admin is actually asking is "will anyone see this yet". */}
-                      <span className="mt-0.5 block text-[11px] leading-[1.5] text-[#7B8FA5]">Keeps your work. Requesters keep seeing the published version.</span>
-                    </span>
+                    {/* Holds the tick's column so the two labels line up. */}
+                    <span className="size-[14px] flex-shrink-0" />
+                    Save as draft
                   </button>
                 </div>
               </>
@@ -1900,14 +1908,8 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onSave
               <div className="flex-shrink-0 px-4 pb-2.5 pt-3.5">
                 <div className="flex items-center gap-2">
                   <p className="flex-1 text-[13px] font-semibold text-[#364658]">{PANEL_COPY[panelKey].title}</p>
-                  {/* ⚠️ Light / dark rides on the THEME panel's title, not down beside the palette.
-                      Every field in this panel means something different depending on which mode is
-                      on, so it is the panel's switch rather than the colour section's — and three
-                      fields below the fold it read as "edit the dark colours" instead of "show me
-                      this portal in dark". */}
-                  {panelKey === 'theme' && (
-                    <ThemeModeToggle mode={theme.mode} onChange={(m) => setTheme((t) => ({ ...t, mode: m }))} />
-                  )}
+                  {/* Light / dark used to live here; it is a canvas-wide switch, so it moved to the
+                      top bar beside undo/redo — see the note there. */}
                 </div>
                 {PANEL_COPY[panelKey].body && (
                   <p className="mt-0.5 text-[12px] leading-[1.5] text-[#7B8FA5]">{PANEL_COPY[panelKey].body}</p>

@@ -8,6 +8,7 @@ import {
 import { toast } from 'sonner';
 import { portalSlug } from '../routes';
 import { CreateSupportPortalModal, EditPortalDetailsModal } from './CreateSupportPortalModal';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { AdminSupportPortalSettings } from './AdminSupportPortalSettings';
 import type { PortalDetails } from './CreateSupportPortalModal';
 import { Pagination } from './Pagination';
@@ -383,6 +384,10 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
   const [detailsId, setDetailsId] = useState<string | null>(null);
   /** Which portal's settings drawer is open. */
   const [settingsId, setSettingsId] = useState<string | null>(null);
+  /* ⚠️ SEPARATE from `settingsId`, not a sentinel value in it. A row's settings are about one
+     portal and name it in the subtitle; these are about the support-portal channel as a whole. A
+     magic id would make every reader of `settingsId` have to know which strings are not ids. */
+  const [globalSettings, setGlobalSettings] = useState(false);
 
   /* Copy → the whole portal, then immediately ask for the details that cannot be shared.
    *
@@ -473,24 +478,31 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
           ⚠️ `compact`, the variant `AdminSupportPortalSettings` already had for the builder's 340px
           rail. Only the CHROME differs — the settings themselves are the same rows in the same
           order, because they are the same settings. */}
-      {settingsId && (() => {
-        const target = pages.find((s) => s.id === settingsId);
-        if (!target) return null;
+      {(settingsId || globalSettings) && (() => {
+        /* One drawer, two callers. The settings themselves are identical — only the subtitle
+           differs, because only one of the two is about a particular portal. */
+        const target = settingsId ? pages.find((s) => s.id === settingsId) : null;
+        if (settingsId && !target) return null;
+        const close = () => { setSettingsId(null); setGlobalSettings(false); };
         return createPortal(
-          <div className="fixed inset-0 z-[10000] flex justify-end bg-[#0F172A]/40" onMouseDown={() => setSettingsId(null)}>
+          <div className="fixed inset-0 z-[10000] flex justify-end bg-[#0F172A]/40" onMouseDown={close}>
             <div
               className="flex h-full w-[560px] max-w-[92vw] flex-col bg-white shadow-[0_0_40px_rgba(16,24,40,0.18)]"
               onMouseDown={(e) => e.stopPropagation()}
             >
               <div className="flex flex-shrink-0 items-start gap-3 border-b border-[#E5E7EB] px-5 py-3.5">
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-[15px] font-semibold text-[#364658]">Settings</h2>
+                  <h2 className="text-[15px] font-semibold text-[#364658]">{target ? 'Settings' : 'Global Setting'}</h2>
                   {/* ⚠️ The portal's NAME under the title. A drawer opened from one row among several
-                      has to say which row, or every portal's settings look identical. */}
-                  <p className="mt-0.5 truncate text-[12px] text-[#7B8FA5]">{target.name}</p>
+                      has to say which row, or every portal's settings look identical — and the
+                      global one has to say it is NOT about a row, or it looks like the same drawer
+                      with the name missing. */}
+                  <p className="mt-0.5 truncate text-[12px] text-[#7B8FA5]">
+                    {target ? target.name : 'Applies to every support portal'}
+                  </p>
                 </div>
                 <button
-                  onClick={() => setSettingsId(null)}
+                  onClick={close}
                   className="flex size-8 items-center justify-center rounded transition-colors hover:bg-[#F3F4F6]"
                 ><X size={16} /></button>
               </div>
@@ -565,7 +577,24 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
       </div>
       {/* ⚠️ Aligned to the TITLE's line, not centred against the two-line block. Centred it floated
           between the heading and the sentence under it, belonging to neither. */}
-      <div className="flex-shrink-0 pt-0.5">
+      <div className="flex flex-shrink-0 items-center gap-2 pt-0.5">
+        {/* ── Global settings ────────────────────────────────────────────────────────────────────
+            ⚠️ The ticket detail page's own header-icon recipe — a bordered white box the same
+            height as the control beside it, holding a 16px glyph. That is what a secondary action
+            looks like everywhere else in this product, and matching it is what stops the builder's
+            admin screens reading as a different application.
+            ⚠️ `h-9`, not the drawers' `h-8`: list-page toolbars are 36px in this product and this
+            one sits against a 36px CTA. A 32px box beside it would be a different control.
+            ⚠️ An INSTANT tooltip. The global default is 700ms, which is right for a dense row of
+            icons you are scanning; it is wrong for a lone unlabelled glyph, where the wait reads as
+            the tooltip not existing. */}
+        <Tooltip delayDuration={0}><TooltipTrigger asChild>
+          <button
+            onClick={() => setGlobalSettings(true)}
+            aria-label="Global Setting"
+            className="inline-flex size-9 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#64748B] transition-colors hover:bg-[#F5F7FA] hover:text-[#364658]"
+          ><Settings size={16} /></button>
+        </TooltipTrigger><TooltipContent>Global Setting</TooltipContent></Tooltip>
         <button
           onClick={() => setCreating(true)}
           className="inline-flex h-9 items-center gap-1.5 rounded bg-[#3D8BD0] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#2d6ca0]"
