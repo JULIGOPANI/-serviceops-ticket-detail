@@ -1139,10 +1139,25 @@ const LIVE_WIDGETS = new Set(['requests', 'approvals', 'assets', 'cis', 'news', 
 export const COMPOSABLE = ['b-text', 'b-button', 'v-image', 'v-video', 'b-accordion', 'b-table'];
 const COMPOSABLE_SET = new Set(COMPOSABLE);
 
-/** True for one of the six — the only elements that offer each other. */
+/* Who OFFERS the six is a wider set than who IS one.
+ * ⚠️ The FAQ carries the "+" without being in the list it offers. It is a Custom widget — it holds
+ * questions rather than being one of the building blocks — but an admin composing a section around
+ * one still wants the next element beside it, and "go back to the palette" is a longer way round
+ * for the same intent. Two sets rather than one, because "can add a neighbour" and "is a neighbour
+ * worth offering" are different questions and folding them together would have put FAQ in the
+ * Replace list of every Text on the page. */
+const CAN_ADD_BESIDE = new Set([...COMPOSABLE, 'c-faq']);
+
+/** True for one of the six — the elements that OFFER each other. */
 export const isComposable = (id: string): boolean => {
   const t = placedType(id);
   return !!t && COMPOSABLE_SET.has(t);
+};
+
+/** True for anything that may put one of the six in the slot beside it. */
+export const canAddBeside = (id: string): boolean => {
+  const t = placedType(id);
+  return !!t && CAN_ADD_BESIDE.has(t);
 };
 
 export function toolbarCaps(id: string): ToolbarCaps {
@@ -1170,8 +1185,18 @@ export function toolbarCaps(id: string): ToolbarCaps {
      the live cards: they fill the column they are dropped into, so both axes were reporting a
      position nothing was in a position to take. The other four keep theirs — a Text, a Button, an
      Image or a Video genuinely can sit left, centre or right of the space it is given. */
+  /* ⚠️ Alignment goes from everything that FILLS the column it is dropped into. A Record List, an
+     Accordion, an FAQ, a Video, a Table and a KPI are all as wide as the space they are given, so
+     both axes were reporting a position nothing was in a position to take. What is left with the
+     control is Text, Button and Image — the three that genuinely can sit left, centre or right of
+     the room they have.
+     ⚠️ The KPI has no "+" either, and needs no cap to say so: the plus belongs to `canAddBeside`
+     and the KPI is not in it. A cap here would have removed its Replace as well, which is a swap
+     rather than an add and is the one structural thing it should still offer. */
   const t = placedType(id);
-  if (t === 'c-records' || t === 'b-accordion') return { alignH: false, alignV: false };
+  if (t && ['c-records', 'b-accordion', 'c-faq', 'v-video', 'b-table', 'x-kpi'].includes(t)) {
+    return { alignH: false, alignV: false };
+  }
   return {};
 }
 

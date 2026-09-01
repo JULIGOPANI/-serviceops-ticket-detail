@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-09-01T09:50:49.324Z",
+  "builtAt": "2026-09-01T09:59:15.505Z",
   "tasks": [
     {
       "n": 1,
@@ -929,6 +929,17 @@
         "You asked": "Record List loses its alignments; the six widgets offer each other; sections stay copyable; Text and Button get copy + a working Replace; Button gets a style dropdown and working moves; Accordion gets an Add and loses both alignments; and a one-column layout hides the move arrows. - **Copy was already enabled and already pasted row-wise.** Measured a clone landing beside its source at the same y. - ⚠️ **Replace was silently dead.** `replaceElement` tested `/^sec-\\d+-c\\d+$/` — the box naming from BEFORE task 23 minted ids — so it had matched nothing since, fell through to the `rowExtras` branch, found no entry and returned having done nothing. Nothing errored; the widget just stayed what it was. Now `isBoxId`, one named predicate, so the next rename touches one line. - ⚠️ **A placed Text had NO element bar at all** — no drag, copy, replace or delete. The rule was \"kind === text → formatting bar\", which is right for a widget's heading but wrong for a dropped Text, which is a widget in its own right. It carries both bars now: formatting on top, element bar underneath and nearest the thing it acts on.",
         "Verified": "Record List → Drag · Replace · Copy · Delete (no alignments, no moves while alone). Accordion → Drag · Add beside · Replace · Copy · Delete (both alignments gone). Button → the same plus **Button style** reading \"Primary\", switching to \"Outline\" on pick; its \"+\" offered exactly `[Text, Button, Image, Video, Accordion, Table]`; adding an Image beside it made **Move left** appear and **Already last** disable. Replace on that Image turned it into an Accordion (`el-15` → `el-16`, toast \"Replaced with Accordion\"). Text carries both toolbars. No console errors.",
         "Waiting on you": "items 6, 7 and 8 (image, video and table toolbars) were left blank in the message."
+      }
+    },
+    {
+      "n": 62,
+      "title": "Accordion, FAQ, Image, Video, Table and KPI toolbars",
+      "status": "done",
+      "fields": {
+        "Where": "`portalPageModel.ts`, `PortalCanvas.tsx`",
+        "You asked": "Accordion and FAQ get the Add icon plus an \"Add item\" CTA opening an inline popup; Image gets an inline \"Add caption\"; Video, Table and KPI lose their alignments; KPI has no Add.",
+        "Verified": "Accordion → Drag · Add beside · Replace · **Add item** · Copy · Delete. FAQ → the same, its CTA reading \"Add a question to this list\". Image → keeps both alignments and gains **Add caption**. Video, Table → no alignments. KPI → Drag · Replace · Copy · Delete, no \"+\", no alignments. Add item on an accordion took it from 3 rows to 4 with \"How do I book leave?\" on the canvas and an \"Item added\" toast; the caption saved, rendered under the picture, and the button relabelled to **Edit caption**.",
+        "⚠️ Testing note": "the Accordion's PANEL has its own \"Add item\" button, so a `find` by button text picks the wrong one — the toolbar's has to be located by its `data-tip`."
       }
     }
   ],

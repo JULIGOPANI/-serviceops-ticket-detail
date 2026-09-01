@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 // ArrowLeft stays in use by the card toolbar's "Move left".
 import { toast } from 'sonner';
-import { HEADING_SIZE, PORTAL_FONTS, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, COMPOSABLE, boxInfo, defaultAlignH, isComposable, nodeById, paintsOwnSurface, toolbarCaps, nodePath, placedIn, placedType } from './portalPageModel';
+import { HEADING_SIZE, PORTAL_FONTS, SECTION_LAYOUTS, TEXT_STYLES, ZERO_BOX, COMPOSABLE, boxInfo, canAddBeside, defaultAlignH, nodeById, paintsOwnSurface, toolbarCaps, nodePath, placedIn, placedType } from './portalPageModel';
 import { DEFAULT_THEME } from './PortalThemePanel';
 import type { PortalTheme } from './PortalThemePanel';
 import { boxCss, containerCss } from './portalStyleResolver';
@@ -472,6 +472,131 @@ function ButtonStyleMenu({ id }: { id: string }) {
   );
 }
 
+/* ── Add item — the Accordion's and the FAQ's one inline authoring action ────────────────────
+ *
+ * ⚠️ A LABELLED CTA, not a glyph. "+" already means "put a widget beside this one" two buttons
+ * along; a second plus meaning "put a question inside this one" would be the same symbol for two
+ * different structural moves on one bar.
+ *
+ * ⚠️ The two widgets name their item fields DIFFERENTLY — the Accordion stores `title`/`body`, the
+ * FAQ `q`/`a` — so the keys are read from the type rather than assumed. Writing the Accordion's
+ * names into an FAQ would append an item that renders blank and cannot be told apart from a bug. */
+const ITEM_FIELDS: Record<string, { keys: [string, string]; labels: [string, string] }> = {
+  'b-accordion': { keys: ['title', 'body'], labels: ['Title', 'Description'] },
+  'c-faq': { keys: ['q', 'a'], labels: ['Question', 'Answer'] },
+};
+
+function AddItemMenu({ id, type }: { id: string; type: string }) {
+  const { cfg, setCfg } = useCanvas();
+  const [open, setOpen] = useState(false);
+  const [a, setA] = useState('');
+  const [b, setB] = useState('');
+  const spec = ITEM_FIELDS[type];
+  if (!spec) return null;
+  const commit = () => {
+    /* ⚠️ Nothing is appended for an empty first field. An item with no question is a row the
+       renderer draws as an empty disclosure — visible, clickable and saying nothing. */
+    if (!a.trim()) return;
+    const items = (cfg?.(id)?.items as Record<string, unknown>[] | undefined) ?? [];
+    setCfg(id, { items: [...items, { [spec.keys[0]]: a.trim(), [spec.keys[1]]: b.trim() }] });
+    setA(''); setB(''); setOpen(false);
+    toast.success('Item added');
+  };
+  return (
+    <div className="relative">
+      <button
+        className="flex h-7 items-center gap-1.5 rounded px-2 text-[12px] font-medium text-[#3D8BD0] transition-colors hover:bg-[#EBF5FF]"
+        data-tip={`Add a ${spec.labels[0].toLowerCase()} to this list`}
+        onClick={() => setOpen((v) => !v)}
+      ><Plus size={13} /> Add item</button>
+      {open && (
+        <>
+          <span className="fixed inset-0 z-[60]" onClick={() => setOpen(false)} />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="absolute left-1/2 top-[calc(100%+8px)] z-[61] w-[300px] -translate-x-1/2 rounded-lg border border-[#E5E7EB] bg-white p-2.5 shadow-[0_12px_16px_-4px_rgba(16,24,40,0.10),0_4px_6px_-2px_rgba(16,24,40,0.06)]"
+          >
+            <label className="mb-1 block text-[11px] font-medium text-[#7B8FA5]">{spec.labels[0]}</label>
+            <input
+              autoFocus
+              value={a}
+              onChange={(e) => setA(e.target.value)}
+              /* Enter commits from the first field only — in the second it would fight the fact that
+                 an answer is often more than one line. */
+              onKeyDown={(e) => { if (e.key === 'Enter') commit(); }}
+              className="mb-2 h-8 w-full rounded border border-[#d1d5db] px-2 text-[12px] text-[#364658] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]"
+            />
+            <label className="mb-1 block text-[11px] font-medium text-[#7B8FA5]">{spec.labels[1]}</label>
+            <textarea
+              rows={3}
+              value={b}
+              onChange={(e) => setB(e.target.value)}
+              className="mb-2.5 w-full rounded border border-[#d1d5db] px-2 py-1.5 text-[12px] leading-[1.5] text-[#364658] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setOpen(false)} className="inline-flex h-7 items-center rounded border border-[#DFE5ED] px-2.5 text-[12px] font-medium text-[#364658] hover:bg-[#F5F7FA]">Cancel</button>
+              <button
+                onClick={commit}
+                disabled={!a.trim()}
+                className="inline-flex h-7 items-center rounded bg-[#3D8BD0] px-3 text-[12px] font-medium text-white hover:bg-[#3480c4] disabled:cursor-not-allowed disabled:bg-[#CBD5E1]"
+              >Add</button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ── Add caption — the Image's one inline authoring action ───────────────────────────────────
+ *
+ * ⚠️ The label says which of the two it will do. A caption already written is EDITED here, not
+ * added again, and a button that reads "Add caption" over a picture that has one is describing the
+ * wrong action — you press it expecting a second line and get your own words back. */
+function CaptionMenu({ id }: { id: string }) {
+  const { cfg, setCfg } = useCanvas();
+  const [open, setOpen] = useState(false);
+  const current = String(cfg?.(id)?.caption ?? '');
+  const [v, setV] = useState(current);
+  return (
+    <div className="relative">
+      <button
+        className="flex h-7 items-center gap-1.5 rounded px-2 text-[12px] font-medium text-[#3D8BD0] transition-colors hover:bg-[#EBF5FF]"
+        data-tip="The line of words under this picture"
+        onClick={() => { setV(String(cfg?.(id)?.caption ?? '')); setOpen((x) => !x); }}
+      ><Plus size={13} /> {current ? 'Edit caption' : 'Add caption'}</button>
+      {open && (
+        <>
+          <span className="fixed inset-0 z-[60]" onClick={() => setOpen(false)} />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="absolute left-1/2 top-[calc(100%+8px)] z-[61] w-[300px] -translate-x-1/2 rounded-lg border border-[#E5E7EB] bg-white p-2.5 shadow-[0_12px_16px_-4px_rgba(16,24,40,0.10),0_4px_6px_-2px_rgba(16,24,40,0.06)]"
+          >
+            <label className="mb-1 block text-[11px] font-medium text-[#7B8FA5]">Caption</label>
+            <input
+              autoFocus
+              value={v}
+              onChange={(e) => setV(e.target.value)}
+              placeholder="What this picture shows"
+              onKeyDown={(e) => { if (e.key === 'Enter') { setCfg(id, { caption: v }); setOpen(false); } }}
+              className="mb-2.5 h-8 w-full rounded border border-[#d1d5db] px-2 text-[12px] text-[#364658] placeholder:text-[#9CA3AF] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]"
+            />
+            <div className="flex justify-end gap-2">
+              {/* Clearing is how a caption is REMOVED — an empty value is the absence of one, so a
+                  separate delete would be a second control for the same state. */}
+              <button onClick={() => setOpen(false)} className="inline-flex h-7 items-center rounded border border-[#DFE5ED] px-2.5 text-[12px] font-medium text-[#364658] hover:bg-[#F5F7FA]">Cancel</button>
+              <button
+                onClick={() => { setCfg(id, { caption: v }); setOpen(false); }}
+                className="inline-flex h-7 items-center rounded bg-[#3D8BD0] px-3 text-[12px] font-medium text-white hover:bg-[#3480c4]"
+              >Save</button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: string }) {
   const { styles, setStyle, moveNode, duplicateNode, deleteNode, canDuplicate, addInside, replaceElement, addChildBlock, splitNode, splitInfo, addLinkCard, addSibling } = useCanvas();
   const [picking, setPicking] = useState(false);
@@ -523,7 +648,7 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
   /* One of the six a section is composed from — see `COMPOSABLE`. These get BOTH actions: "+" puts
      another of the six in the slot BESIDE this one, Replace swaps this one. Everything else keeps
      the single Add-or-Replace slot it always had. */
-  const composable = isComposable(id);
+  const composable = canAddBeside(id);
   const sixOnly = composable ? COMPOSABLE.map((t) => ({ type: t, label: elementLabel(t) })) : undefined;
   /* Null for anything that is not a box, which is how Split stays off cards, text and page bands. */
   const split = splitInfo?.(id) ?? null;
@@ -661,6 +786,11 @@ function ElementToolbar({ id, kind, name }: { id: string; kind: string; name: st
           more than once while looking at the page — the panel still owns everything else, so this is
           a shortcut to one field rather than a second place the value lives. */}
       {placedType(id) === 'b-button' && <ButtonStyleMenu id={id} />}
+      {/* The one thing you author on these without opening the panel. */}
+      {(placedType(id) === 'b-accordion' || placedType(id) === 'c-faq') && (
+        <AddItemMenu id={id} type={placedType(id)!} />
+      )}
+      {placedType(id) === 'v-image' && <CaptionMenu id={id} />}
       {/* ⚠️ A LABELLED action, not a "+". The Quick Actions row takes exactly one thing and it is a
           specific card — a plus would promise the palette, which this row is fenced against, and an
           icon would have to be guessed at. The words are the whole point of it. */}

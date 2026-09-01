@@ -858,6 +858,19 @@ Updated: 2026-08-25 12:11
 - **Verified:** Record List → Drag · Replace · Copy · Delete (no alignments, no moves while alone). Accordion → Drag · Add beside · Replace · Copy · Delete (both alignments gone). Button → the same plus **Button style** reading "Primary", switching to "Outline" on pick; its "+" offered exactly `[Text, Button, Image, Video, Accordion, Table]`; adding an Image beside it made **Move left** appear and **Already last** disable. Replace on that Image turned it into an Accordion (`el-15` → `el-16`, toast "Replaced with Accordion"). Text carries both toolbars. No console errors.
 - **Waiting on you:** items 6, 7 and 8 (image, video and table toolbars) were left blank in the message.
 
+## 62. Accordion, FAQ, Image, Video, Table and KPI toolbars
+- **Status:** done
+- **Where:** `portalPageModel.ts`, `PortalCanvas.tsx`
+- **You asked:** Accordion and FAQ get the Add icon plus an "Add item" CTA opening an inline popup; Image gets an inline "Add caption"; Video, Table and KPI lose their alignments; KPI has no Add.
+- **⚠️ TWO sets, not one.** The FAQ carries the "+" without being in the list it offers — it is a Custom widget that holds questions rather than being one of the building blocks, but an admin composing a section around one still wants the next element beside it. Folding "can add a neighbour" into "is a neighbour worth offering" would have put FAQ in the Replace list of every Text on the page.
+- **⚠️ Alignment goes from everything that FILLS its column** — Record List, Accordion, FAQ, Video, Table, KPI. All six are as wide as the space they are given, so both axes reported a position nothing was in a position to take. Text, Button and Image keep it: those three genuinely can sit left, centre or right of the room they have.
+- **⚠️ The KPI needs no cap to have no "+".** The plus belongs to `canAddBeside` and the KPI is not in it. A cap would have removed its Replace as well, which is a swap rather than an add and is the one structural thing it should still offer.
+- **⚠️ "Add item" is a LABELLED CTA, not a glyph.** "+" already means "put a widget beside this one" two buttons along; a second plus meaning "put a question inside this one" would be one symbol for two different structural moves on one bar.
+- **⚠️ The two widgets name their item fields differently** — Accordion stores `title`/`body`, FAQ stores `q`/`a` — so the keys are read from the type rather than assumed. Writing the Accordion's names into an FAQ appends an item that renders blank and cannot be told apart from a bug. The popup's labels follow, so an FAQ asks for a Question and an Accordion for a Title.
+- **⚠️ The caption button says which of the two it will do.** A caption already written is EDITED, not added again — a button reading "Add caption" over a picture that has one describes the wrong action, and you press it expecting a second line and get your own words back. Clearing the field is how a caption is removed, so there is no separate delete for the same state.
+- **Verified:** Accordion → Drag · Add beside · Replace · **Add item** · Copy · Delete. FAQ → the same, its CTA reading "Add a question to this list". Image → keeps both alignments and gains **Add caption**. Video, Table → no alignments. KPI → Drag · Replace · Copy · Delete, no "+", no alignments. Add item on an accordion took it from 3 rows to 4 with "How do I book leave?" on the canvas and an "Item added" toast; the caption saved, rendered under the picture, and the button relabelled to **Edit caption**.
+- **⚠️ Testing note:** the Accordion's PANEL has its own "Add item" button, so a `find` by button text picks the wrong one — the toolbar's has to be located by its `data-tip`.
+
 ## Parked — needs discussion
 - Tour guide
 - AI capabilities
