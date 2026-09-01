@@ -1,39 +1,52 @@
 /* Support Portal — the Record List's custom filter, as a condition builder.
  *
- * A flyout to the LEFT of the design panel, holding groups of key / operator / value rows.
+ * A flyout to the LEFT of the design panel: rows of field / operator / value, joined by one word
+ * per group, with nested groups for precedence.
  *
- * ⚠️ WHY IT IS NOT A VIEW INSIDE THE DROPDOWN. It was, and the dropdown is 320px, which is why the
- * old builder stacked each condition as one line of prose you clicked to edit. A row that shows the
- * field, the operator and the value at once needs about 520px — so it has to leave the panel. To
- * the left is the only direction with room: the panel is already against the right edge of the
- * window, and the canvas it covers is transient and comes straight back.
+ * ⚠️ ONE JOIN PER GROUP, not one per row. "A and B or C" has no meaning until somebody states a
+ * precedence, and a row-by-row list of And/Or dropdowns quietly picks one for you. The join belongs
+ * to the bracket: it is set once, on the group's SECOND row, and every row after it repeats the
+ * same word as plain text. What you read down the left edge is what will be evaluated.
  *
- * ⚠️ AND inside a group, OR between groups. See `ConditionGroup` for why this is groups rather than
- * a join dropdown on every row.
+ * ⚠️ Precedence comes from NESTING, which is the only unambiguous way to draw it. A group inside a
+ * group is a bracket you can see.
+ *
+ * ⚠️ WHY IT IS NOT A VIEW INSIDE THE DROPDOWN. The dropdown is 320px, and a row that shows the
+ * field, the operator and the value at once needs about 520 — which is why the old in-dropdown
+ * builder rendered each condition as a line of prose you clicked to edit.
  *
  * ⚠️ Portalled to document.body with fixed positioning. The design panel is `overflow-y-auto`, and
  * an absolutely-positioned surface inside it is clipped the moment it is taller than the space
- * below its trigger — the trap that has already caught the colour picker, the icon picker, the
- * table's alignment flyout and the listing's kebab.
+ * below its trigger — the trap that has caught the colour picker, the icon picker, the table's
+ * alignment flyout and the listing's kebab.
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown, Plus, Search, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, MoreVertical, Plus, Repeat2, Search, X } from 'lucide-react';
 import {
   DATE_PRESETS, OPERATORS, PEOPLE, TAG_SUGGESTIONS, UNASSIGNED,
-  fieldByKey, fieldsFor, personAvatar,
+  emptyGroup, fieldByKey, fieldsFor, isGroup, personAvatar,
 } from './portalRecordFilters';
-import type { Condition, ConditionGroup, FilterField } from './portalRecordFilters';
+import type { Condition, FilterJoin, FilterNode, FilterField, GroupNode } from './portalRecordFilters';
 
-const W = 560;
+const W = 620;
 
 /* ── a small popover, anchored under whatever opened it ─────────────────────── */
+
+/* ⚠️ How many value/field popovers are open, so the BUILDER can leave Escape alone while one is.
+ * Both listen on `document`, so pressing Escape to dismiss a value list also closed the whole
+ * builder and threw away everything typed into it — the two handlers cannot be told apart by
+ * propagation because neither is in the other's tree. A count rather than a boolean: two popovers
+ * can overlap for a frame while one replaces another, and a boolean would clear on the first
+ * unmount and let the next Escape through. */
+let openPops = 0;
 
 function Pop({ anchor, onClose, children, width = 240 }: {
   anchor: DOMRect; onClose: () => void; children: React.ReactNode; width?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { openPops += 1; return () => { openPops -= 1; }; }, []);
   useEffect(() => {
     const away = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) onClose(); };
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -42,8 +55,8 @@ function Pop({ anchor, onClose, children, width = 240 }: {
     document.addEventListener('keydown', esc);
     return () => { clearTimeout(t); document.removeEventListener('mousedown', away); document.removeEventListener('keydown', esc); };
   }, [onClose]);
-  /* Flipped up when there is more room above than below — a value list opened on the last row of a
-     tall group would otherwise run off the bottom of the window. */
+  /* Flipped up when there is more room above — a value list opened on the last row of a tall group
+     would otherwise run off the bottom of the window. */
   const below = window.innerHeight - anchor.bottom > 260;
   return createPortal(
     <div
@@ -74,7 +87,9 @@ function SearchRow({ value, onChange, placeholder }: { value: string; onChange: 
   );
 }
 
-const cell = 'flex h-8 min-w-0 items-center gap-1.5 rounded border border-[#d1d5db] bg-white px-2 text-left text-[12px] text-[#364658] transition-colors hover:border-[#9CA3AF]';
+/* Every control on a row shares one shape, so a row reads as one sentence rather than three
+   controls that happen to be adjacent. */
+const cell = 'flex h-8 min-w-0 items-center gap-1.5 rounded-md border border-[#E5E7EB] bg-white px-2.5 text-left text-[12.5px] text-[#364658] transition-colors hover:border-[#CBD5E1]';
 
 /* ── the value cell — five shapes, one control ──────────────────────────────── */
 
@@ -90,18 +105,23 @@ function ValueCell({ field, cond, onChange }: {
     values: cond.values.includes(v) ? cond.values.filter((x) => x !== v) : [...cond.values, v],
   });
 
-  /* ⚠️ TEXT is typed in place, not behind a popover. It is the one kind whose value is not chosen
-     from a list, so a popover would be a click and a second surface to reach a plain input. */
+  /* ⚠️ TEXT is typed in place. It is the one kind whose value is not chosen from a list, so a
+     popover would be a click and a second surface to reach a plain input. */
   if (field.kind === 'text') {
     return (
       <input
         value={cond.values[0] ?? ''}
         onChange={(e) => onChange({ ...cond, values: e.target.value ? [e.target.value] : [] })}
         placeholder="Value"
-        className="h-8 min-w-0 flex-1 rounded border border-[#d1d5db] px-2 text-[12px] text-[#364658] placeholder:text-[#9CA3AF] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]"
+        className="h-8 min-w-0 flex-1 rounded-md border border-[#E5E7EB] px-2.5 text-[12.5px] text-[#364658] placeholder:text-[#9CA3AF] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]"
       />
     );
   }
+
+  /* ⚠️ An operator that asks nothing of a value takes none. "Status is not empty" is complete on its
+     own, and a Select-value control beside it is a field the row will never use — the reference
+     draws that row with two controls, and so does this. */
+  if (/empty$/i.test(cond.op)) return <span className="min-w-0 flex-1" />;
 
   const options = field.kind === 'person'
     ? [UNASSIGNED, ...PEOPLE.map((p) => p.name)]
@@ -109,9 +129,7 @@ function ValueCell({ field, cond, onChange }: {
       : field.kind === 'tags' ? TAG_SUGGESTIONS
         : (field.options ?? []);
   const shown = q ? options.filter((o) => o.toLowerCase().includes(q.toLowerCase())) : options;
-  const label = cond.values.length === 0
-    ? 'Select'
-    : cond.values.length <= 2 ? cond.values.join(', ') : `${cond.values[0]} +${cond.values.length - 1}`;
+  const [head, ...rest] = cond.values;
 
   return (
     <>
@@ -121,8 +139,16 @@ function ValueCell({ field, cond, onChange }: {
         onClick={() => setAnchor(anchor ? null : ref.current!.getBoundingClientRect())}
         className={`${cell} flex-1`}
       >
-        <span className={`min-w-0 flex-1 truncate ${cond.values.length ? '' : 'text-[#9CA3AF]'}`}>{label}</span>
-        <ChevronDown size={12} className="flex-shrink-0 text-[#9CA3AF]" />
+        {/* ⚠️ The first value as a CHIP and the remainder as "+N", the reference's shape. A comma
+            list of five statuses truncates into something you cannot read either end of; a chip
+            plus a count says how many there are and keeps the first one legible. */}
+        {head ? (
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate rounded bg-[#F1F5F9] px-1.5 py-0.5 text-[11.5px] font-medium text-[#364658]">{head}</span>
+            {rest.length > 0 && <span className="flex-shrink-0 rounded bg-[#EBF5FF] px-1.5 py-0.5 text-[11.5px] font-medium text-[#3D8BD0]">+{rest.length}</span>}
+          </span>
+        ) : <span className="min-w-0 flex-1 truncate text-[#9CA3AF]">Select value</span>}
+        <ChevronDown size={13} className="ml-auto flex-shrink-0 text-[#9CA3AF]" />
       </button>
       {anchor && (
         <Pop anchor={anchor} onClose={() => { setAnchor(null); setQ(''); }}>
@@ -136,7 +162,7 @@ function ValueCell({ field, cond, onChange }: {
                   key={o}
                   type="button"
                   /* ⚠️ A DATE is one value, so picking replaces rather than adds — "due today or
-                     tomorrow" is not a question Equals asks, and two ticks would promise it. */
+                     tomorrow" is not a question Equals asks. */
                   onClick={() => (field.kind === 'date' ? onChange({ ...cond, values: [o] }) : toggle(o))}
                   className="flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-left hover:bg-[#F5F7FA]"
                 >
@@ -151,7 +177,6 @@ function ValueCell({ field, cond, onChange }: {
               );
             })}
             {shown.length === 0 && <p className="px-1.5 py-2 text-[12px] text-[#9CA3AF]">Nothing matches “{q}”.</p>}
-            {/* A tag that is not in the suggestion list is still a tag somebody uses. */}
             {field.kind === 'tags' && q && !options.includes(q) && (
               <button type="button" onClick={() => { toggle(q); setQ(''); }}
                 className="flex w-full items-center gap-1.5 rounded px-1.5 py-1.5 text-left text-[12px] text-[#3D8BD0] hover:bg-[#F5F7FA]">
@@ -165,41 +190,37 @@ function ValueCell({ field, cond, onChange }: {
   );
 }
 
-/* ── the field cell ────────────────────────────────────────────────────────── */
+/* ── a picker cell: the field, and the operator ─────────────────────────────── */
 
-function FieldCell({ fields, cond, onChange }: {
-  fields: FilterField[]; cond: Condition; onChange: (c: Condition) => void;
+function PickCell({ label, placeholder, options, value, onPick, width, searchable }: {
+  label?: string; placeholder: string; options: { key: string; label: string }[];
+  value?: string; onPick: (key: string) => void; width: string; searchable?: boolean;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const [q, setQ] = useState('');
-  const current = fields.find((f) => f.key === cond.field);
-  const shown = q ? fields.filter((f) => f.label.toLowerCase().includes(q.toLowerCase())) : fields;
+  const shown = q ? options.filter((o) => o.label.toLowerCase().includes(q.toLowerCase())) : options;
   return (
     <>
-      <button ref={ref} type="button" onClick={() => setAnchor(anchor ? null : ref.current!.getBoundingClientRect())} className={`${cell} w-[150px] flex-shrink-0`}>
-        <span className={`min-w-0 flex-1 truncate ${current ? '' : 'text-[#9CA3AF]'}`}>{current?.label ?? 'Select field'}</span>
-        <ChevronDown size={12} className="flex-shrink-0 text-[#9CA3AF]" />
+      <button ref={ref} type="button" onClick={() => setAnchor(anchor ? null : ref.current!.getBoundingClientRect())} className={`${cell} ${width} flex-shrink-0`}>
+        <span className={`min-w-0 flex-1 truncate ${label ? '' : 'text-[#9CA3AF]'}`}>{label ?? placeholder}</span>
+        <ChevronDown size={13} className="flex-shrink-0 text-[#9CA3AF]" />
       </button>
       {anchor && (
         <Pop anchor={anchor} onClose={() => { setAnchor(null); setQ(''); }}>
-          <SearchRow value={q} onChange={setQ} placeholder="Search fields" />
+          {searchable && <SearchRow value={q} onChange={setQ} placeholder="Search" />}
           <div className="max-h-[220px] space-y-0.5 overflow-y-auto">
-            {shown.map((f) => (
+            {shown.map((o) => (
               <button
-                key={f.key}
+                key={o.key}
                 type="button"
-                /* ⚠️ Changing the field RESETS the operator and the value. An operator belongs to a
-                   kind, so "Contains" left behind on a status field is a comparison that field
-                   cannot make — and the old value would be an option from a list nobody is looking
-                   at any more. Better to clear it than to carry something meaningless forward. */
-                onClick={() => { onChange({ field: f.key, op: OPERATORS[f.kind][0], values: [] }); setAnchor(null); setQ(''); }}
+                onClick={() => { onPick(o.key); setAnchor(null); setQ(''); }}
                 className="flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-left hover:bg-[#F5F7FA]"
               >
                 <span className="flex size-3.5 flex-shrink-0 items-center justify-center">
-                  {f.key === cond.field && <Check size={12} className="text-[#3D8BD0]" />}
+                  {o.key === value && <Check size={12} className="text-[#3D8BD0]" />}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[12px] text-[#364658]">{f.label}</span>
+                <span className="min-w-0 flex-1 truncate text-[12px] text-[#364658]">{o.label}</span>
               </button>
             ))}
             {shown.length === 0 && <p className="px-1.5 py-2 text-[12px] text-[#9CA3AF]">Nothing matches “{q}”.</p>}
@@ -210,6 +231,58 @@ function FieldCell({ fields, cond, onChange }: {
   );
 }
 
+/* ── the per-row menu ───────────────────────────────────────────────────────── */
+
+function RowMenu({ canGroup, onGroup, onDelete }: { canGroup: boolean; onGroup: () => void; onDelete: () => void }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  return (
+    <>
+      <button
+        ref={ref}
+        type="button"
+        onClick={() => setAnchor(anchor ? null : ref.current!.getBoundingClientRect())}
+        className="flex size-7 flex-shrink-0 items-center justify-center rounded text-[#9CA3AF] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]"
+      ><MoreVertical size={15} /></button>
+      {anchor && (
+        <Pop anchor={anchor} onClose={() => setAnchor(null)} width={190}>
+          {/* ⚠️ Only where it can happen: a row already inside a nested group cannot be nested again,
+              because this builder brackets one level deep. The item is absent rather than greyed —
+              the same rule the canvas toolbars follow. */}
+          {canGroup && (
+            <button type="button" onClick={() => { setAnchor(null); onGroup(); }}
+              className="block w-full rounded px-2 py-1.5 text-left text-[12px] text-[#364658] hover:bg-[#F5F7FA]">Turn into a group</button>
+          )}
+          <button type="button" onClick={() => { setAnchor(null); onDelete(); }}
+            className="block w-full rounded px-2 py-1.5 text-left text-[12px] text-[#DC2626] hover:bg-[#FEF2F2]">Delete</button>
+        </Pop>
+      )}
+    </>
+  );
+}
+
+/* ── the join word down the left edge ───────────────────────────────────────── */
+
+/** The first row says "Where"; the second carries the group's toggle; the rest repeat it as text. */
+function JoinCell({ index, join, onToggle }: { index: number; join: FilterJoin; onToggle: () => void }) {
+  const word = join === 'and' ? 'And' : 'Or';
+  if (index === 0) return <span className="w-[74px] flex-shrink-0 pl-1 text-[12.5px] text-[#7B8FA5]">Where</span>;
+  /* ⚠️ Only the SECOND row is a control. It sets the join for the whole group, so putting the same
+     control on every row would be four ways to change one value — and the moment two of them showed
+     different words the group would be describing something it cannot do. */
+  if (index === 1) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        title={`Switch this group to ${join === 'and' ? 'Or' : 'And'}`}
+        className="flex h-8 w-[74px] flex-shrink-0 items-center gap-1.5 rounded-md border border-[#E5E7EB] bg-white px-2.5 text-[12.5px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
+      >{word}<Repeat2 size={13} className="text-[#9CA3AF]" /></button>
+    );
+  }
+  return <span className="w-[74px] flex-shrink-0 pl-1 text-[12.5px] text-[#7B8FA5]">{word}</span>;
+}
+
 /* ── the builder ───────────────────────────────────────────────────────────── */
 
 export function PortalConditionBuilder({ anchor, moduleKey, statuses, seed, seedFrom, onApply, onClose }: {
@@ -217,10 +290,10 @@ export function PortalConditionBuilder({ anchor, moduleKey, statuses, seed, seed
   anchor: DOMRect;
   moduleKey: string;
   statuses: string[];
-  seed: ConditionGroup[];
+  seed: GroupNode;
   /** The preset the seed came from, named so the header can say the work started somewhere. */
   seedFrom?: string;
-  onApply: (groups: ConditionGroup[]) => void;
+  onApply: (tree: GroupNode) => void;
   onClose: () => void;
 }) {
   const fields = fieldsFor(moduleKey, statuses);
@@ -228,155 +301,188 @@ export function PortalConditionBuilder({ anchor, moduleKey, statuses, seed, seed
      read as one statement — an admin part-way through "status is X **or** priority is Y" has, for a
      few seconds, said something they do not mean, and watching the card empty and refill under a
      half-built rule teaches them the builder is broken. */
-  const [groups, setGroups] = useState<ConditionGroup[]>(
-    seed.length ? seed.map((g) => ({ rows: g.rows.map((r) => ({ ...r })) })) : [{ rows: [] }],
-  );
-  const ref = useRef<HTMLDivElement>(null);
+  const [tree, setTree] = useState<GroupNode>(() =>
+    (seed.children.length ? JSON.parse(JSON.stringify(seed)) : emptyGroup('and')));
   const [pos, setPos] = useState({ top: 0, left: 0 });
 
   useLayoutEffect(() => {
-    /* To the LEFT of the field, top-aligned with it, clamped into the window. */
     const left = Math.max(12, anchor.left - W - 10);
-    const top = Math.min(Math.max(12, anchor.top), Math.max(12, window.innerHeight - 460));
+    const top = Math.min(Math.max(12, anchor.top), Math.max(12, window.innerHeight - 480));
     setPos({ top, left });
   }, [anchor]);
 
   useEffect(() => {
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    /* ⚠️ Escape closes the innermost thing only. With a value list open it belongs to that list, and
+       closing the builder underneath it would discard a filter half-written. */
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape' && openPops === 0) onClose(); };
     document.addEventListener('keydown', esc);
     return () => document.removeEventListener('keydown', esc);
   }, [onClose]);
 
-  const patchRow = (gi: number, ri: number, c: Condition) =>
-    setGroups((gs) => gs.map((g, i) => (i === gi ? { rows: g.rows.map((r, j) => (j === ri ? c : r)) } : g)));
-  const addRow = (gi: number) =>
-    setGroups((gs) => gs.map((g, i) => (i === gi ? { rows: [...g.rows, { field: '', op: '', values: [] }] } : g)));
-  /* ⚠️ Removing the last row of a group removes the GROUP. An empty bracket on screen is a rule
-     that matches everything, drawn as though it were a rule — and it would OR that "everything"
-     against the groups beside it, quietly widening the filter to all records. */
-  const dropRow = (gi: number, ri: number) =>
-    setGroups((gs) => gs
-      .map((g, i) => (i === gi ? { rows: g.rows.filter((_, j) => j !== ri) } : g))
-      .filter((g, i) => i !== gi || g.rows.length > 0));
+  /* Every edit is "replace the children of the group at this path", which keeps one updater rather
+     than one per operation and makes an immutable copy the only thing any of them has to get right. */
+  const edit = (path: number[], fn: (g: GroupNode) => GroupNode) => setTree((t) => {
+    const walk = (node: GroupNode, depth: number): GroupNode => {
+      if (depth === path.length) return fn(node);
+      const i = path[depth];
+      return {
+        ...node,
+        children: node.children.map((c, j) => (j === i && isGroup(c) ? walk(c, depth + 1) : c)),
+      };
+    };
+    return walk(t, 0);
+  });
 
-  const rowsTotal = groups.reduce((t, g) => t + g.rows.length, 0);
-  /* A row only counts once it is complete; a half-written one must filter nothing rather than
-     everything. Mirrors `rowComplete` in AdminBomTargeting for the same reason. */
-  const complete = (r: Condition) => !!r.field && !!r.op && (r.values.length > 0);
+  const setRow = (path: number[], i: number, c: Condition) =>
+    edit(path, (g) => ({ ...g, children: g.children.map((x, j) => (j === i ? { kind: 'cond', ...c } : x)) }));
+  const addRow = (path: number[]) =>
+    edit(path, (g) => ({ ...g, children: [...g.children, { kind: 'cond', field: '', op: '', values: [] }] }));
+  /* ⚠️ Removing a nested group's last row removes the GROUP. An empty bracket matches everything and
+     is drawn as though it were a rule — with an Or join beside it, it would quietly widen the
+     filter to every record. */
+  const dropRow = (path: number[], i: number) => setTree((t) => {
+    const walk = (node: GroupNode, depth: number): GroupNode => {
+      if (depth === path.length) return { ...node, children: node.children.filter((_, j) => j !== i) };
+      const k = path[depth];
+      const next = node.children.map((c, j) => (j === k && isGroup(c) ? walk(c, depth + 1) : c));
+      return { ...node, children: next.filter((c) => !(isGroup(c) && c.children.length === 0)) };
+    };
+    return walk(t, 0);
+  });
+  /* Turning a row into a group wraps it, so the row it started from is the group's first member and
+     nothing the admin had already written is lost. */
+  const groupRow = (i: number) => edit([], (g) => ({
+    ...g,
+    children: g.children.map((c, j) => (j === i && !isGroup(c)
+      ? { kind: 'group', join: 'and', children: [c] } as FilterNode
+      : c)),
+  }));
+
+  const opsFor = (f?: FilterField) => (f ? OPERATORS[f.kind].map((o) => ({ key: o, label: o })) : []);
+  const fieldOpts = fields.map((f) => ({ key: f.key, label: f.label }));
+  const complete = (r: Condition) => !!r.field && !!r.op && (r.values.length > 0 || /empty$/i.test(r.op));
+
+  const Row = ({ node, path, i, join, onJoin }: {
+    node: Condition; path: number[]; i: number; join: FilterJoin; onJoin: () => void;
+  }) => {
+    const f = node.field ? fieldByKey(moduleKey, node.field, statuses) : undefined;
+    return (
+      <div className="flex items-center gap-2">
+        <JoinCell index={i} join={join} onToggle={onJoin} />
+        <PickCell
+          width="w-[136px]" placeholder="Select field" searchable
+          label={f?.label} value={node.field} options={fieldOpts}
+          /* ⚠️ Changing the field RESETS the operator and the value. An operator belongs to a KIND,
+             so "Contains" left on a status field is a comparison that field cannot make. */
+          onPick={(k) => {
+            const nf = fields.find((x) => x.key === k)!;
+            setRow(path, i, { field: k, op: OPERATORS[nf.kind][0], values: [] });
+          }}
+        />
+        <PickCell
+          width="w-[120px]" placeholder="—"
+          label={node.op || undefined} value={node.op} options={opsFor(f)}
+          onPick={(k) => setRow(path, i, { ...node, op: k })}
+        />
+        {f
+          ? <ValueCell field={f} cond={node} onChange={(c) => setRow(path, i, c)} />
+          : <span className="flex h-8 min-w-0 flex-1 items-center rounded-md border border-dashed border-[#E5E7EB] px-2.5 text-[12.5px] text-[#9CA3AF]">Pick a field first</span>}
+        <RowMenu
+          canGroup={path.length === 0}
+          onGroup={() => groupRow(i)}
+          onDelete={() => dropRow(path, i)}
+        />
+      </div>
+    );
+  };
 
   return createPortal(
-    <>
-      {/* ⚠️ NO backdrop over the panel. The dropdown that launched this stays open behind it, and a
-          scrim would grey out the very field whose value is being edited. Escape and Cancel close. */}
-      <div
-        ref={ref}
-        className="fixed z-[10050] flex max-h-[calc(100vh-24px)] flex-col rounded-lg border border-[#E5E7EB] bg-white shadow-[0_16px_40px_-8px_rgba(16,24,40,0.24)]"
-        style={{ width: W, top: pos.top, left: pos.left }}
-      >
-        <div className="flex flex-shrink-0 items-start gap-3 border-b border-[#F0F2F5] px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold text-[#364658]">Custom filter</p>
-            <p className="mt-0.5 text-[11px] leading-[1.5] text-[#7B8FA5]">
-              {seedFrom
-                ? <>Started from <span className="font-medium text-[#5A6B80]">{seedFrom}</span>. Conditions in a group must all match; groups match on their own.</>
-                : <>Conditions in a group must all match. A record matching any one group is shown.</>}
-            </p>
-          </div>
-          <button type="button" onClick={onClose} className="flex size-7 flex-shrink-0 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6]"><X size={15} /></button>
+    <div
+      className="fixed z-[10050] flex max-h-[calc(100vh-24px)] flex-col rounded-xl border border-[#E5E7EB] bg-white shadow-[0_16px_40px_-8px_rgba(16,24,40,0.24)]"
+      style={{ width: W, top: pos.top, left: pos.left }}
+    >
+      <div className="flex flex-shrink-0 items-start gap-3 px-4 pb-1 pt-3.5">
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-semibold text-[#364658]">Filters</p>
+          {seedFrom && (
+            <p className="mt-0.5 text-[11.5px] text-[#7B8FA5]">Started from <span className="font-medium text-[#5A6B80]">{seedFrom}</span></p>
+          )}
         </div>
+        <button type="button" onClick={onClose} className="flex size-7 flex-shrink-0 items-center justify-center rounded text-[#64748B] transition-colors hover:bg-[#F3F4F6]"><X size={15} /></button>
+      </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          {groups.map((g, gi) => (
-            <div key={gi}>
-              {/* ⚠️ The OR is a LABELLED RULE between two groups, not a word floating in the gap.
-                  It is the only thing on the surface saying the groups are alternatives, so it has
-                  to read as a join rather than as a heading for the block under it. */}
-              {gi > 0 && (
-                <div className="my-2 flex items-center gap-2">
-                  <span className="h-px flex-1 bg-[#E5E7EB]" />
-                  <span className="rounded bg-[#EEF2F7] px-2 py-0.5 text-[11px] font-semibold tracking-wide text-[#5A6B80]">OR</span>
-                  <span className="h-px flex-1 bg-[#E5E7EB]" />
-                </div>
-              )}
-              <div className="rounded-lg border border-[#E5E7EB] bg-[#FCFDFE] p-2.5">
-                {g.rows.map((c, ri) => {
-                  const f = c.field ? fieldByKey(moduleKey, c.field, statuses) : undefined;
-                  return (
-                    <div key={ri}>
-                      {/* AND sits BETWEEN rows, at the left, so the column of joins reads down the
-                          group rather than being repeated on every row including the first. */}
-                      {ri > 0 && <p className="py-1 pl-1 text-[11px] font-semibold text-[#9CA3AF]">AND</p>}
-                      <div className="flex items-center gap-1.5">
-                        <FieldCell fields={fields} cond={c} onChange={(n) => patchRow(gi, ri, n)} />
-                        <select
-                          value={c.op}
-                          disabled={!f}
-                          onChange={(e) => patchRow(gi, ri, { ...c, op: e.target.value })}
-                          className="app-select h-8 w-[128px] flex-shrink-0 rounded border border-[#d1d5db] bg-white px-2 text-[12px] text-[#364658] focus:border-[#3D8BD0] focus:outline-none disabled:bg-[#F8FAFC] disabled:text-[#9CA3AF]"
-                        >
-                          {f ? OPERATORS[f.kind].map((o) => <option key={o} value={o}>{o}</option>) : <option value="">—</option>}
-                        </select>
-                        {f
-                          ? <ValueCell field={f} cond={c} onChange={(n) => patchRow(gi, ri, n)} />
-                          /* Until a field is chosen there is nothing to compare against, so the cell
-                             says so rather than offering an input that cannot mean anything yet. */
-                          : <span className="flex h-8 min-w-0 flex-1 items-center rounded border border-dashed border-[#E5E7EB] px-2 text-[12px] text-[#9CA3AF]">Pick a field first</span>}
-                        <button
-                          type="button"
-                          onClick={() => dropRow(gi, ri)}
-                          title="Remove this condition"
-                          className="flex size-7 flex-shrink-0 items-center justify-center rounded text-[#9CA3AF] transition-colors hover:bg-[#FEF2F2] hover:text-[#DC2626]"
-                        ><Trash2 size={13} /></button>
-                      </div>
-                    </div>
-                  );
-                })}
-                {g.rows.length === 0 && (
-                  <p className="px-1 py-1.5 text-[12px] text-[#9CA3AF]">No conditions in this group yet.</p>
-                )}
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3">
+        {tree.children.map((child, i) => (
+          isGroup(child) ? (
+            /* ⚠️ A nested group is drawn as a TINTED BLOCK with the parent's join beside it, not as
+               indented rows. The tint is the bracket: without a visible edge, "and" three rows above
+               a differently-joined run is a rule the reader has to hold in their head. */
+            <div key={i} className="flex items-stretch gap-2">
+              <span className="flex w-[74px] flex-shrink-0 items-center pl-1 text-[12.5px] text-[#7B8FA5]">
+                {i === 0 ? 'Where' : tree.join === 'and' ? 'And' : 'Or'}
+              </span>
+              <div className="min-w-0 flex-1 space-y-2 rounded-lg bg-[#F7F8FA] p-2.5">
+                {child.children.map((c, j) => (
+                  !isGroup(c) && (
+                    <Row
+                      key={j} node={c} path={[i]} i={j} join={child.join}
+                      onJoin={() => edit([i], (g) => ({ ...g, join: g.join === 'and' ? 'or' : 'and' }))}
+                    />
+                  )
+                ))}
                 <button
                   type="button"
-                  onClick={() => addRow(gi)}
-                  className="mt-2 flex items-center gap-1.5 rounded px-1 py-1 text-[12px] font-medium text-[#3D8BD0] hover:underline"
-                ><Plus size={12} /> Add condition</button>
+                  onClick={() => addRow([i])}
+                  className="flex items-center gap-1.5 rounded px-1 py-1 text-[12.5px] font-medium text-[#3D8BD0] hover:underline"
+                ><Plus size={13} /> Add filter</button>
               </div>
+              <RowMenu canGroup={false} onGroup={() => {}} onDelete={() => dropRow([], i)} />
             </div>
-          ))}
+          ) : (
+            <Row
+              key={i} node={child} path={[]} i={i} join={tree.join}
+              onJoin={() => edit([], (g) => ({ ...g, join: g.join === 'and' ? 'or' : 'and' }))}
+            />
+          )
+        ))}
 
-          <button
-            type="button"
-            onClick={() => setGroups((gs) => [...gs, { rows: [] }])}
-            className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded border border-dashed border-[#CBD5E1] px-3 py-2 text-[12px] font-medium text-[#3D8BD0] transition-colors hover:border-[#3D8BD0] hover:bg-[#F8FBFE]"
-          ><Plus size={13} /> Add OR group</button>
-        </div>
+        {tree.children.length === 0 && (
+          <p className="rounded-md border border-dashed border-[#E5E7EB] px-3 py-3 text-[12.5px] text-[#9CA3AF]">
+            No conditions yet — the card lists every record in this module.
+          </p>
+        )}
 
-        <div className="flex flex-shrink-0 items-center justify-between gap-2 border-t border-[#F0F2F5] px-4 py-3">
-          <button
-            type="button"
-            onClick={() => setGroups([{ rows: [] }])}
-            disabled={rowsTotal === 0}
-            className="text-[12px] text-[#6B7280] transition-colors hover:text-[#DC2626] disabled:cursor-not-allowed disabled:text-[#D1D5DB]"
-          >Clear all</button>
-          <span className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex h-8 items-center rounded border border-[#DFE5ED] bg-white px-3 text-[12px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
-            >Cancel</button>
-            <button
-              type="button"
-              /* ⚠️ Incomplete rows are DROPPED on apply, not saved half-written. A row with a field
-                 and no value filters nothing, so keeping it would put a rule on screen that does
-                 not do anything — and the count under the field would disagree with the card. */
-              onClick={() => onApply(
-                groups.map((g) => ({ rows: g.rows.filter(complete) })).filter((g) => g.rows.length > 0),
-              )}
-              className="inline-flex h-8 items-center rounded bg-[#3D8BD0] px-3.5 text-[12px] font-medium text-white transition-colors hover:bg-[#3480c4]"
-            >Apply</button>
-          </span>
-        </div>
+        <button
+          type="button"
+          onClick={() => addRow([])}
+          className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-[#E5E7EB] px-2.5 py-1.5 text-[12.5px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
+        ><Plus size={13} /> Add filter</button>
       </div>
-    </>,
+
+      <div className="flex flex-shrink-0 items-center justify-between gap-2 border-t border-[#F0F2F5] px-4 py-3">
+        <button
+          type="button"
+          onClick={() => setTree(emptyGroup('and'))}
+          className="inline-flex h-8 items-center rounded-md border border-[#E5E7EB] bg-white px-3 text-[12.5px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
+        >Clear all</button>
+        <button
+          type="button"
+          /* ⚠️ Incomplete rows are DROPPED on apply. A row with a field and no value filters nothing,
+             so keeping it would put a rule on screen that does not do anything — and the count under
+             the field would disagree with the card. */
+          onClick={() => {
+            const prune = (g: GroupNode): GroupNode => ({
+              ...g,
+              children: g.children
+                .map((c) => (isGroup(c) ? prune(c) : c))
+                .filter((c) => (isGroup(c) ? c.children.length > 0 : complete(c))),
+            });
+            onApply(prune(tree));
+          }}
+          className="inline-flex h-8 items-center gap-2 rounded-md bg-[#3D8BD0] px-4 text-[12.5px] font-medium text-white transition-colors hover:bg-[#3480c4]"
+        >Apply</button>
+      </div>
+    </div>,
     document.body,
   );
 }

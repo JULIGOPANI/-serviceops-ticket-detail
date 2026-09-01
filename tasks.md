@@ -890,6 +890,19 @@ Updated: 2026-09-01
 - **⚠️ Caught by measuring:** a blind `replace` on the width widened the **Edit-details** dialog instead of Create — the same class name appears in both and the first match won. Both are now set by line.
 - **Verified:** step 1 shows the crumb blue/600 with step 2 grey; after Save the pair flips. Step 2 renders "Create your own portal" and "Start from a template", 8 tiles at 150px art, the Default first with its badge, "Classic Service Desk · IT Support" as name-over-category, and the Back footer. Dialog measures 960px. No console errors.
 
+## 65. The custom filter, rebuilt to the advanced-filter reference
+- **Status:** done
+- **Where:** `PortalConditionBuilder.tsx`, `portalRecordFilters.ts`, `PortalRecordFilter.tsx`, `PortalCollectionRender.tsx`
+- **You asked:** the reference's UI, and its AND/OR logic, in the Record List's custom filter.
+- **The logic changed, not just the skin.** It was a flat OR-of-ANDs — one shape, no brackets. It is a TREE now: a node is a condition or a group, and **a group carries ONE join for all of its children**, set on its second row and repeated as plain text after that. What you read down the left edge is what will be evaluated. Precedence comes from **nesting**, drawn as a tinted block, which is the only unambiguous way to show it.
+- **⚠️ One join per GROUP, not per row.** A row-by-row And/Or list has no defined meaning — "A and B or C" needs a precedence nobody states — so the join belongs to the bracket. Four controls for one value would also let two rows show different words for a group that can only have one.
+- **⚠️ Every older stored shape still reads.** `activeTree` converts a preset, a legacy flat list and the previous OR-of-ANDs into the same tree, so nothing needed migrating and the canvas can never evaluate an old filter differently from the builder that wrote it.
+- **⚠️ Found by testing — Escape closed the whole builder.** The value popover and the builder both listen on `document`, so dismissing a value list threw away a half-written filter; propagation cannot separate them because neither is in the other's tree. A COUNT of open popovers (not a boolean — two can overlap for a frame while one replaces another) makes Escape close the innermost thing only.
+- **Also from the reference:** the first value as a chip with "+N" for the rest (a comma list of five statuses truncates into something you cannot read either end of), no value control at all on an *is not empty* row, a per-row ⋮ with **Turn into a group** and Delete, and Clear all / Apply in a footer.
+- **Verified — UI:** the flyout is 620px, seeded "Started from All Open Requests"; the second row carries the And⇄Or toggle and flips to **Or**; ⋮ → Turn into a group wraps the row in a tinted block with its own *Where* and its own Add filter; Escape closes the popover and leaves the builder, a second Escape closes the builder.
+- **Verified — semantics, against the real module:** 8 cases all passing — AND narrows to `[INC-178]`, the same two rows under OR widen to `[INC-178, INC-170]`, `Open AND (Pending OR Open)` gives `[SR-180]`, `Pending OR (Open AND Open)` gives `[INC-178, SR-180]`, an empty group matches everything and an empty nested group is ignored. All four stored shapes resolve: legacy flat → 1 AND child, older OR-of-ANDs → 2 OR children, a real tree → itself.
+- **Not built:** Saved filters / Save new filter / Update from the reference's header — that is a naming-and-persistence feature rather than UI or AND/OR logic, which is what you scoped this to.
+
 ## Parked — needs discussion
 - Tour guide
 - AI capabilities

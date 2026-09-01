@@ -64,8 +64,34 @@ export interface ConditionGroup {
   rows: Condition[];
 }
 
+/* ── The filter TREE ─────────────────────────────────────────────────────────
+ *
+ * A node is a CONDITION or a GROUP, and a group carries ONE join for all of its children.
+ *
+ * ⚠️ One join per group, not one per row. A row-by-row And/Or list has no defined meaning — "A and
+ * B or C" needs a precedence nobody states — so the join belongs to the bracket rather than to the
+ * gap between two rows. It is set once, on the group's second row, and every row after it reads
+ * the same word: what you see down the left edge is what will actually be evaluated.
+ * ⚠️ Precedence comes from NESTING, which is the only unambiguous way to express it. A group inside
+ * a group is a bracket you can see, so "A and B and (C or D) and E" is a shape on the screen rather
+ * than a rule to remember.
+ * ⚠️ This REPLACES the earlier flat `groups` (AND inside, OR between), which could say exactly one
+ * of those shapes. That value is still read — see `activeTree` — so nothing built before this needs
+ * migrating. */
+export type FilterJoin = 'and' | 'or';
+
+export interface CondNode extends Condition { kind: 'cond' }
+export interface GroupNode { kind: 'group'; join: FilterJoin; children: FilterNode[] }
+export type FilterNode = CondNode | GroupNode;
+
+export const isGroup = (n: FilterNode): n is GroupNode => n.kind === 'group';
+export const condNode = (c: Condition): CondNode => ({ kind: 'cond', ...c });
+export const emptyGroup = (join: FilterJoin = 'and'): GroupNode => ({ kind: 'group', join, children: [] });
+
 export interface RecordFilter {
   preset?: string;
+  /** The condition tree — what the builder writes. */
+  tree?: GroupNode;
   /* ⚠️ LEGACY, still read. A filter stored before groups existed is a flat ANDed list, which is
      exactly one group — so nothing has to be migrated and an untouched Record List keeps filtering
      the way it did. Only the builder writes `groups`. */
@@ -364,14 +390,37 @@ export function describeCondition(c: Condition, label: string): string {
 export function summarise(filter: RecordFilter | undefined, moduleKey: string): string {
   const p = presetById(moduleKey, filter?.preset);
   if (p) return p.name;
-  const gs = activeGroups(filter, moduleKey);
-  const n = gs.reduce((t, g) => t + g.rows.length, 0);
+  const tree = activeTree(filter, moduleKey);
+  const n = treeConditions(tree).length;
   if (n === 0) return 'No filter — every record';
-  /* ⚠️ The GROUP count is named too, once there is more than one. "Custom · 4 conditions" reads as
-     four things that must all be true, which is the opposite of what two OR'd groups mean. */
+  /* ⚠️ The nested groups are counted too, once there are any. "Custom · 4 conditions" reads as four
+     things that must all be true, which is the opposite of what a bracket in the middle means. */
+  const nested = tree.children.filter(isGroup).length;
   const conds = `${n} condition${n === 1 ? '' : 's'}`;
-  return gs.length > 1 ? `Custom · ${conds} in ${gs.length} groups` : `Custom · ${conds}`;
+  return nested ? `Custom · ${conds} in ${nested + 1} groups` : `Custom · ${conds}`;
 }
+
+/** The tree in force, whichever of the FOUR shapes the filter is stored in.
+ *
+ * ⚠️ Every older shape is a tree too, so they are converted rather than special-cased downstream:
+ * a preset's conditions and a legacy flat list are both one AND group, and the flat `groups` value
+ * is an OR of AND groups. One reader means the renderer and the builder cannot disagree about what
+ * an old filter meant. */
+export const activeTree = (filter: RecordFilter | undefined, moduleKey: string): GroupNode => {
+  const preset = presetById(moduleKey, filter?.preset);
+  if (preset) return { kind: 'group', join: 'and', children: preset.conditions.map(condNode) };
+  if (filter?.tree) return filter.tree;
+  if (filter?.groups?.length) {
+    const gs = filter.groups.filter((g) => g.rows.length > 0);
+    if (gs.length === 1) return { kind: 'group', join: 'and', children: gs[0].rows.map(condNode) };
+    return {
+      kind: 'group',
+      join: 'or',
+      children: gs.map((g) => ({ kind: 'group', join: 'and', children: g.rows.map(condNode) } as GroupNode)),
+    };
+  }
+  return { kind: 'group', join: 'and', children: (filter?.conditions ?? []).map(condNode) };
+};
 
 /** Every group in force, whichever of the three shapes the filter is stored in. */
 export const activeGroups = (filter: RecordFilter | undefined, moduleKey: string): ConditionGroup[] => {
@@ -387,7 +436,7 @@ export const activeGroups = (filter: RecordFilter | undefined, moduleKey: string
  *  `activeGroups` instead. This is for the summary chips, which are already a lossy reading of the
  *  filter, and for callers that only ever knew about one group. */
 export const activeConditions = (filter: RecordFilter | undefined, moduleKey: string): Condition[] =>
-  activeGroups(filter, moduleKey).flatMap((g) => g.rows);
+  treeConditions(activeTree(filter, moduleKey));
 
 /* ── evaluating against the sample rows ─────────────────────────────────────
  *
@@ -397,6 +446,24 @@ export const activeConditions = (filter: RecordFilter | undefined, moduleKey: st
  * rather than emptying the card. Evaluating an absent field as "no match" would black out the
  * preview the moment anybody picked a realistic filter, which teaches an admin their filter is
  * broken when it is the preview that is thin. The widget's note says so in as many words. */
+/** Walks the tree. An empty group matches everything — "I have not narrowed this" and "I have
+ *  narrowed it to nothing" are different intentions and only one of them should empty the card. */
+export function matchesTree(
+  row: { id: string; title: string; status: string },
+  node: FilterNode,
+): boolean {
+  if (node.kind === 'cond') return matchesConditions(row, [node]);
+  const live = node.children.filter((c) => (c.kind === 'group' ? c.children.length > 0 : true));
+  if (!live.length) return true;
+  return node.join === 'and'
+    ? live.every((c) => matchesTree(row, c))
+    : live.some((c) => matchesTree(row, c));
+}
+
+/** Every condition in the tree, flattened — for the chips under the closed field. */
+export const treeConditions = (node: FilterNode): Condition[] =>
+  node.kind === 'cond' ? [node] : node.children.flatMap(treeConditions);
+
 /** OR across groups, AND within one. No groups matches everything. */
 export function matchesGroups(
   row: { id: string; title: string; status: string },

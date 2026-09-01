@@ -22,7 +22,7 @@ import { IconFrameBox } from './PortalIconFrame';
 import type { IconFrame } from './PortalIconFrame';
 import type { Cfg } from './portalWidgetSpec';
 import { PORTAL_APPROVALS, PORTAL_ARTICLES, PORTAL_OPEN_REQUESTS, recordModule, statusTone } from './supportPortalData';
-import { activeGroups, matchesGroups } from './portalRecordFilters';
+import { activeTree, matchesTree } from './portalRecordFilters';
 import type { RecordFilter } from './portalRecordFilters';
 
 type Item = Cfg & { id: string; hidden?: boolean };
@@ -1227,9 +1227,12 @@ function RecordListRender({ nodeId, cfg }: { nodeId: string; cfg: Cfg }) {
      mean "open OR mine" would have quietly been evaluated as "open AND mine" — a filter that reads
      one way in the builder and behaves another on the very canvas that is supposed to be showing
      it. `activeGroups` resolves a preset, a legacy flat list and real groups to the same shape. */
-  const groups = activeGroups(cfg.filter as RecordFilter | undefined, String(cfg.module ?? 'request'));
+  /* ⚠️ The TREE, so a nested bracket is evaluated as one. `activeTree` resolves a preset, a legacy
+     flat list, the older OR-of-ANDs and a real tree to the same shape, so the canvas can never read
+     an old filter differently from the builder that wrote it. */
+  const tree = activeTree(cfg.filter as RecordFilter | undefined, String(cfg.module ?? 'request'));
   const rows = mod.rows
-    .filter((x) => matchesGroups(x, groups))
+    .filter((x) => matchesTree(x, tree))
     .slice(0, Number(cfg.show ?? 3));
   const dark = typeof document !== 'undefined' && !!document.querySelector('.portal-dark');
   return (

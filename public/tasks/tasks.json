@@ -1,6 +1,6 @@
 {
   "stamp": "2026-09-01",
-  "builtAt": "2026-09-01T10:46:43.923Z",
+  "builtAt": "2026-09-01T11:01:53.397Z",
   "tasks": [
     {
       "n": 1,
@@ -962,6 +962,19 @@
         "What I built": "the stepper is a **breadcrumb** — the step behind you grey and pressable, the one you are on in the product's blue, a chevron between. The numbered circles and the tinted band are gone: the numbers answered a question nobody asks of a two-step dialog, and the band made the steps read as a toolbar belonging to the dialog rather than a position within it. Step 2 gains **section headings** over both halves, a larger from-scratch card, a 3-up grid at 960px, and a **← Back footer**.",
         "⚠️ Caught by measuring": "a blind `replace` on the width widened the **Edit-details** dialog instead of Create — the same class name appears in both and the first match won. Both are now set by line.",
         "Verified": "step 1 shows the crumb blue/600 with step 2 grey; after Save the pair flips. Step 2 renders \"Create your own portal\" and \"Start from a template\", 8 tiles at 150px art, the Default first with its badge, \"Classic Service Desk · IT Support\" as name-over-category, and the Back footer. Dialog measures 960px. No console errors."
+      }
+    },
+    {
+      "n": 65,
+      "title": "The custom filter, rebuilt to the advanced-filter reference",
+      "status": "done",
+      "fields": {
+        "Where": "`PortalConditionBuilder.tsx`, `portalRecordFilters.ts`, `PortalRecordFilter.tsx`, `PortalCollectionRender.tsx`",
+        "You asked": "the reference's UI, and its AND/OR logic, in the Record List's custom filter.",
+        "Also from the reference": "the first value as a chip with \"+N\" for the rest (a comma list of five statuses truncates into something you cannot read either end of), no value control at all on an *is not empty* row, a per-row ⋮ with **Turn into a group** and Delete, and Clear all / Apply in a footer.",
+        "Verified — UI": "the flyout is 620px, seeded \"Started from All Open Requests\"; the second row carries the And⇄Or toggle and flips to **Or**; ⋮ → Turn into a group wraps the row in a tinted block with its own *Where* and its own Add filter; Escape closes the popover and leaves the builder, a second Escape closes the builder.",
+        "Verified — semantics, against the real module": "8 cases all passing — AND narrows to `[INC-178]`, the same two rows under OR widen to `[INC-178, INC-170]`, `Open AND (Pending OR Open)` gives `[SR-180]`, `Pending OR (Open AND Open)` gives `[INC-178, SR-180]`, an empty group matches everything and an empty nested group is ignored. All four stored shapes resolve: legacy flat → 1 AND child, older OR-of-ANDs → 2 OR children, a real tree → itself.",
+        "Not built": "Saved filters / Save new filter / Update from the reference's header — that is a naming-and-persistence feature rather than UI or AND/OR logic, which is what you scoped this to."
       }
     }
   ],

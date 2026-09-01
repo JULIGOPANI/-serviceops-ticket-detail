@@ -24,9 +24,9 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronLeft, ChevronRight, ListFilter, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import {
   DATE_PRESETS, OPERATORS, PEOPLE, TAG_SUGGESTIONS, UNASSIGNED,
-  activeConditions, activeGroups, describeCondition, fieldByKey, fieldsFor, personAvatar, presetById, presetsFor, summarise,
+  activeConditions, activeTree, describeCondition, fieldByKey, fieldsFor, personAvatar, presetById, presetsFor, summarise,
 } from './portalRecordFilters';
-import type { Condition, ConditionGroup, FilterField, RecordFilter } from './portalRecordFilters';
+import type { Condition, FilterField, GroupNode, RecordFilter } from './portalRecordFilters';
 import { PortalConditionBuilder } from './PortalConditionBuilder';
 
 /** The hover card’s width, shared by the flip test and the card itself so the two cannot drift. */
@@ -541,15 +541,15 @@ export function RecordFilterField({ value, moduleKey, statuses, onChange }: {
           anchor={building}
           moduleKey={moduleKey}
           statuses={statuses}
-          seed={activeGroups(value, moduleKey)}
+          seed={activeTree(value, moduleKey)}
           seedFrom={chosen?.name}
           onClose={() => setBuilding(null)}
-          onApply={(groups) => {
+          onApply={(tree) => {
             /* ⚠️ The preset is DROPPED. The filter is now these conditions — keeping the name would
                leave the field claiming "All Open Requests" while the card obeys something the admin
                has since edited, and the two would never agree again. What the preset gave was the
                starting point, which is already in the groups. */
-            onChange({ groups });
+            onChange({ tree });
             setBuilding(null);
             setOpen(false);
           }}
