@@ -1,6 +1,6 @@
 {
   "stamp": "2026-08-25 12:11",
-  "builtAt": "2026-09-01T06:52:36.414Z",
+  "builtAt": "2026-09-01T07:12:39.104Z",
   "tasks": [
     {
       "n": 1,
@@ -883,6 +883,17 @@
         "You asked": "drop the one-liners under Publish and Save as draft.",
         "What I built": "two rows, two names, the tick holding its column so the labels line up. The sentences said what each does to the LIVE portal, which is the genuinely useful fact — but this is a two-item menu on a button somebody presses several times an hour, and by the third time they are furniture you read past to reach the words underneath. Menu narrowed 248 → 176px to fit what is left.",
         "Verified": "the menu reads exactly \"Publish | Save as draft\", 176px wide, two rows."
+      }
+    },
+    {
+      "n": 58,
+      "title": "The split CTA remembers what you picked",
+      "status": "done",
+      "fields": {
+        "Where": "`SupportPortalBuilder.tsx`",
+        "You asked": "choosing Save as draft leaves the button reading \"Publish\" — it should take the name.",
+        "What I built": "a `pubMode` the main half reads for both its LABEL and its ACTION, and the tick in the menu marks whichever is current, so the list always says what the big half is about to do.",
+        "Verified": "opens on \"Publish\" with Publish ticked. Choosing Save as draft → the face reads **Save as draft**, the toast fires, and reopening the menu shows the tick moved. Pressing the main half in that state saves a draft again (stays in the builder, same toast) rather than publishing. Choosing Publish from the menu returns to the listing with \"is live on the support portal\". No console errors."
       }
     }
   ],

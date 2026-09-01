@@ -192,6 +192,12 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onSave
   /* The split CTA's menu. Closed by default — the chevron is an admission that a second option
      exists, not an invitation to read it every time. */
   const [pubMenu, setPubMenu] = useState(false);
+  /* Which action the split button's main half is currently offering. Publish by default.
+     ⚠️ The memory only ever runs in the SAFE direction here. The default is the live one, so the
+     only thing remembering can do is leave the button on "Save as draft" — pressing it expecting to
+     publish then costs you a click, not a portal that went live before you meant it to. If the
+     default were ever flipped the other way this would have to go. */
+  const [pubMode, setPubMode] = useState<'publish' | 'draft'>('publish');
   /* The portal's own style system. It lives HERE rather than in the panel because the canvas has to
      paint with it — a theme panel that only changed itself would be a colour picker with no page. */
   const [theme, setTheme] = useState<PortalTheme>(DEFAULT_THEME);
@@ -1795,15 +1801,17 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onSave
               sees it, and two equally-weighted buttons would ask that question every single time.
               The main half does the thing you almost always want; the chevron admits there is
               another way without spending a second primary on it.
-              ⚠️ The main half NEVER changes what it does. A split button whose face swaps to your
-              last choice is the pattern that gets people to publish a portal they meant to keep
-              private — the one mistake here that cannot be taken back by pressing the button
-              again. Publish is always Publish. */}
+              ⚠️ The main half REMEMBERS the last thing you picked. This was built the other way
+              first — a face that never changed — on the reasoning that a swapping split button is
+              how somebody publishes a portal they meant to keep private. That reasoning does not
+              apply in this direction: the default is the LIVE action, so remembering can only ever
+              leave the button on the safer of the two. The failure it guards against would need the
+              default to be "Save as draft", and it is not. */}
           <div className="relative ml-1 inline-flex h-8">
             <button
-              onClick={onPublish}
+              onClick={() => (pubMode === 'draft' ? onSaveDraft?.() : onPublish())}
               className="inline-flex h-8 items-center rounded-l bg-[#1E293B] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#0F172A]"
-            >Publish</button>
+            >{pubMode === 'draft' ? 'Save as draft' : 'Publish'}</button>
             <button
               onClick={() => setPubMenu((v) => !v)}
               title="More save options"
@@ -1823,21 +1831,30 @@ export function SupportPortalBuilder({ page, accent, onRename, onPublish, onSave
                       somebody presses several times an hour, and by the third time the sentences are
                       furniture you read past to reach the words underneath. The two names are
                       unambiguous on their own. */}
-                  <button
-                    onClick={() => { setPubMenu(false); onPublish(); }}
-                    className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
-                  >
-                    <Check size={14} className="flex-shrink-0 text-[#3D8BD0]" />
-                    Publish
-                  </button>
-                  <button
-                    onClick={() => { setPubMenu(false); onSaveDraft?.(); }}
-                    className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
-                  >
-                    {/* Holds the tick's column so the two labels line up. */}
-                    <span className="size-[14px] flex-shrink-0" />
-                    Save as draft
-                  </button>
+                  {/* ⚠️ Picking a row DOES the thing and becomes the button's face, in one click.
+                      Selecting an action from a menu and then having to press the button beside it
+                      to make it happen is two gestures for one intention — and the row you just
+                      chose gives no sign it is waiting for a second one.
+                      ⚠️ The tick marks the CURRENT mode, so the menu always says what the big half
+                      is about to do. Without it the chevron reads as "the other option" and the
+                      button as something unrelated to the list under it. */}
+                  {([['publish', 'Publish'], ['draft', 'Save as draft']] as const).map(([m, label]) => (
+                    <button
+                      key={m}
+                      onClick={() => {
+                        setPubMenu(false);
+                        setPubMode(m);
+                        if (m === 'draft') onSaveDraft?.(); else onPublish();
+                      }}
+                      className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
+                    >
+                      {pubMode === m
+                        ? <Check size={14} className="flex-shrink-0 text-[#3D8BD0]" />
+                        /* Holds the tick's column so both labels line up whichever is active. */
+                        : <span className="size-[14px] flex-shrink-0" />}
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </>
             )}

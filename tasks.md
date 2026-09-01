@@ -802,6 +802,15 @@ Updated: 2026-08-25 12:11
 - **What I built:** two rows, two names, the tick holding its column so the labels line up. The sentences said what each does to the LIVE portal, which is the genuinely useful fact — but this is a two-item menu on a button somebody presses several times an hour, and by the third time they are furniture you read past to reach the words underneath. Menu narrowed 248 → 176px to fit what is left.
 - **Verified:** the menu reads exactly "Publish | Save as draft", 176px wide, two rows.
 
+## 58. The split CTA remembers what you picked
+- **Status:** done
+- **Where:** `SupportPortalBuilder.tsx`
+- **You asked:** choosing Save as draft leaves the button reading "Publish" — it should take the name.
+- **What I built:** a `pubMode` the main half reads for both its LABEL and its ACTION, and the tick in the menu marks whichever is current, so the list always says what the big half is about to do.
+- **⚠️ This reverses task 54, and the reversal is the right call.** That pass deliberately froze the face on "Publish", reasoning that a swapping split button is how somebody publishes a portal they meant to keep private. That reasoning does not apply in this direction: the default is the LIVE action, so remembering can only ever leave the button on the SAFER of the two — pressing it expecting to publish costs a click, not a portal that went live before you meant it to. The failure being guarded against would need the default to be "Save as draft", and it is not. Worth keeping in view if that default is ever flipped.
+- **⚠️ Picking a row does the thing AND becomes the face, in one click.** Selecting an action from a menu and then having to press the button beside it is two gestures for one intention, and the row you just chose gives no sign it is waiting for a second.
+- **Verified:** opens on "Publish" with Publish ticked. Choosing Save as draft → the face reads **Save as draft**, the toast fires, and reopening the menu shows the tick moved. Pressing the main half in that state saves a draft again (stays in the builder, same toast) rather than publishing. Choosing Publish from the menu returns to the listing with "is live on the support portal". No console errors.
+
 ## Parked — needs discussion
 - Tour guide
 - AI capabilities
