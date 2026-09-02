@@ -212,7 +212,15 @@ export const FILTER_FIELDS: Record<string, FilterField[]> = {
 
     { key: 'createdAt', label: 'Created Date', kind: 'date' },
     { key: 'updatedAt', label: 'Last Updated Date', kind: 'date' },
-    { key: 'dueBy', label: 'Due By', kind: 'date' },
+    /* ⚠️ OVERDUE, not a Due By date — and this is the product's own shape, not a preference.
+       The dashboard KPI builder's Request condition list (checked on the live product, 88 fields)
+       carries no "Due By" at all; it offers `Overdue` and `Request Due In`, because the question
+       anyone actually asks of a due date is whether it has passed. A raw date comparison also
+       ages badly on a portal card: "Due By is 12 Sep" is wrong the day after, where Overdue keeps
+       answering correctly forever.
+       ⚠️ It stays gated by the same setting the date was: `allowRequestDueBy` off means a requester
+       cannot see due dates, and a card filtered on Overdue would leak the one they cannot see. */
+    { key: 'overdue', label: 'Overdue', kind: 'choice', options: ['Yes', 'No'] },
     { key: 'resolvedAt', label: 'Resolved Date', kind: 'date' },
     { key: 'closedAt', label: 'Closed Date', kind: 'date' },
   ],
@@ -329,7 +337,7 @@ export const FILTER_PRESETS: Record<string, PresetFilter[]> = {
     { id: 'my-closed', name: 'My Closed Requests', conditions: [st('In', 'Closed')], scope: MINE },
     /* Two conditions, and the second is the one that matters: a request already resolved cannot be
        late, so overdue without it would keep listing work nobody has to do. */
-    { id: 'my-overdue', name: 'My Overdue Requests', conditions: [{ field: 'dueBy', op: 'Equals', values: ['Overdue'] }, st('Not In', 'Resolved', 'Closed')], scope: MINE },
+    { id: 'my-overdue', name: 'My Overdue Requests', conditions: [{ field: 'overdue', op: 'In', values: ['Yes'] }, st('Not In', 'Resolved', 'Closed')], scope: MINE },
     { id: 'my-high-priority', name: 'My High Priority Requests', conditions: [{ field: 'priority', op: 'In', values: ['Urgent', 'High'] }, st('Not In', 'Resolved', 'Closed')], scope: MINE },
   ],
   change: [
