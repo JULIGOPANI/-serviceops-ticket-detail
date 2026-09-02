@@ -327,9 +327,29 @@ export interface RecordModule {
   key: string;
   label: string;
   statuses: string[];
+  /* ⚠️ The Support Portal setting that has to be ON for a requester to reach this module at all —
+     the key of a toggle on the portal's own Settings screen. A card pointed at a module the portal
+     does not expose renders an empty box to every visitor, and the admin has no way to see why, so
+     the dropdown does not offer it. `request` has no gate: a portal that cannot show requests is
+     not a support portal. */
+  requires?: string;
+  /* ⚠️ Separate from `requires` because it is a different KIND of unavailable. A setting is the
+     admin's own choice and they can go and change it; a licence is not, so the two cannot share
+     one explanation. Tasks reach the portal only with Project Management licensed. */
+  licence?: string;
   rows: { id: string; title: string; status: string; meta: string }[];
 }
 
+/* ⚠️ SEVEN modules, and the four that are gone were removed on the same test rather than by taste:
+   the portal has no route to them, so a requester cannot open the record a row points at.
+   `support-portal-routes.js` in the product has no entry for Problems, Releases, Patches or
+   Vulnerabilities, and `support-portal-config/helpers.js` has no toggle for any of them either —
+   the product has never treated them as requester surfaces.
+   ⚠️ Patches and Vulnerabilities were the two worth being careful about. Portal pages can be
+   PUBLIC (knowledge, service catalog and announcements all carry `public: true`, and guests can
+   raise requests), so a filter named "Missing Critical Patches" or "Vulnerabilities Without a
+   Patch" is a ranked map of where the estate is exploitable, one drag away from a page that needs
+   no login. No configuration should be able to put it there. */
 export const RECORD_MODULES: RecordModule[] = [
   {
     key: 'request', label: 'Requests',
@@ -341,15 +361,7 @@ export const RECORD_MODULES: RecordModule[] = [
     ],
   },
   {
-    key: 'problem', label: 'Problems',
-    statuses: ['Open', 'Known Error', 'Under Investigation', 'Resolved', 'Closed'],
-    rows: [
-      { id: 'PRB-4412', title: 'Recurring VPN drops on the Pune link', status: 'Under Investigation', meta: 'Network' },
-      { id: 'PRB-4390', title: 'Outlook profile corruption after update', status: 'Known Error', meta: 'End user computing' },
-    ],
-  },
-  {
-    key: 'change', label: 'Changes',
+    key: 'change', label: 'Changes', requires: 'myChanges',
     statuses: ['Draft', 'Submitted', 'Approved', 'Scheduled', 'Implemented', 'Closed'],
     rows: [
       { id: 'CHG-2091', title: 'Core switch firmware upgrade', status: 'Scheduled', meta: 'Window 16 Aug, 02:00' },
@@ -357,15 +369,7 @@ export const RECORD_MODULES: RecordModule[] = [
     ],
   },
   {
-    key: 'release', label: 'Releases',
-    statuses: ['Planning', 'Build', 'Testing', 'Deployed', 'Closed'],
-    rows: [
-      { id: 'REL-118', title: 'ServiceOps 8.4 rollout', status: 'Testing', meta: 'Go-live 22 Aug' },
-      { id: 'REL-114', title: 'Payroll portal refresh', status: 'Deployed', meta: 'Finance' },
-    ],
-  },
-  {
-    key: 'asset', label: 'Assets',
+    key: 'asset', label: 'Assets', requires: 'myAssets',
     statuses: ['In Use', 'In Stock', 'In Repair', 'Retired'],
     rows: [
       { id: 'AST-3', title: 'Dell Latitude 5440', status: 'In Use', meta: 'Laptop' },
@@ -374,7 +378,7 @@ export const RECORD_MODULES: RecordModule[] = [
     ],
   },
   {
-    key: 'ci', label: 'Configuration Items',
+    key: 'ci', label: 'Configuration Items', requires: 'myCi',
     statuses: ['Operational', 'Degraded', 'Down', 'Retired'],
     rows: [
       { id: 'CI-104', title: 'app-prod-01', status: 'Operational', meta: 'Server' },
@@ -382,31 +386,27 @@ export const RECORD_MODULES: RecordModule[] = [
     ],
   },
   {
-    key: 'patch', label: 'Patches',
-    statuses: ['Missing', 'Installed', 'Ignored', 'Failed'],
-    rows: [
-      { id: 'PCH-4345', title: 'Cumulative update for Windows 11', status: 'Missing', meta: 'Critical' },
-      { id: 'PCH-4302', title: 'Chrome 128 security update', status: 'Installed', meta: 'Important' },
-    ],
-  },
-  {
-    key: 'vulnerability', label: 'Vulnerabilities',
-    statuses: ['Detected', 'Exploited', 'Patched', 'Accepted Risk'],
-    rows: [
-      { id: 'CVE-2024-30080', title: 'Windows MSMQ remote code execution', status: 'Exploited', meta: 'CVSS 9.8' },
-      { id: 'CVE-2024-30078', title: 'Wi-Fi driver remote code execution', status: 'Detected', meta: 'CVSS 8.8' },
-    ],
-  },
-  {
-    key: 'approval', label: 'Approvals',
+    key: 'approval', label: 'Approvals', requires: 'myApprovals',
     statuses: ['Pending', 'Approved', 'Rejected'],
     rows: [
       { id: 'AST-13', title: 'Approval required for DESKTOP-5JPPI6F', status: 'Pending', meta: 'Requested by Keya' },
       { id: 'SR-166', title: 'Adobe Creative Cloud licence', status: 'Approved', meta: 'Software' },
     ],
   },
+  /* ⚠️ The one module that is not "my records". A requester does not own an article, they read one,
+     which is why its presets are about what is most read and most recent rather than about scope,
+     and why its fields carry a view count no other module has. */
   {
-    key: 'task', label: 'Tasks',
+    key: 'knowledge', label: 'Knowledge', requires: 'accessKnowledge',
+    statuses: ['Published', 'Draft', 'Under Review', 'Retired'],
+    rows: [
+      { id: 'KB-4', title: 'How to Reset Your Password', status: 'Published', meta: '1,284 views' },
+      { id: 'KB-1', title: 'Connecting to Company VPN', status: 'Published', meta: '946 views' },
+      { id: 'KB-6', title: 'Reporting a Hardware Fault', status: 'Published', meta: '612 views' },
+    ],
+  },
+  {
+    key: 'task', label: 'Tasks', licence: 'Project Management',
     statuses: ['Open', 'In Progress', 'Completed', 'Cancelled'],
     rows: [
       { id: 'TA-2201', title: 'Collect the returned laptop', status: 'Open', meta: 'Due 18 Aug' },
@@ -471,7 +471,7 @@ export const PORTAL_ELEMENTS: PortalElement[] = [
      group-gated as predefined: one instance each, greyed with a tick once placed. This one is
      repeatable, which is exactly what it needs — two Record Lists filtered differently is a
      reasonable page, and the whole point is that the admin asks the question. */
-  { id: 'c-records', name: 'Record List', icon: 'records', group: 'Custom', keywords: 'list records requests assets cis filter module query data' },
+  { id: 'c-records', name: 'Custom Data Widget', icon: 'records', group: 'Custom', keywords: 'list records requests assets cis filter module query data' },
 
   // ── Actions — fixed destinations, the same for every requester ──
   /* ⚠️ The four action cards are BACK in the palette. Hiding them was the wrong answer to a real

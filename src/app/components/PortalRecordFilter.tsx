@@ -140,6 +140,19 @@ function ConditionEditor({ field, draft, onChange, onDone, onBack }: {
         />
       )}
 
+      {/* Same control as text, but typed as a number so the phone keypad and the browser's own
+          validation come for free — an operator of "Greater than" against "abc" is unanswerable. */}
+      {field.kind === 'number' && (
+        <input
+          type="number"
+          min={0}
+          value={draft.values[0] ?? ''}
+          onChange={(e) => onChange({ ...draft, values: e.target.value ? [e.target.value] : [] })}
+          placeholder={field.label}
+          className="h-8 w-full rounded border border-[#d1d5db] px-2.5 text-[12px] text-[#364658] placeholder:text-[#9CA3AF] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]"
+        />
+      )}
+
       {/* ⚠️ Dates are RADIOS, not checkboxes — "due today or tomorrow" is not a question this
           operator asks, and offering two ticks for a single Equals would promise it does. */}
       {field.kind === 'date' && (

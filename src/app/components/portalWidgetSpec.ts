@@ -12,6 +12,7 @@
 
 import type { TypeRole } from './portalPageModel';
 import { RECORD_MODULES } from './supportPortalData';
+import { moduleAvailability } from './portalRequesterAccess';
 import { COLLECTION_SPECS } from './portalCollectionSpecs';
 import { STRUCTURE_SPECS } from './portalStructureSpecs';
 import { PANEL_FOR_TYPE, PANEL_SPECS } from './portalPanelSpecs';
@@ -789,7 +790,7 @@ export const WIDGET_SPECS: WidgetSpec[] = [
    * the product's decision. Here the admin owns it, so the panel is the only place the widget can
    * learn what it is for. */
   {
-    id: 'record_list', name: 'Record List', group: 'Content', reuse: 'many', family: 'flat',
+    id: 'record_list', name: 'Custom Data Widget', group: 'Content', reuse: 'many', family: 'flat',
     fields: [
       /* ⚠️ The title is AUTHORED. Every fixed card's title is the product's word for a fixed query;
          this one lists whatever the admin asked for, so only they can name it. */
@@ -800,7 +801,15 @@ export const WIDGET_SPECS: WidgetSpec[] = [
          caption that WOULD have earned its place goes unread. */
       {
         key: 'module', label: 'Module', control: 'select', group: 'Content',
-        options: RECORD_MODULES.map((m) => ({ value: m.key, label: m.label })),
+        /* ⚠️ A FUNCTION, so the list is read at render rather than frozen at module load: turning
+           "Allow Requester To Access My Changes" off on the Settings screen has to take Changes out
+           of this dropdown in the same session, not on the next reload.
+           ⚠️ A module the portal does not expose is ABSENT, not disabled. A greyed row invites you
+           to wonder what it would have shown; and the card it would have made is an empty box on a
+           live page, which is the one outcome this control exists to prevent. */
+        options: () => RECORD_MODULES
+          .filter((m) => moduleAvailability(m).available)
+          .map((m) => ({ value: m.key, label: m.label })),
         /* ⚠️ Changing the module CLEARS the filter, and says so. Both halves of a filter are per
            module — "All Open Requests" is not a thing a Change has, and a Change's statuses are not
            words a Request knows — so a filter left behind matches nothing and the card comes back
@@ -825,7 +834,7 @@ export const WIDGET_SPECS: WidgetSpec[] = [
       tone: 'info',
       text: 'Shows sample rows here so you can see the shape, so a condition on a field the samples do not carry — a priority, an assignee, a date — is not applied in the builder. On the live portal it queries the module you chose and applies the whole filter, showing the same “No Data Found” state as My CIs when nothing matches.',
     }],
-    defaults: { title: 'My records', module: 'request', filter: { preset: 'all-open' }, show: 3 },
+    defaults: { title: 'My records', module: 'request', filter: { preset: 'all-mine' }, show: 3 },
   },
 
   /* ─────────── Video ───────────

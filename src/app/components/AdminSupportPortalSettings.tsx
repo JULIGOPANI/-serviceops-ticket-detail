@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { portalAccess, usePortalAccess } from './portalRequesterAccess';
 import { ChevronDown, Info, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -148,6 +149,13 @@ function Radio({ options, value, onChange }: { options: string[]; value: string;
   );
 }
 
+/* ⚠️ Seeded from GROUPS at module load, so the store holds EVERY switch rather than the handful
+   that gate modules. One switch ships off (Digital Signature), and a store that only knew about
+   the gates would have had to guess at the rest — `?? true` would have silently turned it on. */
+GROUPS.forEach((g) => g.rows.forEach((r) => {
+  if (r.kind === 'toggle') portalAccess.set(r.key, r.on ?? true);
+}));
+
 export function AdminSupportPortalSettings({ compact = false }: {
   /* ⚠️ Rendered inside the builder's 340px rail panel, not on a full admin page. Only the CHROME
      changes — the padding, and a toolbar that stacks instead of sitting on one line. The settings
@@ -159,11 +167,13 @@ export function AdminSupportPortalSettings({ compact = false }: {
      list that has to be remembered is the exceptions — and a section added later is open without
      anyone remembering to name it here. */
   const [shut, setShut] = useState<string[]>([]);
-  const [toggles, setToggles] = useState<Record<string, boolean>>(() => {
-    const t: Record<string, boolean> = {};
-    GROUPS.forEach((g) => g.rows.forEach((r) => { if (r.kind === 'toggle') t[r.key] = r.on ?? true; }));
-    return t;
-  });
+  /* ⚠️ These live in a module-scope store, not in this component. The Custom Data Widget's module
+     dropdown has to read the SAME switches — a portal that does not give requesters My Changes must
+     not offer Changes as a data source — and the two screens are never mounted together, so there
+     is no shared parent to lift them into. Local state here would mean the widget reads a copy that
+     silently disagrees with what the admin just set. */
+  const toggles = usePortalAccess();
+  const setToggle = (key: string, on: boolean) => portalAccess.set(key, on);
   const [values, setValues] = useState<Record<string, string>>(() => {
     const v: Record<string, string> = {};
     GROUPS.forEach((g) => g.rows.forEach((r) => { if (r.kind === 'radio' || r.kind === 'number') v[r.key] = r.value; }));
@@ -197,13 +207,13 @@ export function AdminSupportPortalSettings({ compact = false }: {
   const renderRow = (r: Row) => {
     /* A dependent row is REMOVED when its parent is off, not disabled — the same §2.2 rule the
        widget drawer follows. A greyed control invites you to wonder what it would have done. */
-    if (r.kind !== 'toggle' && r.needs && !toggles[r.needs]) return null;
+    if (r.kind !== 'toggle' && r.needs && !(toggles[r.needs] ?? true)) return null;
     if (r.kind === 'number' && r.when && !r.when(values)) return null;
 
     if (r.kind === 'toggle') {
       return (
         <div key={r.key} className="flex items-center gap-3 py-2.5">
-          <Toggle on={!!toggles[r.key]} onChange={(v) => setToggles((t) => ({ ...t, [r.key]: v }))} />
+          <Toggle on={toggles[r.key] ?? (r.on ?? true)} onChange={(v) => setToggle(r.key, v)} />
           <span className="text-[13px] text-[#364658]">{r.label}</span>
         </div>
       );

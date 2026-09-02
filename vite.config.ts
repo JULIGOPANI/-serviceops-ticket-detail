@@ -42,6 +42,13 @@ export default defineConfig(({ command }) => ({
   assetsInclude: ['**/*.svg', '**/*.csv'],
 
   server: {
+    /* Bound to every interface, and the tunnel domains trusted, so this dev server can be shared
+       over a reverse tunnel (ssh -R to localhost.run, or ngrok).
+       ⚠️ A LIST, not `true`. Vite rejects unknown Host headers to stop a malicious page in your
+          browser driving this server via DNS rebinding; `true` drops that guard for the whole
+          internet while the server is publicly reachable. Naming the tunnel wildcards keeps it. */
+    host: true,
+    allowedHosts: ['.lhr.life', '.localhost.run', '.ngrok-free.app', '.ngrok-free.dev', '.ngrok.io'],
     watch: {
       /* Dropping a file into the project root — a screenshot, a spec — kills the dev server:
        * the tool writing it holds a lock, Chokidar's watch() throws EBUSY on Windows, and the
