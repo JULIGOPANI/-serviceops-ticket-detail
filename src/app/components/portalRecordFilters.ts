@@ -152,14 +152,20 @@ export const TAG_SUGGESTIONS = ['vip', 'onboarding', 'hardware', 'network', 'sec
 
 /* ── the field catalogue ────────────────────────────────────────────────────
  *
- * ⚠️ These are REQUESTER-FACING fields, not the technician list's. Two rules cut the product's own
- * field list down to these:
- *   · A field that can only hold one value for this reader is not a filter. Every portal list is
- *     already scoped to the caller (`getMyRequestsApi` and friends; the product drops `requesterId`
- *     from the portal's own search params), so "Requester" on My Requests can only ever mean you.
- *     It stays on the modules where it genuinely varies and goes where it cannot.
- *   · Internal routing is not the requester's business — Source, and First Response Due By, are how
- *     the service desk runs itself rather than anything the reader acts on.
+ * ⚠️ EVERY list here is already the signed-in requester's own records — see SCOPE below. That is
+ * the rule that decides most of what is missing, because a field that can only hold one value for
+ * this reader is not a filter:
+ *   · Requester, User, Approver — all of them mean "you" on a portal. A dropdown whose every choice
+ *     returns the same rows is a control that cannot be used wrongly OR usefully.
+ *   · ID, Subject, Title, Name — these identify ONE record. A card filtered to a single ID is not a
+ *     list, it is a hardcoded row, and it stops being true the moment that record closes.
+ *   · Created By / Last Updated By — on your own records the first is you and the second is whoever
+ *     on the service desk touched it last, which changes under the reader without them acting.
+ *   · Subcategory and Tags — triage vocabulary. Tags especially are how technicians mark records for
+ *     each other, so a requester filtering on them is reading someone else's shorthand.
+ * What is left is what an admin would actually build a card around: the state of the work, how
+ * urgent it is, what it is about, where it sits, and when it happened.
+ *
  * ⚠️ Custom form fields are deliberately NOT here. The product builds its portal column list from
  *    fields flagged `useOnPortal`, so a tenant with sixty custom fields would get a sixty-item
  *    dropdown that looks different on every install. Worth adding later, as its own decision. */
@@ -187,8 +193,6 @@ const orgFields = (): FilterField[] => [
 
 export const FILTER_FIELDS: Record<string, FilterField[]> = {
   request: [
-    { key: 'id', label: 'Request ID', kind: 'text' },
-    { key: 'subject', label: 'Subject', kind: 'text' },
     { key: 'type', label: 'Request Type', kind: 'choice', options: ['Service Request', 'Incident'] },
     { key: 'status', label: 'Status', kind: 'choice' },
 
@@ -196,13 +200,12 @@ export const FILTER_FIELDS: Record<string, FilterField[]> = {
     { key: 'urgency', label: 'Urgency', kind: 'choice', options: ['Urgent', 'High', 'Medium', 'Low'] },
     { key: 'impact', label: 'Impact', kind: 'choice', options: ['On Multiple Users', 'On Business', 'On User'] },
     { key: 'category', label: 'Category', kind: 'choice', options: CATEGORIES },
-    { key: 'subcategory', label: 'Subcategory', kind: 'choice', options: ['Laptop', 'Desktop', 'Printer', 'VPN', 'Email', 'Licence'] },
 
-    { key: 'requester', label: 'Requester', kind: 'person' },
+    /* ⚠️ Technician STAYS where Requester goes, and the difference is not arbitrary: the requester
+       on your own request is always you, but the technician is whoever the desk assigned — a real
+       variable, and the product ships it as a portal column on Changes. */
     { key: 'assignee', label: 'Technician', kind: 'person' },
     { key: 'technicianGroup', label: 'Technician Group', kind: 'choice', options: ['Service Desk', 'Network', 'End User Computing', 'Application Support'] },
-    { key: 'createdBy', label: 'Created By', kind: 'person' },
-    { key: 'lastUpdatedBy', label: 'Last Updated By', kind: 'person' },
 
     ...orgFields(),
     { key: 'vendor', label: 'Vendor', kind: 'choice', options: ['Dell', 'HP', 'Lenovo', 'Microsoft', 'Cisco'] },
@@ -212,18 +215,13 @@ export const FILTER_FIELDS: Record<string, FilterField[]> = {
     { key: 'dueBy', label: 'Due By', kind: 'date' },
     { key: 'resolvedAt', label: 'Resolved Date', kind: 'date' },
     { key: 'closedAt', label: 'Closed Date', kind: 'date' },
-
-    { key: 'tags', label: 'Tags', kind: 'tags' },
   ],
   change: [
-    { key: 'id', label: 'Change ID', kind: 'text' },
-    { key: 'subject', label: 'Subject', kind: 'text' },
     { key: 'changeType', label: 'Change Type', kind: 'choice', options: ['Standard', 'Normal', 'Emergency'] },
 
     { key: 'status', label: 'Status', kind: 'choice' },
     { key: 'risk', label: 'Risk', kind: 'choice', options: ['High', 'Medium', 'Low'] },
 
-    { key: 'requester', label: 'Requester', kind: 'person' },
     { key: 'assignee', label: 'Technician', kind: 'person' },
     { key: 'technicianGroup', label: 'Technician Group', kind: 'choice', options: ['Service Desk', 'Network', 'End User Computing', 'Application Support'] },
 
@@ -237,14 +235,11 @@ export const FILTER_FIELDS: Record<string, FilterField[]> = {
     { key: 'actualEnd', label: 'Actual End Date', kind: 'date' },
   ],
   asset: [
-    { key: 'name', label: 'Asset Name', kind: 'text' },
-    { key: 'id', label: 'Asset ID', kind: 'text' },
     { key: 'assetType', label: 'Asset Type', kind: 'choice', options: ['Laptop', 'Desktop', 'Mobile', 'Monitor', 'Headset', 'Printer'] },
     { key: 'product', label: 'Product', kind: 'choice', options: ['Latitude 5440', 'UltraSharp U2723QE', 'MX Master 3S', 'Evolve2 65', 'iPhone 14'] },
 
     { key: 'status', label: 'Asset Status', kind: 'choice' },
 
-    { key: 'usedBy', label: 'User', kind: 'person' },
     ...orgFields(),
 
     { key: 'acquisitionDate', label: 'Acquisition Date', kind: 'date' },
@@ -252,35 +247,25 @@ export const FILTER_FIELDS: Record<string, FilterField[]> = {
     { key: 'createdAt', label: 'Created Date', kind: 'date' },
     { key: 'updatedAt', label: 'Last Updated Date', kind: 'date' },
 
+    /* ⚠️ Manufacturer and Model describe a CLASS of kit, not one asset — "every Dell laptop" is a
+       list, where "asset AST-3" is a single row. That is the line that keeps them and drops the ID. */
     { key: 'manufacturer', label: 'Manufacturer', kind: 'choice', options: ['Dell', 'HP', 'Lenovo', 'Apple', 'Logitech', 'Jabra'] },
     { key: 'model', label: 'Model', kind: 'text' },
   ],
   ci: [
-    { key: 'name', label: 'CI Name', kind: 'text' },
-    { key: 'id', label: 'CI ID', kind: 'text' },
     { key: 'ciType', label: 'CI Type', kind: 'choice', options: ['Server', 'Application', 'Switch', 'Windows Laptop', 'Mac Laptop', 'Mobile Device'] },
     { key: 'ciClass', label: 'CI Class', kind: 'choice', options: ['Hardware', 'Software', 'Network', 'Business Service'] },
 
     { key: 'status', label: 'Status', kind: 'choice' },
 
-    { key: 'usedBy', label: 'User', kind: 'person' },
     ...orgFields(),
-
-    { key: 'asset', label: 'Asset', kind: 'text' },
 
     { key: 'createdAt', label: 'Created Date', kind: 'date' },
     { key: 'updatedAt', label: 'Last Updated Date', kind: 'date' },
   ],
   approval: [
-    { key: 'id', label: 'Approval ID', kind: 'text' },
-    { key: 'itemId', label: 'Request / Item ID', kind: 'text' },
-    { key: 'subject', label: 'Subject', kind: 'text' },
-
     { key: 'status', label: 'Approval Status', kind: 'choice' },
     { key: 'approvalType', label: 'Approval Type', kind: 'choice', options: ['Everyone', 'Anyone', 'Sequential'] },
-    /* ⚠️ Approver STAYS, unlike Requester on My Requests. An approval reaches a requester as one of
-       several approvers on the same item, so this genuinely varies for the reader. */
-    { key: 'approver', label: 'Approver', kind: 'person' },
 
     /* ⚠️ The field that matters most on this module: one approvals queue mixes record types, so
        without it a card cannot say "purchase approvals only". */
@@ -293,12 +278,7 @@ export const FILTER_FIELDS: Record<string, FilterField[]> = {
     { key: 'updatedAt', label: 'Last Updated Date', kind: 'date' },
   ],
   knowledge: [
-    { key: 'id', label: 'Article ID', kind: 'text' },
-    { key: 'name', label: 'Title', kind: 'text' },
-    { key: 'summary', label: 'Summary', kind: 'text' },
     { key: 'category', label: 'Category', kind: 'choice', options: ['Guideline Documents', 'FAQs', 'How-to', 'Troubleshooting'] },
-    { key: 'subcategory', label: 'Subcategory', kind: 'choice', options: ['Account', 'Network', 'Hardware', 'Software'] },
-
     { key: 'knowledgeType', label: 'Knowledge Type', kind: 'choice', options: ['Article', 'FAQ', 'Known Error', 'Solution'] },
     { key: 'status', label: 'Status', kind: 'choice' },
     { key: 'visibility', label: 'Visibility', kind: 'choice', options: ['Public', 'Logged-in Requesters', 'Internal'] },
@@ -309,32 +289,31 @@ export const FILTER_FIELDS: Record<string, FilterField[]> = {
 
     { key: 'viewCount', label: 'View Count', kind: 'number' },
   ],
-  task: [
-    { key: 'id', label: 'Task ID', kind: 'text' },
-    { key: 'name', label: 'Task Name', kind: 'text' },
-    { key: 'project', label: 'Project', kind: 'choice', options: ['Office 365 Migration', 'Data Centre Move', 'Laptop Refresh 2026', 'On-boarding Automation'] },
-
-    { key: 'status', label: 'Status', kind: 'choice' },
-    { key: 'priority', label: 'Priority', kind: 'choice', options: PRIORITY },
-
-    { key: 'assignee', label: 'Assignee', kind: 'person' },
-
-    { key: 'startDate', label: 'Start Date', kind: 'date' },
-    { key: 'dueBy', label: 'Due Date', kind: 'date' },
-    { key: 'createdAt', label: 'Created Date', kind: 'date' },
-    { key: 'completedAt', label: 'Completed Date', kind: 'date' },
-  ],
 };
+
+/* ── scope ──────────────────────────────────────────────────────────────────
+ *
+ * ⚠️ THE filter that is always on, and the one an admin never sets. Every list this widget can draw
+ * is the signed-in requester's own — the portal's APIs are scoped that way before any of the
+ * conditions below are applied, and no preset here can widen it. It is stated rather than offered
+ * because a control for something that cannot change is worse than no control: it implies an "all
+ * requesters" setting exists somewhere, and someone will go looking for it.
+ *
+ * ⚠️ Knowledge is the exception, and has to be, because it is a published library rather than a
+ * set of records anyone owns. Saying "your articles" would be a plain lie about what the card
+ * shows, so the line changes with the module rather than being one sentence everywhere. */
+export const scopeNote = (moduleKey: string): string =>
+  (moduleKey === 'knowledge'
+    ? 'Shows knowledge published to this portal. Requesters see only the articles their access allows.'
+    : 'Always limited to the signed-in requester’s own records. Filters below narrow that further.');
 
 /* ── presets ────────────────────────────────────────────────────────────────
  *
- * ⚠️ Named for what the READER sees, and every one is scoped to the signed-in requester. The
- * portal's own list APIs are already scoped that way — which is why "All Requests" is not here: on
- * a portal there is no such thing, and offering it would promise a view the backend never returns.
+ * ⚠️ Named for what the READER sees, and every one of them sits inside the scope above. That is why
+ * there is no "All Requests": on a portal there is no such thing, and offering it would promise a
+ * view the backend never returns.
  * ⚠️ Wherever a preset CAN be expressed as a condition it is, rather than being a bare name with
- * nothing behind it — that is what makes choosing one visibly change the card on the canvas. The
- * scope half resolves against the caller at request time, so there is nothing for the builder to
- * evaluate and the preview shows the condition half. */
+ * nothing behind it — that is what makes choosing one visibly change the card on the canvas. */
 const st = (op: string, ...values: string[]): Condition => ({ field: 'status', op, values });
 
 /* Every portal list is the caller's own, so this sits on every preset rather than marking out a
@@ -377,11 +356,6 @@ export const FILTER_PRESETS: Record<string, PresetFilter[]> = {
     { id: 'most-read', name: 'Most Read Knowledge', conditions: [st('In', 'Published')] },
     { id: 'recently-published', name: 'Recently Published', conditions: [st('In', 'Published'), { field: 'publishedAt', op: 'Equals', values: ['This Month'] }] },
     { id: 'recently-updated', name: 'Recently Updated', conditions: [st('In', 'Published'), { field: 'updatedAt', op: 'Equals', values: ['This Month'] }] },
-  ],
-  task: [
-    { id: 'my-tasks', name: 'My Tasks', conditions: [], scope: MINE },
-    { id: 'my-open', name: 'My Open Tasks', conditions: [st('In', 'Open', 'In Progress')], scope: MINE },
-    { id: 'my-completed', name: 'My Completed Tasks', conditions: [st('In', 'Completed')], scope: MINE },
   ],
 };
 

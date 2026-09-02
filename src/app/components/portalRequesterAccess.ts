@@ -31,13 +31,6 @@ const state: Record<string, boolean> = {
   accessKnowledge: true,
 };
 
-/* ⚠️ Licensing is separate from settings and is NOT a toggle an admin can reach. Tasks arrive on
-   the portal only with Project Management licensed, so the dropdown has to be able to say "this is
-   not yours to switch on" — a different sentence from "you turned this off". */
-const licences: Record<string, boolean> = {
-  'Project Management': true,
-};
-
 const listeners = new Set<() => void>();
 
 /* A new object each write, because `useSyncExternalStore` compares snapshots by identity: mutating
@@ -58,8 +51,6 @@ export const portalAccess = {
   snapshot: () => snapshot,
 };
 
-export const hasLicence = (name?: string) => (name ? licences[name] ?? false : true);
-
 /** Re-renders the caller whenever any toggle changes. */
 export const usePortalAccess = () =>
   useSyncExternalStore(portalAccess.subscribe, portalAccess.snapshot, portalAccess.snapshot);
@@ -71,15 +62,7 @@ export type ModuleAvailability =
   | { available: true }
   | { available: false; reason: string; fixable: boolean };
 
-export function moduleAvailability(m: { label: string; requires?: string; licence?: string }): ModuleAvailability {
-  if (m.licence && !hasLicence(m.licence)) {
-    return {
-      available: false,
-      reason: `${m.label} needs the ${m.licence} licence.`,
-      /* Not fixable HERE: no switch on this portal turns a licence on. */
-      fixable: false,
-    };
-  }
+export function moduleAvailability(m: { label: string; requires?: string }): ModuleAvailability {
   if (m.requires && !portalAccess.get(m.requires)) {
     return {
       available: false,

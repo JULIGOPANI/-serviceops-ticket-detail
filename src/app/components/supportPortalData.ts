@@ -333,14 +333,10 @@ export interface RecordModule {
      the dropdown does not offer it. `request` has no gate: a portal that cannot show requests is
      not a support portal. */
   requires?: string;
-  /* ⚠️ Separate from `requires` because it is a different KIND of unavailable. A setting is the
-     admin's own choice and they can go and change it; a licence is not, so the two cannot share
-     one explanation. Tasks reach the portal only with Project Management licensed. */
-  licence?: string;
   rows: { id: string; title: string; status: string; meta: string }[];
 }
 
-/* ⚠️ SEVEN modules, and the four that are gone were removed on the same test rather than by taste:
+/* ⚠️ SIX modules, and the five that are gone were removed on the same test rather than by taste:
    the portal has no route to them, so a requester cannot open the record a row points at.
    `support-portal-routes.js` in the product has no entry for Problems, Releases, Patches or
    Vulnerabilities, and `support-portal-config/helpers.js` has no toggle for any of them either —
@@ -349,7 +345,10 @@ export interface RecordModule {
    PUBLIC (knowledge, service catalog and announcements all carry `public: true`, and guests can
    raise requests), so a filter named "Missing Critical Patches" or "Vulnerabilities Without a
    Patch" is a ranked map of where the estate is exploitable, one drag away from a page that needs
-   no login. No configuration should be able to put it there. */
+   no login. No configuration should be able to put it there.
+   ⚠️ Tasks went for a different reason: it reaches the portal only with Project Management
+   licensed, so on most tenants the dropdown would offer a module that returns nothing — and an
+   option that is always empty is worse than an absent one, because the admin blames the widget. */
 export const RECORD_MODULES: RecordModule[] = [
   {
     key: 'request', label: 'Requests',
@@ -403,14 +402,6 @@ export const RECORD_MODULES: RecordModule[] = [
       { id: 'KB-4', title: 'How to Reset Your Password', status: 'Published', meta: '1,284 views' },
       { id: 'KB-1', title: 'Connecting to Company VPN', status: 'Published', meta: '946 views' },
       { id: 'KB-6', title: 'Reporting a Hardware Fault', status: 'Published', meta: '612 views' },
-    ],
-  },
-  {
-    key: 'task', label: 'Tasks', licence: 'Project Management',
-    statuses: ['Open', 'In Progress', 'Completed', 'Cancelled'],
-    rows: [
-      { id: 'TA-2201', title: 'Collect the returned laptop', status: 'Open', meta: 'Due 18 Aug' },
-      { id: 'TA-2194', title: 'Revoke building access', status: 'Completed', meta: 'Facilities' },
     ],
   },
 ];

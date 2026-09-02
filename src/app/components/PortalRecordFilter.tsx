@@ -25,6 +25,7 @@ import { Check, ChevronLeft, ChevronRight, ListFilter, Plus, Search, SlidersHori
 import {
   DATE_PRESETS, OPERATORS, PEOPLE, TAG_SUGGESTIONS, UNASSIGNED,
   activeConditions, activeTree, describeCondition, fieldByKey, fieldsFor, personAvatar, presetById, presetsFor, summarise,
+  scopeNote,
 } from './portalRecordFilters';
 import type { Condition, FilterField, GroupNode, RecordFilter } from './portalRecordFilters';
 import { PortalConditionBuilder } from './PortalConditionBuilder';
@@ -368,7 +369,16 @@ export function RecordFilterField({ value, moduleKey, statuses, onChange }: {
               are. These are the module's own out-of-the-box filters — an admin should not have to
               work out from the names alone that they came with the product rather than from
               somebody's earlier session. */}
-          <p className="mt-2.5 px-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#9CA3AF]">
+          {/* ⚠️ THE filter that is always on, stated where the others are chosen. Every list this
+              widget draws is the signed-in requester's own — the portal scopes it before any of
+              these conditions run, and no preset below can widen it. It is a LINE, not a control,
+              because a control for something that cannot change implies an "all requesters"
+              setting exists somewhere and sends someone looking for it. */}
+          <div className="mt-2.5 rounded border border-[#DCE9F5] bg-[#F5FAFD] px-2.5 py-2">
+            <p className="text-[11px] leading-[1.5] text-[#5A7A96]">{scopeNote(moduleKey)}</p>
+          </div>
+
+          <p className="mt-3 px-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#9CA3AF]">
             Predefined filters
           </p>
           <div className="-mx-1 mt-1 flex-1 space-y-0.5 overflow-y-auto px-1">
