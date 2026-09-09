@@ -24,7 +24,7 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronLeft, ChevronRight, ListFilter, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import {
   DATE_PRESETS, OPERATORS, PEOPLE, TAG_SUGGESTIONS, UNASSIGNED,
-  activeConditions, activeTree, describeCondition, fieldByKey, fieldsFor, personAvatar, presetById, presetsFor, summarise,
+  activeConditions, activeTree, describeCondition, fieldByKey, personAvatar, pickableFields, presetById, presetsFor, summarise,
   scopeNote,
 } from './portalRecordFilters';
 import type { Condition, FilterField, GroupNode, RecordFilter } from './portalRecordFilters';
@@ -248,7 +248,7 @@ export function RecordFilterField({ value, moduleKey, statuses, onChange }: {
      field rather than beside the row that opened it. Null means closed. */
   const [building, setBuilding] = useState<DOMRect | null>(null);
 
-  const fields = fieldsFor(moduleKey, statuses);
+  const fields = pickableFields(moduleKey, statuses);
   const presets = presetsFor(moduleKey);
   const conds = value?.conditions ?? [];
   const chosen = presetById(moduleKey, value?.preset);

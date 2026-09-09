@@ -333,10 +333,14 @@ export interface RecordModule {
      the dropdown does not offer it. `request` has no gate: a portal that cannot show requests is
      not a support portal. */
   requires?: string;
+  /* ⚠️ A different KIND of unavailable from `requires`: a setting is the admin's own switch and
+     they can go and change it, a licence is not — so the dropdown has to be able to say "this is
+     not yours to turn on" rather than implying they missed a checkbox somewhere. */
+  licence?: string;
   rows: { id: string; title: string; status: string; meta: string }[];
 }
 
-/* ⚠️ SIX modules, and the five that are gone were removed on the same test rather than by taste:
+/* ⚠️ EIGHT modules, and the four that are gone were removed on the same test rather than by taste:
    the portal has no route to them, so a requester cannot open the record a row points at.
    `support-portal-routes.js` in the product has no entry for Problems, Releases, Patches or
    Vulnerabilities, and `support-portal-config/helpers.js` has no toggle for any of them either —
@@ -346,9 +350,7 @@ export interface RecordModule {
    raise requests), so a filter named "Missing Critical Patches" or "Vulnerabilities Without a
    Patch" is a ranked map of where the estate is exploitable, one drag away from a page that needs
    no login. No configuration should be able to put it there.
-   ⚠️ Tasks went for a different reason: it reaches the portal only with Project Management
-   licensed, so on most tenants the dropdown would offer a module that returns nothing — and an
-   option that is always empty is worse than an absent one, because the admin blames the widget. */
+   ⚠️ Tasks and Projects came BACK (9 Sep 2026), licence-gated rather than absent — see below. */
 export const RECORD_MODULES: RecordModule[] = [
   {
     key: 'request', label: 'Requests',
@@ -395,6 +397,29 @@ export const RECORD_MODULES: RecordModule[] = [
   /* ⚠️ The one module that is not "my records". A requester does not own an article, they read one,
      which is why its presets are about what is most read and most recent rather than about scope,
      and why its fields carry a view count no other module has. */
+  /* ⚠️ Tasks and Projects reach the portal ONLY with Project Management licensed — the product
+     gates its own `my-tasks` and `project` routes on `hasProjectRequesterLicense`. They are back
+     because the requester genuinely owns records in both (the product ships a requester project
+     list and a portal task list with their own filters), and hidden rather than empty on a tenant
+     without the licence, because an option that always returns nothing gets blamed on the widget. */
+  {
+    key: 'task', label: 'Tasks', licence: 'Project Management',
+    statuses: ['Open', 'In Progress', 'Completed', 'Cancelled'],
+    rows: [
+      { id: 'TA-2201', title: 'Collect the returned laptop', status: 'Open', meta: 'Due 18 Aug' },
+      { id: 'TA-2194', title: 'Sign off the migration checklist', status: 'In Progress', meta: 'Due 21 Aug' },
+      { id: 'TA-2188', title: 'Confirm your new desk phone works', status: 'Completed', meta: 'Facilities' },
+    ],
+  },
+  {
+    key: 'project', label: 'Projects', licence: 'Project Management',
+    statuses: ['Planning', 'In Progress', 'On Hold', 'Closed', 'Cancelled'],
+    rows: [
+      { id: 'PRJ-18', title: 'Office 365 migration', status: 'In Progress', meta: 'Due 30 Sep' },
+      { id: 'PRJ-12', title: 'Laptop refresh 2026', status: 'Planning', meta: 'Due 15 Nov' },
+      { id: 'PRJ-9', title: 'Meeting room AV upgrade', status: 'Closed', meta: 'Completed Jul' },
+    ],
+  },
   {
     key: 'knowledge', label: 'Knowledge', requires: 'accessKnowledge',
     statuses: ['Published', 'Draft', 'Under Review', 'Retired'],

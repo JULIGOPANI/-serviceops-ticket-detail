@@ -25,6 +25,13 @@ export interface FilterField {
   kind: FilterKind;
   /** `choice` only — the values on offer. */
   options?: string[];
+  /* ⚠️ False means the field still EXISTS — presets condition on it and the chips read its label —
+     but the admin is not offered it in the picker. That split is the only way to drop a dead
+     control without breaking the presets built on the same field: Knowledge Status is the case
+     this was written for, where a requester can only ever see Published, so the control cannot
+     change the result, yet every Knowledge preset says `Status In Published` and its chip has to
+     keep rendering the word rather than the raw key. */
+  pickable?: boolean;
 }
 
 export interface Condition {
@@ -224,78 +231,100 @@ export const FILTER_FIELDS: Record<string, FilterField[]> = {
     { key: 'resolvedAt', label: 'Resolved Date', kind: 'date' },
     { key: 'closedAt', label: 'Closed Date', kind: 'date' },
   ],
+  /* ⚠️ The date fields are the PRODUCT'S — `Schedule Start Date` / `Schedule End Date`, read off the
+     dashboard KPI builder's Change condition list on the live server. What was here before (Planned
+     Start/End, Actual Start/End) does not exist in ServiceOps at all; "Actual" dates are an
+     implementation record written after the fact, which is the change team's audit trail and not a
+     thing a requester filters their own changes by.
+     ⚠️ Technician and Technician Group went with them. A requester watching a change that affects
+     them wants to know its state, its risk and when the window is — not which engineer holds it. */
   change: [
     { key: 'changeType', label: 'Change Type', kind: 'choice', options: ['Standard', 'Normal', 'Emergency'] },
-
     { key: 'status', label: 'Status', kind: 'choice' },
+    /* The question a requester who raised a change actually asks. */
+    { key: 'approvalStatus', label: 'Approval Status', kind: 'choice', options: ['Pending', 'Approved', 'Rejected'] },
     { key: 'risk', label: 'Risk', kind: 'choice', options: ['High', 'Medium', 'Low'] },
 
-    { key: 'assignee', label: 'Technician', kind: 'person' },
-    { key: 'technicianGroup', label: 'Technician Group', kind: 'choice', options: ['Service Desk', 'Network', 'End User Computing', 'Application Support'] },
+    { key: 'scheduleStart', label: 'Schedule Start Date', kind: 'date' },
+    { key: 'scheduleEnd', label: 'Schedule End Date', kind: 'date' },
+    { key: 'createdAt', label: 'Created Date', kind: 'date' },
 
     ...orgFields(),
-
-    { key: 'createdAt', label: 'Created Date', kind: 'date' },
-    { key: 'updatedAt', label: 'Last Updated Date', kind: 'date' },
-    { key: 'plannedStart', label: 'Planned Start Date', kind: 'date' },
-    { key: 'plannedEnd', label: 'Planned End Date', kind: 'date' },
-    { key: 'actualStart', label: 'Actual Start Date', kind: 'date' },
-    { key: 'actualEnd', label: 'Actual End Date', kind: 'date' },
   ],
+  /* ⚠️ Cut against the product's OWN portal column set — `getAvailableColumnsForTable(module,
+     fields, isSupportPortal = true)` in the asset module, which is literally what a requester sees
+     on My Assets (and which drops `companyId` outright, the same call MSP_ENABLED makes above).
+     Product, Model and Manufacturer were ours, not the product's: it carries `name` (which already
+     reads "Dell Latitude 5440") and `asset_type`, so three overlapping ways to say the same thing
+     were three chances to filter on the one the data does not use.
+     ⚠️ Acquisition Date is procurement's record of a purchase, and Created / Last Updated are the
+     row's own bookkeeping — none of the three is a question the person holding the laptop asks. */
   asset: [
     { key: 'assetType', label: 'Asset Type', kind: 'choice', options: ['Laptop', 'Desktop', 'Mobile', 'Monitor', 'Headset', 'Printer'] },
-    { key: 'product', label: 'Product', kind: 'choice', options: ['Latitude 5440', 'UltraSharp U2723QE', 'MX Master 3S', 'Evolve2 65', 'iPhone 14'] },
-
     { key: 'status', label: 'Asset Status', kind: 'choice' },
+    /* The product's own name for it, and the one date on an asset a requester acts on. */
+    { key: 'warrantyExpiry', label: 'Warranty Expiration Date', kind: 'date' },
 
     ...orgFields(),
-
-    { key: 'acquisitionDate', label: 'Acquisition Date', kind: 'date' },
-    { key: 'warrantyExpiry', label: 'Warranty Expiry', kind: 'date' },
-    { key: 'createdAt', label: 'Created Date', kind: 'date' },
-    { key: 'updatedAt', label: 'Last Updated Date', kind: 'date' },
-
-    /* ⚠️ Manufacturer and Model describe a CLASS of kit, not one asset — "every Dell laptop" is a
-       list, where "asset AST-3" is a single row. That is the line that keeps them and drops the ID. */
-    { key: 'manufacturer', label: 'Manufacturer', kind: 'choice', options: ['Dell', 'HP', 'Lenovo', 'Apple', 'Logitech', 'Jabra'] },
-    { key: 'model', label: 'Model', kind: 'text' },
   ],
+  /* ⚠️ The thinnest list here, and deliberately. The KPI builder offers CMDB exactly three date
+     fields — No Time, Created Date, Last Updated Date — i.e. a CI has no date a requester cares
+     about, so both of ours went. CI Class was ours too; the product's grouping field is `ci_group`,
+     which is an internal taxonomy either way. What is left is the only question this card answers:
+     which of my systems are these, and are they up. */
   ci: [
     { key: 'ciType', label: 'CI Type', kind: 'choice', options: ['Server', 'Application', 'Switch', 'Windows Laptop', 'Mac Laptop', 'Mobile Device'] },
-    { key: 'ciClass', label: 'CI Class', kind: 'choice', options: ['Hardware', 'Software', 'Network', 'Business Service'] },
-
     { key: 'status', label: 'Status', kind: 'choice' },
 
     ...orgFields(),
-
-    { key: 'createdAt', label: 'Created Date', kind: 'date' },
-    { key: 'updatedAt', label: 'Last Updated Date', kind: 'date' },
   ],
+  /* ⚠️ Approval Type (Everyone / Anyone / Sequential) is how the workflow was CONFIGURED, not
+     anything the approver decides or reads; Request Type duplicates Module one level down; and
+     Approval Date / Last Updated Date describe rows that have already left the queue. */
   approval: [
     { key: 'status', label: 'Approval Status', kind: 'choice' },
-    { key: 'approvalType', label: 'Approval Type', kind: 'choice', options: ['Everyone', 'Anyone', 'Sequential'] },
-
-    /* ⚠️ The field that matters most on this module: one approvals queue mixes record types, so
-       without it a card cannot say "purchase approvals only". */
+    /* The field that matters most on this module: one queue mixes record types, so without it a
+       card cannot say "purchase approvals only". */
     { key: 'module', label: 'Module', kind: 'choice', options: ['Request', 'Change', 'Purchase', 'Contract'] },
-    { key: 'type', label: 'Request Type', kind: 'choice', options: ['Service Request', 'Incident'] },
     { key: 'priority', label: 'Priority', kind: 'choice', options: PRIORITY },
-
-    { key: 'createdAt', label: 'Created Date', kind: 'date' },
-    { key: 'approvalDate', label: 'Approval Date', kind: 'date' },
-    { key: 'updatedAt', label: 'Last Updated Date', kind: 'date' },
+    { key: 'createdAt', label: 'Requested On', kind: 'date' },
   ],
   knowledge: [
     { key: 'category', label: 'Category', kind: 'choice', options: ['Guideline Documents', 'FAQs', 'How-to', 'Troubleshooting'] },
     { key: 'knowledgeType', label: 'Knowledge Type', kind: 'choice', options: ['Article', 'FAQ', 'Known Error', 'Solution'] },
-    { key: 'status', label: 'Status', kind: 'choice' },
-    { key: 'visibility', label: 'Visibility', kind: 'choice', options: ['Public', 'Logged-in Requesters', 'Internal'] },
-
+    /* ⚠️ NOT pickable, but still declared. A requester can only ever be served a Published article,
+       so offering the control is offering one that cannot change the result — yet every preset here
+       conditions on this field, and without the entry their chips would read the raw key `status`
+       instead of the word. This is the case `pickable` exists for. */
+    { key: 'status', label: 'Status', kind: 'choice', pickable: false },
     { key: 'publishedAt', label: 'Published Date', kind: 'date' },
-    { key: 'createdAt', label: 'Created Date', kind: 'date' },
-    { key: 'updatedAt', label: 'Last Updated Date', kind: 'date' },
-
     { key: 'viewCount', label: 'View Count', kind: 'number' },
+  ],
+  /* ⚠️ Ten fields exist on the KPI builder's Task list; five of them are here. Task Id names one
+     row, and Assignee / Task Created By are the two the product ITSELF strips from the portal —
+     `task-list.vue` passes `exclude-search-params={['technicianId','groupId','createdById']}`, so
+     offering them here would contradict the screen this card links to. */
+  task: [
+    { key: 'status', label: 'Status', kind: 'choice' },
+    { key: 'priority', label: 'Priority', kind: 'choice', options: PRIORITY },
+    { key: 'taskType', label: 'Task Type', kind: 'choice', options: ['General', 'Onboarding', 'Change', 'Procurement'] },
+    { key: 'startDate', label: 'Start Date', kind: 'date' },
+    { key: 'dueBy', label: 'Due Date', kind: 'date' },
+  ],
+  /* ⚠️ The KPI builder offers 27 Project fields; the ones that went are the reason this pass
+     happened. Planning Start Date and Implementation Start Date are project-management internals —
+     the product's own requester project list carries them as columns, but a member of a project
+     does not filter by when its implementation phase opened. Project Owner, Source, Vendor and the
+     nine Task* fields are the same story one level along. */
+  project: [
+    { key: 'status', label: 'Status', kind: 'choice' },
+    { key: 'priority', label: 'Priority', kind: 'choice', options: PRIORITY },
+    { key: 'projectType', label: 'Project Type', kind: 'choice', options: ['Internal', 'Customer', 'Infrastructure', 'Compliance'] },
+    { key: 'startDate', label: 'Start Date', kind: 'date' },
+    /* The product's requester list calls this column "Due By" and sorts its whole "due in a month"
+       filter on it — same field, and the words a requester reads. */
+    { key: 'endDate', label: 'Due Date', kind: 'date' },
+    { key: 'location', label: 'Location', kind: 'choice', options: LOCATIONS },
   ],
 };
 
@@ -310,10 +339,24 @@ export const FILTER_FIELDS: Record<string, FilterField[]> = {
  * ⚠️ Knowledge is the exception, and has to be, because it is a published library rather than a
  * set of records anyone owns. Saying "your articles" would be a plain lie about what the card
  * shows, so the line changes with the module rather than being one sentence everywhere. */
-export const scopeNote = (moduleKey: string): string =>
-  (moduleKey === 'knowledge'
-    ? 'Shows knowledge published to this portal. Requesters see only the articles their access allows.'
-    : 'Always limited to the signed-in requester’s own records. Filters below narrow that further.');
+export const scopeNote = (moduleKey: string): string => {
+  /* ⚠️ Knowledge is a published library rather than records anyone owns, so "your articles" would
+     be a plain lie about what the card shows. */
+  if (moduleKey === 'knowledge') {
+    return 'Shows knowledge published to this portal. Requesters see only the articles their access allows.';
+  }
+  /* ⚠️ Tasks and Projects reach a requester through MEMBERSHIP, not ownership — the product scopes
+     its portal task list to tasks assigned to or raised by the caller, and its requester project
+     list to projects they are on. Saying "your own records" would promise a narrower list than the
+     card actually draws. */
+  if (moduleKey === 'task') {
+    return 'Always limited to tasks assigned to, or raised by, the signed-in requester.';
+  }
+  if (moduleKey === 'project') {
+    return 'Always limited to projects the signed-in requester is part of.';
+  }
+  return 'Always limited to the signed-in requester’s own records. Filters below narrow that further.';
+};
 
 /* ── presets ────────────────────────────────────────────────────────────────
  *
@@ -358,6 +401,26 @@ export const FILTER_PRESETS: Record<string, PresetFilter[]> = {
     { id: 'pending', name: 'Pending Approvals', conditions: [st('In', 'Pending')], scope: MINE },
     { id: 'completed', name: 'Completed Approvals', conditions: [st('In', 'Approved', 'Rejected')], scope: MINE },
   ],
+  /* ⚠️ Lifted from the product's own portal task list (`support-portal/views/task-list.vue`), which
+     offers all_open_tasks / task_reported_by_me / my_tasks / all_tasks. The two senses of "mine" are
+     real on a portal and are kept apart: a task ASSIGNED to you is work you owe, a task you RAISED
+     is work you are waiting on. Collapsing them would make one card answer neither question. */
+  task: [
+    { id: 'my-open', name: 'My Open Tasks', conditions: [st('Not In', 'Completed', 'Cancelled')], scope: 'Assigned to the signed-in requester' },
+    { id: 'raised-by-me', name: 'Tasks I Raised', conditions: [st('Not In', 'Completed', 'Cancelled')], scope: 'Raised by the signed-in requester' },
+    { id: 'completed', name: 'Completed Tasks', conditions: [st('In', 'Completed')], scope: MINE },
+    { id: 'all-mine', name: 'All My Tasks', conditions: [], scope: MINE },
+  ],
+  /* ⚠️ Lifted from `project/views/project-requester-list.vue` — the product's own requester project
+     list — including its "due in a month" filter, which is the one date question a project member
+     asks. "Open" there means `projectStatus not_in [closed, cancelled]`, so cancelled projects are
+     not open work, and this repeats that rather than inventing a status set. */
+  project: [
+    { id: 'my-open', name: 'My Open Projects', conditions: [st('Not In', 'Closed', 'Cancelled')], scope: MINE },
+    { id: 'due-this-month', name: 'Due This Month', conditions: [{ field: 'endDate', op: 'Equals', values: ['This Month'] }, st('Not In', 'Closed', 'Cancelled')], scope: MINE },
+    { id: 'completed', name: 'Completed Projects', conditions: [st('In', 'Closed')], scope: MINE },
+    { id: 'all-mine', name: 'All My Projects', conditions: [], scope: MINE },
+  ],
   /* ⚠️ No scope on any of these. Knowledge is the one module a requester reads rather than owns, so
      "mine" would be a lie — these are the whole published library, ordered three ways. */
   knowledge: [
@@ -378,6 +441,10 @@ export const fieldsFor = (moduleKey: string, statuses: string[]): FilterField[] 
 
 export const presetsFor = (moduleKey: string): PresetFilter[] =>
   FILTER_PRESETS[moduleKey] ?? FILTER_PRESETS.request;
+
+/** What the admin may CHOOSE — `fieldsFor` stays the full set, so labels always resolve. */
+export const pickableFields = (moduleKey: string, statuses: string[]): FilterField[] =>
+  fieldsFor(moduleKey, statuses).filter((f) => f.pickable !== false);
 
 export const fieldByKey = (moduleKey: string, key: string, statuses: string[]) =>
   fieldsFor(moduleKey, statuses).find((f) => f.key === key);

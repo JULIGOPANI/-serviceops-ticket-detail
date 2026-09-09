@@ -62,7 +62,19 @@ export type ModuleAvailability =
   | { available: true }
   | { available: false; reason: string; fixable: boolean };
 
-export function moduleAvailability(m: { label: string; requires?: string }): ModuleAvailability {
+/* ⚠️ Licensing is NOT a toggle an admin can reach, so it cannot share `requires`' explanation.
+   Flip this with the tenant's real entitlement; one constant, so a module cannot half-appear. */
+const LICENCES: Record<string, boolean> = { 'Project Management': true };
+
+export function moduleAvailability(m: { label: string; requires?: string; licence?: string }): ModuleAvailability {
+  if (m.licence && !(LICENCES[m.licence] ?? false)) {
+    return {
+      available: false,
+      reason: `${m.label} needs the ${m.licence} licence.`,
+      /* Not fixable HERE — no switch on this portal turns a licence on. */
+      fixable: false,
+    };
+  }
   if (m.requires && !portalAccess.get(m.requires)) {
     return {
       available: false,

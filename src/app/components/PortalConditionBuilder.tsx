@@ -26,7 +26,7 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronDown, MoreVertical, Plus, Repeat2, Search, X } from 'lucide-react';
 import {
   DATE_PRESETS, OPERATORS, PEOPLE, TAG_SUGGESTIONS, UNASSIGNED,
-  emptyGroup, fieldByKey, fieldsFor, isGroup, personAvatar,
+  emptyGroup, fieldByKey, isGroup, personAvatar, pickableFields,
 } from './portalRecordFilters';
 import type { Condition, FilterJoin, FilterNode, FilterField, GroupNode } from './portalRecordFilters';
 
@@ -296,7 +296,7 @@ export function PortalConditionBuilder({ anchor, moduleKey, statuses, seed, seed
   onApply: (tree: GroupNode) => void;
   onClose: () => void;
 }) {
-  const fields = fieldsFor(moduleKey, statuses);
+  const fields = pickableFields(moduleKey, statuses);
   /* ⚠️ A DRAFT, committed by Apply. Every other control in this panel writes live, but a filter is
      read as one statement — an admin part-way through "status is X **or** priority is Y" has, for a
      few seconds, said something they do not mean, and watching the card empty and refill under a
