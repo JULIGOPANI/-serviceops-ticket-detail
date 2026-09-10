@@ -358,12 +358,19 @@ export interface RecordModule {
    class of mistake, and these lists are its source of truth.
    ⚠️ Change statuses are STAGE-PREFIXED ("Review: In Progress"), which is the product's own shape
    for change lifecycle — a bare "In Progress" is not a change status at all. */
+/* ⚠️ Read off Admin -> Status on 10 Sep 2026, one screen per module, so these are the TENANT'S
+   configured statuses rather than anything remembered. That screen is also the proof that statuses
+   cannot be hard-coded in a shipping widget: this tenant has invented "hello" on Requests and
+   "Test" / "Test 3" on Changes, sitting in the same list as the out-of-the-box ones.
+   ⚠️ Which is why the PRESETS below lean on system fields — Priority, Urgency, Impact, Change Type,
+   Change Risk, Approval Status — and touch status only where the value is out-of-the-box and
+   therefore present on every install. A preset conditioned on "hello" would work here and nowhere
+   else; one conditioned on "Implemented" worked nowhere at all, which is what shipped last time. */
 export const RECORD_MODULES: RecordModule[] = [
   {
     key: 'request', label: 'Requests',
-    /* Read off the dashboard's "Open Requests By Status" legend, which plots every configured
-       status rather than only the ones currently in use. */
-    statuses: ['Open', 'In Progress', 'Pending', 'Resolved', 'Closed'],
+    /* OOB: Open, In Progress, Pending, Resolved, Closed. "hello" is this tenant's own. */
+    statuses: ['Open', 'In Progress', 'Pending', 'hello', 'Resolved', 'Closed'],
     rows: [
       { id: 'INC-178', title: 'Password reset required', status: 'Pending', meta: 'Raised 05 Aug 2026' },
       { id: 'INC-170', title: 'Laptop slow and lagging', status: 'In Progress', meta: 'Raised 04 Aug 2026' },
@@ -372,7 +379,9 @@ export const RECORD_MODULES: RecordModule[] = [
   },
   {
     key: 'change', label: 'Changes', requires: 'myChanges',
-    statuses: ['Submitted: Requested', 'Planning: In Progress', 'Approval: Pending', 'Implementation: In Progress', 'Review: In Progress'],
+    /* ⚠️ STAGE-prefixed, and the sub-statuses are the most heavily customised in the product —
+       this tenant alone has added "Test" and "Test 3". No Change preset conditions on any of them. */
+    statuses: ['Submitted: Requested', 'Submitted: Accepted', 'Submitted: Rejected', 'Planning: In Progress', 'Approval: Pending', 'Implementation: In Progress', 'Review: In Progress'],
     rows: [
       { id: 'CHG-2091', title: 'Core switch firmware upgrade', status: 'Implementation: In Progress', meta: 'Window 16 Aug, 02:00' },
       { id: 'CHG-2088', title: 'Exchange mailbox quota increase', status: 'Approval: Pending', meta: 'Standard' },
@@ -380,7 +389,7 @@ export const RECORD_MODULES: RecordModule[] = [
   },
   {
     key: 'asset', label: 'Assets', requires: 'myAssets',
-    statuses: ['In Use', 'In Stock'],
+    statuses: ['In Stock', 'In Use', 'Missing', 'In Repair', 'Retired', 'Disposed', 'Expired', 'Decommission'],
     rows: [
       { id: 'AST-3', title: 'Dell Latitude 5440', status: 'In Use', meta: 'Laptop' },
       { id: 'AST-12', title: 'Jabra Evolve2 65', status: 'In Use', meta: 'Headset' },
@@ -389,16 +398,15 @@ export const RECORD_MODULES: RecordModule[] = [
   },
   {
     key: 'ci', label: 'Configuration Items', requires: 'myCi',
-    statuses: ['Operational'],
+    statuses: ['Operational', 'Non-Operational', 'In Maintenance', 'Retired'],
     rows: [
       { id: 'CI-104', title: 'app-prod-01', status: 'Operational', meta: 'Server' },
-      { id: 'CI-121', title: 'core-switch-b', status: 'Operational', meta: 'Switch' },
+      { id: 'CI-121', title: 'core-switch-b', status: 'In Maintenance', meta: 'Switch' },
     ],
   },
   {
     key: 'approval', label: 'Approvals', requires: 'myApprovals',
-    /* The portal's My Approvals tabs ARE its statuses — Pending / Approved / Rejected / Ignored /
-       Referred Back — so the tab strip is the authoritative list. */
+    /* The portal's My Approvals tab strip IS this list. */
     statuses: ['Pending', 'Approved', 'Rejected', 'Ignored', 'Referred Back'],
     rows: [
       { id: 'AST-13', title: 'Approval required for DESKTOP-5JPPI6F', status: 'Pending', meta: 'Requested by Keya' },
@@ -407,11 +415,11 @@ export const RECORD_MODULES: RecordModule[] = [
   },
   {
     key: 'task', label: 'Tasks', licence: 'Project Management',
-    statuses: ['Open'],
+    statuses: ['Open', 'In Progress', 'Pending', 'Rejected', 'Resolved', 'Closed'],
     rows: [
       { id: 'TA-166', title: 'new', status: 'Open', meta: 'PBM-36 · Implementation' },
       { id: 'TA-92', title: 'Project management', status: 'Open', meta: 'PRJ-4 · Milestone' },
-      { id: 'TA-90', title: 'Work log feature', status: 'Open', meta: 'Implementation' },
+      { id: 'TA-90', title: 'Work log feature', status: 'In Progress', meta: 'Implementation' },
     ],
   },
   {
@@ -424,8 +432,7 @@ export const RECORD_MODULES: RecordModule[] = [
   },
   {
     key: 'knowledge', label: 'Knowledge', requires: 'accessKnowledge',
-    /* ⚠️ The portal's Knowledge list has NO status column, so there is no status to verify and none
-       is declared. A requester is only ever served published articles anyway. */
+    /* The portal's Knowledge list has no status column, so there is none to declare. */
     statuses: [],
     rows: [
       { id: 'KB-4', title: 'How to Reset Your Password', status: '', meta: 'Guideline Documents' },
