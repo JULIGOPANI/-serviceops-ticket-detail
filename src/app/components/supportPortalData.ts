@@ -351,10 +351,19 @@ export interface RecordModule {
    Patch" is a ranked map of where the estate is exploitable, one drag away from a page that needs
    no login. No configuration should be able to put it there.
    ⚠️ Tasks and Projects came BACK (9 Sep 2026), licence-gated rather than absent — see below. */
+/* ⚠️ EVERY status string below was READ OFF THE LIVE PORTAL on 10 Sep 2026, not written from
+   memory. That matters because the previous version invented them: Changes shipped with
+   "Implemented", a status ServiceOps does not have, and a preset filtering on it — so the card
+   silently matched nothing and nothing in the build complained. `auditPresets` now fails on that
+   class of mistake, and these lists are its source of truth.
+   ⚠️ Change statuses are STAGE-PREFIXED ("Review: In Progress"), which is the product's own shape
+   for change lifecycle — a bare "In Progress" is not a change status at all. */
 export const RECORD_MODULES: RecordModule[] = [
   {
     key: 'request', label: 'Requests',
-    statuses: ['Open', 'In Progress', 'Pending', 'On Hold', 'Resolved', 'Closed'],
+    /* Read off the dashboard's "Open Requests By Status" legend, which plots every configured
+       status rather than only the ones currently in use. */
+    statuses: ['Open', 'In Progress', 'Pending', 'Resolved', 'Closed'],
     rows: [
       { id: 'INC-178', title: 'Password reset required', status: 'Pending', meta: 'Raised 05 Aug 2026' },
       { id: 'INC-170', title: 'Laptop slow and lagging', status: 'In Progress', meta: 'Raised 04 Aug 2026' },
@@ -363,15 +372,15 @@ export const RECORD_MODULES: RecordModule[] = [
   },
   {
     key: 'change', label: 'Changes', requires: 'myChanges',
-    statuses: ['Draft', 'Submitted', 'Approved', 'Scheduled', 'Implemented', 'Closed'],
+    statuses: ['Submitted: Requested', 'Planning: In Progress', 'Approval: Pending', 'Implementation: In Progress', 'Review: In Progress'],
     rows: [
-      { id: 'CHG-2091', title: 'Core switch firmware upgrade', status: 'Scheduled', meta: 'Window 16 Aug, 02:00' },
-      { id: 'CHG-2088', title: 'Exchange mailbox quota increase', status: 'Approved', meta: 'Standard' },
+      { id: 'CHG-2091', title: 'Core switch firmware upgrade', status: 'Implementation: In Progress', meta: 'Window 16 Aug, 02:00' },
+      { id: 'CHG-2088', title: 'Exchange mailbox quota increase', status: 'Approval: Pending', meta: 'Standard' },
     ],
   },
   {
     key: 'asset', label: 'Assets', requires: 'myAssets',
-    statuses: ['In Use', 'In Stock', 'In Repair', 'Retired'],
+    statuses: ['In Use', 'In Stock'],
     rows: [
       { id: 'AST-3', title: 'Dell Latitude 5440', status: 'In Use', meta: 'Laptop' },
       { id: 'AST-12', title: 'Jabra Evolve2 65', status: 'In Use', meta: 'Headset' },
@@ -380,53 +389,48 @@ export const RECORD_MODULES: RecordModule[] = [
   },
   {
     key: 'ci', label: 'Configuration Items', requires: 'myCi',
-    statuses: ['Operational', 'Degraded', 'Down', 'Retired'],
+    statuses: ['Operational'],
     rows: [
       { id: 'CI-104', title: 'app-prod-01', status: 'Operational', meta: 'Server' },
-      { id: 'CI-121', title: 'core-switch-b', status: 'Degraded', meta: 'Switch' },
+      { id: 'CI-121', title: 'core-switch-b', status: 'Operational', meta: 'Switch' },
     ],
   },
   {
     key: 'approval', label: 'Approvals', requires: 'myApprovals',
-    statuses: ['Pending', 'Approved', 'Rejected'],
+    /* The portal's My Approvals tabs ARE its statuses — Pending / Approved / Rejected / Ignored /
+       Referred Back — so the tab strip is the authoritative list. */
+    statuses: ['Pending', 'Approved', 'Rejected', 'Ignored', 'Referred Back'],
     rows: [
       { id: 'AST-13', title: 'Approval required for DESKTOP-5JPPI6F', status: 'Pending', meta: 'Requested by Keya' },
       { id: 'SR-166', title: 'Adobe Creative Cloud licence', status: 'Approved', meta: 'Software' },
     ],
   },
-  /* ⚠️ The one module that is not "my records". A requester does not own an article, they read one,
-     which is why its presets are about what is most read and most recent rather than about scope,
-     and why its fields carry a view count no other module has. */
-  /* ⚠️ Tasks and Projects reach the portal ONLY with Project Management licensed — the product
-     gates its own `my-tasks` and `project` routes on `hasProjectRequesterLicense`. They are back
-     because the requester genuinely owns records in both (the product ships a requester project
-     list and a portal task list with their own filters), and hidden rather than empty on a tenant
-     without the licence, because an option that always returns nothing gets blamed on the widget. */
   {
     key: 'task', label: 'Tasks', licence: 'Project Management',
-    statuses: ['Open', 'In Progress', 'Completed', 'Cancelled'],
+    statuses: ['Open'],
     rows: [
-      { id: 'TA-2201', title: 'Collect the returned laptop', status: 'Open', meta: 'Due 18 Aug' },
-      { id: 'TA-2194', title: 'Sign off the migration checklist', status: 'In Progress', meta: 'Due 21 Aug' },
-      { id: 'TA-2188', title: 'Confirm your new desk phone works', status: 'Completed', meta: 'Facilities' },
+      { id: 'TA-166', title: 'new', status: 'Open', meta: 'PBM-36 · Implementation' },
+      { id: 'TA-92', title: 'Project management', status: 'Open', meta: 'PRJ-4 · Milestone' },
+      { id: 'TA-90', title: 'Work log feature', status: 'Open', meta: 'Implementation' },
     ],
   },
   {
     key: 'project', label: 'Projects', licence: 'Project Management',
-    statuses: ['Planning', 'In Progress', 'On Hold', 'Closed', 'Cancelled'],
+    statuses: ['Open', 'Implementation'],
     rows: [
-      { id: 'PRJ-18', title: 'Office 365 migration', status: 'In Progress', meta: 'Due 30 Sep' },
-      { id: 'PRJ-12', title: 'Laptop refresh 2026', status: 'Planning', meta: 'Due 15 Nov' },
-      { id: 'PRJ-9', title: 'Meeting room AV upgrade', status: 'Closed', meta: 'Completed Jul' },
+      { id: 'PRJ-4', title: 'Office 365 migration', status: 'Implementation', meta: 'Due 30 Sep' },
+      { id: 'PRJ-12', title: 'Laptop refresh 2026', status: 'Open', meta: 'Due 15 Nov' },
     ],
   },
   {
     key: 'knowledge', label: 'Knowledge', requires: 'accessKnowledge',
-    statuses: ['Published', 'Draft', 'Under Review', 'Retired'],
+    /* ⚠️ The portal's Knowledge list has NO status column, so there is no status to verify and none
+       is declared. A requester is only ever served published articles anyway. */
+    statuses: [],
     rows: [
-      { id: 'KB-4', title: 'How to Reset Your Password', status: 'Published', meta: '1,284 views' },
-      { id: 'KB-1', title: 'Connecting to Company VPN', status: 'Published', meta: '946 views' },
-      { id: 'KB-6', title: 'Reporting a Hardware Fault', status: 'Published', meta: '612 views' },
+      { id: 'KB-4', title: 'How to Reset Your Password', status: '', meta: 'Guideline Documents' },
+      { id: 'KB-1', title: 'Connecting to Company VPN', status: '', meta: 'FAQs' },
+      { id: 'KB-6', title: 'Reporting a Hardware Fault', status: '', meta: 'Guideline Documents' },
     ],
   },
 ];

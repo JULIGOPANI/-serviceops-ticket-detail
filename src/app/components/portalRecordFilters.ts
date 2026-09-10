@@ -199,6 +199,9 @@ const orgFields = (): FilterField[] => [
 ];
 
 export const FILTER_FIELDS: Record<string, FilterField[]> = {
+  /* ⚠️ Requests is unchanged — you said this list was right, and everything in it appears in the
+     portal's own search (ID, Approval Status, Vendor, Due By, Type, Tags, Location, Created Date,
+     Last Updated Date, Request Template, Department, Service) or its column set. */
   request: [
     { key: 'type', label: 'Request Type', kind: 'choice', options: ['Service Request', 'Incident'] },
     { key: 'status', label: 'Status', kind: 'choice' },
@@ -208,9 +211,6 @@ export const FILTER_FIELDS: Record<string, FilterField[]> = {
     { key: 'impact', label: 'Impact', kind: 'choice', options: ['On Multiple Users', 'On Business', 'On User'] },
     { key: 'category', label: 'Category', kind: 'choice', options: CATEGORIES },
 
-    /* ⚠️ Technician STAYS where Requester goes, and the difference is not arbitrary: the requester
-       on your own request is always you, but the technician is whoever the desk assigned — a real
-       variable, and the product ships it as a portal column on Changes. */
     { key: 'assignee', label: 'Technician', kind: 'person' },
     { key: 'technicianGroup', label: 'Technician Group', kind: 'choice', options: ['Service Desk', 'Network', 'End User Computing', 'Application Support'] },
 
@@ -219,112 +219,78 @@ export const FILTER_FIELDS: Record<string, FilterField[]> = {
 
     { key: 'createdAt', label: 'Created Date', kind: 'date' },
     { key: 'updatedAt', label: 'Last Updated Date', kind: 'date' },
-    /* ⚠️ OVERDUE, not a Due By date — and this is the product's own shape, not a preference.
-       The dashboard KPI builder's Request condition list (checked on the live product, 88 fields)
-       carries no "Due By" at all; it offers `Overdue` and `Request Due In`, because the question
-       anyone actually asks of a due date is whether it has passed. A raw date comparison also
-       ages badly on a portal card: "Due By is 12 Sep" is wrong the day after, where Overdue keeps
-       answering correctly forever.
-       ⚠️ It stays gated by the same setting the date was: `allowRequestDueBy` off means a requester
-       cannot see due dates, and a card filtered on Overdue would leak the one they cannot see. */
     { key: 'overdue', label: 'Overdue', kind: 'choice', options: ['Yes', 'No'] },
     { key: 'resolvedAt', label: 'Resolved Date', kind: 'date' },
     { key: 'closedAt', label: 'Closed Date', kind: 'date' },
   ],
-  /* ⚠️ The date fields are the PRODUCT'S — `Schedule Start Date` / `Schedule End Date`, read off the
-     dashboard KPI builder's Change condition list on the live server. What was here before (Planned
-     Start/End, Actual Start/End) does not exist in ServiceOps at all; "Actual" dates are an
-     implementation record written after the fact, which is the change team's audit trail and not a
-     thing a requester filters their own changes by.
-     ⚠️ Technician and Technician Group went with them. A requester watching a change that affects
-     them wants to know its state, its risk and when the window is — not which engineer holds it. */
+  /* ⚠️ This IS the portal's My Changes column set, minus Subject — Created Date, Assigned to,
+     Status, Priority, Change Type, Change Risk, Approval Status. Read off the live page.
+     ⚠️ Schedule Start / Schedule End are GONE even though the KPI builder offers them: the portal's
+     change list does not carry them, and a filter on a date the requester's own screen never shows
+     is a filter they cannot check the result of. Assigned to came BACK for the same reason — the
+     portal ships it as a column, so removing it was me overriding the product. */
   change: [
-    { key: 'changeType', label: 'Change Type', kind: 'choice', options: ['Standard', 'Normal', 'Emergency'] },
     { key: 'status', label: 'Status', kind: 'choice' },
-    /* The question a requester who raised a change actually asks. */
+    { key: 'priority', label: 'Priority', kind: 'choice', options: PRIORITY },
+    { key: 'changeType', label: 'Change Type', kind: 'choice', options: ['Standard', 'Normal', 'Emergency'] },
+    { key: 'risk', label: 'Change Risk', kind: 'choice', options: ['High', 'Medium', 'Low'] },
     { key: 'approvalStatus', label: 'Approval Status', kind: 'choice', options: ['Pending', 'Approved', 'Rejected'] },
-    { key: 'risk', label: 'Risk', kind: 'choice', options: ['High', 'Medium', 'Low'] },
-
-    { key: 'scheduleStart', label: 'Schedule Start Date', kind: 'date' },
-    { key: 'scheduleEnd', label: 'Schedule End Date', kind: 'date' },
+    { key: 'assignee', label: 'Assigned to', kind: 'person' },
     { key: 'createdAt', label: 'Created Date', kind: 'date' },
-
-    ...orgFields(),
   ],
-  /* ⚠️ Cut against the product's OWN portal column set — `getAvailableColumnsForTable(module,
-     fields, isSupportPortal = true)` in the asset module, which is literally what a requester sees
-     on My Assets (and which drops `companyId` outright, the same call MSP_ENABLED makes above).
-     Product, Model and Manufacturer were ours, not the product's: it carries `name` (which already
-     reads "Dell Latitude 5440") and `asset_type`, so three overlapping ways to say the same thing
-     were three chances to filter on the one the data does not use.
-     ⚠️ Acquisition Date is procurement's record of a purchase, and Created / Last Updated are the
-     row's own bookkeeping — none of the three is a question the person holding the laptop asks. */
+  /* ⚠️ The portal's My Assets columns are Name, Asset Type, Status, Host Name, IP Address,
+     Barcode / QR Code, Created Date. Host name and IP are machine facts a requester does not filter
+     on, and Barcode is a switch, so what is left is these three plus the one asset date the KPI
+     builder recognises. Product, Model, Manufacturer and Acquisition Date appear NOWHERE on the
+     requester's own asset screen. */
   asset: [
     { key: 'assetType', label: 'Asset Type', kind: 'choice', options: ['Laptop', 'Desktop', 'Mobile', 'Monitor', 'Headset', 'Printer'] },
-    { key: 'status', label: 'Asset Status', kind: 'choice' },
-    /* The product's own name for it, and the one date on an asset a requester acts on. */
+    { key: 'status', label: 'Status', kind: 'choice' },
     { key: 'warrantyExpiry', label: 'Warranty Expiration Date', kind: 'date' },
-
-    ...orgFields(),
+    { key: 'createdAt', label: 'Created Date', kind: 'date' },
   ],
-  /* ⚠️ The thinnest list here, and deliberately. The KPI builder offers CMDB exactly three date
-     fields — No Time, Created Date, Last Updated Date — i.e. a CI has no date a requester cares
-     about, so both of ours went. CI Class was ours too; the product's grouping field is `ci_group`,
-     which is an internal taxonomy either way. What is left is the only question this card answers:
-     which of my systems are these, and are they up. */
+  /* Portal My CIs columns: ID, Name, CI Type, Status, Host Name, IP Address, Created Date. */
   ci: [
     { key: 'ciType', label: 'CI Type', kind: 'choice', options: ['Server', 'Application', 'Switch', 'Windows Laptop', 'Mac Laptop', 'Mobile Device'] },
     { key: 'status', label: 'Status', kind: 'choice' },
-
-    ...orgFields(),
+    { key: 'createdAt', label: 'Created Date', kind: 'date' },
   ],
-  /* ⚠️ Approval Type (Everyone / Anyone / Sequential) is how the workflow was CONFIGURED, not
-     anything the approver decides or reads; Request Type duplicates Module one level down; and
-     Approval Date / Last Updated Date describe rows that have already left the queue. */
+  /* Portal My Approvals columns: Name, Type, Requested By, Subject, Status, Created Date.
+     ⚠️ "Type" is the product's word for which module the approval belongs to — the previous list
+     called the same thing "Module", which is our word, not theirs. */
   approval: [
-    { key: 'status', label: 'Approval Status', kind: 'choice' },
-    /* The field that matters most on this module: one queue mixes record types, so without it a
-       card cannot say "purchase approvals only". */
-    { key: 'module', label: 'Module', kind: 'choice', options: ['Request', 'Change', 'Purchase', 'Contract'] },
-    { key: 'priority', label: 'Priority', kind: 'choice', options: PRIORITY },
-    { key: 'createdAt', label: 'Requested On', kind: 'date' },
+    { key: 'status', label: 'Status', kind: 'choice' },
+    { key: 'module', label: 'Type', kind: 'choice', options: ['Request', 'Change', 'Purchase', 'Contract'] },
+    { key: 'requestedBy', label: 'Requested By', kind: 'person' },
+    { key: 'createdAt', label: 'Created Date', kind: 'date' },
   ],
-  knowledge: [
-    { key: 'category', label: 'Category', kind: 'choice', options: ['Guideline Documents', 'FAQs', 'How-to', 'Troubleshooting'] },
-    { key: 'knowledgeType', label: 'Knowledge Type', kind: 'choice', options: ['Article', 'FAQ', 'Known Error', 'Solution'] },
-    /* ⚠️ NOT pickable, but still declared. A requester can only ever be served a Published article,
-       so offering the control is offering one that cannot change the result — yet every preset here
-       conditions on this field, and without the entry their chips would read the raw key `status`
-       instead of the word. This is the case `pickable` exists for. */
-    { key: 'status', label: 'Status', kind: 'choice', pickable: false },
-    { key: 'publishedAt', label: 'Published Date', kind: 'date' },
-    { key: 'viewCount', label: 'View Count', kind: 'number' },
-  ],
-  /* ⚠️ Ten fields exist on the KPI builder's Task list; five of them are here. Task Id names one
-     row, and Assignee / Task Created By are the two the product ITSELF strips from the portal —
-     `task-list.vue` passes `exclude-search-params={['technicianId','groupId','createdById']}`, so
-     offering them here would contradict the screen this card links to. */
+  /* ⚠️ Straight from the portal's My Tasks search field list — ID, Reference, Subject, Status,
+     Priority, Start Date, End Date, Task Type, Attachment, Assignee, User Group. These five are the
+     ones that describe the WORK rather than the row or the person. */
   task: [
     { key: 'status', label: 'Status', kind: 'choice' },
     { key: 'priority', label: 'Priority', kind: 'choice', options: PRIORITY },
-    { key: 'taskType', label: 'Task Type', kind: 'choice', options: ['General', 'Onboarding', 'Change', 'Procurement'] },
+    { key: 'taskType', label: 'Task Type', kind: 'choice', options: ['Implementation', 'Milestone'] },
     { key: 'startDate', label: 'Start Date', kind: 'date' },
-    { key: 'dueBy', label: 'Due Date', kind: 'date' },
+    { key: 'endDate', label: 'End Date', kind: 'date' },
   ],
-  /* ⚠️ The KPI builder offers 27 Project fields; the ones that went are the reason this pass
-     happened. Planning Start Date and Implementation Start Date are project-management internals —
-     the product's own requester project list carries them as columns, but a member of a project
-     does not filter by when its implementation phase opened. Project Owner, Source, Vendor and the
-     nine Task* fields are the same story one level along. */
+  /* Portal Projects columns: Name, Status, Priority, Owner, Project Start Date, Project End Date,
+     Due By, Tasks, Milestones, Completion (%). Owner is an identity, Tasks/Milestones/Completion
+     are progress readouts rather than things you filter by, and Project End Date and Due By are the
+     same question twice — the product's own list header calls the one that matters "Due By". */
   project: [
     { key: 'status', label: 'Status', kind: 'choice' },
     { key: 'priority', label: 'Priority', kind: 'choice', options: PRIORITY },
-    { key: 'projectType', label: 'Project Type', kind: 'choice', options: ['Internal', 'Customer', 'Infrastructure', 'Compliance'] },
-    { key: 'startDate', label: 'Start Date', kind: 'date' },
-    /* The product's requester list calls this column "Due By" and sorts its whole "due in a month"
-       filter on it — same field, and the words a requester reads. */
-    { key: 'endDate', label: 'Due Date', kind: 'date' },
-    { key: 'location', label: 'Location', kind: 'choice', options: LOCATIONS },
+    { key: 'startDate', label: 'Project Start Date', kind: 'date' },
+    { key: 'dueBy', label: 'Due By', kind: 'date' },
+  ],
+  /* ⚠️ The portal's Knowledge list carries only ID, Subject and Created Date, and no status at all.
+     Category survives because the portal SHOWS it — the home page tags every article
+     ("Guideline Documents", "FAQs") — and it is the one axis a reader browses by. Knowledge Type,
+     Visibility, Published Date and View Count were all mine; none appears on a requester's screen. */
+  knowledge: [
+    { key: 'category', label: 'Category', kind: 'choice', options: ['Guideline Documents', 'FAQs'] },
+    { key: 'createdAt', label: 'Created Date', kind: 'date' },
   ],
 };
 
@@ -372,63 +338,114 @@ const st = (op: string, ...values: string[]): Condition => ({ field: 'status', o
 const MINE = 'The signed-in requester';
 
 export const FILTER_PRESETS: Record<string, PresetFilter[]> = {
+  /* ⚠️ Read off the portal's own filter dropdown, names included. There is no "My Overdue" and no
+     "My High Priority" — those were mine, and a preset the product does not ship is a preset whose
+     "View all" lands somewhere that cannot reproduce it. */
   request: [
-    { id: 'all-mine', name: 'All My Requests', conditions: [], scope: MINE },
-    { id: 'my-open', name: 'My Open Requests', conditions: [st('In', 'Open', 'In Progress', 'On Hold')], scope: MINE },
-    { id: 'my-pending', name: 'My Pending Requests', conditions: [st('In', 'Pending')], scope: MINE },
-    { id: 'my-resolved', name: 'My Resolved Requests', conditions: [st('In', 'Resolved')], scope: MINE },
-    { id: 'my-closed', name: 'My Closed Requests', conditions: [st('In', 'Closed')], scope: MINE },
-    /* Two conditions, and the second is the one that matters: a request already resolved cannot be
-       late, so overdue without it would keep listing work nobody has to do. */
-    { id: 'my-overdue', name: 'My Overdue Requests', conditions: [{ field: 'overdue', op: 'In', values: ['Yes'] }, st('Not In', 'Resolved', 'Closed')], scope: MINE },
-    { id: 'my-high-priority', name: 'My High Priority Requests', conditions: [{ field: 'priority', op: 'In', values: ['Urgent', 'High'] }, st('Not In', 'Resolved', 'Closed')], scope: MINE },
+    { id: 'all', name: 'All Requests', conditions: [], scope: MINE },
+    { id: 'open-inprogress', name: 'All Open and In Progress Requests', conditions: [st('In', 'Open', 'In Progress')], scope: MINE },
+    { id: 'pending', name: 'All Pending Requests', conditions: [st('In', 'Pending')], scope: MINE },
+    { id: 'resolved-closed', name: 'All Resolved and Closed Requests', conditions: [st('In', 'Resolved', 'Closed')], scope: MINE },
   ],
+  /* ⚠️ ONE preset, and that is the finding rather than an omission: the portal's My Changes page
+     has no filter control at all. Every status-based Change preset that used to sit here was
+     invented, and one of them filtered on a status this product does not have. */
   change: [
-    { id: 'my-changes', name: 'My Changes', conditions: [], scope: MINE },
-    { id: 'my-active', name: 'My Active Changes', conditions: [st('Not In', 'Implemented', 'Closed')], scope: MINE },
-    { id: 'my-completed', name: 'My Completed Changes', conditions: [st('In', 'Implemented', 'Closed')], scope: MINE },
+    { id: 'all', name: 'My Changes', conditions: [], scope: MINE },
   ],
   asset: [
-    { id: 'my-assets', name: 'My Assets', conditions: [], scope: MINE },
-    { id: 'my-active', name: 'My Active Assets', conditions: [st('In', 'In Use')], scope: MINE },
+    { id: 'all', name: 'My Assets', conditions: [], scope: MINE },
+    { id: 'in-use', name: 'Assets In Use', conditions: [st('In', 'In Use')], scope: MINE },
   ],
   ci: [
-    { id: 'my-cis', name: 'My CIs', conditions: [], scope: MINE },
-    { id: 'my-active', name: 'My Active CIs', conditions: [st('In', 'Operational')], scope: MINE },
+    { id: 'all', name: 'My CIs', conditions: [], scope: MINE },
+    { id: 'operational', name: 'Operational CIs', conditions: [st('In', 'Operational')], scope: MINE },
   ],
+  /* The portal's My Approvals TABS are its statuses, so each tab is a preset and every value here
+     came off that strip. */
   approval: [
-    { id: 'my-approvals', name: 'My Approvals', conditions: [], scope: MINE },
-    { id: 'pending', name: 'Pending Approvals', conditions: [st('In', 'Pending')], scope: MINE },
-    { id: 'completed', name: 'Completed Approvals', conditions: [st('In', 'Approved', 'Rejected')], scope: MINE },
+    { id: 'pending', name: 'Pending', conditions: [st('In', 'Pending')], scope: MINE },
+    { id: 'approved', name: 'Approved', conditions: [st('In', 'Approved')], scope: MINE },
+    { id: 'rejected', name: 'Rejected', conditions: [st('In', 'Rejected')], scope: MINE },
+    { id: 'ignored', name: 'Ignored', conditions: [st('In', 'Ignored')], scope: MINE },
+    { id: 'referred-back', name: 'Referred Back', conditions: [st('In', 'Referred Back')], scope: MINE },
+    { id: 'all', name: 'All My Approvals', conditions: [], scope: MINE },
   ],
-  /* ⚠️ Lifted from the product's own portal task list (`support-portal/views/task-list.vue`), which
-     offers all_open_tasks / task_reported_by_me / my_tasks / all_tasks. The two senses of "mine" are
-     real on a portal and are kept apart: a task ASSIGNED to you is work you owe, a task you RAISED
-     is work you are waiting on. Collapsing them would make one card answer neither question. */
+  /* ⚠️ The portal's My Tasks dropdown, verbatim — including "Task Reported By Me", which is the
+     product's own filter on that page and not something invented here. */
   task: [
-    { id: 'my-open', name: 'My Open Tasks', conditions: [st('Not In', 'Completed', 'Cancelled')], scope: 'Assigned to the signed-in requester' },
-    { id: 'raised-by-me', name: 'Tasks I Raised', conditions: [st('Not In', 'Completed', 'Cancelled')], scope: 'Raised by the signed-in requester' },
-    { id: 'completed', name: 'Completed Tasks', conditions: [st('In', 'Completed')], scope: MINE },
-    { id: 'all-mine', name: 'All My Tasks', conditions: [], scope: MINE },
+    { id: 'all-open', name: 'All Open Tasks', conditions: [st('In', 'Open')], scope: MINE },
+    { id: 'reported-by-me', name: 'Task Reported By Me', conditions: [], scope: 'Raised by the signed-in requester' },
+    { id: 'my-tasks', name: 'My Tasks', conditions: [], scope: 'Assigned to the signed-in requester' },
+    { id: 'all', name: 'All Tasks', conditions: [], scope: MINE },
   ],
-  /* ⚠️ Lifted from `project/views/project-requester-list.vue` — the product's own requester project
-     list — including its "due in a month" filter, which is the one date question a project member
-     asks. "Open" there means `projectStatus not_in [closed, cancelled]`, so cancelled projects are
-     not open work, and this repeats that rather than inventing a status set. */
+  /* The portal's Projects dropdown, verbatim. ⚠️ Only the date one carries a condition: "open" and
+     "completed" are project statuses this tenant has not exposed, and a condition on a value that
+     may not exist is exactly the bug this pass is fixing. */
   project: [
-    { id: 'my-open', name: 'My Open Projects', conditions: [st('Not In', 'Closed', 'Cancelled')], scope: MINE },
-    { id: 'due-this-month', name: 'Due This Month', conditions: [{ field: 'endDate', op: 'Equals', values: ['This Month'] }, st('Not In', 'Closed', 'Cancelled')], scope: MINE },
-    { id: 'completed', name: 'Completed Projects', conditions: [st('In', 'Closed')], scope: MINE },
-    { id: 'all-mine', name: 'All My Projects', conditions: [], scope: MINE },
+    { id: 'all-open', name: 'All Open Projects', conditions: [], scope: MINE },
+    { id: 'my-open', name: 'My Open Projects', conditions: [], scope: MINE },
+    { id: 'due-this-month', name: 'Project Due in This Month', conditions: [{ field: 'dueBy', op: 'Equals', values: ['This Month'] }], scope: MINE },
+    { id: 'completed', name: 'All Completed Projects', conditions: [], scope: MINE },
+    { id: 'all', name: 'All Projects', conditions: [], scope: MINE },
   ],
-  /* ⚠️ No scope on any of these. Knowledge is the one module a requester reads rather than owns, so
-     "mine" would be a lie — these are the whole published library, ordered three ways. */
+  /* ⚠️ Names only. The portal's Knowledge list ships no filter control and no status column, so
+     there is nothing here to condition on without inventing it. */
   knowledge: [
-    { id: 'most-read', name: 'Most Read Knowledge', conditions: [st('In', 'Published')] },
-    { id: 'recently-published', name: 'Recently Published', conditions: [st('In', 'Published'), { field: 'publishedAt', op: 'Equals', values: ['This Month'] }] },
-    { id: 'recently-updated', name: 'Recently Updated', conditions: [st('In', 'Published'), { field: 'updatedAt', op: 'Equals', values: ['This Month'] }] },
+    { id: 'most-read', name: 'Most Read Knowledge', conditions: [] },
+    { id: 'recent', name: 'Recently Added', conditions: [{ field: 'createdAt', op: 'Equals', values: ['This Month'] }] },
+    { id: 'all', name: 'All Knowledge', conditions: [] },
   ],
 };
+
+/* ── self-audit ─────────────────────────────────────────────────────────────
+ *
+ * ⚠️ Nothing in this file fails when a preset names a field the module does not carry, or a VALUE
+ * that field does not offer. `labelOf` falls back to the raw key, so the chip still renders; the
+ * condition simply never matches and the card comes back empty for a reason nobody can see. That
+ * is precisely how a Change preset shipped filtering on "Implemented" — a status ServiceOps does
+ * not have — and survived review, a build and a deploy.
+ *
+ * ⚠️ Date fields are exempt on purpose: their values are PRESETS ("Overdue", "This Month") rather
+ * than a fixed option list, so there is nothing to check them against here. */
+export function auditPresets(statusesFor: (moduleKey: string) => string[]): string[] {
+  const problems: string[] = [];
+  Object.entries(FILTER_PRESETS).forEach(([mod, presets]) => {
+    const statuses = statusesFor(mod);
+    const fields = fieldsFor(mod, statuses);
+    presets.forEach((preset) => {
+      preset.conditions.forEach((c) => {
+        const f = fields.find((x) => x.key === c.field);
+        if (!f) {
+          problems.push(`${mod} / ${preset.id}: no field "${c.field}"`);
+          return;
+        }
+        const allowed = f.key === 'status' ? statuses : f.options;
+        if (!allowed) return;
+        c.values
+          .filter((v) => !allowed.includes(v))
+          .forEach((v) => problems.push(`${mod} / ${preset.id}: "${f.label}" has no value "${v}"`));
+      });
+    });
+  });
+  return problems;
+}
+
+/* ⚠️ RUN, not merely exported. An audit nobody calls is a comment. This fires once at module load
+   in dev and prints every broken preset; the previous "Implemented" bug would have been three lines
+   of console error the first time anyone opened the builder, instead of shipping. */
+if (import.meta.env?.DEV) {
+  /* Imported lazily so this file keeps its one-way dependency: supportPortalData does not import
+     back, and a static import here would make the pair circular at module-init time. */
+  import('./supportPortalData').then(({ RECORD_MODULES }) => {
+    const statusesFor = (m: string) => RECORD_MODULES.find((x) => x.key === m)?.statuses ?? [];
+    const problems = auditPresets(statusesFor);
+    if (problems.length) {
+      // eslint-disable-next-line no-console
+      console.error('[portal] preset/field mismatches:\n  ' + problems.join('\n  '));
+    }
+  });
+}
 
 /* ── lookups ────────────────────────────────────────────────────────────────
  *
