@@ -1,7 +1,7 @@
 import {
   AlertOctagon, BadgeCheck, Bell, BookOpen, Bot, Boxes, Building2, CalendarClock, ChevronRight,
   CircleDot, ClipboardList, Clock, Code, Cog, Database, FileSignature, FileText, Fingerprint,
-  FolderKanban, FolderTree, GitBranch, GitCompare, Globe, Inbox, KeyRound, Layers, LayoutTemplate,
+  FolderKanban, FolderTree, GitBranch, GitCompare, Globe, Headset, Inbox, KeyRound, Layers, LayoutTemplate,
   Lightbulb, ListChecks, Lock, Mail, MapPin, Megaphone, MessageSquareQuote, MessagesSquare,
   MonitorDown, MonitorSmartphone, MonitorUp, Network, Package, Palette, Plug, Radar, Radio, RefreshCcw,
   Rocket, Router, Scale, ScanLine, Settings2, Shapes, ShieldAlert, ShieldCheck, ShoppingCart,
@@ -17,7 +17,7 @@ import type { LucideIcon } from 'lucide-react';
 const ICONS: Record<string, LucideIcon> = {
   AlertOctagon, BadgeCheck, Bell, BookOpen, Bot, Boxes, Building2, CalendarClock, ChevronRight,
   CircleDot, ClipboardList, Clock, Code, Cog, Database, FileSignature, FileText, Fingerprint,
-  FolderKanban, FolderTree, GitBranch, GitCompare, Globe, Inbox, KeyRound, Layers, LayoutTemplate,
+  FolderKanban, FolderTree, GitBranch, GitCompare, Globe, Headset, Inbox, KeyRound, Layers, LayoutTemplate,
   Lightbulb, ListChecks, Lock, Mail, MapPin, Megaphone, MessageSquareQuote, MessagesSquare,
   MonitorDown, MonitorSmartphone, MonitorUp, Network, Package, Palette, Plug, Radar, Radio, RefreshCcw,
   Rocket, Router, Scale, ScanLine, Settings2, Shapes, ShieldAlert, ShieldCheck, ShoppingCart,

@@ -48,7 +48,9 @@ export interface AdminSection {
 export const ADMIN_NAV: { group: string; items: string[] }[] = [
   { group: 'Intelligent Automation', items: ['Automation', 'AI'] },
   { group: 'Platform Configuration', items: ['Users', 'Organization', 'Support Channels', 'User Survey'] },
-  { group: 'Service Desk', items: ['Request Management', 'Service Catalog', 'Problem Management', 'Change Management', 'Release Management', 'Knowledge Management', 'Task Management'] },
+  /* ⚠️ "Service Management", not the live product's "Service Desk": with ESM, Service Desk is the name
+     of an object (Organization › Service Desks), and one word cannot mean two things in one tree. */
+  { group: 'Service Management', items: ['Request Management', 'Service Catalog', 'Problem Management', 'Change Management', 'Release Management', 'Knowledge Management', 'Task Management'] },
   { group: 'IT Operations', items: ['CMDB', 'Discovery And Agents', 'Patch Management', 'Asset Management', 'Vulnerability Management', 'BOM Management', 'OS Deployment'] },
   { group: 'Vendor & Procurement', items: ['Supplier Management', 'Contract Management', 'Purchase Management'] },
   { group: 'Project Delivery', items: ['Project Management'] },
@@ -98,6 +100,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     desc: 'Set up account details, branding, business hours, and global preferences.',
     icon: 'Building2',
     cards: [
+    // ESM — first in Organization, above the existing entries.
+    { title: 'Service Desks', desc: 'Run HR, Facilities, Finance and IT as separate service desks inside one ServiceOps.', icon: 'Headset', href: '/admin/organization/service-desk' },
     { title: 'Account', desc: 'Edit core account details for your ServiceOps instance.', icon: 'Settings2', href: '/admin/organization/account' },
     { title: 'Branding', desc: 'Customize portal logo, colors, and theme to match your brand.', icon: 'Palette', href: '/admin/organization/branding?tab=details' },
     { title: 'Departments', desc: 'Define departments for reporting, routing, and access control.', icon: 'Building2', href: '/admin/organization/department' },

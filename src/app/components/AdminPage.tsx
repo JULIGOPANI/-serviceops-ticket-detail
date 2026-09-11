@@ -8,6 +8,7 @@ import { AdminBomModule } from './AdminBomModule';
 import type { BomAdminScreen } from './AdminBomModule';
 import { AdminOsUpgradeModule } from './AdminOsUpgradeModule';
 import { AdminSupportPortalModule } from './AdminSupportPortalModule';
+import { AdminServiceDeskModule } from './AdminServiceDeskModule';
 
 /** Sections that have a real module behind them rather than only a card grid. Selecting one in
  *  the sidebar opens that module; everything else still scrolls the Overview. */
@@ -30,6 +31,8 @@ const CARD_MODULES: Record<string, string> = {
      customization anywhere else meant two homes for one subject. The card that used to open this
      from Organization is gone rather than left as a second door. */
   'Support Channels/Support Portal': 'Support Portal',
+  // ESM slice S1 — the one Organization card with a real screen behind it.
+  'Organization/Service Desks': 'Service Desks',
 };
 
 /* Admin hub — the settings surface. Its own shell: the product's left icon rail is replaced by a
@@ -47,9 +50,12 @@ interface AdminPageProps {
   /** Which portal is open inside the Support Portal module, and a way to report a change back. */
   portalSlug?: string;
   onPortalChange?: (slug: string | undefined) => void;
+  /** Which Service Desks screen is open ('create', a desk id, or undefined for the list). */
+  deskPath?: string;
+  onDeskChange?: (path: string | undefined) => void;
 }
 
-export function AdminPage({ onNavigate, moduleSlug, onModuleChange, portalSlug, onPortalChange }: AdminPageProps) {
+export function AdminPage({ onNavigate, moduleSlug, onModuleChange, portalSlug, onPortalChange, deskPath, onDeskChange }: AdminPageProps) {
   const [active, setActive] = useState('Overview');
   const [query, setQuery] = useState('');
   // Only the first section starts open, mirroring the live admin.
@@ -170,6 +176,14 @@ export function AdminPage({ onNavigate, moduleSlug, onModuleChange, portalSlug, 
                portal list page — head, search, then a full-bleed table with no card around it. */
             <div className="min-h-0 flex-1 overflow-y-auto bg-white">
               <AdminOsUpgradeModule />
+            </div>
+          ) : module === 'Service Desks' ? (
+            <div className="min-h-0 flex-1 overflow-y-auto bg-white">
+              <AdminServiceDeskModule
+                path={deskPath}
+                onPath={(p) => onDeskChange?.(p)}
+                onBackToApp={() => onNavigate('request')}
+              />
             </div>
           ) : module === 'Support Portal' ? (
             <div className="min-h-0 flex-1 overflow-y-auto bg-white">
