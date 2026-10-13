@@ -6,7 +6,7 @@
  * works on a cold load with no server config at all.
  *
  * Shape: #/<page>  ·  #/admin/<module>  ·  #/admin/support-portal/<portal>
- *        #/admin/organization/service-desk[/create | /<id>]
+ *        #/admin/organization/desk[/create | /<id> | /<id>/edit]
  *
  * Add a module by adding it in ONE place — a `Page` for a technician-portal listing, or an
  * `ADMIN_ROUTES` row for an admin screen. App reads this, AdminPage reads this; neither keeps
@@ -57,13 +57,14 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
   { slug: 'bom-licensing', section: 'BOM Management', card: 'BOM Licensing' },
   { slug: 'bom-scheduler', section: 'BOM Management', card: 'BOM Scheduler' },
   { slug: 'bom-retention', section: 'BOM Management', card: 'BOM Retention' },
-  /* ⚠️ Two segments, because the product's own route nests it: /admin/organization/service-desk.
-     parseHash tries a two-segment slug before a one-segment one. */
-  { slug: 'organization/service-desk', section: 'Organization', card: 'Service Desks' },
+  /* ⚠️ Two segments, nested under organization like the product's own Organization pages
+     (/admin/organization/department, /admin/organization/msp). parseHash tries a two-segment slug
+     before a one-segment one. ESM F01. */
+  { slug: 'organization/desk', section: 'Organization', card: 'Desks' },
 ];
 
-/** The ESM Service Desks list. Its record segment is 'create' or a desk id. */
-export const SERVICE_DESK_SLUG = 'organization/service-desk';
+/** The ESM Desks list. Its record segments are 'create', '<id>' or '<id>/edit'. */
+export const DESK_SLUG = 'organization/desk';
 
 export const adminRouteBySlug = (slug: string): AdminRoute | undefined =>
   ADMIN_ROUTES.find((r) => r.slug === slug);
@@ -81,8 +82,8 @@ export interface Route {
      what it is rather than a generic `id`. A second module wanting one should widen this
      deliberately rather than inherit a name that stopped describing it. */
   portal?: string;
-  /** The Service Desks module's record segment: 'create' or a desk id. An unknown id is KEPT, not
-   *  rewritten — the module renders "Service Desk does not exist" for it, which is the point. */
+  /** The Desks module's record segments: 'create', '<id>' or '<id>/edit'. An unknown id is KEPT,
+   *  not rewritten — the module renders "Desk does not exist" for it, which is the point. */
   desk?: string;
 }
 
@@ -100,7 +101,7 @@ export function parseHash(hash: string): Route {
   if (page !== 'admin') return { page };
   const nested = parts.slice(1, 3).join('/');
   if (parts.length >= 3 && adminRouteBySlug(nested)) {
-    return { page, admin: nested, desk: nested === SERVICE_DESK_SLUG ? parts[3] : undefined };
+    return { page, admin: nested, desk: nested === DESK_SLUG && parts.length > 3 ? parts.slice(3).join('/') : undefined };
   }
   const slug = parts[1];
   if (!slug || !adminRouteBySlug(slug)) return { page };

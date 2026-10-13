@@ -21,7 +21,7 @@ import { AdminPage } from './components/AdminPage';
 import { DrawerStackProvider } from './components/DrawerStack';
 import { GlobalSearch } from './components/GlobalSearch';
 import { Toaster } from 'sonner';
-import { SERVICE_DESK_SLUG, formatHash, parseHash, titleFor } from './routes';
+import { DESK_SLUG, formatHash, parseHash, titleFor } from './routes';
 import type { Page, Route } from './routes';
 
 export default function App() {
@@ -96,7 +96,7 @@ export default function App() {
           onModuleChange={(slug) => go({ page: 'admin', admin: slug })}
           onPortalChange={(portal) => go({ page: 'admin', admin: 'support-portal', portal })}
           deskPath={route.desk}
-          onDeskChange={(desk) => go({ page: 'admin', admin: SERVICE_DESK_SLUG, desk })}
+          onDeskChange={(desk) => go({ page: 'admin', admin: DESK_SLUG, desk })}
         />
       )}
       {/* Mounted once, inside the drawer host, so search works on every page and can open any
