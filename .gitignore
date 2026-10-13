@@ -54,3 +54,7 @@ credentials.txt
 
 # Screenshots pasted into zeni_tasks.md — kept so the task notes stay checkable.
 !image-*.png
+
+# Docs and Claude files stay local: GitHub holds code only (Juli, 2026-10-13)
+*.md
+.claude/
