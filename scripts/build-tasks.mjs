@@ -16,7 +16,14 @@ import path from 'path';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const OUT = path.join(ROOT, 'public', 'tasks');
 
-const md = fs.readFileSync(path.join(ROOT, 'tasks.md'), 'utf8');
+/* ⚠️ tasks.md is kept LOCAL only (the repo holds code, not .md — Juli, 2026-10-13). On CI it is
+   absent: keep the committed public/tasks page as it is and let the build go on. */
+const SRC = path.join(ROOT, 'tasks.md');
+if (!fs.existsSync(SRC)) {
+  console.log('build-tasks: tasks.md not found, keeping the committed public/tasks page.');
+  process.exit(0);
+}
+const md = fs.readFileSync(SRC, 'utf8');
 
 /* Parse. The format is deliberately plain — `## <n>. <title>` then `- **Key:** value` lines — so
    the file stays readable as prose and the parser stays a dozen lines. */
