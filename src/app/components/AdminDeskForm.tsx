@@ -17,12 +17,12 @@ import type { Desk, DeskDraft, DeskType } from './deskData';
  * Edit-mode differences: Type is read-only (it will drive templates and modules); Short code is
  * read-only once the desk has gone Live; the IT desk's type and code are always locked. */
 
-const inputCls = (error?: string) =>
+export const inputCls = (error?: string) =>
   `h-9 w-full rounded border bg-white px-3 text-[13px] text-[#364658] placeholder:text-[#9ca3af] focus:outline-none focus:ring-1 ${
     error ? 'border-[#DC2626] focus:ring-[#DC2626]' : 'border-[#d1d5db] focus:border-[#3D8BD0] focus:ring-[#3D8BD0]'
   }`;
 
-function Field({ id, label, required, helper, error, children }: {
+export function Field({ id, label, required, helper, error, children }: {
   id?: string; label: string; required?: boolean; helper?: ReactNode; error?: string; children: ReactNode;
 }) {
   return (
@@ -48,7 +48,7 @@ function LockedValue({ value, reason }: { value: ReactNode; reason: string }) {
   );
 }
 
-function OwnerPicker({ value, onChange, error }: { value: number[]; onChange: (v: number[]) => void; error?: string }) {
+export function OwnerPicker({ value, onChange, error }: { value: number[]; onChange: (v: number[]) => void; error?: string }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const ql = q.trim().toLowerCase();

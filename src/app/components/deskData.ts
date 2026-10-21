@@ -37,10 +37,75 @@ export interface Desk {
   isDefault: boolean;
   /** Demo only — stands in for "does this desk hold any tickets" (the delete rule). */
   ticketCount: number;
-  /** Which setup steps are done. Details is always done: the create form IS that step. */
-  setup: Record<SetupStepId, boolean>;
   createdOn: string;
+  /** What Quick setup captured — see the block below. */
+  setup: DeskSetup;
 }
+
+/* Getting started — on the desk page, not a separate wizard (Juli, 2026-10-16, after full-flow
+ * research: Features/F01b-desk-quick-setup-research.md §8). Every competitor guides the same three
+ * essentials ON the desk — people & groups, what can be asked, a way in — then Go Live, and keeps a
+ * longer checklist for the rest. Each item is done in a side drawer and ticks itself from REAL data:
+ *   team      ≥1 technician picked (from existing technicians; never created here) — groups are
+ *             named here too, "<Desk> Team" by default
+ *   requests  the suggested request types for the kind have been reviewed and saved
+ *   reach     shown on the Support Portal and/or a support email is set
+ * Go Live warns about any of these still open and never blocks. */
+export type SetupStep = 'team' | 'requests' | 'reach';
+
+export interface RequestType { name: string; on: boolean }
+
+export interface DeskSetup {
+  memberIds: number[];
+  groups: string[];
+  requestTypes: RequestType[];
+  /** Suggestions only count once the admin has reviewed and saved them. */
+  requestsReviewed: boolean;
+  portal: boolean;
+  email: string;
+}
+
+/** What a kind suggests. What a kind really pre-fills is decided with templates (F07). */
+export const KIND_TEMPLATE: Record<DeskType, { requests: string[]; groups: string[] }> = {
+  it: { requests: ['New laptop', 'Software access', 'VPN access', 'Password reset', 'Report a problem'], groups: ['Service Desk', 'Network', 'Applications'] },
+  hr: { requests: ['Leave request', 'Payslip query', 'Employment letter', 'Update bank details', 'Policy question'], groups: ['Payroll', 'Benefits', 'Employee Relations'] },
+  facilities: { requests: ['Book a meeting room', 'Access card', 'Desk move', 'Repair request', 'Parking'], groups: ['Maintenance', 'Workplace', 'Security'] },
+  finance: { requests: ['Expense claim', 'Advance salary', 'Vendor payment', 'Tax question', 'Reimbursement status'], groups: ['Accounts Payable', 'Expenses', 'Payroll'] },
+  legal: { requests: ['Contract review', 'NDA request', 'Policy question', 'Trademark query'], groups: ['Contracts', 'Compliance'] },
+  general: { requests: ['General request', 'Ask a question', 'Report a problem'], groups: [] },
+};
+
+export const newSetup = (type: DeskType, name: string): DeskSetup => ({
+  memberIds: [],
+  groups: [`${name} Team`],
+  requestTypes: KIND_TEMPLATE[type].requests.map((n) => ({ name: n, on: true })),
+  requestsReviewed: false,
+  portal: false,
+  email: '',
+});
+
+const doneSetup = (type: DeskType, name: string, memberIds: number[], email: string): DeskSetup => ({
+  ...newSetup(type, name), memberIds, requestsReviewed: true, portal: true, email,
+});
+
+export const stepDone: Record<SetupStep, (d: Desk) => boolean> = {
+  team: (d) => d.setup.memberIds.length > 0,
+  requests: (d) => d.setup.requestsReviewed && d.setup.requestTypes.some((r) => r.on),
+  reach: (d) => d.setup.portal || !!d.setup.email.trim(),
+};
+
+/** Essentials still open — shown as warnings at Go Live, never as a block. */
+export function missingEssentials(d: Desk): { id: SetupStep; text: string }[] {
+  const out: { id: SetupStep; text: string }[] = [];
+  if (!stepDone.team(d)) out.push({ id: 'team', text: 'No technicians: nobody can work its requests.' });
+  if (!stepDone.requests(d)) out.push({ id: 'requests', text: 'Request types not reviewed: employees may not find what they need.' });
+  if (!stepDone.reach(d)) out.push({ id: 'reach', text: 'Not on the portal and no email: employees can’t reach this desk.' });
+  return out;
+}
+
+/** Done items out of four (three essentials + Go Live). */
+export const setupDoneCount = (d: Desk) =>
+  (['team', 'requests', 'reach'] as SetupStep[]).filter((s) => stepDone[s](d)).length + Number(d.status !== 'setup');
 
 export interface Technician { id: number; name: string; email: string }
 
@@ -65,40 +130,6 @@ export const CREATABLE_TYPES: { value: DeskType; desc: string }[] = [
   { value: 'legal', desc: 'Contracts, NDAs, compliance questions' },
   { value: 'general', desc: 'Any other team: start from blank' },
 ];
-
-// ── Setup checklist (the flow after Create) ───────────────────────────────
-
-/* A new desk opens on its own page with this checklist. REQUIRED steps gate Go Live: without
- * them a Live desk would take requests nobody can see or work. Each step's screen belongs to a
- * later feature, named in `feature`; until it is designed the prototype only marks it done. */
-export type SetupStepId = 'details' | 'technicians' | 'groups' | 'requests' | 'hours' | 'email' | 'catalog' | 'knowledge' | 'automation';
-export type SetupTier = 'required' | 'recommended' | 'optional';
-
-export interface SetupStep { id: SetupStepId; tier: SetupTier; title: string; desc: string; feature: string }
-
-export const SETUP_STEPS: SetupStep[] = [
-  { id: 'details', tier: 'required', title: 'Desk details', desc: 'Name, type, short code and owners.', feature: 'F01' },
-  { id: 'technicians', tier: 'required', title: 'Add technicians', desc: 'The people who work on this desk’s requests.', feature: 'F02' },
-  { id: 'groups', tier: 'required', title: 'Create technician groups', desc: 'Teams that requests are assigned to.', feature: 'F11' },
-  { id: 'requests', tier: 'required', title: 'Set up the request form', desc: 'Categories, fields and statuses employees and technicians see.', feature: 'F10' },
-  { id: 'hours', tier: 'recommended', title: 'Business hours and SLA', desc: 'When the team works and how fast it must respond.', feature: 'F12' },
-  { id: 'email', tier: 'recommended', title: 'Connect a support email', desc: 'Emails to this address become requests in this desk.', feature: 'F15' },
-  { id: 'catalog', tier: 'recommended', title: 'Add service catalog items', desc: 'Ready-made requests employees can pick from the portal.', feature: 'F09' },
-  { id: 'knowledge', tier: 'optional', title: 'Publish knowledge articles', desc: 'Answers employees can find before raising a request.', feature: 'F16' },
-  { id: 'automation', tier: 'optional', title: 'Approvals and workflows', desc: 'Who approves what, and what happens automatically.', feature: 'F13/F14' },
-];
-
-export const TIER_LABEL: Record<SetupTier, string> = {
-  required: 'Required to go live', recommended: 'Recommended', optional: 'Optional',
-};
-
-const setupWith = (done: SetupStepId[]): Record<SetupStepId, boolean> =>
-  Object.fromEntries(SETUP_STEPS.map((s) => [s.id, s.id === 'details' || done.includes(s.id)])) as Record<SetupStepId, boolean>;
-export const NEW_SETUP = () => setupWith([]);
-const ALL_DONE = () => setupWith(SETUP_STEPS.map((s) => s.id));
-
-/** Required steps still open. Empty means the desk can go Live. */
-export const missingRequired = (d: Desk) => SETUP_STEPS.filter((s) => s.tier === 'required' && !d.setup[s.id]);
 
 export const STATUS_LABEL: Record<DeskStatus, string> = { setup: 'Setup', live: 'Live', inactive: 'Inactive' };
 
@@ -128,7 +159,7 @@ export const TECHNICIANS: Technician[] = [
 const IT: Desk = {
   id: 1, name: 'IT', code: 'IT', type: 'it', isDefault: true, status: 'live', colour: '#3D8BD0',
   description: 'Hardware, software, access and everything the IT team runs.',
-  ownerIds: [1], ticketCount: 985, createdOn: '2024-03-18', setup: ALL_DONE(),
+  ownerIds: [1], ticketCount: 985, createdOn: '2024-03-18', setup: doneSetup('it', 'IT', [1, 3, 4, 6, 9], 'it-help@acme.example')
 };
 
 const FOUR: Desk[] = [
@@ -136,26 +167,26 @@ const FOUR: Desk[] = [
   {
     id: 2, name: 'Human Resources', code: 'HR', type: 'hr', isDefault: false, status: 'live', colour: '#7C3AED',
     description: 'Onboarding, payroll, leave and employee relations.',
-    ownerIds: [8], ticketCount: 214, createdOn: '2026-10-01',
-    setup: setupWith(['technicians', 'groups', 'requests', 'hours', 'email', 'catalog', 'knowledge']),
+    ownerIds: [8], ticketCount: 214, createdOn: '2026-10-01', setup: doneSetup('hr', 'Human Resources', [8, 4], 'hr@acme.example'),
+   
   },
   {
     id: 3, name: 'Facilities', code: 'FAC', type: 'facilities', isDefault: false, status: 'live', colour: '#0D9488',
     description: 'Buildings, rooms, seating, access cards and site services.',
-    ownerIds: [10, 7], ticketCount: 96, createdOn: '2026-10-03',
-    setup: setupWith(['technicians', 'groups', 'requests', 'hours', 'catalog']),
+    ownerIds: [10, 7], ticketCount: 96, createdOn: '2026-10-03', setup: doneSetup('facilities', 'Facilities', [10, 7], ''),
+   
   },
   {
     id: 4, name: 'Finance', code: 'FIN', type: 'finance', isDefault: false, status: 'setup', colour: '#D97706',
     description: 'Expenses, invoices, purchase approvals and reimbursements.',
-    ownerIds: [2], ticketCount: 0, createdOn: '2026-10-12',
-    setup: setupWith(['technicians', 'hours']),
+    ownerIds: [2], ticketCount: 0, createdOn: '2026-10-12', setup: { ...newSetup('finance', 'Finance'), memberIds: [2] },
+   
   },
   {
     id: 5, name: 'Legal', code: 'LGL', type: 'legal', isDefault: false, status: 'inactive', colour: '#64748B',
     description: 'Contract reviews and NDAs. Paused while the team moves to the new process.',
-    ownerIds: [5], ticketCount: 38, createdOn: '2026-06-20',
-    setup: setupWith(['technicians', 'groups', 'requests', 'email']),
+    ownerIds: [5], ticketCount: 38, createdOn: '2026-06-20', setup: doneSetup('legal', 'Legal', [5], 'legal@acme.example'),
+   
   },
 ];
 
@@ -182,7 +213,7 @@ export const VIEW_AS_OPTIONS: { value: ViewAs; label: string }[] = [
 ];
 
 export function seedFor(demo: DemoData): Desk[] {
-  const copy = (w: Desk) => ({ ...w, ownerIds: [...w.ownerIds], setup: { ...w.setup } });
+  const copy = (w: Desk): Desk => ({ ...w, ownerIds: [...w.ownerIds], setup: { ...w.setup, memberIds: [...w.setup.memberIds], requestTypes: w.setup.requestTypes.map((r) => ({ ...r })), groups: [...w.setup.groups] } });
   if (demo === 'upgrade') return [copy(IT)];
   const four = FOUR.map(copy);
   if (demo !== 'limit') return four;
@@ -190,7 +221,7 @@ export function seedFor(demo: DemoData): Desk[] {
     four.push({
       id: 6 + i, name, code: codeFrom(name, four.map((w) => w.code)), type: 'general', isDefault: false,
       status: 'live', colour: COLOURS[i % COLOURS.length], description: `Requests for ${name}.`,
-      ownerIds: [TECHNICIANS[i % TECHNICIANS.length].id], ticketCount: 5 + i, createdOn: '2026-10-05', setup: ALL_DONE(),
+      ownerIds: [TECHNICIANS[i % TECHNICIANS.length].id], ticketCount: 5 + i, createdOn: '2026-10-05', setup: doneSetup('general', name, [TECHNICIANS[i % TECHNICIANS.length].id], '')
     });
   });
   return four;
@@ -200,7 +231,7 @@ export function seedFor(demo: DemoData): Desk[] {
 
 export interface DeskStore { demo: DemoData; viewAs: ViewAs; desks: Desk[] }
 
-const STORAGE_KEY = 'serviceops.esm.desks.v2';
+const STORAGE_KEY = 'serviceops.esm.desks.v7';
 
 export const initialStore = (): DeskStore => ({ demo: 'four', viewAs: 'admin', desks: seedFor('four') });
 

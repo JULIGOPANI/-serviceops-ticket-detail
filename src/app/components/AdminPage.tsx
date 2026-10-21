@@ -151,7 +151,16 @@ export function AdminPage({ onNavigate, moduleSlug, onModuleChange, portalSlug, 
       <Header selectedCount={0} />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {!builderOpen && (
-          <AdminSidebar active={active} activeCard={activeCard} onSelect={select} onBackToApp={() => onNavigate('request')} />
+          <AdminSidebar
+            active={active}
+            activeCard={activeCard}
+            onSelect={select}
+            onBackToApp={() => onNavigate('request')}
+            currentDeskId={module === 'Desks' && deskPath && /^\d+/.test(deskPath) ? Number(deskPath.split('/')[0]) : undefined}
+            onAllSettings={() => select('Overview')}
+            onDesk={(p) => onDeskChange?.(p)}
+            deskPath={module === 'Desks' ? deskPath : undefined}
+          />
         )}
         <div data-admin-scroll className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {module === 'BOM Management' ? (

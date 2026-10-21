@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronDown, Search, X, House } from 'lucide-react';
 import { ADMIN_NAV, sectionByTitle, isTreeSection } from './adminData';
 import { adminIcon } from './AdminIcons';
+import { DeskSwitcher } from './DeskSwitcher';
+import { DESK_ADMIN, actionPath } from './deskAdmin';
+import { toast } from 'sonner';
 
 /* Admin left nav — grouped, searchable, and driven by the same ADMIN_SECTIONS the Overview
  * renders, so the two can never list different things.
@@ -22,9 +25,15 @@ interface AdminSidebarProps {
   /** `card` is present when a level-2/3 module was chosen rather than the section itself. */
   onSelect: (sectionTitle: string, card?: string) => void;
   onBackToApp: () => void;
+  /** ESM: the desk whose page is open, for the desk switcher. */
+  currentDeskId?: number;
+  onAllSettings?: () => void;
+  onDesk?: (path: string | undefined) => void;
+  /** ESM: the open desk path ('<id>', '<id>/details', …) — highlights the desk menu. */
+  deskPath?: string;
 }
 
-export function AdminSidebar({ active, activeCard, onSelect, onBackToApp }: AdminSidebarProps) {
+export function AdminSidebar({ active, activeCard, onSelect, onBackToApp, currentDeskId, onAllSettings, onDesk, deskPath }: AdminSidebarProps) {
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const q = query.trim().toLowerCase();
@@ -61,6 +70,9 @@ export function AdminSidebar({ active, activeCard, onSelect, onBackToApp }: Admi
         Back to app
       </button>
 
+      {/* ESM desk switcher: company-wide settings or one desk (F01) */}
+      {onDesk && onAllSettings && <DeskSwitcher currentDeskId={currentDeskId} onAllSettings={onAllSettings} onDesk={onDesk} />}
+
       {/* Search */}
       <div className="px-4 pb-3 pt-3">
         <div className="relative">
@@ -81,6 +93,49 @@ export function AdminSidebar({ active, activeCard, onSelect, onBackToApp }: Admi
         </div>
       </div>
 
+      {currentDeskId !== undefined && onDesk ? (
+        /* Inside a desk: the menu is THAT desk's settings, like a Freshservice workspace's own admin
+           or a ManageEngine instance's Setup. Provisional groups (deskAdmin.ts) until F04. */
+        <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+          <button
+            onClick={() => onDesk(String(currentDeskId))}
+            className={`mb-1 flex w-full items-center gap-2.5 rounded px-3 py-2 text-left text-[13px] transition-colors ${
+              deskPath === String(currentDeskId) ? 'bg-[#EBF5FF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F5F7FA]'
+            }`}
+          >
+            <House size={16} className={deskPath === String(currentDeskId) ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'} />
+            Desk home
+          </button>
+          {DESK_ADMIN.map((g) => {
+            const items = g.items.filter((it) => !q || `${g.title} ${it.title}`.toLowerCase().includes(q));
+            if (!items.length) return null;
+            const GroupIcon = adminIcon(g.icon);
+            return (
+              <div key={g.title} className="mt-4 first:mt-2">
+                <div className="flex items-center gap-1.5 px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">
+                  <GroupIcon size={12} />{g.title}
+                </div>
+                {items.map((it) => {
+                  const path = it.action ? actionPath(currentDeskId, it.action) : undefined;
+                  const on = !!path && deskPath === path;
+                  return (
+                    <button
+                      key={it.title}
+                      onClick={() => (path ? onDesk(path) : toast(`${it.title}`, { description: `Designed in ${it.feature}. Whether it is per desk is decided in F04.` }))}
+                      className={`flex w-full items-center gap-2 rounded px-3 py-1.5 pl-[30px] text-left text-[13px] transition-colors ${
+                        on ? 'bg-[#EBF5FF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F5F7FA]'
+                      }`}
+                    >
+                      <span className="truncate">{it.title}</span>
+                      {!it.action && <span className="ml-auto font-mono text-[10px] text-[#B0BCC9]">{it.feature}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </nav>
+      ) : (
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
         {overviewVisible && (
           <button
@@ -200,6 +255,7 @@ export function AdminSidebar({ active, activeCard, onSelect, onBackToApp }: Admi
           </div>
         )}
       </nav>
+      )}
     </aside>
   );
 }

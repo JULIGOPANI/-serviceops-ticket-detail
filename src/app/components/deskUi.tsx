@@ -1,12 +1,79 @@
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { Building2, LayoutGrid, Monitor, Scale, Users, Wallet, X } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
-import { STATUS_HELP, STATUS_LABEL, technicianById } from './deskData';
-import type { DeskStatus } from './deskData';
+import { STATUS_HELP, STATUS_LABEL, TYPE_LABEL, technicianById } from './deskData';
+import type { DeskStatus, DeskType } from './deskData';
 
-/* Pieces the Desks list and the desk page share, so a status pill or a confirm can't look
- * different on the two screens. */
+/* Pieces the Desks list, the desk page and the create flow share, so a status pill, an icon or a
+ * row can't look different in two places. */
+
+export const TYPE_ICON: Record<DeskType, LucideIcon> = {
+  it: Monitor, hr: Users, facilities: Building2, finance: Wallet, legal: Scale, general: LayoutGrid,
+};
+
+/** The desk colour at low strength, for icon tiles and header washes. `hex` is #RRGGBB. */
+export const tint = (hex: string, alpha: number) => `${hex}${Math.round(alpha * 255).toString(16).padStart(2, '0')}`;
+
+export function DeskIcon({ type, colour, size = 'md' }: { type: DeskType; colour: string; size?: 'md' | 'lg' }) {
+  const Icon = TYPE_ICON[type];
+  const box = size === 'lg' ? 'size-12 rounded-xl' : 'size-10 rounded-lg';
+  return (
+    <span className={`flex flex-shrink-0 items-center justify-center ${box}`} style={{ backgroundColor: tint(colour, 0.12), color: colour }}>
+      <Icon size={size === 'lg' ? 24 : 20} strokeWidth={1.8} />
+    </span>
+  );
+}
+
+export const initials = (name?: string) => (name ?? '').split(' ').map((p) => p[0]).join('').slice(0, 2);
+
+export interface DeskRowData {
+  name: string; code: string; type: DeskType; colour: string; status: DeskStatus; isDefault: boolean;
+  ownerIds: number[]; description: string;
+}
+
+/** One desk as a list row: used in the Desks list and, unchanged, as the live preview in New desk.
+ *  ⚠️ No ticket numbers: neither Freshservice nor ManageEngine shows them on the desk list, and
+ *  Juli asked for none (2026-10-14). */
+export function DeskRowBody({ d, actions }: { d: DeskRowData; actions?: ReactNode }) {
+  const owners = d.ownerIds.map((id) => technicianById(id)?.name).filter(Boolean) as string[];
+  return (
+    <div className="flex items-center gap-4">
+      <DeskIcon type={d.type} colour={d.colour} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate text-[14px] font-semibold text-[#1F2D3D]">{d.name || 'Desk name'}</span>
+          {d.isDefault && <DefaultTag />}
+        </div>
+        <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12px] text-[#7B8FA5]">
+          <span className="flex-shrink-0 font-mono font-medium text-[#475569]">{d.code || '—'}</span>
+          <span className="flex-shrink-0">·</span>
+          <span className="flex-shrink-0">{owners.length ? `Owner${owners.length > 1 ? 's' : ''}: ${owners.join(', ')}` : 'No owner yet'}</span>
+          {d.description && <><span className="flex-shrink-0">·</span><span className="truncate">{d.description}</span></>}
+        </div>
+      </div>
+      <span className="hidden w-[110px] flex-shrink-0 text-[13px] text-[#475569] md:block">{TYPE_LABEL[d.type]} desk</span>
+      <span className="w-[86px] flex-shrink-0"><StatusPill status={d.status} /></span>
+      {actions && <div className="flex w-[104px] flex-shrink-0 items-center justify-end gap-1">{actions}</div>}
+    </div>
+  );
+}
+
+export function ProgressRing({ value, size = 44, light }: { value: number; size?: number; light?: boolean }) {
+  const r = (size - 6) / 2;
+  const c = 2 * Math.PI * r;
+  return (
+    <span className="relative inline-flex flex-shrink-0 items-center justify-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={4} stroke={light ? 'rgba(255,255,255,0.35)' : '#E5E7EB'} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={4} strokeLinecap="round" stroke={light ? '#ffffff' : '#3D8BD0'}
+          strokeDasharray={c} strokeDashoffset={c - (c * value) / 100} className="transition-[stroke-dashoffset] duration-500" />
+      </svg>
+      <span className={`absolute text-[11px] font-semibold ${light ? 'text-white' : 'text-[#364658]'}`}>{value}%</span>
+    </span>
+  );
+}
 
 export const primaryBtn = 'inline-flex h-9 items-center gap-1.5 rounded bg-[#3D8BD0] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#2d6ca0] disabled:cursor-not-allowed disabled:opacity-50';
 
