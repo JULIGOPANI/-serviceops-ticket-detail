@@ -6,6 +6,10 @@ import { TicketTable } from './TicketTable';
 import { Pagination } from './Pagination';
 import { useDrawerStack } from './DrawerStack';
 import { TicketDrawer } from './TicketDrawer';
+import { PersonaSwitcher } from './PersonaSwitcher';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { loadStore, personaInfo, saveStore } from './workspaceData';
+import { assigneeFor, canSeeTicket, placeFor } from './ticketAccess';
 
 export interface Ticket {
   id: string;
@@ -20,6 +24,10 @@ export interface Ticket {
   };
   status: 'Open' | 'In Progress' | 'Completed' | 'Pending' | 'Closed' | 'Cancelled';
   priority: 'Low' | 'Medium' | 'High' | 'Urgent';
+  /** F05: the workspace that owns the ticket, its technician group and assignee (prototype placement). */
+  workspaceId?: number;
+  groupName?: string;
+  technicianId?: number;
 }
 
 // Mock data
@@ -59,16 +67,22 @@ export const generateMockTickets = (): Ticket[] => {
   const statuses: Ticket['status'][] = ['Open', 'In Progress', 'Completed', 'Pending', 'Closed'];
   const priorities: Ticket['priority'][] = ['Low', 'Medium', 'High', 'Urgent'];
   
-  return Array.from({ length: 65 }, (_, i) => ({
+  void assignees; // F05: assignees now come from each workspace's team (ticketAccess.assigneeFor)
+  return Array.from({ length: 65 }, (_, i) => {
+    const place = placeFor(i);
+    const who = assigneeFor(i, place.workspaceId);
+    return {
     id: `INC-${String(i + 30).padStart(2, '0')}`,
-    subject: subjects[i % subjects.length],
+    subject: place.subject ?? subjects[i % subjects.length],
     requester: requesters[i % requesters.length],
     dueBy: new Date(2022, 3, 20 + (i % 10), 2 + (i % 12), 34),
     createdBy: new Date(2022, 3, 19 + (i % 8), 3 + (i % 12), 30),
-    assignedTo: assignees[i % assignees.length],
+    assignedTo: { name: who.name, initials: who.initials },
+    workspaceId: place.workspaceId, groupName: who.groupName, technicianId: who.technicianId,
     status: i === 9 ? 'Closed' : (i === 2 ? 'Open' : statuses[i % statuses.length]), // INC-39 (index 9) should be Closed, INC-32 (index 2) should be Open
     priority: priorities[i % priorities.length]
-  }));
+  } as Ticket;
+  });
 };
 
 export function TicketListPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
@@ -81,6 +95,12 @@ export function TicketListPage({ onNavigate }: { onNavigate?: (page: string) => 
   const [openTickets, setOpenTickets] = useState<Ticket[]>([]);
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  // F05: the list shows only what the signed-in person may open (the server's rule, ticketAccess.canSeeTicket).
+  const [rev, setRev] = useState(0);
+  const store = loadStore();
+  const viewAs = store.viewAs;
+  const [wsFilter, setWsFilter] = useState<number | 'all'>('all');
+  void rev;
 
   // Reset to first page when search query changes
   useEffect(() => {
@@ -179,11 +199,16 @@ export function TicketListPage({ onNavigate }: { onNavigate?: (page: string) => 
     }
   };
 
+  // F05: rows the person may open, then the Workspace filter, then search.
+  const verdictOf = (t: Ticket) => (t.workspaceId ? canSeeTicket(store, viewAs, { workspaceId: t.workspaceId, groupName: t.groupName ?? '', technicianId: t.technicianId ?? 0 }) : { ok: true, why: '' });
+  const allowed = tickets.filter((t) => verdictOf(t).ok);
+  const myWorkspaces = store.workspaces.filter((w) => allowed.some((t) => t.workspaceId === w.id));
+  const hiddenCount = tickets.length - allowed.length;
   // Filter tickets based on search query
-  let filteredTickets = tickets;
+  let filteredTickets = wsFilter === 'all' ? allowed : allowed.filter((t) => t.workspaceId === wsFilter);
   if (searchQuery.trim()) {
     const query = searchQuery.toLowerCase().trim();
-    filteredTickets = tickets.filter(ticket => {
+    filteredTickets = filteredTickets.filter(ticket => {
       // Search by ticket ID
       if (ticket.id.toLowerCase().includes(query)) return true;
       // Search by subject
@@ -244,6 +269,18 @@ export function TicketListPage({ onNavigate }: { onNavigate?: (page: string) => 
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header selectedCount={selectedTickets.size} onOpenAdmin={() => onNavigate('admin')} />
         <Toolbar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+        {/* F05: Workspace filter (one Requests list for every workspace, decided 2026-11-02) + prototype View as. */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-[#EEF1F5] bg-white px-4 py-2">
+          <span className="text-[12px] font-medium text-[#64748B]">Workspace</span>
+          {([{ id: 'all' as const, name: `All my workspaces (${allowed.length})`, colour: '' }, ...myWorkspaces.map((w) => ({ id: w.id, name: `${w.name} (${allowed.filter((t) => t.workspaceId === w.id).length})`, colour: w.colour }))]).map((o) => (
+            <button key={String(o.id)} onClick={() => { setWsFilter(o.id); setCurrentPage(1); }}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] transition-colors ${wsFilter === o.id ? 'border-[#3D8BD0] bg-[#EBF5FF] font-medium text-[#1F5F99]' : 'border-[#DFE5ED] bg-white text-[#475569] hover:border-[#3D8BD0]'}`}>
+              {o.colour && <span className="size-2 rounded-full" style={{ background: o.colour }} />}{o.name}
+            </button>
+          ))}
+          {hiddenCount > 0 && <span className="text-[11px] text-[#94A3B8]">Only requests you can open are listed.</span>}
+          <div className="ml-auto w-[300px] [&>div]:px-0 [&>div]:pt-0"><PersonaSwitcher onChange={(v) => { saveStore({ ...loadStore(), viewAs: v }); setWsFilter('all'); setCurrentPage(1); setRev((n) => n + 1); }} /></div>
+        </div>
         <main className="flex-1 overflow-hidden flex flex-col">
           <div className="flex-1 overflow-auto bg-white min-h-0">
             <TicketTable
@@ -256,7 +293,11 @@ export function TicketListPage({ onNavigate }: { onNavigate?: (page: string) => 
               sortColumn={sortColumn}
               sortDirection={sortDirection}
               onTicketClick={handleOpenTicket}
+              workspaceOf={(t) => { const w = store.workspaces.find((x) => x.id === t.workspaceId); return w ? { name: w.name, colour: w.colour, confidential: !!w.confidential, why: verdictOf(t).why } : undefined; }}
             />
+            {paginatedTickets.length === 0 && (
+              <div className="px-4 py-14 text-center text-[13px] text-[#94A3B8]">No requests for {personaInfo(viewAs).name} here.</div>
+            )}
             
           </div>
             <Pagination

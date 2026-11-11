@@ -1,4 +1,7 @@
-import { Plus, Calendar, Bell, Settings, Keyboard, Info } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Plus, Calendar, Bell, Settings, Keyboard, Info, User, BookOpen, Headset, Sun, Moon, LogOut } from 'lucide-react';
+import { toast } from 'sonner';
+import { openSupportPortal } from './esmPortalData';
 import svgPaths from "../../imports/svg-vmnsig04gh";
 import { GlobalSearchButton } from './GlobalSearch';
 
@@ -162,10 +165,44 @@ export function Header({ selectedCount, onOpenAdmin }: HeaderProps) {
           <Info size={18} strokeWidth={2} />
         </button>
         
-        <button className="flex h-[32px] w-[32px] items-center justify-center rounded bg-[#3D8BD0] text-[11px] font-semibold text-white hover:bg-[#2d6ca0]">
-          AS
-        </button>
+        <AvatarMenu />
       </div>
     </header>
+  );
+}
+/** The avatar menu, as on 185 (Technician Portal): My Profile · Product Setup Guide · View Support Portal · Light/Dark · Sign Out.
+ *  "View Support Portal" opens /support-portal — with ESM, the address follows the landing rule (ESM Portal or a team's portal). */
+function AvatarMenu() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+  const item = 'flex w-full items-center gap-2.5 rounded px-2.5 py-1.5 text-left text-[13px] text-[#1F2937] hover:bg-[#EEF2F7]';
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen((o) => !o)} aria-label="User menu" className="flex h-[32px] w-[32px] items-center justify-center rounded bg-[#3D8BD0] text-[11px] font-semibold text-white hover:bg-[#2d6ca0]">
+        SA
+      </button>
+      {open && (
+        <div className="absolute right-0 top-10 z-50 w-[236px] rounded-md border border-[#E5E7EB] bg-[#F8FAFC] p-2 shadow-xl">
+          <div className="flex items-center gap-2.5 border-b border-[#E5E7EB] px-1.5 pb-2.5 pt-1">
+            <span className="flex size-9 items-center justify-center rounded bg-[#3D8BD0] text-[13px] font-semibold text-white">SA</span>
+            <span><span className="block text-[14px] font-medium text-[#1F2937]">Sakshi Asudhani</span><span className="block text-[12px] text-[#64748B]">sakshi</span></span>
+          </div>
+          <button onClick={() => { setOpen(false); toast('My Profile'); }} className={`${item} mt-1.5`}><User size={14} /> My Profile</button>
+          <button onClick={() => { setOpen(false); toast('Product Setup Guide'); }} className={item}><BookOpen size={14} /> Product Setup Guide</button>
+          <div className="my-1.5 border-t border-[#E5E7EB]" />
+          <button onClick={() => { setOpen(false); openSupportPortal(); }} className={item}><Headset size={14} /> View Support Portal</button>
+          <div className="my-1.5 border-t border-[#E5E7EB]" />
+          <div className="mx-auto flex w-fit gap-1 rounded-md bg-[#E5E7EB] p-1 text-[13px]"><span className="inline-flex items-center gap-1 rounded bg-[#111827] px-2.5 py-0.5 text-white"><Sun size={13} /> Light</span><span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[#6B7280]"><Moon size={13} /> Dark</span></div>
+          <div className="my-1.5 border-t border-[#E5E7EB]" />
+          <button onClick={() => { setOpen(false); toast('Prototype: sign-out is not wired'); }} className={`${item} text-[#DC2626]`}><LogOut size={14} /> Sign Out</button>
+        </div>
+      )}
+    </div>
   );
 }

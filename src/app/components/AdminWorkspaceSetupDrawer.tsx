@@ -1,21 +1,18 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Check, Globe, LayoutList, Mail, Plus, Search, Users, X } from 'lucide-react';
+import { Globe, LayoutList, Mail, Plus, Users, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { initials } from './deskUi';
-import { KIND_TEMPLATE, TECHNICIANS, TYPE_LABEL } from './deskData';
-import type { Desk, DeskSetup, SetupStep } from './deskData';
+import { KIND_TEMPLATE, TYPE_LABEL } from './workspaceData';
+import type { Workspace, WorkspaceSetup, SetupStep } from './workspaceData';
 
-/* The three "Get started" essentials, each done in a right drawer over the desk page — the way
- * Freshservice adds workspace managers/agents (a right drawer: search existing users → groups →
- * roles from licence; seen live 2026-10-16). Saving writes real desk data; the Get started row then
- * ticks itself from that data (deskData `stepDone`).
- * ⚠️ Team: technicians are PICKED from the existing list (Admin › Users). Nobody is created here. */
+/* Three drawers a workspace's settings and setup guide open: Technician Groups, Request Categories and
+ * Emails (support email & portal). Saving writes real workspace data.
+ * Members are NOT managed here: they are added with roles, groups and scope on the Team tab. */
 
-const META: Record<SetupStep, { icon: LucideIcon; title: string; sub: (d: Desk) => string }> = {
-  team: { icon: Users, title: 'Team & groups', sub: (d) => `Who works in ${d.name}, and the groups requests are assigned to.` },
-  requests: { icon: LayoutList, title: 'Request types', sub: (d) => `What employees can ask ${d.name}. Suggested for ${d.type === 'hr' ? 'an HR' : `a ${TYPE_LABEL[d.type]}`} desk.` },
-  reach: { icon: Mail, title: 'Email & portal', sub: (d) => `How employees reach ${d.name}.` },
+const META: Record<SetupStep, { icon: LucideIcon; title: string; sub: (d: Workspace) => string }> = {
+  groups: { icon: Users, title: 'Technician Groups', sub: (d) => `The groups ${d.name}'s requests are assigned to.` },
+  requests: { icon: LayoutList, title: 'Request Categories', sub: (d) => `What employees can ask ${d.name}. Suggested for ${d.type === 'hr' ? 'an HR' : `a ${TYPE_LABEL[d.type]}`} workspace.` },
+  reach: { icon: Mail, title: 'Emails', sub: (d) => `How employees reach ${d.name}.` },
 };
 
 function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
@@ -32,21 +29,20 @@ const label = (t: string, extra?: ReactNode) => (
 );
 const input = 'h-9 w-full rounded-lg border border-[#DFE5ED] bg-white px-3 text-[13px] text-[#364658] placeholder:text-[#9ca3af] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]';
 
-interface AdminDeskSetupDrawerProps {
-  desk: Desk;
+interface AdminWorkspaceSetupDrawerProps {
+  workspace: Workspace;
   step: SetupStep;
   onClose: () => void;
-  onSave: (setup: DeskSetup) => void;
+  onSave: (setup: WorkspaceSetup) => void;
 }
 
-export function AdminDeskSetupDrawer({ desk, step, onClose, onSave }: AdminDeskSetupDrawerProps) {
-  const [d, setD] = useState<DeskSetup>(() => ({
-    ...desk.setup, memberIds: [...desk.setup.memberIds], groups: [...desk.setup.groups], requestTypes: desk.setup.requestTypes.map((r) => ({ ...r })),
+export function AdminWorkspaceSetupDrawer({ workspace, step, onClose, onSave }: AdminWorkspaceSetupDrawerProps) {
+  const [d, setD] = useState<WorkspaceSetup>(() => ({
+    ...workspace.setup, memberIds: [...workspace.setup.memberIds], groups: [...workspace.setup.groups], requestTypes: workspace.setup.requestTypes.map((r) => ({ ...r })),
   }));
-  const [q, setQ] = useState('');
   const [newGroup, setNewGroup] = useState('');
   const [newType, setNewType] = useState('');
-  const patch = (p: Partial<DeskSetup>) => setD((x) => ({ ...x, ...p }));
+  const patch = (p: Partial<WorkspaceSetup>) => setD((x) => ({ ...x, ...p }));
   const meta = META[step];
   const Icon = meta.icon;
 
@@ -56,7 +52,6 @@ export function AdminDeskSetupDrawer({ desk, step, onClose, onSave }: AdminDeskS
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const people = TECHNICIANS.filter((t) => !q.trim() || `${t.name} ${t.email}`.toLowerCase().includes(q.trim().toLowerCase()));
   const addGroup = (g: string) => {
     const name = g.trim();
     if (!name || d.groups.some((x) => x.toLowerCase() === name.toLowerCase())) return;
@@ -69,9 +64,9 @@ export function AdminDeskSetupDrawer({ desk, step, onClose, onSave }: AdminDeskS
     patch({ requestTypes: [...d.requestTypes, { name, on: true }] });
     setNewType('');
   };
-  const suggestedGroups = KIND_TEMPLATE[desk.type].groups.filter((g) => !d.groups.includes(g));
+  const suggestedGroups = KIND_TEMPLATE[workspace.type].groups.filter((g) => !d.groups.includes(g));
 
-  const save = () => onSave(step === 'requests' ? { ...d, requestsReviewed: true } : d);
+  const save = () => onSave(d);
 
   return (
     <div className="fixed inset-0 z-[9995] flex justify-end bg-[#0F172A]/30 animate-in fade-in duration-150" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -80,46 +75,16 @@ export function AdminDeskSetupDrawer({ desk, step, onClose, onSave }: AdminDeskS
           <span className="flex size-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#EBF5FF] text-[#3D8BD0]"><Icon size={20} /></span>
           <div className="min-w-0 flex-1">
             <h2 className="text-[17px] font-semibold text-[#1F2D3D]">{meta.title}</h2>
-            <p className="mt-0.5 text-[13px] text-[#64748B]">{meta.sub(desk)}</p>
+            <p className="mt-0.5 text-[13px] text-[#64748B]">{meta.sub(workspace)}</p>
           </div>
           <button onClick={onClose} aria-label="Close" className="flex size-8 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F3F4F6]"><X size={18} /></button>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-          {step === 'team' && (
+          {step === 'groups' && (
             <>
-              {label('Technicians', <span className="text-[12px] text-[#7B8FA5]">{d.memberIds.length} selected</span>)}
-              <div className="relative mb-2">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
-                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search existing technicians" className={`${input} pl-8`} />
-              </div>
-              <ul className="space-y-1">
-                {people.map((t) => {
-                  const on = d.memberIds.includes(t.id);
-                  return (
-                    <li key={t.id}>
-                      <button
-                        onClick={() => patch({ memberIds: on ? d.memberIds.filter((m) => m !== t.id) : [...d.memberIds, t.id] })}
-                        aria-pressed={on}
-                        className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors ${on ? 'bg-[#F5FAFF]' : 'hover:bg-[#F8FAFC]'}`}
-                      >
-                        <span className={`flex size-8 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors ${on ? 'bg-[#3D8BD0] text-white' : 'bg-[#E0ECF8] text-[#36577A]'}`}>
-                          {on ? <Check size={15} strokeWidth={3} /> : initials(t.name)}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13px] font-medium text-[#364658]">{t.name}</span>
-                          <span className="block truncate text-[12px] text-[#7B8FA5]">{t.email}</span>
-                        </span>
-                        {desk.ownerIds.includes(t.id) && <span className="rounded-sm bg-[#F1F5F9] px-1.5 py-px text-[10px] font-semibold uppercase text-[#64748B]">Owner</span>}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-              <p className="mt-2 text-[12px] text-[#94A3B8]">Technicians come from Admin › Users. Nobody is created here.</p>
-
-              <div className="mt-6">
-                {label('Groups')}
+              <div>
+                {label('Technician groups')}
                 <div className="flex flex-wrap gap-2">
                   {d.groups.map((g) => (
                     <span key={g} className="inline-flex items-center gap-1.5 rounded-full border border-[#DCEBFA] bg-[#F5FAFF] py-1 pl-3 pr-1.5 text-[13px] text-[#364658]">
@@ -140,7 +105,7 @@ export function AdminDeskSetupDrawer({ desk, step, onClose, onSave }: AdminDeskS
                   <input value={newGroup} onChange={(e) => setNewGroup(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addGroup(newGroup); }} placeholder="Add a group" className={input} />
                   <button onClick={() => addGroup(newGroup)} disabled={!newGroup.trim()} className="inline-flex h-9 items-center rounded-lg border border-[#3D8BD0] px-3 text-[13px] font-medium text-[#3D8BD0] hover:bg-[#EBF5FF] disabled:opacity-40">Add</button>
                 </div>
-                <p className="mt-2 text-[12px] text-[#94A3B8]">Who belongs to which group, and roles, are refined later (F02, F03, F11).</p>
+                <p className="mt-2 text-[12px] text-[#94A3B8]">Who is in which group is set per member on the Team tab. Removing a group takes it off its members here.</p>
               </div>
             </>
           )}
@@ -170,7 +135,7 @@ export function AdminDeskSetupDrawer({ desk, step, onClose, onSave }: AdminDeskS
                 <Globe size={20} className="mt-0.5 flex-shrink-0 text-[#3D8BD0]" />
                 <div className="flex-1">
                   <div className="text-[14px] font-semibold text-[#1F2D3D]">Show on the Support Portal</div>
-                  <p className="mt-0.5 text-[13px] text-[#64748B]">Employees see {desk.name} and its request types when they look for help. Only after it goes Live.</p>
+                  <p className="mt-0.5 text-[13px] text-[#64748B]">Employees see {workspace.name} and its request types when they look for help. Only after it goes Live.</p>
                 </div>
                 <Toggle on={d.portal} label="Show on the Support Portal" onChange={(v) => patch({ portal: v })} />
               </div>
@@ -179,8 +144,8 @@ export function AdminDeskSetupDrawer({ desk, step, onClose, onSave }: AdminDeskS
                   <Mail size={20} className="mt-0.5 flex-shrink-0 text-[#3D8BD0]" />
                   <div className="flex-1">
                     <div className="text-[14px] font-semibold text-[#1F2D3D]">Support email</div>
-                    <p className="mt-0.5 text-[13px] text-[#64748B]">Emails to this address become {desk.name} requests.</p>
-                    <input value={d.email} onChange={(e) => patch({ email: e.target.value })} placeholder={`e.g. ${desk.code.toLowerCase()}@company.com`} className={`${input} mt-3`} />
+                    <p className="mt-0.5 text-[13px] text-[#64748B]">Emails to this address become {workspace.name} requests.</p>
+                    <input value={d.email} onChange={(e) => patch({ email: e.target.value })} placeholder={`e.g. ${workspace.name.toLowerCase().replace(/[^a-z0-9]+/g, '')}@company.com`} className={`${input} mt-3`} />
                     <p className="mt-2 text-[12px] text-[#94A3B8]">The mailbox is connected once in Support Channels › Email (F15).</p>
                   </div>
                 </div>

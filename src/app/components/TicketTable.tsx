@@ -1,4 +1,5 @@
-import { ArrowUpDown, Clock } from 'lucide-react';
+import { ArrowUpDown, Clock, Lock } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import type { Ticket } from './TicketListPage';
 import { StatusBadge } from './StatusBadge';
 import { PriorityBar } from './PriorityBar';
@@ -13,6 +14,8 @@ interface TicketTableProps {
   sortColumn: keyof Ticket | null;
   sortDirection: 'asc' | 'desc';
   onTicketClick: (ticket: Ticket) => void;
+  /** F05: the ticket's workspace and why the viewer may see it. */
+  workspaceOf?: (t: Ticket) => { name: string; colour: string; confidential: boolean; why: string } | undefined;
 }
 
 export function TicketTable({
@@ -24,7 +27,8 @@ export function TicketTable({
   onSort,
   sortColumn,
   sortDirection,
-  onTicketClick
+  onTicketClick,
+  workspaceOf,
 }: TicketTableProps) {
   const formatDateTime = (date: Date) => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -75,6 +79,7 @@ export function TicketTable({
             <th className="px-4 py-2.5 text-left text-[12px] font-semibold text-[#364658]  tracking-wider">
               <span className="whitespace-nowrap">Requester</span>
             </th>
+            {workspaceOf && <th className="px-4 py-2.5 text-left text-[12px] font-semibold text-[#364658] tracking-wider"><span className="whitespace-nowrap">Workspace</span></th>}
             <th className="px-4 py-2.5 text-left text-[12px] font-semibold text-[#364658]  tracking-wider"><span className="whitespace-nowrap">Due By Status</span></th>
             <th className="px-4 py-2.5 text-left text-[12px] font-semibold text-[#364658] tracking-wider">
               <span className="whitespace-nowrap">Due By</span>
@@ -124,6 +129,20 @@ export function TicketTable({
                 <span className="max-w-[350px] truncate font-medium inline-block">{ticket.subject}</span>
               </td>
               <td className="px-4 py-3 text-[12px] text-[#364658] whitespace-nowrap">{ticket.requester}</td>
+              {workspaceOf && (() => { const w = workspaceOf(ticket); return (
+                <td className="px-4 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                  {w && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex cursor-help items-center gap-1.5 rounded border border-[#E5E7EB] bg-white px-1.5 py-0.5 text-[12px] text-[#364658]">
+                          <span className="size-2 rounded-full" style={{ background: w.colour }} />{w.name}{w.confidential && <Lock size={11} className="text-[#64748B]" />}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[280px]">Why you can see it: {w.why}</TooltipContent>
+                    </Tooltip>
+                  )}
+                </td>
+              ); })()}
               <td className="px-4 py-3 whitespace-nowrap">
                 <span className="inline-flex items-center gap-1">
                   <Clock size={12} className="text-[#364658]" />

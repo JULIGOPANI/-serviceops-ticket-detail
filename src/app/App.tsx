@@ -18,10 +18,11 @@ import { VulnerabilitiesListPage } from './components/VulnerabilitiesListPage';
 import { DetectedCvesListPage } from './components/DetectedCvesListPage';
 import { BomInventoryListPage } from './components/BomInventoryListPage';
 import { AdminPage } from './components/AdminPage';
+import { EsmPortalPage } from './components/EsmPortalView';
 import { DrawerStackProvider } from './components/DrawerStack';
 import { GlobalSearch } from './components/GlobalSearch';
 import { Toaster } from 'sonner';
-import { DESK_SLUG, formatHash, parseHash, titleFor } from './routes';
+import { WORKSPACE_SLUG, TECHNICIAN_SLUG, formatHash, parseHash, titleFor } from './routes';
 import type { Page, Route } from './routes';
 
 export default function App() {
@@ -88,6 +89,7 @@ export default function App() {
       {activePage === 'vulnerabilities' && <VulnerabilitiesListPage onNavigate={navigate} />}
       {activePage === 'detected-cves' && <DetectedCvesListPage onNavigate={navigate} />}
       {activePage === 'bom' && <BomInventoryListPage onNavigate={navigate} />}
+      {activePage === 'portal' && <EsmPortalPage sub={route.sub} onExit={() => go({ page: 'admin', admin: 'esm-portal' })} />}
       {activePage === 'admin' && (
         <AdminPage
           onNavigate={navigate}
@@ -95,8 +97,12 @@ export default function App() {
           portalSlug={route.portal}
           onModuleChange={(slug) => go({ page: 'admin', admin: slug })}
           onPortalChange={(portal) => go({ page: 'admin', admin: 'support-portal', portal })}
-          deskPath={route.desk}
-          onDeskChange={(desk) => go({ page: 'admin', admin: DESK_SLUG, desk })}
+          workspacePath={route.workspace}
+          onWorkspaceChange={(workspace) => go({ page: 'admin', admin: WORKSPACE_SLUG, workspace })}
+          technicianPath={route.technician}
+          onTechnicianChange={(technician) => go({ page: 'admin', admin: TECHNICIAN_SLUG, technician })}
+          rolePath={route.role}
+          onRoleChange={(role) => go({ page: 'admin', admin: 'roles', role })}
         />
       )}
       {/* Mounted once, inside the drawer host, so search works on every page and can open any

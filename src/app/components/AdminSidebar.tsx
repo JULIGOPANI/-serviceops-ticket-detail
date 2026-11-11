@@ -2,8 +2,12 @@ import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronDown, Search, X, House } from 'lucide-react';
 import { ADMIN_NAV, sectionByTitle, isTreeSection } from './adminData';
 import { adminIcon } from './AdminIcons';
-import { DeskSwitcher } from './DeskSwitcher';
-import { DESK_ADMIN, actionPath } from './deskAdmin';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher';
+import { PersonaSwitcher } from './PersonaSwitcher';
+import type { ViewAs } from './workspaceData';
+import { workspaceAdminFor, actionPath, settingsPath } from './workspaceAdmin';
+import { loadStore, orgCan, orgView } from './workspaceData';
+import { listedInOrganization } from './scopedCards';
 import { toast } from 'sonner';
 
 /* Admin left nav — grouped, searchable, and driven by the same ADMIN_SECTIONS the Overview
@@ -25,15 +29,17 @@ interface AdminSidebarProps {
   /** `card` is present when a level-2/3 module was chosen rather than the section itself. */
   onSelect: (sectionTitle: string, card?: string) => void;
   onBackToApp: () => void;
-  /** ESM: the desk whose page is open, for the desk switcher. */
-  currentDeskId?: number;
+  /** ESM: the workspace whose page is open, for the workspace switcher. */
+  currentWorkspaceId?: number;
   onAllSettings?: () => void;
-  onDesk?: (path: string | undefined) => void;
-  /** ESM: the open desk path ('<id>', '<id>/details', …) — highlights the desk menu. */
-  deskPath?: string;
+  onWorkspace?: (path: string | undefined) => void;
+  /** ESM: the open workspace path ('<id>', '<id>/details', …) — highlights the workspace menu. */
+  workspacePath?: string;
+  /** Prototype "View as". */
+  onPersona?: (v: ViewAs) => void;
 }
 
-export function AdminSidebar({ active, activeCard, onSelect, onBackToApp, currentDeskId, onAllSettings, onDesk, deskPath }: AdminSidebarProps) {
+export function AdminSidebar({ active, activeCard, onSelect, onBackToApp, currentWorkspaceId, onAllSettings, onWorkspace, workspacePath, onPersona }: AdminSidebarProps) {
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const q = query.trim().toLowerCase();
@@ -46,14 +52,25 @@ export function AdminSidebar({ active, activeCard, onSelect, onBackToApp, curren
 
   // Searching matches a section by its own name OR by any card inside it, so typing "SLA" or
   // "barcode" finds the section that owns it rather than coming back empty.
+  // F04: with two or more workspaces, Workspace-only cards are listed inside each workspace, not here.
+  const multi = loadStore().workspaces.length > 1;
+  // Organization settings are for Organization Admins only (F03 rethink): anyone else sees only their workspaces.
+  const viewAsId = loadStore().viewAs;
+  const orgViewer = orgView(viewAsId);
+  const sectionFor = (title: string) => {
+    const s = sectionByTitle(title);
+    return s && { ...s, cards: s.cards.filter((c) => listedInOrganization(s.title, c.title, multi) && orgCan(viewAsId, s.title, c.title)) };
+  };
   const matches = (title: string) => {
+    const own = sectionByTitle(title);
+    if (own && !sectionFor(title)!.cards.length) return false;
     if (!q) return true;
     if (title.toLowerCase().includes(q)) return true;
-    const s = sectionByTitle(title);
+    const s = sectionFor(title);
     return !!s && s.cards.some((c) => c.title.toLowerCase().includes(q));
   };
 
-  const groups = ADMIN_NAV
+  const groups = (orgViewer || currentWorkspaceId !== undefined ? ADMIN_NAV : [])
     .map((g) => ({ ...g, items: g.items.filter(matches) }))
     .filter((g) => g.items.length > 0);
 
@@ -70,8 +87,11 @@ export function AdminSidebar({ active, activeCard, onSelect, onBackToApp, curren
         Back to app
       </button>
 
-      {/* ESM desk switcher: company-wide settings or one desk (F01) */}
-      {onDesk && onAllSettings && <DeskSwitcher currentDeskId={currentDeskId} onAllSettings={onAllSettings} onDesk={onDesk} />}
+      {/* ESM workspace switcher: company-wide settings or one workspace (F01) */}
+      {onPersona && <PersonaSwitcher onChange={onPersona} />}
+
+      {/* With one workspace there is nothing to switch between: the admin is today's (F04 Q3). */}
+      {onWorkspace && onAllSettings && (multi || currentWorkspaceId !== undefined) && <WorkspaceSwitcher currentWorkspaceId={currentWorkspaceId} onAllSettings={onAllSettings} onWorkspace={onWorkspace} />}
 
       {/* Search */}
       <div className="px-4 pb-3 pt-3">
@@ -93,47 +113,49 @@ export function AdminSidebar({ active, activeCard, onSelect, onBackToApp, curren
         </div>
       </div>
 
-      {currentDeskId !== undefined && onDesk ? (
-        /* Inside a desk: the menu is THAT desk's settings, like a Freshservice workspace's own admin
-           or a ManageEngine instance's Setup. Provisional groups (deskAdmin.ts) until F04. */
+      {currentWorkspaceId !== undefined && onWorkspace ? (
+        /* Inside a workspace: the menu is THAT workspace's settings, like a Freshservice workspace's own admin
+           or a ManageEngine instance's Setup: ServiceOps' own sections, only this workspace's modules. */
         <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
           <button
-            onClick={() => onDesk(String(currentDeskId))}
+            onClick={() => onWorkspace(settingsPath(currentWorkspaceId))}
             className={`mb-1 flex w-full items-center gap-2.5 rounded px-3 py-2 text-left text-[13px] transition-colors ${
-              deskPath === String(currentDeskId) ? 'bg-[#EBF5FF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F5F7FA]'
+              workspacePath === settingsPath(currentWorkspaceId) ? 'bg-[#EBF5FF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F5F7FA]'
             }`}
           >
-            <House size={16} className={deskPath === String(currentDeskId) ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'} />
-            Desk home
+            <House size={16} className={workspacePath === settingsPath(currentWorkspaceId) ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'} />
+            Overview
           </button>
-          {DESK_ADMIN.map((g) => {
-            const items = g.items.filter((it) => !q || `${g.title} ${it.title}`.toLowerCase().includes(q));
-            if (!items.length) return null;
-            const GroupIcon = adminIcon(g.icon);
-            return (
-              <div key={g.title} className="mt-4 first:mt-2">
-                <div className="flex items-center gap-1.5 px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">
-                  <GroupIcon size={12} />{g.title}
+          {(() => {
+            const ws = loadStore().workspaces.find((w) => w.id === currentWorkspaceId);
+            return ws ? workspaceAdminFor(ws).map((g) => {
+              const items = g.cards.filter((it) => !q || `${g.title} ${it.title}`.toLowerCase().includes(q));
+              if (!items.length) return null;
+              const GroupIcon = adminIcon(g.icon);
+              return (
+                <div key={g.key} className="mt-4 first:mt-2">
+                  <div className="flex items-center gap-1.5 px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">
+                    <GroupIcon size={12} />{g.title}
+                  </div>
+                  {items.map((it) => {
+                    const path = it.action ? actionPath(currentWorkspaceId, it.action) : undefined;
+                    const on = !!path && workspacePath === path;
+                    return (
+                      <button
+                        key={it.title}
+                        onClick={() => (path ? onWorkspace(path) : toast(`${it.title} for ${ws.name}`, { description: 'The same ServiceOps screen, showing only this workspace’s records.' }))}
+                        className={`flex w-full items-center gap-2 rounded px-3 py-1.5 pl-[30px] text-left text-[13px] transition-colors ${
+                          on ? 'bg-[#EBF5FF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F5F7FA]'
+                        }`}
+                      >
+                        <span className="truncate">{it.title}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-                {items.map((it) => {
-                  const path = it.action ? actionPath(currentDeskId, it.action) : undefined;
-                  const on = !!path && deskPath === path;
-                  return (
-                    <button
-                      key={it.title}
-                      onClick={() => (path ? onDesk(path) : toast(`${it.title}`, { description: `Designed in ${it.feature}. Whether it is per desk is decided in F04.` }))}
-                      className={`flex w-full items-center gap-2 rounded px-3 py-1.5 pl-[30px] text-left text-[13px] transition-colors ${
-                        on ? 'bg-[#EBF5FF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F5F7FA]'
-                      }`}
-                    >
-                      <span className="truncate">{it.title}</span>
-                      {!it.action && <span className="ml-auto font-mono text-[10px] text-[#B0BCC9]">{it.feature}</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })}
+              );
+            }) : null;
+          })()}
         </nav>
       ) : (
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
@@ -155,7 +177,7 @@ export function AdminSidebar({ active, activeCard, onSelect, onBackToApp, curren
               {g.group}
             </div>
             {g.items.map((title) => {
-              const s = sectionByTitle(title);
+              const s = sectionFor(title);
               const Icon = adminIcon(s?.icon ?? 'Settings2');
               const tree = isTreeSection(title);
               // A search reveals its hits rather than making the user open branches by hand.
@@ -212,7 +234,7 @@ export function AdminSidebar({ active, activeCard, onSelect, onBackToApp, curren
                                 }`}
                               >
                                 <CardIcon size={15} className={`flex-shrink-0 ${on ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'}`} />
-                                <span className="truncate">{c.title}</span>
+                                <span className="truncate">{c.title}</span>{c.isNew && <span className="ml-1.5 rounded-full bg-[#EDE9FE] px-1.5 py-px text-[10px] font-semibold text-[#6D28D9]">New</span>}
                               </button>
 
                               {/* ── Level 3 ── no icons. One rail runs down the group, and the

@@ -3,20 +3,20 @@ import type { ReactNode } from 'react';
 import { Building2, LayoutGrid, Monitor, Scale, Users, Wallet, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
-import { STATUS_HELP, STATUS_LABEL, TYPE_LABEL, technicianById } from './deskData';
-import type { DeskStatus, DeskType } from './deskData';
+import { STATUS_HELP, STATUS_LABEL, TYPE_LABEL, technicianById } from './workspaceData';
+import type { WorkspaceStatus, WorkspaceType } from './workspaceData';
 
-/* Pieces the Desks list, the desk page and the create flow share, so a status pill, an icon or a
+/* Pieces the Workspaces list, the workspace page and the create flow share, so a status pill, an icon or a
  * row can't look different in two places. */
 
-export const TYPE_ICON: Record<DeskType, LucideIcon> = {
+export const TYPE_ICON: Record<WorkspaceType, LucideIcon> = {
   it: Monitor, hr: Users, facilities: Building2, finance: Wallet, legal: Scale, general: LayoutGrid,
 };
 
-/** The desk colour at low strength, for icon tiles and header washes. `hex` is #RRGGBB. */
+/** The workspace colour at low strength, for icon tiles and header washes. `hex` is #RRGGBB. */
 export const tint = (hex: string, alpha: number) => `${hex}${Math.round(alpha * 255).toString(16).padStart(2, '0')}`;
 
-export function DeskIcon({ type, colour, size = 'md' }: { type: DeskType; colour: string; size?: 'md' | 'lg' }) {
+export function WorkspaceIcon({ type, colour, size = 'md' }: { type: WorkspaceType; colour: string; size?: 'md' | 'lg' }) {
   const Icon = TYPE_ICON[type];
   const box = size === 'lg' ? 'size-12 rounded-xl' : 'size-10 rounded-lg';
   return (
@@ -28,34 +28,43 @@ export function DeskIcon({ type, colour, size = 'md' }: { type: DeskType; colour
 
 export const initials = (name?: string) => (name ?? '').split(' ').map((p) => p[0]).join('').slice(0, 2);
 
-export interface DeskRowData {
-  name: string; code: string; type: DeskType; colour: string; status: DeskStatus; isDefault: boolean;
-  ownerIds: number[]; description: string;
+export interface WorkspaceRowData {
+  name: string; type: WorkspaceType; colour: string; status: WorkspaceStatus; isDefault: boolean;
+  adminIds: number[]; description: string;
 }
 
-/** One desk as a list row: used in the Desks list and, unchanged, as the live preview in New desk.
- *  ⚠️ No ticket numbers: neither Freshservice nor ManageEngine shows them on the desk list, and
- *  Juli asked for none (2026-10-14). */
-export function DeskRowBody({ d, actions }: { d: DeskRowData; actions?: ReactNode }) {
-  const owners = d.ownerIds.map((id) => technicianById(id)?.name).filter(Boolean) as string[];
+/* Columns of the Workspaces list (brief, 2026-10-28): Name · Type · Workspace Admin · Description · Status ·
+ * Actions. Name and Type are separate columns on purpose. ⚠️ No ticket numbers (Juli, 2026-10-14). */
+const ROW_GRID = 'grid grid-cols-[minmax(0,1fr)_88px_120px] items-center gap-4 md:grid-cols-[minmax(0,1.2fr)_96px_minmax(0,1fr)_88px_120px] lg:grid-cols-[minmax(0,1.1fr)_96px_minmax(0,1fr)_minmax(0,1.3fr)_88px_120px]';
+
+export function WorkspaceRowHead() {
+  const h = 'text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]';
   return (
-    <div className="flex items-center gap-4">
-      <DeskIcon type={d.type} colour={d.colour} />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-[14px] font-semibold text-[#1F2D3D]">{d.name || 'Desk name'}</span>
-          {d.isDefault && <DefaultTag />}
-        </div>
-        <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12px] text-[#7B8FA5]">
-          <span className="flex-shrink-0 font-mono font-medium text-[#475569]">{d.code || '—'}</span>
-          <span className="flex-shrink-0">·</span>
-          <span className="flex-shrink-0">{owners.length ? `Owner${owners.length > 1 ? 's' : ''}: ${owners.join(', ')}` : 'No owner yet'}</span>
-          {d.description && <><span className="flex-shrink-0">·</span><span className="truncate">{d.description}</span></>}
-        </div>
+    <div className={`${ROW_GRID} border-b border-[#EEF1F5] bg-[#FAFBFC] px-5 py-2`}>
+      <span className={h}>Workspace Name</span>
+      <span className={`${h} hidden md:block`}>Workspace Type</span>
+      <span className={`${h} hidden md:block`}>Workspace Admin</span>
+      <span className={`${h} hidden lg:block`}>Description</span>
+      <span className={h}>Status</span>
+      <span className={`${h} text-right`}>Actions</span>
+    </div>
+  );
+}
+
+/** One workspace as a list row: used in the Workspaces list and, unchanged, as the live preview in Add Workspace. */
+export function WorkspaceRowBody({ d, actions }: { d: WorkspaceRowData; actions?: ReactNode }) {
+  return (
+    <div className={actions ? ROW_GRID : 'flex items-center gap-4'}>
+      <div className="flex min-w-0 items-center gap-3">
+        <WorkspaceIcon type={d.type} colour={d.colour} />
+        <span className="truncate text-[14px] font-semibold text-[#1F2D3D]">{d.name || 'Workspace name'}</span>
+        {d.isDefault && <DefaultTag />}
       </div>
-      <span className="hidden w-[110px] flex-shrink-0 text-[13px] text-[#475569] md:block">{TYPE_LABEL[d.type]} desk</span>
-      <span className="w-[86px] flex-shrink-0"><StatusPill status={d.status} /></span>
-      {actions && <div className="flex w-[104px] flex-shrink-0 items-center justify-end gap-1">{actions}</div>}
+      <span className={`text-[13px] text-[#475569] ${actions ? 'hidden md:block' : ''}`}>{TYPE_LABEL[d.type]}</span>
+      <span className={`min-w-0 ${actions ? 'hidden md:block' : ''}`}>{d.adminIds.length ? <Admins ids={d.adminIds} /> : <span className="text-[12px] text-[#B45309]">No admin yet</span>}</span>
+      {actions && <span className="hidden truncate text-[13px] text-[#7B8FA5] lg:block">{d.description || '—'}</span>}
+      <span><StatusPill status={d.status} /></span>
+      {actions && <div className="flex items-center justify-end gap-1">{actions}</div>}
     </div>
   );
 }
@@ -77,18 +86,47 @@ export function ProgressRing({ value, size = 44, light }: { value: number; size?
 
 export const primaryBtn = 'inline-flex h-9 items-center gap-1.5 rounded bg-[#3D8BD0] px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-[#2d6ca0] disabled:cursor-not-allowed disabled:opacity-50';
 
-const STATUS_STYLE: Record<DeskStatus, string> = {
+const STATUS_STYLE: Record<WorkspaceStatus, string> = {
   live: 'border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]',
   setup: 'border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]',
   inactive: 'border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]',
 };
-const STATUS_DOT: Record<DeskStatus, string> = { live: 'bg-[#22C55E]', setup: 'bg-[#F59E0B]', inactive: 'bg-[#94A3B8]' };
+const STATUS_DOT: Record<WorkspaceStatus, string> = { live: 'bg-[#22C55E]', setup: 'bg-[#F59E0B]', inactive: 'bg-[#94A3B8]' };
+
+export const secondaryBtn = 'inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#DFE5ED] bg-white px-3.5 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA] disabled:cursor-not-allowed disabled:opacity-50';
+
+/** Right-side drawer shell shared by the workspace drawers, so header/footer/Escape behave the same. */
+export function SideDrawer({ title, sub, icon, width = 560, onClose, footer, children }: {
+  title: string; sub?: ReactNode; icon?: ReactNode; width?: number; onClose: () => void; footer?: ReactNode; children: ReactNode;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('[data-radix-popper-content-wrapper]')) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-[9995] flex justify-end bg-[#0F172A]/35 animate-in fade-in duration-150" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <aside role="dialog" aria-modal="true" aria-label={title} style={{ width }} className="flex h-full max-w-[95vw] flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-200">
+        <header className="flex items-start gap-3 border-b border-[#EEF1F5] px-6 py-4">
+          {icon && <span className="flex size-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#EBF5FF] text-[#3D8BD0]">{icon}</span>}
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[17px] font-semibold text-[#1F2D3D]">{title}</h2>
+            {sub && <div className="mt-0.5 text-[13px] text-[#64748B]">{sub}</div>}
+          </div>
+          <button onClick={onClose} aria-label="Close" className="flex size-8 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F3F4F6]"><X size={18} /></button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+        {footer && <footer className="flex items-center justify-end gap-2 border-t border-[#EEF1F5] bg-[#FAFBFC] px-6 py-3.5">{footer}</footer>}
+      </aside>
+    </div>
+  );
+}
 
 export function DefaultTag() {
   return <span className="inline-flex flex-shrink-0 items-center rounded-sm bg-[#EBF5FF] px-1.5 py-px text-[11px] font-semibold text-[#3D8BD0]">Default</span>;
 }
 
-export function StatusPill({ status }: { status: DeskStatus }) {
+export function StatusPill({ status }: { status: WorkspaceStatus }) {
   return (
     <Tooltip delayDuration={300}>
       <TooltipTrigger asChild>
@@ -172,7 +210,7 @@ export function Notice({ icon, title, children, action }: { icon: ReactNode; tit
   );
 }
 
-export function Owners({ ids }: { ids: number[] }) {
+export function Admins({ ids }: { ids: number[] }) {
   const first = technicianById(ids[0]);
   const rest = ids.slice(1).map((id) => technicianById(id)?.name).filter(Boolean) as string[];
   return (

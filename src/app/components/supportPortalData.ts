@@ -45,6 +45,8 @@ export interface PortalPage {
    *       cards, and My Assets / My CIs as full-width rows of tiles
    *   v1  the arrangement this builder shipped with, kept intact on "Support Portal - 2" */
   layout?: 'v1' | 'v2';
+  /** ESM F18: the workspace this portal is mapped to (one portal per workspace; the Default portal = IT). */
+  workspaceId?: number;
 }
 
 /* ⚠️ `portal` is not a template layout like the others — it is a PICTURE OF THIS PORTAL. The
@@ -162,6 +164,7 @@ export const DEFAULT_PORTAL_PAGE: PortalPage = {
   url: 'support.acme.com',
   idp: 'None — use ServiceOps login',
   ssoOnly: false,
+  workspaceId: 1,
 };
 
 /** The arrangement the builder shipped with, kept as a portal of its own. */
@@ -172,6 +175,7 @@ export const SECOND_PORTAL_PAGE: PortalPage = {
   layout: 'v1',
   url: 'support.acme.com/portal-2',
   dirty: false,
+  workspaceId: undefined,
   modifiedAt: 'Mon, Aug 17, 2026 09:14 AM',
 };
 

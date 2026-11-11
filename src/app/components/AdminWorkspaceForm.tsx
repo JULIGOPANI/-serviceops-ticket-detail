@@ -3,19 +3,18 @@ import type { ReactNode } from 'react';
 import { Check, ChevronDown, Lock, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import {
-  CODE_PATTERN, COLOURS, CREATABLE_TYPES, MAX_DESCRIPTION, MAX_NAME, STATUS_HELP, STATUS_LABEL, TECHNICIANS,
-  TYPE_LABEL, codeFrom,
-} from './deskData';
-import type { Desk, DeskDraft, DeskType } from './deskData';
+  COLOURS, CREATABLE_TYPES, MAX_DESCRIPTION, MAX_NAME, STATUS_HELP, STATUS_LABEL, TECHNICIANS,
+  TYPE_LABEL, adminIdsOf, technicianById,
+} from './workspaceData';
+import type { Workspace, WorkspaceDraft, WorkspaceType } from './workspaceData';
 
-/* Create / Edit Desk: ONE right-side drawer, two modes, so a label or a rule can't drift.
+/* Create / Edit Workspace: ONE right-side drawer, two modes, so a label or a rule can't drift.
  *
  * A drawer, not a full page, because that is how the live product creates its Organization
  * objects (Create Company and Add Department both open a right drawer with Save / Cancel; seen on
  * 172.16.15.185, 2026-10-13). F01 asks only identity questions, so the drawer has room.
  *
- * Edit-mode differences: Type is read-only (it will drive templates and modules); Short code is
- * read-only once the desk has gone Live; the IT desk's type and code are always locked. */
+ * Edit-mode difference: Type is read-only (it will drive templates and modules). */
 
 export const inputCls = (error?: string) =>
   `h-9 w-full rounded border bg-white px-3 text-[13px] text-[#364658] placeholder:text-[#9ca3af] focus:outline-none focus:ring-1 ${
@@ -123,24 +122,20 @@ export function OwnerPicker({ value, onChange, error }: { value: number[]; onCha
   );
 }
 
-interface DeskFormProps {
+interface WorkspaceFormProps {
   mode: 'create' | 'edit';
-  desk?: Desk;
-  desks: Desk[];
+  workspace?: Workspace;
+  workspaces: Workspace[];
   onCancel: () => void;
-  onSubmit: (draft: DeskDraft) => void;
+  onSubmit: (draft: WorkspaceDraft) => void;
 }
 
-export function DeskForm({ mode, desk, desks, onCancel, onSubmit }: DeskFormProps) {
-  const others = useMemo(() => desks.filter((w) => w.id !== desk?.id), [desks, desk]);
-  const [name, setName] = useState(desk?.name ?? '');
-  const [type, setType] = useState<DeskType | ''>(desk?.type ?? '');
-  const [code, setCode] = useState(desk?.code ?? '');
-  /* The code follows the name until the admin types in it themselves; after that it is theirs. */
-  const [codeTouched, setCodeTouched] = useState(mode === 'edit');
-  const [description, setDescription] = useState(desk?.description ?? '');
-  const [ownerIds, setOwnerIds] = useState<number[]>(desk?.ownerIds ?? []);
-  const [colour, setColour] = useState(desk?.colour ?? COLOURS[1]);
+export function WorkspaceForm({ mode, workspace, workspaces, onCancel, onSubmit }: WorkspaceFormProps) {
+  const others = useMemo(() => workspaces.filter((w) => w.id !== workspace?.id), [workspaces, workspace]);
+  const [name, setName] = useState(workspace?.name ?? '');
+  const [type, setType] = useState<WorkspaceType | ''>(workspace?.type ?? '');
+  const [description, setDescription] = useState(workspace?.description ?? '');
+  const [colour, setColour] = useState(workspace?.colour ?? COLOURS[1]);
   const [submitted, setSubmitted] = useState(false);
 
   /* ⚠️ Escape closes the innermost thing only. The Owners dropdown closes itself on the same
@@ -155,33 +150,21 @@ export function DeskForm({ mode, desk, desks, onCancel, onSubmit }: DeskFormProp
     return () => window.removeEventListener('keydown', onKey);
   }, [onCancel]);
 
-  const takenCodes = others.map((w) => w.code);
-  useEffect(() => {
-    if (!codeTouched) setCode(codeFrom(name, takenCodes));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, codeTouched]);
-
-  const typeLocked = mode === 'edit';
-  const codeLocked = mode === 'edit' && (desk!.isDefault || desk!.status !== 'setup');
+  // Type follows the brief: editable while in Setup, locked once the workspace has been Live (and always for IT).
+  const typeLocked = mode === 'edit' && (workspace!.isDefault || workspace!.status !== 'setup');
 
   const errors: Record<string, string | undefined> = {
-    name: !name.trim() ? 'Desk name is required.'
-      : others.some((w) => w.name.trim().toLowerCase() === name.trim().toLowerCase()) ? 'A desk with this name already exists.'
+    name: !name.trim() ? 'Workspace name is required.'
+      : others.some((w) => w.name.trim().toLowerCase() === name.trim().toLowerCase()) ? 'A workspace with this name already exists.'
         : undefined,
-    type: !type ? 'Choose a desk type.' : undefined,
-    code: codeLocked ? undefined
-      : !code ? 'Short code is required.'
-        : !CODE_PATTERN.test(code) ? 'Use 2–6 capital letters or numbers, starting with a letter.'
-          : takenCodes.includes(code) ? `${code} is already used by another desk.`
-            : undefined,
-    owners: ownerIds.length === 0 ? 'Add at least one owner.' : undefined,
+    type: !type ? 'Choose a workspace type.' : undefined,
   };
   const show = (k: string) => (submitted ? errors[k] : undefined);
 
   const submit = () => {
     setSubmitted(true);
     if (Object.values(errors).some(Boolean)) return;
-    onSubmit({ name: name.trim(), type: type as DeskType, code, description: description.trim(), ownerIds, colour });
+    onSubmit({ name: name.trim(), type: type as WorkspaceType, description: description.trim(), adminIds: [], colour });
   };
 
   return (
@@ -192,7 +175,7 @@ export function DeskForm({ mode, desk, desks, onCancel, onSubmit }: DeskFormProp
       <div role="dialog" aria-modal="true" aria-labelledby="ws-form-title" className="flex h-full w-[560px] max-w-[95vw] flex-col bg-white shadow-xl">
         <div className="flex items-center justify-between gap-3 border-b border-[#DFE5ED] px-5 py-3">
           <h2 id="ws-form-title" className="text-[16px] font-semibold text-[#364658]">
-            {mode === 'create' ? 'Create Desk' : `Edit ${desk!.name}`}
+            {mode === 'create' ? 'Create Workspace' : `Edit details · ${workspace!.name}`}
           </h2>
           <button onClick={onCancel} aria-label="Close" className="flex size-8 items-center justify-center rounded transition-colors hover:bg-[#F3F4F6]">
             <X size={18} className="text-[#7B8FA5]" />
@@ -202,17 +185,17 @@ export function DeskForm({ mode, desk, desks, onCancel, onSubmit }: DeskFormProp
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
           {mode === 'create' ? (
             <div className="mb-5 rounded border border-[#DCEBFA] bg-[#F5FAFF] px-3 py-2.5 text-[12px] leading-[1.6] text-[#36577A]">
-              A new desk starts in <strong className="font-semibold">Setup</strong>. It takes no requests until you make it Live.
+              A new workspace starts in <strong className="font-semibold">Setup</strong>. It takes no requests until you make it Live.
             </div>
           ) : (
             <div className="mb-5 flex items-center gap-2 text-[12px] text-[#7B8FA5]">
               <span>Status:</span>
-              <span className="font-medium text-[#364658]">{STATUS_LABEL[desk!.status]}</span>
-              <span>· {STATUS_HELP[desk!.status]}</span>
+              <span className="font-medium text-[#364658]">{STATUS_LABEL[workspace!.status]}</span>
+              <span>· {STATUS_HELP[workspace!.status]}</span>
             </div>
           )}
 
-          <Field id="ws-name" label="Desk Name" required error={show('name')}>
+          <Field id="ws-name" label="Workspace Name" required error={show('name')}>
             <input
               id="ws-name"
               autoFocus
@@ -224,17 +207,17 @@ export function DeskForm({ mode, desk, desks, onCancel, onSubmit }: DeskFormProp
             />
           </Field>
 
-          <Field label="Desk Type" required error={show('type')}>
+          <Field label="Workspace Type" required error={show('type')}>
             {typeLocked ? (
               <LockedValue
-                value={TYPE_LABEL[desk!.type]}
-                reason={desk!.isDefault
-                  ? 'The IT desk is created by ServiceOps and holds everything from before desks existed.'
-                  : 'The type is fixed once the desk is created.'}
+                value={TYPE_LABEL[workspace!.type]}
+                reason={workspace!.isDefault
+                  ? 'The IT workspace is created by ServiceOps and holds everything from before workspaces existed.'
+                  : 'Locked once the workspace has gone Live.'}
               />
             ) : (
               <>
-                <div role="radiogroup" aria-label="Desk Type" className="grid grid-cols-2 gap-2">
+                <div role="radiogroup" aria-label="Workspace Type" className="grid grid-cols-2 gap-2">
                   {CREATABLE_TYPES.map((t) => {
                     const on = type === t.value;
                     return (
@@ -256,38 +239,13 @@ export function DeskForm({ mode, desk, desks, onCancel, onSubmit }: DeskFormProp
                 </div>
                 {!show('type') && (
                   <p className="mt-1.5 text-[12px] leading-[1.5] text-[#7B8FA5]">
-                    IT is not listed: every ServiceOps has exactly one IT desk. The type can't be changed later.
+                    Changing the template type doesn’t remove anything you have already configured.
                   </p>
                 )}
               </>
             )}
           </Field>
 
-          <Field
-            id="ws-code"
-            label="Short Code"
-            required
-            error={show('code')}
-            helper={codeLocked ? undefined : '2–6 capital letters or numbers. Identifies this desk in lists and on tickets. Locked once the desk goes Live.'}
-          >
-            {codeLocked ? (
-              <LockedValue
-                value={desk!.code}
-                reason={desk!.isDefault ? 'The IT desk keeps its code.' : 'Locked because the desk has gone Live.'}
-              />
-            ) : (
-              <div className="w-[160px]">
-                <input
-                  id="ws-code"
-                  value={code}
-                  maxLength={6}
-                  onChange={(e) => { setCodeTouched(true); setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')); }}
-                  placeholder="e.g. HR"
-                  className={`${inputCls(show('code'))} font-mono tracking-wide`}
-                />
-              </div>
-            )}
-          </Field>
 
           <Field id="ws-desc" label="Description" helper={`${description.length}/${MAX_DESCRIPTION}`}>
             <textarea
@@ -301,16 +259,13 @@ export function DeskForm({ mode, desk, desks, onCancel, onSubmit }: DeskFormProp
             />
           </Field>
 
-          <Field
-            label="Owners"
-            required
-            error={show('owners')}
-            helper="The people accountable for this desk."
-          >
-            <OwnerPicker value={ownerIds} onChange={setOwnerIds} error={show('owners')} />
+          <Field label="Workspace Admins" helper="Managed on the Team tab: a Workspace Admin is a member with that role.">
+            <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-1.5 text-[13px] text-[#364658]">
+              {workspace ? adminIdsOf(workspace).map((id) => <span key={id} className="rounded-sm bg-white px-1.5 py-0.5 text-[12px] ring-1 ring-[#E5E7EB]">{technicianById(id)?.name}</span>) : null}
+            </div>
           </Field>
 
-          <Field label="Colour" helper="Tells desks apart in lists and the technician app.">
+          <Field label="Colour" helper="Tells workspaces apart in lists and the technician app.">
             <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Colour">
               {COLOURS.map((c) => (
                 <button

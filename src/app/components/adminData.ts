@@ -18,6 +18,8 @@ export interface AdminCard {
   href: string;
   /** Level-3 submodules. Rendered WITHOUT icons, grouped by a left rail — see SIDEBAR_TREE. */
   children?: { title: string; href: string }[];
+  /** ESM: a card that is new in ESM (New pill on the card and in the nav). */
+  isNew?: boolean;
 }
 
 /* ── Sidebar depth ─────────────────────────────────────────────────────────
@@ -32,7 +34,9 @@ export interface AdminCard {
  * scrolls the Overview, exactly as before. Expansion is opt-in per section rather than automatic
  * for all 24, because a section only earns its own nav branch once its modules are real screens.
  */
-export const SIDEBAR_TREE: string[] = ['BOM Management', 'Patch Management', 'Organization', 'Support Channels'];
+/* ESM F04: the sections whose cards are now real per-workspace pages expand too, as in the live admin. */
+export const SIDEBAR_TREE: string[] = ['BOM Management', 'Patch Management', 'Organization', 'Support Channels', 'Automation', 'Users', 'User Survey',
+  'Request Management', 'Problem Management', 'Change Management', 'Release Management', 'Knowledge Management', 'Task Management'];
 
 export const isTreeSection = (title: string) => SIDEBAR_TREE.includes(title);
 
@@ -49,7 +53,7 @@ export const ADMIN_NAV: { group: string; items: string[] }[] = [
   { group: 'Intelligent Automation', items: ['Automation', 'AI'] },
   { group: 'Platform Configuration', items: ['Users', 'Organization', 'Support Channels', 'User Survey'] },
   /* "Service Desk", the live product's own group name (172.16.15.185, 2026-10-13). The ESM object is
-     called Desk; this group is the live product's own name and is kept (it holds IT modules today). */
+     called Workspace; this group is the live product's own name and is kept (it holds IT modules today). */
   { group: 'Service Desk', items: ['Request Management', 'Service Catalog', 'Problem Management', 'Change Management', 'Release Management', 'Knowledge Management', 'Task Management'] },
   { group: 'IT Operations', items: ['CMDB', 'Discovery And Agents', 'Patch Management', 'Asset Management', 'Vulnerability Management', 'BOM Management', 'OS Deployment'] },
   { group: 'Vendor & Procurement', items: ['Supplier Management', 'Contract Management', 'Purchase Management'] },
@@ -101,7 +105,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     icon: 'Building2',
     cards: [
     // ESM F01 — first in Organization, above the existing entries.
-    { title: 'Desks', desc: 'Run IT, HR, Facilities and Finance as separate service desks inside one ServiceOps.', icon: 'LayoutTemplate', href: '/admin/organization/desk' },
+    { title: 'Workspaces', desc: 'Run IT, HR, Facilities and Finance as separate workspaces inside one ServiceOps.', icon: 'LayoutTemplate', href: '/admin/organization/workspace' },
     { title: 'Account', desc: 'Edit core account details for your ServiceOps instance.', icon: 'Settings2', href: '/admin/organization/account' },
     { title: 'Branding', desc: 'Customize portal logo, colors, and theme to match your brand.', icon: 'Palette', href: '/admin/organization/branding?tab=details' },
     { title: 'Departments', desc: 'Define departments for reporting, routing, and access control.', icon: 'Building2', href: '/admin/organization/department' },
@@ -143,6 +147,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     cards: [
     { title: 'Emails', desc: 'Configure email servers and inbound mail rules.', icon: 'Mail', href: '/admin/support-channels/emails?tab=outgoing' },
     { title: 'Support Portal', desc: 'Customize the self-service portal for requesters.', icon: 'Globe', href: '/admin/support-channels/support-portal?tab=support_portals' },
+    // ESM F18 (Juli, 2026-11-05): the landing page with one card per team; each card opens that workspace's Support Portal.
+    { title: 'ESM Portal', desc: 'The landing page employees see before they pick a team’s support portal.', icon: 'LayoutGrid', href: '/admin/support-channels/esm-portal', isNew: true },
     { title: 'Chat', desc: 'Enable live chat for real-time technician support.', icon: 'MessagesSquare', href: '/admin/support-channels/chat' },
     { title: 'Virtual Agent', desc: 'Design conversational flows for the AI virtual agent.', icon: 'Bot', href: '/admin/support-channels/ai-bot?tab=chat_flow' },
     ],

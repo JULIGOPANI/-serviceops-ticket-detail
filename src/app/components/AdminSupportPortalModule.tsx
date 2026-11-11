@@ -1,3 +1,6 @@
+import { loadStore, sortWorkspaces } from './workspaceData';
+import type { Workspace } from './workspaceData';
+import { loadEsm, portalHost, wsPortalOf } from './esmPortalData';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -251,7 +254,10 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
      invite the admin to "create" the thing they are actually editing. The default page is a System
      page: it can be customised and duplicated, and the delete action refuses it (see `canDelete`),
      because a portal with no landing page is not a state the product can be in. */
-  const [pages, setPages] = useState<PortalPage[]>([DEFAULT_PORTAL_PAGE, SECOND_PORTAL_PAGE]);
+  /* ESM F18: one Support Portal per workspace. The Default portal is IT's (today's portal, unchanged); every other
+     workspace's portal is made from its template when the workspace is created and is listed here with its Workspace. */
+  const [pages, setPages] = useState<PortalPage[]>(() => [DEFAULT_PORTAL_PAGE, ...workspacePortalPages(), SECOND_PORTAL_PAGE]);
+  const wsById = (id?: number) => (id ? loadStore().workspaces.find((w) => w.id === id) : undefined);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [gallery, setGallery] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -262,7 +268,7 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
   const [openSettings, setOpenSettings] = useState(false);
   /* Which portals are switched on. Absent means ON — a portal you have never touched is live. */
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
-  const isOn = (p: PortalPage) => p.id === DEFAULT_PORTAL_PAGE.id || enabled[p.id] !== false;
+  const isOn = (p: PortalPage) => p.id === DEFAULT_PORTAL_PAGE.id || (p.workspaceId ? p.status === 'Published' : enabled[p.id] !== false);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
 
@@ -661,14 +667,14 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
           <table className="w-full min-w-[860px]">
             <thead className="border-b border-[#e5e7eb]">
               <tr>
-                {['Portal name', 'URL', 'Status', 'Enabled', 'Action'].map((h, i) => (
+                {['Portal name', 'Workspace', 'URL', 'Status', 'Enabled', 'Action'].map((h, i) => (
                   <th key={h || i} className="whitespace-nowrap px-4 py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658]">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e5e7eb] bg-white">
               {pageRows.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-12 text-center text-[13px] text-[#9CA3AF]">
+                <tr><td colSpan={6} className="px-4 py-12 text-center text-[13px] text-[#9CA3AF]">
                   No portals yet.
                 </td></tr>
               ) : pageRows.map((p) => (
@@ -685,6 +691,11 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
                         <span className="shrink-0 rounded bg-[#E8F1FB] px-1.5 py-0.5 text-[11px] font-medium text-[#3D8BD0]">Default</span>
                       )}
                     </button>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-[13px] text-[#364658]">
+                    {(() => { const w = wsById(p.workspaceId); return w ? (
+                      <span className="inline-flex items-center gap-1.5 rounded border border-[#E5E7EB] px-1.5 py-0.5 text-[12px]"><span className="size-2 rounded-full" style={{ background: w.colour }} />{w.name}</span>
+                    ) : <span className="text-[12px] text-[#94A3B8]" title="Not mapped to a workspace (a Company portal — MSP, parked)">—</span>; })()}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <a
@@ -714,14 +725,16 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
                     <button
                       role="switch"
                       aria-checked={isOn(p)}
-                      disabled={p.id === DEFAULT_PORTAL_PAGE.id}
-                      title={p.id === DEFAULT_PORTAL_PAGE.id
+                      disabled={p.id === DEFAULT_PORTAL_PAGE.id || !!p.workspaceId}
+                      title={p.workspaceId && p.id !== DEFAULT_PORTAL_PAGE.id
+                        ? 'On while its workspace is Live — change the workspace’s status instead'
+                        : p.id === DEFAULT_PORTAL_PAGE.id
                         ? 'The default portal is always on — requesters have to land somewhere'
                         : isOn(p) ? 'Switch this portal off' : 'Switch this portal on'}
                       onClick={() => setEnabled((e) => ({ ...e, [p.id]: !isOn(p) }))}
                       className={`relative inline-flex h-[18px] w-[34px] items-center rounded-full transition-colors ${
                         isOn(p) ? 'bg-[#3D8BD0]' : 'bg-[#CBD5E1]'
-                      } ${p.id === DEFAULT_PORTAL_PAGE.id ? 'cursor-not-allowed opacity-60' : ''}`}
+                      } ${p.id === DEFAULT_PORTAL_PAGE.id || p.workspaceId ? 'cursor-not-allowed opacity-60' : ''}`}
                     >
                       <span className={`inline-block size-[14px] rounded-full bg-white transition-transform ${
                         isOn(p) ? 'translate-x-[18px]' : 'translate-x-[2px]'
@@ -730,7 +743,8 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
                   </td>
                   <td className="px-4 py-3">
                     <RowActions
-                      isDefault={p.id === DEFAULT_PORTAL_PAGE.id}
+                      /* A workspace's portal lives and dies with its workspace — it can't be deleted on its own. */
+                      isDefault={p.id === DEFAULT_PORTAL_PAGE.id || !!p.workspaceId}
                       onEditDetails={() => setDetailsId(p.id)}
                       onCustomize={() => setEditingId(p.id)}
                       onPreview={() => toast.success(`Opening ${p.name} in preview`)}
@@ -757,4 +771,22 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
       {overlays}
     </>
   );
+}
+
+
+/** ESM F18: the Support Portal of every non-Default workspace, as rows of this list (one per workspace, Draft until Live). */
+function workspacePortalPages(): PortalPage[] {
+  return sortWorkspaces(loadStore().workspaces).filter((w) => !w.isDefault).map((w) => workspacePortalPage(w));
+}
+/** One workspace's portal page (IT = today's Default page). Used by this list and by the workspace's own Customize page. */
+export function workspacePortalPage(w: Workspace): PortalPage {
+  if (w.isDefault) return DEFAULT_PORTAL_PAGE;
+  const p = wsPortalOf(loadEsm(), w);
+  {
+    return {
+      ...DEFAULT_PORTAL_PAGE, id: `WSP-${w.id}`, name: p.name, type: 'System' as const, status: w.status === 'live' ? 'Published' as const : 'Draft' as const,
+      source: w.type === 'hr' ? 'People & HR Desk' : 'Classic Service Desk', start: 'template' as const, url: portalHost(p), dirty: false, workspaceId: w.id,
+      modifiedAt: `${w.createdOn}T09:00:00`, modifiedBy: 'System',
+    };
+  }
 }

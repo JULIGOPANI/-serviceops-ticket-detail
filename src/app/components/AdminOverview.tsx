@@ -2,6 +2,8 @@ import { ChevronDown, ExternalLink, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { ADMIN_SECTIONS, ADMIN_TOTAL_CARDS } from './adminData';
 import { adminIcon } from './AdminIcons';
+import { listedInOrganization } from './scopedCards';
+import { loadStore, orgCan } from './workspaceData';
 
 /* Admin Overview — every settings area as a collapsible section of module cards.
  *
@@ -25,7 +27,12 @@ export function AdminOverview({ openKeys, onToggle, query, onQuery, registerSect
 
   // A section survives search if its own name matches or any card does; when it survives on a
   // card match, only the matching cards are shown.
+  // F04: with two or more workspaces, Workspace-only cards live in each workspace, not here.
+  const multi = loadStore().workspaces.length > 1;
+  const viewAs = loadStore().viewAs;
   const sections = ADMIN_SECTIONS
+    .map((s) => ({ ...s, cards: s.cards.filter((c) => listedInOrganization(s.title, c.title, multi) && orgCan(viewAs, s.title, c.title)) }))
+    .filter((s) => s.cards.length > 0)
     .map((s) => {
       if (!q) return { ...s, visibleCards: s.cards };
       const nameHit = s.title.toLowerCase().includes(q) || s.desc.toLowerCase().includes(q);
@@ -133,7 +140,7 @@ export function AdminOverview({ openKeys, onToggle, query, onQuery, registerSect
                               <span className="flex size-8 flex-shrink-0 items-center justify-center rounded bg-[#F1F5F9] text-[#7B8FA5] transition-colors group-hover:bg-[#EBF5FF] group-hover:text-[#3D8BD0]">
                                 <CardIcon size={16} />
                               </span>
-                              <span className="truncate text-[14px] font-medium text-[#364658]">{c.title}</span>
+                              <span className="truncate text-[14px] font-medium text-[#364658]">{c.title}</span>{c.isNew && <span className="ml-1.5 rounded-full bg-[#EDE9FE] px-1.5 py-px text-[10px] font-semibold text-[#6D28D9]">New</span>}
                             </span>
                             <span className="mt-2 block text-[12px] leading-[1.5] text-[#7B8FA5]">{c.desc}</span>
                           </button>

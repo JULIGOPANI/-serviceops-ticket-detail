@@ -6,12 +6,15 @@
  * works on a cold load with no server config at all.
  *
  * Shape: #/<page>  ·  #/admin/<module>  ·  #/admin/support-portal/<portal>
- *        #/admin/organization/desk[/create | /<id> | /<id>/edit]
+ *        #/admin/organization/workspace[/create | /preview | /<id>[/team | /audit | /edit | /settings]]
+ *        #/admin/users/technician[/create | /<id>]   (the ServiceOps list and Add/Edit Technician form)
  *
  * Add a module by adding it in ONE place — a `Page` for a technician-portal listing, or an
  * `ADMIN_ROUTES` row for an admin screen. App reads this, AdminPage reads this; neither keeps
  * its own copy, so a slug can't mean two things.
  */
+
+import { SCOPED_CARDS } from './components/scopedCards';
 
 export type Page =
   | 'request' | 'problem' | 'change' | 'release'
@@ -21,7 +24,9 @@ export type Page =
   | 'patches' | 'patch-deployments' | 'endpoints'
   | 'vulnerabilities' | 'detected-cves'
   | 'bom'
-  | 'admin';
+  | 'admin'
+  /* ESM F18: what an EMPLOYEE sees — the ESM Portal and each workspace's Support Portal (#/portal[/<sub>]). */
+  | 'portal';
 
 /** The page a bare URL lands on. */
 export const DEFAULT_PAGE: Page = 'request';
@@ -37,6 +42,7 @@ const PAGES: readonly Page[] = [
   'vulnerabilities', 'detected-cves',
   'bom',
   'admin',
+  'portal',
 ];
 
 /** An admin destination that owns a screen, addressed as #/admin/<slug>. */
@@ -53,6 +59,8 @@ export interface AdminRoute {
 export const ADMIN_ROUTES: readonly AdminRoute[] = [
   { slug: 'os-upgrade', section: 'Patch Management', card: 'OS Upgrade' },
   { slug: 'support-portal', section: 'Support Channels', card: 'Support Portal' },
+  // ESM F18 — the landing page employees see before picking a team (Admin › Global).
+  { slug: 'esm-portal', section: 'Support Channels', card: 'ESM Portal' },
   { slug: 'bom-management', section: 'BOM Management' },
   { slug: 'bom-licensing', section: 'BOM Management', card: 'BOM Licensing' },
   { slug: 'bom-scheduler', section: 'BOM Management', card: 'BOM Scheduler' },
@@ -60,11 +68,22 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
   /* ⚠️ Two segments, nested under organization like the product's own Organization pages
      (/admin/organization/department, /admin/organization/msp). parseHash tries a two-segment slug
      before a one-segment one. ESM F01. */
-  { slug: 'organization/desk', section: 'Organization', card: 'Desks' },
+  { slug: 'organization/workspace', section: 'Organization', card: 'Workspaces' },
+  // ESM F02/F03: the organization's technician accounts and their workspace permissions.
+  { slug: 'users/technician', section: 'Users', card: 'Technicians' },
+  // ESM F03: the ServiceOps Roles screens (/admin/roles, /admin/roles/<id>, /admin/roles/create).
+  { slug: 'roles', section: 'Users', card: 'Roles' },
+  // ESM F04: the ServiceOps Business Hours and SLA screens with the Workspace ▾ selector (same slugs as live).
+  { slug: 'business-hours', section: 'Organization', card: 'Business Hours' },
+  { slug: 'sla', section: 'Automation', card: 'SLA' },
+  // ESM F04: every other per-workspace ServiceOps page (scopedCards.ts), one slug per card.
+  ...SCOPED_CARDS.map((c) => ({ slug: c.slug, section: c.section, card: c.card })),
 ];
 
-/** The ESM Desks list. Its record segments are 'create', '<id>' or '<id>/edit'. */
-export const DESK_SLUG = 'organization/desk';
+/** The ESM Workspaces list. Its record segments are 'create', '<id>' or '<id>/edit'. */
+export const WORKSPACE_SLUG = 'organization/workspace';
+/** Technicians: its record segments are 'create' or '<id>' (the Edit Technician form). */
+export const TECHNICIAN_SLUG = 'users/technician';
 
 export const adminRouteBySlug = (slug: string): AdminRoute | undefined =>
   ADMIN_ROUTES.find((r) => r.slug === slug);
@@ -82,9 +101,15 @@ export interface Route {
      what it is rather than a generic `id`. A second module wanting one should widen this
      deliberately rather than inherit a name that stopped describing it. */
   portal?: string;
-  /** The Desks module's record segments: 'create', '<id>' or '<id>/edit'. An unknown id is KEPT,
-   *  not rewritten — the module renders "Desk does not exist" for it, which is the point. */
-  desk?: string;
+  /** The Workspaces module's record segments: 'create', '<id>' or '<id>/edit'. An unknown id is KEPT,
+   *  not rewritten — the module renders "Workspace does not exist" for it, which is the point. */
+  workspace?: string;
+  /** The Technicians module's record segments: 'create' or '<id>'. */
+  technician?: string;
+  /** The Roles module's record segments: 'create', '<id>' or 'clone-<id>'. */
+  role?: string;
+  /** ESM F18: everything after #/portal (home, requests, <team>, <team>/new?service=…). */
+  sub?: string;
 }
 
 /** The address of one portal, as a slug. Names are unique (see `uniquePageName`), so the slug is
@@ -98,24 +123,27 @@ export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   const page = parts[0] as Page | undefined;
   if (!page || !PAGES.includes(page)) return { page: DEFAULT_PAGE };
+  if (page === 'portal') return { page, sub: parts.slice(1).join('/') || undefined };
   if (page !== 'admin') return { page };
   const nested = parts.slice(1, 3).join('/');
   if (parts.length >= 3 && adminRouteBySlug(nested)) {
-    return { page, admin: nested, desk: nested === DESK_SLUG && parts.length > 3 ? parts.slice(3).join('/') : undefined };
+    const record = parts.length > 3 ? parts.slice(3).join('/') : undefined;
+    return { page, admin: nested, workspace: nested === WORKSPACE_SLUG ? record : undefined, technician: nested === TECHNICIAN_SLUG ? record : undefined };
   }
   const slug = parts[1];
   if (!slug || !adminRouteBySlug(slug)) return { page };
   /* ⚠️ A third segment only means something for the one module that has records. Anywhere else it
      is ignored rather than rejected — a stray segment should still land you on the module, not on
      the default page with no explanation. */
-  return { page, admin: slug, portal: slug === 'support-portal' ? parts[2] : undefined };
+  return { page, admin: slug, portal: slug === 'support-portal' ? parts[2] : undefined, role: slug === 'roles' ? parts[2] : undefined };
 }
 
 export function formatHash(route: Route): string {
   if (route.page === 'admin' && route.admin) {
-    const record = route.portal ?? route.desk;
+    const record = route.portal ?? route.workspace ?? route.technician ?? route.role;
     return record ? `#/admin/${route.admin}/${record}` : `#/admin/${route.admin}`;
   }
+  if (route.page === 'portal' && route.sub) return `#/portal/${route.sub}`;
   return `#/${route.page}`;
 }
 
@@ -145,6 +173,7 @@ const PAGE_TITLES: Record<Page, string> = {
   'detected-cves': 'Detected CVEs',
   bom: 'BOM Inventory',
   admin: 'Admin',
+  portal: 'Support Portal',
 };
 
 /* An admin screen is named by its CARD where it has one, otherwise by its section — the same
