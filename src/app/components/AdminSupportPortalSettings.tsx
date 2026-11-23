@@ -156,7 +156,9 @@ GROUPS.forEach((g) => g.rows.forEach((r) => {
   if (r.kind === 'toggle') portalAccess.set(r.key, r.on ?? true);
 }));
 
-export function AdminSupportPortalSettings({ compact = false }: {
+export function AdminSupportPortalSettings({ compact = false, onlyTitles }: {
+  /** ESM F18b: with ≥2 workspaces the portal keeps only these groups (User); the rest are per workspace. */
+  onlyTitles?: string[];
   /* ⚠️ Rendered inside the builder's 340px rail panel, not on a full admin page. Only the CHROME
      changes — the padding, and a toolbar that stacks instead of sitting on one line. The settings
      themselves are the same rows in the same order, because they are the same settings; a second
@@ -193,6 +195,7 @@ export function AdminSupportPortalSettings({ compact = false }: {
      matching group is force-opened so the hit is visible without a second click. */
   const matches = (r: Row) => !query || r.label.toLowerCase().includes(query);
   const shown = GROUPS
+    .filter((g) => !onlyTitles || onlyTitles.includes(g.title))
     .map((g) => ({ ...g, rows: g.title.toLowerCase().includes(query) ? g.rows : g.rows.filter(matches) }))
     .filter((g) => g.rows.length);
 

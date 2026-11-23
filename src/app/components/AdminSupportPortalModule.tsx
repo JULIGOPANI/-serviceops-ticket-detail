@@ -1,6 +1,7 @@
-import { loadStore, sortWorkspaces } from './workspaceData';
+import { loadStore } from './workspaceData';
 import type { Workspace } from './workspaceData';
-import { loadEsm, portalHost, wsPortalOf } from './esmPortalData';
+import { loadEsm, mspOn, portalHost, portalsOf, removePortal, savePortal, setMsp, wsPortalOf } from './esmPortalData';
+import type { AudiencePortal } from './esmPortalData';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -18,7 +19,7 @@ import { Pagination } from './Pagination';
 import { SupportPortalBuilder } from './SupportPortalBuilder';
 import { SupportPortalTemplateGallery } from './SupportPortalTemplateGallery';
 import {
-  DEFAULT_PORTAL_PAGE, SECOND_PORTAL_PAGE, PORTAL_TEMPLATES, formatPortalStamp, nextPageId, relPortalStamp, uniquePageName,
+  DEFAULT_PORTAL_PAGE, SECOND_PORTAL_PAGE, PEOPLE_PORTAL_PAGE, PORTAL_TEMPLATES, formatPortalStamp, nextPageId, relPortalStamp, uniquePageName,
 } from './supportPortalData';
 import type { PortalPage, PortalTemplate } from './supportPortalData';
 
@@ -254,10 +255,26 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
      invite the admin to "create" the thing they are actually editing. The default page is a System
      page: it can be customised and duplicated, and the delete action refuses it (see `canDelete`),
      because a portal with no landing page is not a state the product can be in. */
-  /* ESM F18: one Support Portal per workspace. The Default portal is IT's (today's portal, unchanged); every other
-     workspace's portal is made from its template when the workspace is created and is listed here with its Workspace. */
-  const [pages, setPages] = useState<PortalPage[]>(() => [DEFAULT_PORTAL_PAGE, ...workspacePortalPages(), SECOND_PORTAL_PAGE]);
-  const wsById = (id?: number) => (id ? loadStore().workspaces.find((w) => w.id === id) : undefined);
+  /* ESM F18b (Juli, 2026-11-18): a Support Portal is an AUDIENCE — its address, sign-in, who can sign in and which
+     workspaces it shows (Map workspaces: All / Specific). Workspaces are NOT portals: inside a portal each mapped
+     workspace is a team section with its own Support Portal Settings. The Default portal maps All workspaces.
+     Portal facts are mirrored to the ESM store so the requester view (#/portal) follows what is saved here. */
+  const [pages, setPages] = useState<PortalPage[]>(() => {
+    const saved = portalsOf(loadEsm());
+    const seeds = [DEFAULT_PORTAL_PAGE, SECOND_PORTAL_PAGE, PEOPLE_PORTAL_PAGE];
+    const extra = saved.filter((a) => !seeds.some((p) => p.id === a.id)).map((a) => ({ ...DEFAULT_PORTAL_PAGE, id: a.id, type: 'Custom' as const, status: 'Draft' as const, name: a.name, url: a.url }));
+    return [...seeds, ...extra].map((p) => { const a = saved.find((x) => x.id === p.id); return a ? { ...p, name: a.name, url: a.url, workspaceIds: a.workspaceIds, signIn: a.signIn, company: a.company ?? p.company } : p; });
+  });
+  const [msp, setMspState] = useState(mspOn);
+  const multi = loadStore().workspaces.length > 1;
+  const mirror = (p: PortalPage) => savePortal({
+    id: p.id, name: p.name, url: p.url ?? '', workspaceIds: p.workspaceIds ?? 'all', signIn: p.signIn ?? 'all',
+    company: msp ? p.company : undefined, isDefault: p.id === DEFAULT_PORTAL_PAGE.id,
+  } as AudiencePortal);
+  const wsLabel = (p: PortalPage) => {
+    const ids = p.workspaceIds ?? 'all';
+    return ids === 'all' ? ['All workspaces'] : ids.map((id) => loadStore().workspaces.find((w) => w.id === id)?.name ?? `#${id}`);
+  };
   const [editingId, setEditingId] = useState<string | null>(null);
   const [gallery, setGallery] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -336,14 +353,17 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
   const saveDetails = (dt: PortalDetails) => {
     if (draftId) {
       setPages((prev) => prev.map((p) => (p.id === draftId
-        ? { ...p, name: dt.name, company: dt.company, url: dt.url, idp: dt.idp, ssoOnly: dt.ssoOnly }
+        ? { ...p, name: dt.name, company: dt.company, url: dt.url, idp: dt.idp, ssoOnly: dt.ssoOnly, workspaceIds: dt.workspaceIds, signIn: dt.signIn }
         : p)));
+      const cur = pages.find((p) => p.id === draftId);
+      if (cur) mirror({ ...cur, name: dt.name, company: dt.company, url: dt.url, workspaceIds: dt.workspaceIds, signIn: dt.signIn });
       toast.success('Details updated');
       return;
     }
     const created = create(dt.name, 'Blank layout', {
-      company: dt.company, url: dt.url, idp: dt.idp, ssoOnly: dt.ssoOnly,
+      company: dt.company, url: dt.url, idp: dt.idp, ssoOnly: dt.ssoOnly, workspaceIds: dt.workspaceIds, signIn: dt.signIn,
     });
+    mirror(created);
     setDraftId(created.id);
     toast.success(`${created.name} created — choose how to start it`);
   };
@@ -512,8 +532,17 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
                   className="flex size-8 items-center justify-center rounded transition-colors hover:bg-[#F3F4F6]"
                 ><X size={16} /></button>
               </div>
+              {/* ESM F18b: with two or more workspaces, what a requester may DO (Request · Service Catalog · Change ·
+                  Asset · CMDB · Knowledge · Approval · Digital Signature) is set PER WORKSPACE (Workspace settings ›
+                  Support Portal › Support Portal Setting) — IT keeps today's values. The portal keeps only who can register. */}
+              {multi && (
+                <p className="mx-4 mt-4 rounded-md border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2 text-[12px] leading-[1.6] text-[#1E40AF]">
+                  What requesters can do here — create incidents, request services, see changes, assets, knowledge, approvals — is set by
+                  each <b className="font-semibold">workspace</b> (Workspace settings › Support Portal). The portal keeps self-registration.
+                </p>
+              )}
               <div className="min-h-0 flex-1 overflow-y-auto">
-                <AdminSupportPortalSettings compact />
+                <AdminSupportPortalSettings compact onlyTitles={multi ? ['User'] : undefined} />
               </div>
             </div>
           </div>,
@@ -533,13 +562,19 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
               url: target.url ?? portalUrl(target),
               idp: target.idp ?? 'None — use ServiceOps login',
               ssoOnly: target.ssoOnly ?? false,
+              workspaceIds: target.workspaceIds ?? 'all',
+              signIn: target.signIn ?? 'all',
             }}
             onClose={() => setDetailsId(null)}
             onSave={(d) => {
+              /* ESM F18b: the Default portal must keep All workspaces — every workspace has to be reachable from at
+                 least one portal (Freshservice rule), and the Default is where requesters land today. */
+              if (target.id === DEFAULT_PORTAL_PAGE.id && d.workspaceIds !== 'all') { toast.error('The Default portal shows All workspaces, so every workspace stays reachable.'); return; }
+              const name = uniquePageName(pages.filter((p) => p.id !== target.id), d.name);
               patch(target.id, {
-                name: uniquePageName(pages.filter((p) => p.id !== target.id), d.name),
-                company: d.company, url: d.url, idp: d.idp, ssoOnly: d.ssoOnly,
+                name, company: d.company, url: d.url, idp: d.idp, ssoOnly: d.ssoOnly, workspaceIds: d.workspaceIds, signIn: d.signIn,
               });
+              mirror({ ...target, name, company: d.company, url: d.url, workspaceIds: d.workspaceIds, signIn: d.signIn });
               setDetailsId(null);
               toast.success(`“${d.name}” details saved`);
             }}
@@ -555,6 +590,7 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
             onCancel={() => setConfirmId(null)}
             onConfirm={() => {
               setPages((prev) => prev.filter((p) => p.id !== target.id));
+              removePortal(target.id);
               setConfirmId(null);
               toast.success(`“${target.name}” deleted`);
             }}
@@ -584,6 +620,10 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
       {/* ⚠️ Aligned to the TITLE's line, not centred against the two-line block. Centred it floated
           between the heading and the sentence under it, belonging to neither. */}
       <div className="flex flex-shrink-0 items-center gap-2 pt-0.5">
+        {/* Prototype only: 185 runs MSP mode (Company portals), demo.motadataserviceops.com doesn't. */}
+        <label className="mr-2 inline-flex cursor-pointer items-center gap-2 rounded border border-dashed border-[#FCD34D] bg-[#FFFBEB] px-2.5 py-1.5 text-[12px] text-[#92400E]" title="Prototype switch: MSP mode adds the Company field to a portal">
+          <input type="checkbox" checked={msp} onChange={(e) => { setMsp(e.target.checked); setMspState(e.target.checked); }} /> MSP mode
+        </label>
         {/* ── Global settings ────────────────────────────────────────────────────────────────────
             ⚠️ The ticket detail page's own header-icon recipe — a bordered white box the same
             height as the control beside it, holding a 16px glyph. That is what a secondary action
@@ -667,7 +707,7 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
           <table className="w-full min-w-[860px]">
             <thead className="border-b border-[#e5e7eb]">
               <tr>
-                {['Portal name', 'Workspace', 'URL', 'Status', 'Enabled', 'Action'].map((h, i) => (
+                {['Portal name', ...(msp ? ['Company'] : []), ...(multi ? ['Workspaces'] : []), 'URL', 'Status', 'Enabled', 'Action'].map((h, i) => (
                   <th key={h || i} className="whitespace-nowrap px-4 py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658]">{h}</th>
                 ))}
               </tr>
@@ -692,11 +732,13 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
                       )}
                     </button>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-[13px] text-[#364658]">
-                    {(() => { const w = wsById(p.workspaceId); return w ? (
-                      <span className="inline-flex items-center gap-1.5 rounded border border-[#E5E7EB] px-1.5 py-0.5 text-[12px]"><span className="size-2 rounded-full" style={{ background: w.colour }} />{w.name}</span>
-                    ) : <span className="text-[12px] text-[#94A3B8]" title="Not mapped to a workspace (a Company portal — MSP, parked)">—</span>; })()}
-                  </td>
+                  {msp && <td className="whitespace-nowrap px-4 py-3 text-[13px] text-[#364658]">{p.company || '—'}</td>}
+                  {multi && (
+                    <td className="px-4 py-3 text-[13px] text-[#364658]">
+                      <div className="flex max-w-[260px] flex-wrap gap-1">{wsLabel(p).map((n) => <span key={n} className="rounded border border-[#E5E7EB] px-1.5 py-0.5 text-[12px]">{n}</span>)}</div>
+                      <div className="mt-1 text-[11px] text-[#94A3B8]">Sign in: {!p.signIn || p.signIn === 'all' || p.id === DEFAULT_PORTAL_PAGE.id ? 'All requesters' : p.signIn.join(', ')}</div>
+                    </td>
+                  )}
                   <td className="whitespace-nowrap px-4 py-3">
                     <a
                       href={`#/admin/support-portal/${portalSlug(p.name, p.id)}`}
@@ -774,10 +816,6 @@ export function AdminSupportPortalModule({ onBuilder, openPortal, onOpenPortalCh
 }
 
 
-/** ESM F18: the Support Portal of every non-Default workspace, as rows of this list (one per workspace, Draft until Live). */
-function workspacePortalPages(): PortalPage[] {
-  return sortWorkspaces(loadStore().workspaces).filter((w) => !w.isDefault).map((w) => workspacePortalPage(w));
-}
 /** One workspace's portal page (IT = today's Default page). Used by this list and by the workspace's own Customize page. */
 export function workspacePortalPage(w: Workspace): PortalPage {
   if (w.isDefault) return DEFAULT_PORTAL_PAGE;

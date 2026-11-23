@@ -1,4 +1,3 @@
-import { AdminEsmPortalModule } from './AdminEsmPortalModule';
 import { useEffect, useRef, useState } from 'react';
 import { adminRouteBySlug, adminSlugFor } from '../routes';
 import { Header } from './Header';
@@ -43,8 +42,6 @@ const CARD_MODULES: Record<string, string> = {
      customization anywhere else meant two homes for one subject. The card that used to open this
      from Organization is gone rather than left as a second door. */
   'Support Channels/Support Portal': 'Support Portal',
-  // ESM F18 — the ESM Portal (landing page with a card per team).
-  'Support Channels/ESM Portal': 'ESM Portal',
   // ESM F01 — the one Organization card with a real screen behind it.
   'Organization/Workspaces': 'Workspaces',
   // ESM F02/F03 — technician accounts and their access in every workspace.
@@ -274,10 +271,6 @@ export function AdminPage({ onNavigate, moduleSlug, onModuleChange, portalSlug, 
               {module === 'SLA'
                 ? <SlaScreen workspaces={sortWorkspaces(loadStore().workspaces)} />
                 : <BusinessHoursScreen workspaces={sortWorkspaces(loadStore().workspaces)} />}
-            </div>
-          ) : module === 'ESM Portal' ? (
-            <div className="min-h-0 flex-1 overflow-y-auto bg-white">
-              <AdminEsmPortalModule viewAs={loadStore().viewAs} onOpenWorkspace={(path) => onWorkspaceChange?.(path)} />
             </div>
           ) : module === 'Support Portal' ? (
             <div className="min-h-0 flex-1 overflow-y-auto bg-white">

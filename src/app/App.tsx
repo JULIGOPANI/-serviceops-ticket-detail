@@ -89,7 +89,7 @@ export default function App() {
       {activePage === 'vulnerabilities' && <VulnerabilitiesListPage onNavigate={navigate} />}
       {activePage === 'detected-cves' && <DetectedCvesListPage onNavigate={navigate} />}
       {activePage === 'bom' && <BomInventoryListPage onNavigate={navigate} />}
-      {activePage === 'portal' && <EsmPortalPage sub={route.sub} onExit={() => go({ page: 'admin', admin: 'esm-portal' })} />}
+      {activePage === 'portal' && <EsmPortalPage sub={route.sub} onExit={() => go({ page: 'admin', admin: 'support-portal' })} />}
       {activePage === 'admin' && (
         <AdminPage
           onNavigate={navigate}

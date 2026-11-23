@@ -147,8 +147,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     cards: [
     { title: 'Emails', desc: 'Configure email servers and inbound mail rules.', icon: 'Mail', href: '/admin/support-channels/emails?tab=outgoing' },
     { title: 'Support Portal', desc: 'Customize the self-service portal for requesters.', icon: 'Globe', href: '/admin/support-channels/support-portal?tab=support_portals' },
-    // ESM F18 (Juli, 2026-11-05): the landing page with one card per team; each card opens that workspace's Support Portal.
-    { title: 'ESM Portal', desc: 'The landing page employees see before they pick a team’s support portal.', icon: 'LayoutGrid', href: '/admin/support-channels/esm-portal', isNew: true },
+    /* ESM F18b (Juli, 2026-11-18): the separate "ESM Portal" landing page is RETIRED. Team cards are part of each Support
+       Portal's home (a portal maps workspaces: All / Specific), so there is one front door per audience, not two. */
     { title: 'Chat', desc: 'Enable live chat for real-time technician support.', icon: 'MessagesSquare', href: '/admin/support-channels/chat' },
     { title: 'Virtual Agent', desc: 'Design conversational flows for the AI virtual agent.', icon: 'Bot', href: '/admin/support-channels/ai-bot?tab=chat_flow' },
     ],

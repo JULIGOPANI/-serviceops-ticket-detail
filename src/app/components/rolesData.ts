@@ -450,7 +450,9 @@ export const SEED_ROLES: Role[] = [
 ];
 
 // v7: F03f — Admin split into Global + Workspace tabs; roles given per workspace.
-const KEY = 'serviceops.esm.roles.v7';
+// v8: F18 — Manage ESM Portal › Publish ESM Portal added under Manage Support Channels (node ids shift).
+// v9: F18b — the ESM Portal page is retired, so Manage/Publish ESM Portal are removed (node ids shift back).
+const KEY = 'serviceops.esm.roles.v9';
 export function loadRoles(): Role[] {
   try { const raw = localStorage.getItem(KEY); if (raw) return JSON.parse(raw) as Role[]; } catch { /* storage unavailable */ }
   return SEED_ROLES;

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-  ArrowLeft, ArrowRightToLine, Bell, BookOpen, Building2, Check, ChevronDown, Columns3, Download, ExternalLink, FileText, FlaskConical, GitPullRequestArrow, Headset, Home,
+  ArrowLeft, ArrowRight, ArrowRightToLine, Bell, BookOpen, Building2, Check, ChevronDown, ChevronRight, CircleHelp, Columns3, Download, ExternalLink, FileText, FlaskConical, GitPullRequestArrow, Headset, Home,
   Info, Keyboard, Laptop, LayoutGrid, LifeBuoy, Lightbulb, ListChecks, Lock, LogOut, Mail, MessageSquare, MessagesSquare, Monitor, Moon, Newspaper, PanelLeft, Phone, Plus,
   RefreshCw, Repeat, Scale, Search, Server, ShoppingCart, Sparkles, Star, Sun, Ticket, Type, Undo2, User as UserIcon, UserCheck, UserCog, Users, Volume2, Wallet, Workflow, X,
 } from 'lucide-react';
@@ -11,10 +11,10 @@ import { loadStore } from './workspaceData';
 import type { Workspace } from './workspaceData';
 import { EMPLOYEES, portalVerdict } from './WorkspacePrivacyRows';
 import {
-  ORG_ARTICLES, ORG_BRANDING, RETURN_KEY, articlesOf, landingFor, loadEsm, myApprovals, myRequests, orderTeams, portalHost, saveEsm,
-  searchAll, servicesOf, visibleTeams, wsPortalOf,
+  ORG_ARTICLES, ORG_BRANDING, RETURN_KEY, articlesOf, canSignIn, loadEsm, mapsTo, myApprovals, myRequests, orderTeams, portalsOf, saveEsm,
+  searchAll, servicesOf, signInLabel, teamsOn, visibleTeams, workspacesLabel, wsPortalOf,
 } from './esmPortalData';
-import type { CardIcon, Employee, EsmPortalConfig, EsmStore, Hit, MyRequest, WsPortal } from './esmPortalData';
+import type { AudiencePortal, CardIcon, Employee, EsmPortalConfig, EsmStore, Hit, MyRequest, WsPortal } from './esmPortalData';
 
 /* ESM F18 — what an EMPLOYEE sees (prototype route #/portal[/home | /requests | /<team> | /<team>/new]).
  *   /portal          the address employees open: one visible team → that team's portal; ⭐ → that team; else the ESM Portal
@@ -37,32 +37,50 @@ export function TeamTag({ w, small }: { w?: Workspace; small?: boolean }) {
 }
 
 // ── The ESM Portal (landing). Also rendered by the admin page as its live preview. ─────────────────────────
-export function EsmLanding({ cfg, esm, workspaces, me, preview, onOpenTeam, onStar, onRequests, onSearchHit }: {
+/** Click-to-edit text for the admin's live preview: looks like the page text, shows a dashed outline on hover. */
+function InlineText({ value, onChange, placeholder, className, label }: { value: string; onChange: (v: string) => void; placeholder: string; className: string; label: string }) {
+  return (
+    <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={label} title="Click to edit"
+      className={`w-full rounded-md border border-dashed border-transparent bg-transparent px-2 outline-none transition-colors hover:border-current/40 focus:border-current/60 focus:bg-black/5 ${className}`} />
+  );
+}
+
+export function EsmLanding({ cfg, esm, workspaces, me, preview, onOpenTeam, onRequests, onSearchHit, onEdit, portal }: {
   cfg: EsmPortalConfig; esm: EsmStore; workspaces: Workspace[]; me: Employee; preview?: boolean;
+  /** The Support Portal (audience) being shown: only its mapped workspaces appear (F18b). */
+  portal?: AudiencePortal;
   onOpenTeam: (w: Workspace, sub?: string) => void; onStar?: (w: Workspace) => void; onRequests?: () => void; onSearchHit?: (h: Hit) => void;
+  /** Admin preview only: headings become click-to-edit. */
+  onEdit?: (patch: Partial<EsmPortalConfig>) => void;
 }) {
   const [q, setQ] = useState('');
   const [ask, setAsk] = useState(false);
-  const teams = orderTeams(visibleTeams(workspaces, me), cfg.order);
-  const mine = myRequests(esm, me);
+  const teams = orderTeams(portal ? teamsOn(portal, workspaces, me) : visibleTeams(workspaces, me), cfg.order);
+  const mine = myRequests(esm, me).filter((r) => !portal || mapsTo(portal, r.workspaceId));
   const open = mine.filter((r) => r.status !== 'Resolved');
-  const approvals = myApprovals(me);
+  const approvals = myApprovals(me).filter((r) => !portal || mapsTo(portal, r.workspaceId));
   const hits = searchAll(q, teams, mine, workspaces);
-  const starred = esm.stars[me.name];
   return (
     <div className={`bg-[#F7F9FC] ${preview ? '' : 'min-h-full'}`}>
-      <div className="relative px-6 pb-14 pt-10 text-center text-white" style={{ background: `linear-gradient(120deg, ${cfg.bannerFrom}, ${cfg.bannerTo})` }}>
+      <div className="relative px-6 pb-12 pt-11 text-center text-white" style={{ background: `linear-gradient(120deg, ${cfg.bannerFrom}, ${cfg.bannerTo})` }}>
         <div className="pointer-events-none absolute inset-0 overflow-hidden"><NetworkPattern /></div>
-        <h1 className="relative text-[26px] font-semibold tracking-tight">{cfg.heading}</h1>
-        {cfg.subheading && <p className="relative mt-1.5 text-[14px] text-white/80">{cfg.subheading}</p>}
+        {onEdit ? (
+          <div className="relative mx-auto max-w-[640px]">
+            <InlineText value={cfg.heading} onChange={(v) => onEdit({ heading: v })} placeholder="Add a heading" label="Heading" className="h-10 text-center text-[26px] font-semibold tracking-tight text-white placeholder:text-white/50" />
+            <InlineText value={cfg.subheading} onChange={(v) => onEdit({ subheading: v })} placeholder="Add a sub heading (optional)" label="Sub heading" className="mt-0.5 h-7 text-center text-[14px] text-white/80 placeholder:text-white/40" />
+          </div>
+        ) : (<>
+          <h1 className="relative text-[26px] font-semibold tracking-tight">{cfg.heading}</h1>
+          {cfg.subheading && <p className="relative mt-1.5 text-[14px] text-white/80">{cfg.subheading}</p>}
+        </>)}
         <div className="relative mx-auto mt-5 max-w-[600px] text-left">
           <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={cfg.searchPlaceholder} aria-label="Search all teams"
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={cfg.searchPlaceholder} aria-label="Search all workspaces"
             className="h-12 w-full rounded-full border-0 bg-white pl-11 pr-10 text-[14px] text-[#1F2D3D] shadow-lg outline-none placeholder:text-[#94A3B8] focus:ring-2 focus:ring-white/60" />
           {q && <button onClick={() => setQ('')} aria-label="Clear" className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8]"><X size={16} /></button>}
           {q && (
             <div className="absolute left-0 right-0 top-[54px] z-20 max-h-[320px] overflow-y-auto rounded-xl border border-[#E5E7EB] bg-white p-2 text-[#364658] shadow-xl">
-              {hits.length === 0 ? <div className="px-3 py-4 text-center text-[13px] text-[#94A3B8]">Nothing found in the teams {me.name} can see.</div> : hits.slice(0, 12).map((h, i) => (
+              {hits.length === 0 ? <div className="px-3 py-4 text-center text-[13px] text-[#94A3B8]">Nothing found in the workspaces {me.name} can see.</div> : hits.slice(0, 12).map((h, i) => (
                 <button key={i} onClick={() => onSearchHit?.(h)} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-[#F5F7FA]">
                   {h.kind === 'Service' ? <ShoppingCart size={15} className="text-[#64748B]" /> : h.kind === 'Article' ? <BookOpen size={15} className="text-[#64748B]" /> : <Ticket size={15} className="text-[#64748B]" />}
                   <span className="min-w-0 flex-1 truncate text-[13px]">{h.ref && <b className="mr-1.5 font-medium text-[#3D8BD0]">{h.ref}</b>}{h.title}</span>
@@ -75,86 +93,94 @@ export function EsmLanding({ cfg, esm, workspaces, me, preview, onOpenTeam, onSt
         </div>
       </div>
 
-      <div className="mx-auto -mt-6 max-w-[1000px] px-6 pb-10">
-        <div className="relative rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-[16px] font-semibold text-[#1F2D3D]">{cfg.cardsHeading}</h2>
-            {teams.length > 1 && <button onClick={() => setAsk(true)} className="text-[13px] font-medium text-[#3D8BD0] hover:underline">Report an issue — not sure which team?</button>}
+      <div className="mx-auto max-w-[960px] px-6 pb-12 pt-8">
+        {/* 1 · Pick a team — the one job of this page */}
+        {onEdit
+          ? <div className="-mx-2 max-w-[520px]"><InlineText value={cfg.cardsHeading} onChange={(v) => onEdit({ cardsHeading: v })} placeholder="Add a heading" label="Heading above the workspace cards" className="h-8 text-[17px] font-semibold text-[#1F2D3D] placeholder:text-[#94A3B8]" /></div>
+          : <h2 className="text-[17px] font-semibold text-[#1F2D3D]">{cfg.cardsHeading}</h2>}
+        {teams.length === 0 ? (
+          <p className="mt-4 rounded-xl border border-dashed border-[#DFE5ED] bg-white px-4 py-8 text-center text-[13px] text-[#64748B]">No workspace on this portal is open to {me.name} right now. Your own requests are still under Requests.</p>
+        ) : (
+          <div className={`mt-4 grid gap-3 ${cfg.cardStyle === 'tiles' ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
+            {teams.map((w) => {
+              const p = wsPortalOf(esm, w);
+              const Icon = CARD_ICON[p.cardIcon];
+              const star = null; // ⭐ default team removed (Juli, 2026-11-17: minimum configuration)
+              const chip = (size: number, box: string) => <span className={`flex ${box} flex-shrink-0 items-center justify-center rounded-xl`} style={{ background: `${w.colour}1A`, color: w.colour }}><Icon size={size} /></span>;
+              return cfg.cardStyle === 'tiles' ? (
+                <div key={w.id} role="button" tabIndex={0} onClick={() => onOpenTeam(w)} onKeyDown={(e) => e.key === 'Enter' && onOpenTeam(w)}
+                  className="group relative flex cursor-pointer flex-col rounded-2xl border border-[#E8ECF1] bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-transparent hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
+                  {star}
+                  {chip(22, 'size-11')}
+                  <span className="mt-4 text-[15px] font-semibold text-[#1F2D3D]">{w.name}</span>
+                  {cfg.showDescriptions && <span className="mt-1 line-clamp-2 text-[13px] leading-[1.5] text-[#64748B]">{p.cardDesc}</span>}
+                  <span className="mt-4 inline-flex items-center gap-1 text-[12px] font-medium opacity-0 transition-opacity group-hover:opacity-100" style={{ color: w.colour }}>Open <ArrowRight size={13} /></span>
+                </div>
+              ) : (
+                <div key={w.id} role="button" tabIndex={0} onClick={() => onOpenTeam(w)} onKeyDown={(e) => e.key === 'Enter' && onOpenTeam(w)}
+                  className="group relative flex cursor-pointer items-center gap-3.5 rounded-2xl border border-[#E8ECF1] bg-white p-4 pr-10 transition-all hover:border-transparent hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
+                  {star}
+                  {chip(20, 'size-10')}
+                  <span className="min-w-0"><span className="block text-[14px] font-semibold text-[#1F2D3D]">{w.name}</span>{cfg.showDescriptions && <span className="block truncate text-[12px] text-[#64748B]">{p.cardDesc}</span>}</span>
+                </div>
+              );
+            })}
           </div>
-          {teams.length === 0 ? (
-            <p className="mt-4 rounded-lg bg-[#F9FAFB] px-4 py-6 text-center text-[13px] text-[#64748B]">No team’s portal is open to {me.name} right now. Your own requests are still under My requests.</p>
-          ) : (
-            <div className={`mt-4 grid gap-3 ${cfg.cardStyle === 'tiles' ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2'}`}>
-              {teams.map((w) => {
-                const p = wsPortalOf(esm, w);
-                const Icon = CARD_ICON[p.cardIcon];
-                const star = cfg.allowStar && (
-                  <button onClick={(e) => { e.stopPropagation(); onStar?.(w); }} aria-label={starred === w.id ? `Unstar ${w.name}` : `Make ${w.name} my default`} title={starred === w.id ? 'Your default team — click to remove' : 'Open this team first next time'}
-                    className={`absolute right-2.5 top-2.5 rounded p-0.5 ${starred === w.id ? 'text-[#F59E0B]' : 'text-[#CBD5E1] hover:text-[#94A3B8]'}`}><Star size={15} fill={starred === w.id ? '#F59E0B' : 'none'} /></button>
-                );
-                return cfg.cardStyle === 'tiles' ? (
-                  <div key={w.id} role="button" tabIndex={0} onClick={() => onOpenTeam(w)} onKeyDown={(e) => e.key === 'Enter' && onOpenTeam(w)}
-                    className="group relative flex cursor-pointer flex-col items-center rounded-xl border border-[#E5E7EB] bg-white px-3 pb-4 pt-5 text-center transition-all hover:-translate-y-0.5 hover:border-[#3D8BD0] hover:shadow-md">
-                    {star}
-                    <span className="flex size-12 items-center justify-center rounded-xl text-white" style={{ background: w.colour }}><Icon size={24} /></span>
-                    <span className="mt-3 text-[14px] font-semibold text-[#1F2D3D]">{w.name}</span>
-                    {cfg.showDescriptions && <span className="mt-1 line-clamp-2 text-[12px] leading-[1.45] text-[#64748B]">{p.cardDesc}</span>}
-                  </div>
-                ) : (
-                  <div key={w.id} role="button" tabIndex={0} onClick={() => onOpenTeam(w)} onKeyDown={(e) => e.key === 'Enter' && onOpenTeam(w)}
-                    className="group relative flex cursor-pointer items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white p-3.5 pr-9 transition-all hover:border-[#3D8BD0] hover:shadow-md">
-                    {star}
-                    <span className="flex size-10 flex-shrink-0 items-center justify-center rounded-lg text-white" style={{ background: w.colour }}><Icon size={20} /></span>
-                    <span className="min-w-0"><span className="block text-[14px] font-semibold text-[#1F2D3D]">{w.name}</span>{cfg.showDescriptions && <span className="block truncate text-[12px] text-[#64748B]">{p.cardDesc}</span>}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        )}
+        {teams.length > 1 && (
+          <button onClick={() => setAsk(true)} className="mt-3 inline-flex items-center gap-1.5 text-[13px] text-[#64748B] hover:text-[#3D8BD0]">
+            <CircleHelp size={14} /> Not sure which workspace? <span className="font-medium text-[#3D8BD0]">Tell us what you need</span>
+          </button>
+        )}
 
+        {/* 2 · Your stuff — only what has something in it */}
         {cfg.showMyWork && (
-          <div className="mt-4 grid gap-4 md:grid-cols-[1fr_300px]">
-            <div className="rounded-xl border border-[#E5E7EB] bg-white">
-              <div className="flex items-center justify-between border-b border-[#F0F2F5] px-4 py-3">
-                <span className="text-[14px] font-semibold text-[#1F2D3D]">My open requests <span className="ml-1 rounded bg-[#F1F5F9] px-1.5 text-[12px] font-medium text-[#64748B]">{open.length}</span></span>
-                <button onClick={onRequests} className="text-[12px] font-medium text-[#3D8BD0] hover:underline">All my requests ›</button>
-              </div>
-              {open.length === 0 ? <p className="px-4 py-5 text-[13px] text-[#94A3B8]">Nothing open.</p> : open.slice(0, 4).map((r) => (
-                <div key={r.id} className="flex items-center gap-2.5 border-b border-[#F5F7FA] px-4 py-2.5 last:border-0">
-                  <span className="rounded bg-[#F1F5F9] px-1.5 text-[12px] font-medium text-[#475569]">{r.id}</span>
-                  <span className="min-w-0 flex-1 truncate text-[13px] text-[#364658]">{r.subject}</span>
-                  <TeamTag w={workspaces.find((w) => w.id === r.workspaceId)} small />
-                  <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${STATUS_TONE[r.status]}`}>{r.status}</span>
-                </div>
-              ))}
+          <div className="mt-10">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-[15px] font-semibold text-[#1F2D3D]">Your requests</h2>
+              <button onClick={onRequests} className="inline-flex items-center gap-0.5 text-[13px] font-medium text-[#3D8BD0] hover:underline">View all <ChevronRight size={14} /></button>
             </div>
-            <div className="space-y-4">
-              <div className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-3">
-                <div className="text-[14px] font-semibold text-[#1F2D3D]">Pending approvals <span className="ml-1 rounded bg-[#F1F5F9] px-1.5 text-[12px] font-medium text-[#64748B]">{approvals.length}</span></div>
-                {approvals.length === 0 ? <p className="mt-1 text-[12px] text-[#94A3B8]">Nothing waiting for you.</p> : approvals.map((r) => (
-                  <div key={r.id} className="mt-2 flex items-center gap-2 text-[12px]"><span className="min-w-0 flex-1 truncate text-[#364658]">{r.subject}</span><TeamTag w={workspaces.find((w) => w.id === r.workspaceId)} small /></div>
-                ))}
+            {approvals.length > 0 && (
+              <div className="mb-3 flex items-center gap-3 rounded-xl border border-[#FDE7C2] bg-[#FFFAF0] px-4 py-3">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-[#FEF3C7] text-[#B45309]"><UserCheck size={16} /></span>
+                <span className="min-w-0 flex-1 text-[13px] text-[#364658]"><b className="font-semibold">{approvals.length} approval{approvals.length > 1 ? 's' : ''}</b> waiting for you <span className="text-[#94A3B8]">· {approvals[0].subject}{approvals.length > 1 ? ` and ${approvals.length - 1} more` : ''}</span></span>
+                <button onClick={onRequests} className="text-[13px] font-medium text-[#B45309] hover:underline">Review</button>
               </div>
-              {cfg.links.length > 0 && (
-                <div className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-3">
-                  <div className="text-[14px] font-semibold text-[#1F2D3D]">Useful links</div>
-                  {cfg.links.map((l) => <a key={l.label + l.url} onClick={(e) => { e.preventDefault(); toast.success(`Opens ${l.url}`); }} href="#" className="mt-1.5 flex items-center gap-1.5 text-[13px] text-[#3D8BD0] hover:underline"><ExternalLink size={12} />{l.label}</a>)}
+            )}
+            <div className="overflow-hidden rounded-xl border border-[#E8ECF1] bg-white">
+              {open.length === 0 ? (
+                <p className="flex items-center justify-center gap-2 px-4 py-6 text-[13px] text-[#94A3B8]"><Check size={15} className="text-[#22C55E]" /> You have no open requests.</p>
+              ) : open.slice(0, 4).map((r) => { const w = workspaces.find((x) => x.id === r.workspaceId); return (
+                <div key={r.id} className="flex items-center gap-3 border-b border-[#F3F5F8] px-4 py-3 last:border-0 hover:bg-[#FAFBFC]">
+                  <span className="size-2 flex-shrink-0 rounded-full" style={{ background: w?.colour ?? '#94A3B8' }} title={w?.name ?? 'Organization'} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-medium text-[#1F2D3D]">{r.subject}</span>
+                    <span className="block text-[12px] text-[#94A3B8]">{r.id} · {w?.name ?? 'Organization'}</span>
+                  </span>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[r.status]}`}>{r.status}</span>
                 </div>
-              )}
+              ); })}
             </div>
           </div>
         )}
-        {!cfg.showMyWork && cfg.links.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-3">{cfg.links.map((l) => <span key={l.label} className="inline-flex items-center gap-1.5 text-[13px] text-[#3D8BD0]"><ExternalLink size={12} />{l.label}</span>)}</div>
+
+        {/* 3 · Quick links — a quiet row, not another card */}
+        {cfg.links.filter((l) => l.label).length > 0 && (
+          <div className="mt-8 flex flex-wrap items-center gap-2">
+            <span className="mr-1 text-[12px] font-medium uppercase tracking-wide text-[#94A3B8]">Quick links</span>
+            {cfg.links.filter((l) => l.label).map((l) => (
+              <a key={l.label + l.url} onClick={(e) => { e.preventDefault(); toast.success(`Opens ${l.url || l.label}`); }} href="#"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#E8ECF1] bg-white px-3 py-1 text-[12px] text-[#364658] hover:border-[#3D8BD0] hover:text-[#3D8BD0]"><ExternalLink size={11} />{l.label}</a>
+            ))}
+          </div>
         )}
       </div>
 
       {ask && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" onClick={() => setAsk(false)}>
           <div className="w-full max-w-[560px] rounded-xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between"><h3 className="text-[16px] font-semibold text-[#1F2D3D]">Which team can help?</h3><button onClick={() => setAsk(false)} aria-label="Close"><X size={18} className="text-[#94A3B8]" /></button></div>
-            <p className="mt-1 text-[13px] text-[#64748B]">Pick the team; you’ll get its own form.</p>
+            <div className="flex items-center justify-between"><h3 className="text-[16px] font-semibold text-[#1F2D3D]">Which workspace can help?</h3><button onClick={() => setAsk(false)} aria-label="Close"><X size={18} className="text-[#94A3B8]" /></button></div>
+            <p className="mt-1 text-[13px] text-[#64748B]">Pick the workspace; you’ll get its own form.</p>
             <div className="mt-4 grid grid-cols-2 gap-2.5">
               {teams.map((w) => { const Icon = CARD_ICON[wsPortalOf(esm, w).cardIcon]; return (
                 <button key={w.id} onClick={() => { setAsk(false); onOpenTeam(w, 'new'); }} className="flex items-center gap-2.5 rounded-lg border border-[#E5E7EB] p-3 text-left hover:border-[#3D8BD0]">
@@ -235,12 +261,11 @@ const IdChip = ({ children }: { children: ReactNode }) => <span className="white
 const NoData = () => <div className="flex items-center justify-center gap-1.5 py-8 text-[13px] text-[#64748B]"><Info size={13} /> No Data Found</div>;
 
 /** A team's Support Portal home — today's default /support-portal page, filled with that workspace's data. */
-function TeamHome({ w, p, esm, workspaces, me }: { w: Workspace; p: WsPortal; esm: EsmStore; workspaces: Workspace[]; me: Employee }) {
+function TeamHome({ w, p, esm, workspaces, me, teams }: { w: Workspace; p: WsPortal; esm: EsmStore; workspaces: Workspace[]; me: Employee; teams: Workspace[] }) {
   const s = p.settings;
   const base = pathOf(p);
   const [q, setQ] = useState('');
   const [done, setDone] = useState<string[]>([]);
-  const teams = visibleTeams(workspaces, me);
   const mine = myRequests(esm, me);
   const own = mine.filter((r) => r.workspaceId === w.id);
   const open = own.filter((r) => r.status !== 'Resolved');
@@ -270,7 +295,7 @@ function TeamHome({ w, p, esm, workspaces, me }: { w: Workspace; p: WsPortal; es
             <div className="absolute left-0 right-0 top-[46px] z-30 max-h-[320px] overflow-y-auto rounded-lg border border-[#E5E7EB] bg-white p-2 text-[#364658] shadow-xl">
               {hitsHere.length + hitsElse.length === 0 && <div className="px-3 py-4 text-center text-[13px] text-[#94A3B8]">No results.</div>}
               {hitsHere.map((h, i) => <SearchRow key={`h${i}`} h={h} />)}
-              {hitsElse.length > 0 && <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Results from other teams <span className="ml-1 rounded bg-[#E0F2FE] px-1 normal-case tracking-normal text-[#0369A1]">ESM</span></div>}
+              {hitsElse.length > 0 && <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Results from other workspaces <span className="ml-1 rounded bg-[#E0F2FE] px-1 normal-case tracking-normal text-[#0369A1]">ESM</span></div>}
               {hitsElse.map((h, i) => <SearchRow key={`e${i}`} h={h} />)}
             </div>
           )}
@@ -428,9 +453,9 @@ function CreateIncident({ w, p, esm, workspaces, me, onRaise }: { w: Workspace; 
           <label className="block"><span className="mb-1 block text-[13px] text-[#374151]">Subject <span className="text-[#DC2626]">*</span></span><input value={subject} onChange={(e) => setSubject(e.target.value)} className="h-9 w-full rounded border border-[#d1d5db] px-3 text-[13px] focus:border-[#3D8BD0] focus:outline-none" /></label>
           <label className="block"><span className="mb-1 block text-[13px] text-[#374151]">Description</span><textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={5} className="w-full rounded border border-[#d1d5db] px-3 py-2 text-[13px] focus:border-[#3D8BD0] focus:outline-none" /></label>
           {s.suggestKnowledge && subject.length > 2 && (() => { const k = articles.filter((a) => subject.toLowerCase().split(' ').some((t) => t.length > 3 && a.toLowerCase().includes(t))); return k.length > 0 && <div className="rounded bg-[#F5FAFF] px-3 py-2 text-[12px] text-[#364658]">Suggested knowledge: {k.join(' · ')}</div>; })()}
-          <p className="text-[12px] text-[#64748B]">Goes to <TeamTag w={w} small /> — the workspace this portal belongs to. No team field on the form.</p>
+          <p className="text-[12px] text-[#64748B]">Goes to <TeamTag w={w} small /> — you are in this workspace’s section of the portal, so its form and its Support Portal Settings apply.</p>
           <div className="flex gap-2 pt-1">
-            <button disabled={!subject.trim()} onClick={() => { const r: MyRequest = { id: `INC-${1100 + esm.raised.length}`, subject: subject.trim(), workspaceId: w.id, status: 'Open', by: me.name, at: '06 November 2026' }; onRaise(r); toast.success(`${r.id} created in ${w.name}`, { description: 'It also shows under My requests on the ESM Portal.' }); go(pathOf(p)); }}
+            <button disabled={!subject.trim()} onClick={() => { const r: MyRequest = { id: `INC-${1100 + esm.raised.length}`, subject: subject.trim(), workspaceId: w.id, status: 'Open', by: me.name, at: '06 November 2026' }; onRaise(r); toast.success(`${r.id} created in ${w.name}`, { description: 'It shows in your one Requests list, tagged with the workspace.' }); go(pathOf(p)); }}
               className="h-8 rounded bg-[#111827] px-4 text-[13px] font-medium text-white disabled:opacity-40" style={p.colour ? { background: p.colour } : undefined}>Create</button>
             <button onClick={() => go(pathOf(p))} className="h-8 rounded border border-[#D1D5DB] px-3 text-[13px] text-[#374151] hover:bg-[#F9FAFB]">Cancel</button>
           </div>
@@ -450,26 +475,28 @@ function SearchRow({ h }: { h: Hit }) {
   );
 }
 
-// ── All my requests (every team, also teams the person can no longer open — F02a §9) ───────────────────────
-function AllRequests({ esm, workspaces, me }: { esm: EsmStore; workspaces: Workspace[]; me: Employee }) {
-  const [team, setTeam] = useState<number | 'all'>('all');
-  const mine = myRequests(esm, me);
+// ── ONE list across the portal's workspaces (Requests / My Approvals), Team column + Team filter (F18b) ────────
+function AllRequests({ esm, workspaces, me, portal, initialTeam, kind = 'requests' }: { esm: EsmStore; workspaces: Workspace[]; me: Employee; portal: AudiencePortal; initialTeam?: number; kind?: 'requests' | 'approvals' }) {
+  const [team, setTeam] = useState<number | 'all'>(initialTeam ?? 'all');
+  /* On a portal mapped to specific workspaces the list shows those workspaces' items (Freshservice rule). The Default
+     portal maps All, so there the list is complete — including teams the person can no longer open (F02a §9). */
+  const mine = (kind === 'approvals' ? myApprovals(me) : myRequests(esm, me)).filter((r) => mapsTo(portal, r.workspaceId));
   const ids = [...new Set(mine.map((r) => r.workspaceId))];
   const rows = team === 'all' ? mine : mine.filter((r) => r.workspaceId === team);
   return (
     <div className="mx-auto max-w-[1000px] px-6 py-8">
-      <h1 className="text-[20px] font-semibold text-[#1F2D3D]">My requests</h1>
-      <p className="mt-1 text-[13px] text-[#64748B]">Every request {me.name} raised, whichever team it went to.</p>
+      <h1 className="text-[20px] font-semibold text-[#1F2D3D]">{kind === 'approvals' ? 'My Approvals' : 'Requests'}</h1>
+      <p className="mt-1 text-[13px] text-[#64748B]">{kind === 'approvals' ? `Approvals waiting for ${me.name}` : `Every request ${me.name} raised`}, from every workspace on this portal — one list. Filter by workspace when you need to.</p>
       <div className="mt-4 flex flex-wrap gap-2">
         {(['all', ...ids] as (number | 'all')[]).map((id) => { const w = workspaces.find((x) => x.id === id); return (
           <button key={String(id)} onClick={() => setTeam(id)} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] ${team === id ? 'border-[#3D8BD0] bg-[#EBF5FF] font-medium text-[#1F5F99]' : 'border-[#DFE5ED] bg-white text-[#475569]'}`}>
-            {w && <span className="size-2 rounded-full" style={{ background: w.colour }} />}{id === 'all' ? `All teams (${mine.length})` : `${w?.name} (${mine.filter((r) => r.workspaceId === id).length})`}
+            {w && <span className="size-2 rounded-full" style={{ background: w.colour }} />}{id === 'all' ? `All workspaces (${mine.length})` : `${w?.name} (${mine.filter((r) => r.workspaceId === id).length})`}
           </button>
         ); })}
       </div>
       <div className="mt-4 overflow-hidden rounded-xl border border-[#E5E7EB] bg-white">
         <table className="w-full">
-          <thead className="border-b border-[#E5E7EB]"><tr>{['ID', 'Subject', 'Team', 'Status', 'Raised'].map((h) => <th key={h} className="px-4 py-2.5 text-left text-[12px] font-semibold text-[#364658]">{h}</th>)}</tr></thead>
+          <thead className="border-b border-[#E5E7EB]"><tr>{['ID', 'Subject', 'Workspace', 'Status', 'Raised'].map((h) => <th key={h} className="px-4 py-2.5 text-left text-[12px] font-semibold text-[#364658]">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-[#F0F2F5]">
             {rows.map((r) => { const w = workspaces.find((x) => x.id === r.workspaceId); const closed = w && !portalVerdict(w, me).ok; return (
               <tr key={r.id}>
@@ -487,6 +514,47 @@ function AllRequests({ esm, workspaces, me }: { esm: EsmStore; workspaces: Works
   );
 }
 
+/* Services / Knowledge at portal level: every team on this portal, grouped by team. The ITEM's workspace decides where
+   the request goes (verified in Freshservice); a team whose Support Portal Setting switches the module off is left out. */
+function GroupedPage({ esm, teams, page }: { esm: EsmStore; teams: Workspace[]; page: 'request-service' | 'knowledge' }) {
+  const [q, setQ] = useState('');
+  const t = q.trim().toLowerCase();
+  const key = page === 'request-service' ? 'accessCatalog' : 'accessKnowledge';
+  const shown = teams.filter((w) => wsPortalOf(esm, w).settings[key]);
+  const off = teams.filter((w) => !wsPortalOf(esm, w).settings[key]);
+  return (
+    <div className="mx-auto max-w-[1000px] px-6 py-8">
+      <h1 className="text-[20px] font-semibold text-[#1F2D3D]">{page === 'request-service' ? 'Services' : 'Knowledge'}</h1>
+      <p className="mt-1 text-[13px] text-[#64748B]">{page === 'request-service' ? 'Every workspace’s services in one catalog. Pick one — it goes to the workspace that owns it.' : 'Articles from every workspace, plus Organization articles.'}</p>
+      <div className="relative mt-4 max-w-[420px]"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" className="h-9 w-full rounded border border-[#D1D5DB] pl-8 pr-3 text-[13px] outline-none focus:border-[#3D8BD0]" /></div>
+      {shown.map((w) => {
+        const items = (page === 'request-service' ? servicesOf(w) : articlesOf(w)).filter((x) => !t || x.toLowerCase().includes(t));
+        if (!items.length) return null;
+        return (
+          <section key={w.id} className="mt-6">
+            <h2 className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-[#1F2D3D]"><span className="size-2.5 rounded-full" style={{ background: w.colour }} />{w.name}<span className="text-[12px] font-normal text-[#94A3B8]">{items.length}</span></h2>
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+              {items.map((x) => (
+                <button key={x} onClick={() => { if (page === 'request-service') window.location.hash = `#/portal/${pathOf(wsPortalOf(esm, w))}/new?service=${encodeURIComponent(x)}`; else toast.success(`Opens “${x}”`); }}
+                  className="flex items-center gap-3 rounded-md border border-[#E5E7EB] bg-white p-3 text-left hover:shadow-md">
+                  <span className="flex size-9 flex-shrink-0 items-center justify-center rounded bg-[#F3F4F6] text-[#374151]">{page === 'request-service' ? <ShoppingCart size={17} /> : <Newspaper size={17} />}</span>
+                  <span className="min-w-0"><span className="block truncate text-[13px] font-medium text-[#1F2937]">{x}</span><span className="block text-[12px] text-[#64748B]">{w.name}</span></span>
+                </button>
+              ))}
+            </div>
+          </section>
+        );
+      })}
+      {page === 'knowledge' && ORG_ARTICLES.some((x) => !t || x.toLowerCase().includes(t)) && (
+        <section className="mt-6"><h2 className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-[#1F2D3D]">Organization</h2>
+          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">{ORG_ARTICLES.filter((x) => !t || x.toLowerCase().includes(t)).map((x) => <div key={x} className="flex items-center gap-3 rounded-md border border-[#E5E7EB] bg-white p-3 text-[13px] text-[#1F2937]"><Newspaper size={17} className="text-[#374151]" />{x}</div>)}</div></section>
+      )}
+      {off.length > 0 && <p className="mt-6 text-[12px] text-[#94A3B8]">Not offered here by {off.map((w) => w.name).join(', ')} (that workspace’s Support Portal Setting).</p>}
+    </div>
+  );
+}
+
 // ── Switching between the Technician Portal and the Support Portal (live: avatar menu) ─────────────────────
 function backToTechnician(fallback: () => void) {
   let to: string | null = null;
@@ -498,51 +566,81 @@ function HeaderIcon({ label, onClick, children }: { label: string; onClick?: () 
   return <button onClick={onClick ?? (() => toast(label))} title={label} aria-label={label} className="flex size-8 items-center justify-center rounded text-[#374151] hover:bg-[#F3F4F6]">{children}</button>;
 }
 
-// ── Page shell: the live Support Portal header + left navigation, plus the ESM team switcher ──────────────
+
+// ── Page shell: the live Support Portal header + left navigation, plus the team switcher (F18b) ─────────────
+/* F18b (Juli, 2026-11-18). A SUPPORT PORTAL is an audience (its URL, who can sign in, which workspaces it maps).
+ * Inside it, each mapped workspace is a SECTION reached from its team card (/portal/<team>): that team's home, form
+ * and Support Portal Settings (what requesters may do there). Requests / My Approvals are ONE list across the
+ * portal's teams with a Team filter. One team on the portal → no cards, today's portal exactly. */
+const PORTAL_KEY = 'serviceops.esm.portalId';
+const readPortal = () => { try { return window.localStorage.getItem(PORTAL_KEY) ?? 'SPP-1'; } catch { return 'SPP-1'; } };
+const LEVEL = ['request', 'request-service', 'knowledge', 'my-approval', 'my-tasks', 'change', 'asset', 'ci', 'project'];
+
 export function EsmPortalPage({ sub, onExit }: { sub?: string; onExit: () => void }) {
   const [viewer, setViewer] = useState(readViewer);
+  const [portalId, setPortalId] = useState(readPortal);
   const [esm, setEsm] = useState<EsmStore>(loadEsm);
   const [menu, setMenu] = useState<'team' | 'plus' | 'me' | null>(null);
   const [navOpen, setNavOpen] = useState(false);
-  /** Why /portal sent this person where it did — shown while they are still on that team's page. */
   const [why, setWhy] = useState<{ seg: string; text: string } | null>(null);
   const workspaces = useMemo(() => loadStore().workspaces, []);
   const me = EMPLOYEES.find((e) => e.name === viewer) ?? EMPLOYEES[0];
+  const portals = portalsOf(esm);
+  const portal = portals.find((p) => p.id === portalId) ?? portals[0];
   const cfg = esm.published;
-  const teams = orderTeams(visibleTeams(workspaces, me), cfg.order);
+  const signedIn = canSignIn(portal, me);
+  const teams = orderTeams(teamsOn(portal, workspaces, me), cfg.order);
   const [seg, mode] = (sub ?? '').split('?')[0].split('/');
   const portalFor = (s: string) => workspaces.find((w) => pathOf(wsPortalOf(esm, w)) === s);
-  // A path the team used before still works: redirect to its current address.
   const movedFrom = seg ? workspaces.find((w) => !portalFor(seg) && (wsPortalOf(esm, w).oldSlugs ?? []).includes(seg)) : undefined;
   useEffect(() => {
     if (!movedFrom) return;
     const t = window.setTimeout(() => go(`${pathOf(wsPortalOf(esm, movedFrom))}${mode ? `/${mode}` : ''}`), 0);
     return () => window.clearTimeout(t);
   }, [movedFrom?.id, seg]); // eslint-disable-line react-hooks/exhaustive-deps
-  const team = seg && seg !== 'home' && seg !== 'requests' ? portalFor(seg) : undefined;
+  const isLevel = LEVEL.includes(seg);
+  const team = seg && seg !== 'home' && !isLevel ? portalFor(seg) : undefined;
   const update = (fn: (s: EsmStore) => EsmStore) => setEsm((s) => { const n = fn(s); saveEsm(n); return n; });
-  const prevViewer = useRef(viewer);
+  const prev = useRef(`${viewer}|${portalId}`);
 
-  // The address employees open (/support-portal): decide where they land.
+  // The portal address: one team on it → that team's section; otherwise the portal home with the team cards.
   useEffect(() => {
     if (seg) return;
-    const l = landingFor(cfg, esm, workspaces, me);
-    /* ⚠️ Deferred one tick: App canonicalises the address bar in its own effect, which runs after this one and would
-       otherwise put back '#/portal' and swallow the redirect. */
-    const t = window.setTimeout(() => { if (l.kind === 'team') { setWhy({ seg: pathOf(wsPortalOf(esm, l.w)), text: l.why }); go(pathOf(wsPortalOf(esm, l.w))); } else { setWhy(null); go('home'); } }, 0);
+    const t = window.setTimeout(() => {
+      if (teams.length === 1) { const p = wsPortalOf(esm, teams[0]); setWhy({ seg: pathOf(p), text: `${me.name} sees only ${teams[0].name} on ${portal.name}, so there are no workspace cards — today’s portal.` }); go(pathOf(p)); }
+      else { setWhy(null); go('home'); }
+    }, 0);
     return () => window.clearTimeout(t);
-  }, [seg, viewer]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (prevViewer.current !== viewer) { prevViewer.current = viewer; window.setTimeout(() => go(''), 0); } }, [viewer]);
+  }, [seg, viewer, portalId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const k = `${viewer}|${portalId}`; if (prev.current !== k) { prev.current = k; window.setTimeout(() => go(''), 0); } }, [viewer, portalId]);
   useEffect(() => { setMenu(null); }, [sub]);
 
-  const blocked = seg && seg !== 'home' && seg !== 'requests' && !movedFrom && (!team || !portalVerdict(team, me).ok);
+  const blocked = signedIn && seg && seg !== 'home' && !isLevel && !movedFrom && (!team || !portalVerdict(team, me).ok || !mapsTo(portal, team.id));
   const cur = team && !blocked ? wsPortalOf(esm, team) : undefined;
-  const nav = team && cur ? navFor(team, cur.settings) : [];
-  const toTech = () => backToTechnician(onExit);
   const showHome = teams.length > 1;
+  const it = teams.find(isIt);
+  const itSet = it ? wsPortalOf(esm, it).settings : undefined;
+  /* Left nav. In a team's section: that team's Support Portal Settings. At portal level: a module shows when at least
+     one team on the portal offers it (Changes / Assets / CIs / Projects come from the IT workspace). */
+  const nav = cur && team ? navFor(team, cur.settings)
+    : PORTAL_NAV.filter((n) => (n.itOnly ? !!itSet && n.on(itSet) : teams.some((w) => n.on(wsPortalOf(esm, w).settings))));
+  const navTo = (s: string) => go(team && cur ? `${pathOf(cur)}/${s}` : s);
+  const toTech = () => backToTechnician(onExit);
+  const onRaise = (r: MyRequest) => update((s) => ({ ...s, raised: [r, ...s.raised] }));
+  const incidentTeams = teams.filter((w) => wsPortalOf(esm, w).settings.createIncident);
 
   let body: ReactNode;
-  if (blocked) {
+  if (!signedIn) {
+    body = (
+      <div className="flex min-h-full flex-col items-center justify-center bg-white px-6 py-16 text-center">
+        <MotadataLogo />
+        <Lock size={28} className="mt-8 text-[#94A3B8]" />
+        <h1 className="mt-3 text-[20px] font-semibold text-[#1F2937]">You can’t sign in to {portal.name}</h1>
+        <p className="mt-2 max-w-[440px] text-[13px] text-[#64748B]">This portal is for {signInLabel(portal).replace('Only ', '')}. Use your organisation’s Support Portal instead.</p>
+        <p className="mt-6 text-[12px] text-[#94A3B8]">Prototype: {portal.url} · Who can sign in = {signInLabel(portal)}</p>
+      </div>
+    );
+  } else if (blocked) {
     body = (
       <div className="flex min-h-full flex-col items-center justify-center bg-white px-6 py-16 text-center" style={{ backgroundImage: 'linear-gradient(#F3F4F6 1px, transparent 1px), linear-gradient(90deg, #F3F4F6 1px, transparent 1px)', backgroundSize: '48px 48px' }}>
         <MotadataLogo />
@@ -551,57 +649,63 @@ export function EsmPortalPage({ sub, onExit }: { sub?: string; onExit: () => voi
         <h1 className="mt-4 text-[22px] font-semibold text-[#1F2937]">You've reached the edge</h1>
         <p className="mt-3 max-w-[420px] text-[13px] text-[#374151]">This route doesn't exist in our system. The page may have been removed or the link is incorrect.</p>
         <button onClick={() => go('')} className="mt-6 inline-flex h-9 items-center gap-1.5 rounded-md bg-[#111827] px-4 text-[13px] font-medium text-white"><Home size={14} /> Return to Home</button>
-        <p className="mt-6 text-[12px] text-[#94A3B8]">Prototype: {team ? portalVerdict(team, me).why : 'no team has this address.'}</p>
+        <p className="mt-6 text-[12px] text-[#94A3B8]">Prototype: {team ? (!mapsTo(portal, team.id) ? `${team.name} is not mapped to ${portal.name}.` : portalVerdict(team, me).why) : 'no workspace has this address.'}</p>
       </div>
     );
-  } else if (seg === 'requests') body = <AllRequests esm={esm} workspaces={workspaces} me={me} />;
+  } else if (seg === 'request' || seg === 'my-approval') body = <AllRequests key={seg} esm={esm} workspaces={workspaces} me={me} portal={portal} kind={seg === 'my-approval' ? 'approvals' : 'requests'} />;
+  else if (seg === 'request-service' || seg === 'knowledge') body = <GroupedPage key={seg} esm={esm} teams={teams} page={seg} />;
+  else if (isLevel && it) body = <TeamList key={seg} w={it} p={wsPortalOf(esm, it)} page={seg} esm={esm} me={me} />;
   else if (team && cur) {
-    const onRaise = (r: MyRequest) => update((s) => ({ ...s, raised: [r, ...s.raised] }));
     body = mode === 'new' ? <CreateIncident key={team.id + sub} w={team} p={cur} esm={esm} workspaces={workspaces} me={me} onRaise={onRaise} />
-      : mode && PORTAL_NAV.some((n) => n.seg === mode) ? <TeamList key={team.id + mode} w={team} p={cur} page={mode} esm={esm} me={me} />
-        : <TeamHome key={team.id} w={team} p={cur} esm={esm} workspaces={workspaces} me={me} />;
+      : mode === 'request' || mode === 'my-approval' ? <AllRequests key={team.id + mode} esm={esm} workspaces={workspaces} me={me} portal={portal} initialTeam={team.id} kind={mode === 'my-approval' ? 'approvals' : 'requests'} />
+        : mode && PORTAL_NAV.some((n) => n.seg === mode) ? <TeamList key={team.id + mode} w={team} p={cur} page={mode} esm={esm} me={me} />
+          : <TeamHome key={team.id} w={team} p={cur} esm={esm} workspaces={workspaces} me={me} teams={teams} />;
   } else if (seg === 'home') body = (
-    <EsmLanding cfg={cfg} esm={esm} workspaces={workspaces} me={me}
+    <EsmLanding cfg={cfg} esm={esm} workspaces={workspaces} me={me} portal={portal}
       onOpenTeam={(w, x) => go(`${pathOf(wsPortalOf(esm, w))}${x ? `/${x}` : ''}`)}
-      onStar={(w) => update((s) => { const stars = { ...s.stars }; if (stars[me.name] === w.id) delete stars[me.name]; else stars[me.name] = w.id; toast.success(stars[me.name] ? `${w.name} opens first for ${me.name} next time` : 'Default team removed'); return { ...s, stars }; })}
-      onRequests={() => go('requests')}
-      onSearchHit={(h) => { if (h.kind === 'My request') go('requests'); else if (h.team && h.kind === 'Service') window.location.hash = `#/portal/${pathOf(wsPortalOf(esm, h.team))}/new?service=${encodeURIComponent(h.title)}`; else if (h.team) go(pathOf(wsPortalOf(esm, h.team))); else toast.success(`Opens “${h.title}”`); }} />
+      onRequests={() => go('request')}
+      onSearchHit={(h) => { if (h.kind === 'My request') go('request'); else if (h.team && h.kind === 'Service') window.location.hash = `#/portal/${pathOf(wsPortalOf(esm, h.team))}/new?service=${encodeURIComponent(h.title)}`; else if (h.team) go(pathOf(wsPortalOf(esm, h.team))); else toast.success(`Opens “${h.title}”`); }} />
   );
   else body = null;
 
   const dd = 'absolute top-10 z-40 rounded-md border border-[#E5E7EB] bg-white p-1.5 shadow-xl';
   const ddItem = 'flex w-full items-center gap-2.5 rounded px-2.5 py-1.5 text-left text-[13px] text-[#1F2937] hover:bg-[#F3F4F6]';
+  const showNav = signedIn && !blocked;
   return (
     <div className="flex h-screen flex-col bg-[#EEF2F7]" onClick={() => menu && setMenu(null)}>
       <div className="flex h-10 flex-shrink-0 items-center gap-3 border-b border-[#FDE68A] bg-[#FFFBEB] px-4 text-[12px] text-[#92400E]">
-        <FlaskConical size={14} /> <span className="font-medium">Prototype · Support Portal</span>
+        <FlaskConical size={14} /> <span className="font-medium">Prototype</span>
+        <span className="text-[#B45309]">Portal</span>
+        <select value={portal.id} onChange={(e) => { setPortalId(e.target.value); try { window.localStorage.setItem(PORTAL_KEY, e.target.value); } catch { /* */ } }} aria-label="Support Portal" className="h-7 max-w-[260px] rounded border border-[#FCD34D] bg-white px-2 text-[12px] text-[#364658]">
+          {portals.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.url} · {workspacesLabel(p, workspaces)}</option>)}
+        </select>
         <span className="text-[#B45309]">View as</span>
         <select value={viewer} onChange={(e) => { setViewer(e.target.value); try { window.localStorage.setItem(VIEWER_KEY, e.target.value); } catch { /* */ } }} aria-label="View as employee" className="h-7 rounded border border-[#FCD34D] bg-white px-2 text-[12px] text-[#364658]">
           {EMPLOYEES.map((e) => <option key={e.name} value={e.name}>{e.name} · {e.type}, {e.location}{e.director ? ', Director' : ''}{e.leaver ? ', Leaver' : ''}</option>)}
         </select>
-        <span className="text-[#B45309]">sees {teams.length} team{teams.length === 1 ? '' : 's'}</span>
+        <span className="text-[#B45309]">{signedIn ? `sees ${teams.length} workspace${teams.length === 1 ? '' : 's'}` : 'can’t sign in here'}</span>
         {why && why.seg === seg && !mode && <span className="truncate rounded bg-white/70 px-2 py-0.5 text-[#92400E]">↪ {why.text}</span>}
-        <span className="ml-auto truncate text-[#B45309]">{cur ? portalHost(cur) : 'support.acme.com'}</span>
+        <span className="ml-auto truncate text-[#B45309]">{portal.url}{cur && cur.slug ? `/${cur.slug}` : ''}</span>
       </div>
 
       {/* Live header: collapse · logo · [ESM: team switcher] … Ask AI · + · A · My Chats · Notifications · Shortcuts · Go To Home · Help · avatar */}
       <header className="relative z-30 flex h-[50px] flex-shrink-0 items-center gap-3 border-b border-[#E5E7EB] bg-white pl-3 pr-3">
-        {team && !blocked && <button onClick={() => setNavOpen((o) => !o)} title={navOpen ? 'Collapse' : 'Expand'} aria-label={navOpen ? 'Collapse' : 'Expand'} className="text-[#374151]"><PanelLeft size={17} /></button>}
-        <button onClick={() => go(showHome ? 'home' : '')} aria-label="Logo" className="scale-[1.12] origin-left"><MotadataLogo /></button>
-        {showHome && !blocked && (
+        {showNav && <button onClick={() => setNavOpen((o) => !o)} title={navOpen ? 'Collapse' : 'Expand'} aria-label={navOpen ? 'Collapse' : 'Expand'} className="text-[#374151]"><PanelLeft size={17} /></button>}
+        <button onClick={() => go('')} aria-label="Logo" className="scale-[1.12] origin-left"><MotadataLogo /></button>
+        {showHome && showNav && (
           <div className="relative ml-6" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setMenu(menu === 'team' ? null : 'team')} className="inline-flex h-8 items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-2.5 text-[13px] text-[#1F2937] hover:bg-[#F9FAFB]">
-              {team ? <><span className="size-2 rounded-full" style={{ background: team.colour }} />{team.name}</> : <><LayoutGrid size={14} /> ESM Portal</>}
+              {team ? <><span className="size-2 rounded-full" style={{ background: team.colour }} />{team.name}</> : <><LayoutGrid size={14} /> All workspaces</>}
               <ChevronDown size={14} className="text-[#6B7280]" />
             </button>
             {menu === 'team' && (
-              <div className={`${dd} left-0 w-[270px]`}>
-                <button onClick={() => go('home')} className={ddItem}><LayoutGrid size={14} className="text-[#6B7280]" /><span className="flex-1">ESM Portal <span className="text-[#6B7280]">· all teams</span></span>{!team && <Check size={13} className="text-[#3D8BD0]" />}</button>
+              <div className={`${dd} left-0 w-[250px]`}>
+                <button onClick={() => go('home')} className={ddItem}><LayoutGrid size={14} className="text-[#6B7280]" /><span className="flex-1">All workspaces</span>{!team && <Check size={13} className="text-[#3D8BD0]" />}</button>
                 <div className="my-1 border-t border-[#F0F2F5]" />
-                <div className="px-2.5 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Support portals</div>
+                <div className="px-2.5 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Workspaces on this portal</div>
                 {teams.map((w) => (
                   <button key={w.id} onClick={() => go(pathOf(wsPortalOf(esm, w)))} className={ddItem}>
-                    <span className="size-2 rounded-full" style={{ background: w.colour }} /><span className="flex-1">{w.name}</span><span className="text-[11px] text-[#94A3B8]">{'/support-portal' + (wsPortalOf(esm, w).slug ? `/${wsPortalOf(esm, w).slug}` : '')}</span>{team?.id === w.id && <Check size={13} className="text-[#3D8BD0]" />}
+                    <span className="size-2 rounded-full" style={{ background: w.colour }} /><span className="flex-1">{w.name}</span>{team?.id === w.id && <Check size={13} className="text-[#3D8BD0]" />}
                   </button>
                 ))}
               </div>
@@ -610,21 +714,26 @@ export function EsmPortalPage({ sub, onExit }: { sub?: string; onExit: () => voi
         )}
         <div className="ml-auto flex items-center gap-1.5">
           <button onClick={() => toast('Ask AI')} className="mr-1 inline-flex h-8 items-center gap-1.5 rounded-md border border-[#C084FC] px-3 text-[13px] text-[#1F2937]"><Sparkles size={14} className="text-[#9333EA]" /> Ask AI</button>
-          <div className="relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setMenu(menu === 'plus' ? null : 'plus')} aria-label="Create" className="mr-1 flex size-8 items-center justify-center rounded-md bg-[#111827] text-white"><Plus size={17} /></button>
-            {menu === 'plus' && (
-              <div className={`${dd} right-0 w-[230px]`}>
-                {team && cur ? <>
-                  {cur.settings.createIncident && <button onClick={() => go(`${pathOf(cur)}/new`)} className={ddItem}><Ticket size={14} /> Create Incident</button>}
-                  {cur.settings.accessCatalog && <button onClick={() => go(`${pathOf(cur)}/request-service`)} className={ddItem}><GitPullRequestArrow size={14} /> Request Service</button>}
-                  {isIt(team) && <button onClick={() => toast('Create Project')} className={ddItem}><Workflow size={14} /> Create Project</button>}
-                </> : <>
-                  <div className="px-2.5 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Create Incident in</div>
-                  {teams.map((w) => <button key={w.id} onClick={() => go(`${pathOf(wsPortalOf(esm, w))}/new`)} className={ddItem}><span className="size-2 rounded-full" style={{ background: w.colour }} />{w.name}</button>)}
-                </>}
-              </div>
-            )}
-          </div>
+          {showNav && (
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => setMenu(menu === 'plus' ? null : 'plus')} aria-label="Create" className="mr-1 flex size-8 items-center justify-center rounded-md bg-[#111827] text-white"><Plus size={17} /></button>
+              {menu === 'plus' && (
+                <div className={`${dd} right-0 w-[240px]`}>
+                  {team && cur ? <>
+                    {cur.settings.createIncident && <button onClick={() => go(`${pathOf(cur)}/new`)} className={ddItem}><Ticket size={14} /> Create Incident</button>}
+                    {cur.settings.accessCatalog && <button onClick={() => go(`${pathOf(cur)}/request-service`)} className={ddItem}><GitPullRequestArrow size={14} /> Request Service</button>}
+                    {isIt(team) && <button onClick={() => toast('Create Project')} className={ddItem}><Workflow size={14} /> Create Project</button>}
+                    {!cur.settings.createIncident && !cur.settings.accessCatalog && <p className="px-2.5 py-1.5 text-[12px] text-[#94A3B8]">{team.name} offers nothing to create here.</p>}
+                  </> : <>
+                    {incidentTeams.length > 0 && <div className="px-2.5 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Create Incident in</div>}
+                    {incidentTeams.map((w) => <button key={w.id} onClick={() => go(`${pathOf(wsPortalOf(esm, w))}/new`)} className={ddItem}><span className="size-2 rounded-full" style={{ background: w.colour }} />{w.name}</button>)}
+                    {teams.some((w) => wsPortalOf(esm, w).settings.accessCatalog) && <><div className="my-1 border-t border-[#F0F2F5]" /><button onClick={() => go('request-service')} className={ddItem}><GitPullRequestArrow size={14} /> Request Service</button></>}
+                    {it && <button onClick={() => toast('Create Project')} className={ddItem}><Workflow size={14} /> Create Project</button>}
+                  </>}
+                </div>
+              )}
+            </div>
+          )}
           <HeaderIcon label="Font size"><Type size={16} /></HeaderIcon>
           <HeaderIcon label="My Chats"><MessagesSquare size={16} /></HeaderIcon>
           <HeaderIcon label="Notifications"><Bell size={16} /></HeaderIcon>
@@ -650,10 +759,10 @@ export function EsmPortalPage({ sub, onExit }: { sub?: string; onExit: () => voi
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {team && !blocked && (
+        {showNav && (
           <nav className={`flex flex-shrink-0 flex-col border-r border-[#E5E7EB] bg-white py-1.5 ${navOpen ? 'w-[170px]' : 'w-[54px]'}`} aria-label="Support Portal">
-            {nav.map((n) => { const on = mode === n.seg; const I = n.icon; return (
-              <button key={n.seg} onClick={() => go(`${pathOf(cur!)}/${n.seg}`)} title={n.label} className={`mx-1.5 my-0.5 flex h-[38px] items-center gap-3 rounded-md px-[11px] text-[14px] ${on ? 'bg-[#111827] text-white' : 'text-[#1F2937] hover:bg-[#F3F4F6]'}`}>
+            {nav.map((n) => { const on = (team ? mode : seg) === n.seg; const I = n.icon; return (
+              <button key={n.seg} onClick={() => navTo(n.seg)} title={n.label} className={`mx-1.5 my-0.5 flex h-[38px] items-center gap-3 rounded-md px-[11px] text-[14px] ${on ? 'bg-[#111827] text-white' : 'text-[#1F2937] hover:bg-[#F3F4F6]'}`}>
                 <I size={17} className="flex-shrink-0" />{navOpen && <span className="truncate">{n.label}</span>}
               </button>
             ); })}
@@ -662,7 +771,7 @@ export function EsmPortalPage({ sub, onExit }: { sub?: string; onExit: () => voi
         )}
         <div className="relative min-h-0 flex-1 overflow-y-auto">{body}</div>
       </div>
-      {!blocked && <button onClick={() => toast('Virtual agent')} aria-label="Chat" className="fixed bottom-5 right-5 z-30 flex size-12 items-center justify-center rounded-full bg-[#111827] text-white shadow-lg"><MessageSquare size={20} /></button>}
+      {showNav && <button onClick={() => toast('Virtual agent')} aria-label="Chat" className="fixed bottom-5 right-5 z-30 flex size-12 items-center justify-center rounded-full bg-[#111827] text-white shadow-lg"><MessageSquare size={20} /></button>}
     </div>
   );
 }

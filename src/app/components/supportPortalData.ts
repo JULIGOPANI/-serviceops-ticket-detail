@@ -45,8 +45,12 @@ export interface PortalPage {
    *       cards, and My Assets / My CIs as full-width rows of tiles
    *   v1  the arrangement this builder shipped with, kept intact on "Support Portal - 2" */
   layout?: 'v1' | 'v2';
-  /** ESM F18: the workspace this portal is mapped to (one portal per workspace; the Default portal = IT). */
+  /** ESM F18 (superseded by F18b): one portal per workspace. Kept optional for old callers; no longer set. */
   workspaceId?: number;
+  /** ESM F18b: Map workspaces — the workspaces this portal shows (All, or Specific). Freshservice concept, ServiceOps form. */
+  workspaceIds?: 'all' | number[];
+  /** ESM F18b: who can sign in — All requesters, or these requester groups. */
+  signIn?: 'all' | string[];
 }
 
 /* ⚠️ `portal` is not a template layout like the others — it is a PICTURE OF THIS PORTAL. The
@@ -164,7 +168,8 @@ export const DEFAULT_PORTAL_PAGE: PortalPage = {
   url: 'support.acme.com',
   idp: 'None — use ServiceOps login',
   ssoOnly: false,
-  workspaceId: 1,
+  workspaceIds: 'all',
+  signIn: 'all',
 };
 
 /** The arrangement the builder shipped with, kept as a portal of its own. */
@@ -175,8 +180,21 @@ export const SECOND_PORTAL_PAGE: PortalPage = {
   layout: 'v1',
   url: 'support.acme.com/portal-2',
   dirty: false,
-  workspaceId: undefined,
   modifiedAt: 'Mon, Aug 17, 2026 09:14 AM',
+};
+
+/** ESM F18b: an AUDIENCE portal — HR + Facilities on its own address, only for India staff (Juli's scenario). */
+export const PEOPLE_PORTAL_PAGE: PortalPage = {
+  ...DEFAULT_PORTAL_PAGE,
+  id: 'SPP-3',
+  name: 'People Services',
+  type: 'Custom',
+  source: 'People & HR Desk',
+  url: 'people.acme.com',
+  dirty: false,
+  workspaceIds: [2, 3],
+  signIn: ['India staff'],
+  modifiedAt: 'Wed, Nov 18, 2026 10:05 AM',
 };
 
 /* The listing says WHEN in relative terms, because "2 days ago" is the question an admin is

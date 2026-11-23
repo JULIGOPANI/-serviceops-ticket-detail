@@ -6,6 +6,9 @@ import type { PortalTemplate } from './supportPortalData';
 import { TemplateArt } from './SupportPortalTemplateGallery';
 import { SupportPortalPreview } from './SupportPortalPreview';
 import { DEFAULT_THEME, swatchesOf } from './PortalThemePanel';
+import { loadStore } from './workspaceData';
+import { REQUESTER_GROUPS } from './WorkspacePrivacyRows';
+import { mspOn } from './esmPortalData';
 
 /* ── the Default tile's picture ──────────────────────────────────────────────
  *
@@ -80,6 +83,10 @@ export interface PortalDetails {
   url: string;
   idp: string;
   ssoOnly: boolean;
+  /** ESM F18b — Map workspaces (All / Specific). */
+  workspaceIds: 'all' | number[];
+  /** ESM F18b — who can sign in (All requesters / requester groups). */
+  signIn: 'all' | string[];
 }
 
 /* Mock, like every other list in this prototype. Company is required, so it has to have options. */
@@ -105,13 +112,16 @@ export function PortalDetailsFields({ value, onChange }: {
           <label className={label}>Support Portal Name<Req /></label>
           <input className={input} value={value.name} onChange={(e) => set('name', e.target.value)} placeholder="Support Portal Name" />
         </div>
-        <div>
-          <label className={label}>Company<Req /></label>
-          <select className={`${input} app-select`} value={value.company} onChange={(e) => set('company', e.target.value)}>
-            <option value="">Select</option>
-            {COMPANIES.map((x) => <option key={x} value={x}>{x}</option>)}
-          </select>
-        </div>
+        {/* ESM F18b: Company only in MSP mode (185). A non-MSP account (demo) has no Companies: there a portal is an audience. */}
+        {mspOn() ? (
+          <div>
+            <label className={label}>Company<Req /></label>
+            <select className={`${input} app-select`} value={value.company} onChange={(e) => set('company', e.target.value)}>
+              <option value="">Select</option>
+              {COMPANIES.map((x) => <option key={x} value={x}>{x}</option>)}
+            </select>
+          </div>
+        ) : <div />}
         <div>
           <label className={label}>Support Portal URL<Req /></label>
           <input className={input} value={value.url} onChange={(e) => set('url', e.target.value)} placeholder="Support Portal URL" />
@@ -123,6 +133,8 @@ export function PortalDetailsFields({ value, onChange }: {
           </select>
         </div>
       </div>
+
+      <EsmPortalFields value={value} onChange={onChange} />
 
       {/* ⚠️ Removed, not greyed, until a provider is chosen — enforcing SSO with no SSO configured
           is a switch with nothing behind it, and the same rule the Branding panel follows. */}
@@ -144,7 +156,55 @@ export function PortalDetailsFields({ value, onChange }: {
 }
 
 /** Name, Company and URL are required — see the note on Create's Save. */
-export const detailsReady = (d: PortalDetails) => !!(d.name.trim() && d.company.trim() && d.url.trim());
+export const detailsReady = (d: PortalDetails) =>
+  !!(d.name.trim() && (!mspOn() || d.company.trim()) && d.url.trim() && (d.workspaceIds === 'all' || d.workspaceIds.length > 0));
+
+/* ESM F18b — the two questions that make a portal an AUDIENCE (Freshservice: Map workspaces · Who is this portal for),
+   asked in ServiceOps' own Create/Edit Support Portal form. Shown only with two or more workspaces. */
+function EsmPortalFields({ value, onChange }: { value: PortalDetails; onChange: (next: PortalDetails) => void }) {
+  const ws = loadStore().workspaces;
+  if (ws.length < 2) return null;
+  const chip = (on: boolean) => `inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[12px] ${on ? 'border-[#3D8BD0] bg-[#EBF5FF] text-[#1F5F99]' : 'border-[#DFE5ED] bg-white text-[#475569] hover:border-[#3D8BD0]'}`;
+  const seg = (on: boolean) => `h-8 rounded px-3 text-[13px] ${on ? 'bg-[#1F2937] font-medium text-white' : 'text-[#475569]'}`;
+  const ids = value.workspaceIds === 'all' ? [] : value.workspaceIds;
+  const groups = value.signIn === 'all' ? [] : value.signIn;
+  return (
+    <div className="mt-6 space-y-5 rounded-lg border border-[#E5E7EB] p-4">
+      <div>
+        <label className={label}>Workspaces<Req /></label>
+        <div className="inline-flex gap-1 rounded-md bg-[#F1F5F9] p-1">
+          <button type="button" onClick={() => onChange({ ...value, workspaceIds: 'all' })} className={seg(value.workspaceIds === 'all')}>All workspaces</button>
+          <button type="button" onClick={() => onChange({ ...value, workspaceIds: ids })} className={seg(value.workspaceIds !== 'all')}>Specific workspaces</button>
+        </div>
+        {value.workspaceIds === 'all' ? <p className="mt-1.5 text-[12px] text-[#94A3B8]">Every workspace shows here as a card; new workspaces join automatically.</p> : (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {ws.map((w) => { const on = ids.includes(w.id); return (
+              <button type="button" key={w.id} onClick={() => onChange({ ...value, workspaceIds: on ? ids.filter((x) => x !== w.id) : [...ids, w.id] })} className={chip(on)}>
+                <span className="size-2 rounded-full" style={{ background: w.colour }} />{w.name}{w.status !== 'live' && <span className="text-[11px] text-[#94A3B8]">· {w.status === 'setup' ? 'Setup' : 'Inactive'}</span>}
+              </button>
+            ); })}
+            {ids.length === 0 && <p className="w-full text-[12px] text-[#EF4444]">Pick at least one workspace.</p>}
+          </div>
+        )}
+      </div>
+      <div>
+        <label className={label}>Who can sign in</label>
+        <div className="inline-flex gap-1 rounded-md bg-[#F1F5F9] p-1">
+          <button type="button" onClick={() => onChange({ ...value, signIn: 'all' })} className={seg(value.signIn === 'all')}>All requesters</button>
+          <button type="button" onClick={() => onChange({ ...value, signIn: groups })} className={seg(value.signIn !== 'all')}>Selected requester groups</button>
+        </div>
+        {value.signIn !== 'all' && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {REQUESTER_GROUPS.map((g) => { const on = groups.includes(g.name); return (
+              <button type="button" key={g.name} title={g.rule} onClick={() => onChange({ ...value, signIn: on ? groups.filter((x) => x !== g.name) : [...groups, g.name] })} className={chip(on)}>{g.name}</button>
+            ); })}
+          </div>
+        )}
+        <p className="mt-1.5 text-[12px] text-[#94A3B8]">Each workspace’s own Portal Access still applies inside the portal.</p>
+      </div>
+    </div>
+  );
+}
 
 /* Edit details — the same five questions, on a portal that already exists.
  *
@@ -235,7 +295,7 @@ export function CreateSupportPortalModal({ onClose, onSaveDetails, onScratch, on
   const [step, setStep] = useState<1 | 2>(1);
   const [saved, setSaved] = useState(false);
   const [d, setD] = useState<PortalDetails>({
-    name: '', company: '', url: '', idp: IDPS[0], ssoOnly: false,
+    name: '', company: '', url: '', idp: IDPS[0], ssoOnly: false, workspaceIds: 'all', signIn: 'all',
   });
   const [category, setCategory] = useState<string>('All');
 

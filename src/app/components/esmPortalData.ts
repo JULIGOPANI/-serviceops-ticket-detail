@@ -12,9 +12,9 @@
  *
  * Record: Features/F18-employee-portal.md §7–§8. Everything below is prototype data kept in localStorage. */
 
-import { KIND_TEMPLATE } from './workspaceData';
+import { KIND_TEMPLATE, loadStore } from './workspaceData';
 import type { Workspace, WorkspaceType } from './workspaceData';
-import { EMPLOYEES, portalVerdict } from './WorkspacePrivacyRows';
+import { EMPLOYEES, REQUESTER_GROUPS, portalVerdict } from './WorkspacePrivacyRows';
 
 export type Employee = (typeof EMPLOYEES)[number];
 
@@ -49,9 +49,9 @@ export interface EsmPortalConfig {
 
 export const DEFAULT_ESM: EsmPortalConfig = {
   heading: 'How can we help you?',
-  subheading: 'Search across every team, or pick the team you need.',
+  subheading: 'Search across every workspace, or pick the workspace you need.',
   searchPlaceholder: 'Search services, articles and your requests',
-  cardsHeading: 'Which team do you need help with?',
+  cardsHeading: 'Which workspace do you need help with?',
   bannerFrom: '#0B0B0C',
   bannerTo: '#1F2937',
   cardStyle: 'tiles',
@@ -141,7 +141,11 @@ function defaultSettings(type: WorkspaceType): Record<string, boolean> {
 }
 
 export function defaultWsPortal(w: Workspace): WsPortal {
-  const slug = w.isDefault ? '' : SLUG_FOR[w.type] || w.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  /* The type's short path (hr, facilities…) goes to the FIRST workspace of that type; a second one of the same type
+     gets a path from its name, so two teams never answer on one path. */
+  const firstOfType = !loadStore().workspaces.some((x) => x.type === w.type && x.id < w.id);
+  const nameSlug = w.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `team-${w.id}`;
+  const slug = w.isDefault ? '' : (firstOfType && SLUG_FOR[w.type]) || nameSlug;
   return {
     name: w.isDefault ? 'Support Portal' : `${w.name} Support Portal`,
     slug,
@@ -158,8 +162,47 @@ export function defaultWsPortal(w: Workspace): WsPortal {
   };
 }
 
+// ── Support Portals = AUDIENCES (F18b, Juli 2026-11-18) ─────────────────────────────────────────────────────
+/* A Support Portal (Admin › Support Channels › Support Portal) is WHO comes in and WHERE: its URL, sign-in, branding,
+   who can sign in, and which workspaces it shows (Freshservice "Map workspaces"; ServiceOps MSP = one per Company).
+   Inside one portal every mapped workspace is a SECTION (team card) with its own Support Portal Settings, and the
+   person's Requests / Approvals are ONE list across those workspaces. The Default portal maps All workspaces. */
+export interface AudiencePortal {
+  id: string;
+  name: string;
+  url: string;
+  /** Map workspaces: All (new workspaces join automatically) or Specific. */
+  workspaceIds: 'all' | number[];
+  /** Who can sign in: All requesters, or members of these requester groups. */
+  signIn: 'all' | string[];
+  /** MSP only: the Company this portal serves (its requesters). */
+  company?: string;
+  isDefault?: boolean;
+}
+export const SEED_PORTALS: AudiencePortal[] = [
+  { id: 'SPP-1', name: 'Support Portal', url: 'support.acme.com', workspaceIds: 'all', signIn: 'all', isDefault: true },
+  { id: 'SPP-2', name: 'Support Portal - 2', url: 'support.acme.com/portal-2', workspaceIds: 'all', signIn: 'all' },
+  { id: 'SPP-3', name: 'People Services', url: 'people.acme.com', workspaceIds: [2, 3], signIn: ['India staff'] },
+];
+export const mapsTo = (p: AudiencePortal, wsId: number) => p.workspaceIds === 'all' || p.workspaceIds.includes(wsId);
+export function canSignIn(p: AudiencePortal, e: Employee) {
+  return p.isDefault || p.signIn === 'all' || REQUESTER_GROUPS.some((g) => (p.signIn as string[]).includes(g.name) && g.test(e));
+}
+/** Teams a person sees on a portal = mapped to the portal ∩ Live ∩ the workspace's Portal Access (F02a §9). */
+export const teamsOn = (p: AudiencePortal, ws: Workspace[], e: Employee) => visibleTeams(ws, e).filter((w) => mapsTo(p, w.id));
+export const workspacesLabel = (p: AudiencePortal, ws: Workspace[]) =>
+  p.workspaceIds === 'all' ? 'All workspaces' : p.workspaceIds.map((id) => ws.find((w) => w.id === id)?.name ?? `#${id}`).join(', ');
+export const signInLabel = (p: AudiencePortal) => (p.isDefault || p.signIn === 'all' ? 'All requesters' : `Only ${p.signIn.join(', ') || '(no group)'}`);
+
+/* Prototype switch: is the account in MSP mode? (185 = MSP, demo = non-MSP.) MSP adds Company to a portal. */
+const MSP_KEY = 'serviceops.esm.mspMode';
+export const mspOn = () => { try { return window.localStorage.getItem(MSP_KEY) === '1'; } catch { return false; } };
+export const setMsp = (on: boolean) => { try { window.localStorage.setItem(MSP_KEY, on ? '1' : '0'); } catch { /* */ } };
+
 // ── Store ───────────────────────────────────────────────────────────────────────────────────────────────────
 export interface EsmStore {
+  /** The Support Portals (audiences). Absent = the seed. */
+  portals?: AudiencePortal[];
   published: EsmPortalConfig;
   draft: EsmPortalConfig;
   publishedAt: string;
@@ -175,14 +218,27 @@ const fresh = (): EsmStore => ({ published: DEFAULT_ESM, draft: DEFAULT_ESM, pub
 export function loadEsm(): EsmStore {
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (raw) { const p = JSON.parse(raw) as Partial<EsmStore>; return { ...fresh(), ...p, published: { ...DEFAULT_ESM, ...p.published }, draft: { ...DEFAULT_ESM, ...p.draft } }; }
+    if (raw) {
+      const p = JSON.parse(raw) as Partial<EsmStore>;
+      /* F18b: the ESM Portal editor is retired, so the landing texts are fixed (and say "workspace", Juli 2026-11-18). */
+      const fixed = { heading: DEFAULT_ESM.heading, subheading: DEFAULT_ESM.subheading, searchPlaceholder: DEFAULT_ESM.searchPlaceholder, cardsHeading: DEFAULT_ESM.cardsHeading };
+      return { ...fresh(), ...p, published: { ...DEFAULT_ESM, ...p.published, ...fixed }, draft: { ...DEFAULT_ESM, ...p.draft, ...fixed } };
+    }
   } catch { /* private window: seed */ }
   return fresh();
 }
 export function saveEsm(s: EsmStore) {
   try { window.localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* not fatal */ }
 }
-export const wsPortalOf = (s: EsmStore, w: Workspace): WsPortal => ({ ...defaultWsPortal(w), ...s.wsPortals[w.id], settings: { ...defaultWsPortal(w).settings, ...s.wsPortals[w.id]?.settings } });
+export const portalsOf = (s: EsmStore): AudiencePortal[] => s.portals ?? SEED_PORTALS;
+/** Upsert one portal (Admin › Support Portal create / edit details) so the requester view follows it. */
+export function savePortal(p: AudiencePortal) {
+  const s = loadEsm();
+  const list = portalsOf(s);
+  saveEsm({ ...s, portals: list.some((x) => x.id === p.id) ? list.map((x) => (x.id === p.id ? p : x)) : [...list, p] });
+}
+export function removePortal(id: string) { const s = loadEsm(); saveEsm({ ...s, portals: portalsOf(s).filter((x) => x.id !== id) }); }
+export const wsPortalOf =(s: EsmStore, w: Workspace): WsPortal => ({ ...defaultWsPortal(w), ...s.wsPortals[w.id], settings: { ...defaultWsPortal(w).settings, ...s.wsPortals[w.id]?.settings } });
 /** The portal's address. IT keeps today's address, so old bookmarks and email links still open it. */
 export const portalPath = (p: WsPortal) => (p.slug ? `/support-portal/${p.slug}` : '/support-portal');
 export const portalHost = (p: WsPortal) => `support.acme.com${p.slug ? `/${p.slug}` : ''}`;
@@ -194,15 +250,11 @@ export function orderTeams(ws: Workspace[], order: number[]) {
   const rank = (w: Workspace) => { const i = order.indexOf(w.id); return i < 0 ? 999 : i; };
   return [...ws].sort((a, b) => rank(a) - rank(b) || Number(b.isDefault) - Number(a.isDefault) || a.name.localeCompare(b.name));
 }
-/** Where `/support-portal` takes this person (F18 §7): one team → that team; ⭐ → that team; else the org setting. */
-export function landingFor(cfg: EsmPortalConfig, store: EsmStore, ws: Workspace[], e: Employee): { kind: 'esm' } | { kind: 'team'; w: Workspace; why: string } {
+/** Where `/support-portal` takes this person: one team → straight to that team; otherwise the ESM Portal.
+ *  No setting and no ⭐ default team (Juli, 2026-11-17: minimum configuration). `cfg`/`store` kept for callers. */
+export function landingFor(_cfg: EsmPortalConfig, _store: EsmStore, ws: Workspace[], e: Employee): { kind: 'esm' } | { kind: 'team'; w: Workspace; why: string } {
   const teams = visibleTeams(ws, e);
   if (teams.length === 1) return { kind: 'team', w: teams[0], why: `${e.name} can see only ${teams[0].name}, so the ESM Portal is skipped.` };
-  if (teams.length === 0) return { kind: 'esm' };
-  const star = cfg.allowStar ? teams.find((w) => w.id === store.stars[e.name]) : undefined;
-  if (star) return { kind: 'team', w: star, why: `${e.name} starred ${star.name} as their default team.` };
-  const org = typeof cfg.landing === 'number' ? teams.find((w) => w.id === cfg.landing) : undefined;
-  if (org) return { kind: 'team', w: org, why: `The organization opens the ${org.name} portal first.` };
   return { kind: 'esm' };
 }
 

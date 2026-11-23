@@ -58,7 +58,7 @@ const DESC: Record<string, string> = {
   'Business Hours': 'This workspace’s calendars. The organization’s calendars can be used here too.',
   'System Preference': 'Request and task preferences for this workspace.',
   Emails: 'Incoming mailboxes whose mail becomes this workspace’s requests.',
-  'Support Portal': 'This workspace’s support portal: the page its card on the ESM Portal opens.',
+  'Support Portal': 'Its team card on the Support Portal and what requesters can do in this team.',
   'Event Notifications': 'Request, task and survey alerts sent from this workspace.',
 };
 
